@@ -29,7 +29,7 @@ Code freeze: **Sunday 15 Nov 2026, 18:00 Athens time.** Submit by 17:30.
 
 | Person | Name | Role | Current task | Status | Updated |
 |---|---|---|---|---|---|
-| A | | Backend and infra lead | INF-01 | todo | |
+| A | Evangelos | Backend and infra lead | INF-05, INF-06 | blocked | Sat 23:15 |
 | B | | Agent and prompts | AGT-01 | todo | |
 | C | | CAD and Blender | CAD-01 | todo | |
 | D | | Phone client and Quest XR | CLI-01 | todo | |
@@ -39,7 +39,7 @@ Code freeze: **Sunday 15 Nov 2026, 18:00 Athens time.** Submit by 17:30.
 
 | Gate | When | Pass condition | Owner | Result |
 |---|---|---|---|---|
-| G1 Hosting | Sat 21:00 | Headless Blender render works on the chosen host (§8.3) | A + C | pending |
+| G1 Hosting | Sat 21:00 | Headless Blender render works on the chosen host (§8.3) | A + C | Mac: pass (M4 Pro, Blender 5.3.0 headless, full pipeline through the server in 20 s, Sat 23:10). boxd: not tested, waits for SET-03 |
 | G2 Quest camera | Sat 22:00 | Headset `getUserMedia` gives real frames during an XR session → option A; otherwise option B (phone camera) (§6.0, D12) | D + E | pending |
 | G3 Phase 1 | Sun 00:00 | Golden guide → walkthrough with ≥ 3 animated steps playing on a phone | B + C + D | pending |
 | G4 Phase 2 | Sun 11:00 | Replay accuracy ≥ 70%, 0 false alarms on the correct clip, event p50 ≤ 500 ms, Live speaks an injected event | E | pending |
@@ -57,29 +57,29 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 
 | ID | Task | Owner | Status | Depends on | Done when | Evidence | Updated |
 |---|---|---|---|---|---|---|---|
-| SET-01 | Link Gemini billing, confirm **Tier 1**, create `GEMINI_API_KEY` | A | todo | – | Tier 1 shown in AI Studio | | |
-| SET-02 | Smoke-call `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1` (`/v1beta/decisions`), and a Live session with an ephemeral token | A | doing | SET-01 | All four return without error | Key in `.env` lists gemini-4-carbon, gemini-4-hydrogen, gemini-decision-1, gemini-3.8-live; calls not yet made | Sat 20:00 |
-| SET-03 | boxd login + payment method, create VM `agj`, run `uname -m` | A | todo | – | Architecture recorded here | | |
+| SET-01 | Link Gemini billing, confirm **Tier 1**, create `GEMINI_API_KEY` | A | todo | – | Tier 1 shown in AI Studio | Needs a person in AI Studio. No key on A's laptop yet | Sat 23:15 |
+| SET-02 | Smoke-call `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1` (`/v1beta/decisions`), and a Live session with an ephemeral token | A | doing | SET-01 | All four return without error | A key on the planning machine listed all four models (Sat 20:00). `eval/smoke_models.py` (`make models`) calls the four models and opens a Live session with a minted token; not run: no `GEMINI_API_KEY` on A's laptop | Sat 23:15 |
+| SET-03 | boxd login + payment method, create VM `agj`, run `uname -m` | A | blocked | – | Architecture recorded here | boxd CLI not installed or logged in on A's laptop: needs a browser sign-in and a payment method. `deploy/boxd.sh` is ready, written from the boxd docs, not run | Sat 23:15 |
 | SET-04 | Python 3.12 venv with cadquery, google-genai, fastapi, uvicorn, pymupdf, opencv-python-headless, numpy, pydantic-settings | all | todo | – | `python -c "import cadquery, fitz, cv2"` works on each laptop | | |
 | SET-05 | Install Blender 5.3 on the Macs (A, C) | C | todo | – | `blender -b --version` prints 5.3 | | |
 | SET-06 | Node + `three@0.187.0`, cloudflared | D | todo | – | `npm create vite` app runs on a phone via tunnel | | |
 | SET-07 | fal key; treg token (optional) | A | todo | – | Keys in `.env` | | |
 | SET-08 | Quest 3: charge, update, developer mode, Meta Quest Developer Hub, Immersive Web Emulator in Chrome | D | todo | – | Headset visible in `chrome://inspect` | | |
 | SET-09 | Choose the golden guide and get the physical product to the venue | B | todo | – | PDF in `eval/golden/<name>/guide.pdf`; product owner named | | |
-| SET-10 | Repo skeleton: layout (§8.4), `.gitignore`, `.env.example`, `CREDITS.md`, contracts from §4 | A | todo | – | Pushed to `main` | | |
+| SET-10 | Repo skeleton: layout (§8.4), `.gitignore`, `.env.example`, `CREDITS.md`, contracts from §4 | A | done | – | Pushed to `main` | `9b22d55`: `server/`, `prompts/`, `deploy/`, `tests/`, `requirements.txt`, `Makefile`, `.env.example`, `CREDITS.md`, and `README.md` with the API and event contracts as built | Sat 23:15 |
 
 ### 3.2 Backend and infrastructure (A)
 
 | ID | Task | Owner | Status | Depends on | Done when | Evidence | Updated |
 |---|---|---|---|---|---|---|---|
-| INF-01 | FastAPI app, `/healthz`, demo-key check, static client serving | A | todo | SET-10 | `/healthz` returns over HTTPS on the host | | |
-| INF-02 | Job folder layout (§4.1), stage runner with `.done` markers and retry | A | todo | INF-01 | A job restarts and skips finished stages | | |
-| INF-03 | `events.jsonl` writer + SSE `GET /api/jobs/{id}/events` with `Last-Event-ID` replay | A | todo | INF-02 | Phone feed reconnects without losing events | | |
-| INF-04 | REST endpoints (§4.5): upload, status, plan, approve, retry, files | A | todo | INF-02 | All return the documented shapes | | |
-| INF-05 | Hosting test G1 with C, then deploy | A | todo | SET-03, SET-05 | G1 recorded in §2 | | |
-| INF-06 | `POST /api/live/token` (single-use, 30 min, config locked) | A | todo | SET-02 | Phone and headset open a Live session with it | | |
-| INF-07 | `eval/smoke.sh` end-to-end | A | todo | INF-04 | Exit 0 on the golden guide | | |
-| INF-08 | Secrets scan, README, CREDITS | A | todo | – | No keys in git history; CREDITS complete | | |
+| INF-01 | FastAPI app, `/healthz`, demo-key check, static client serving | A | doing | SET-10 | `/healthz` returns over HTTPS on the host | `9b22d55`: `server/app.py`, demo key on every `/api` and `/files` route, static client from `client/dist`. `/healthz` answered over HTTPS through a trycloudflare tunnel from A's Mac; not on the demo host yet (INF-05) | Sat 23:15 |
+| INF-02 | Job folder layout (§4.1), stage runner with `.done` markers and retry | A | done | INF-01 | A job restarts and skips finished stages | `9b22d55`: `server/orchestrator/runner.py`. `kill -9` during `steps`, then restart: only `steps` ran again and the job finished. Retry from `refs` reran only `refs` and `export` (`tests/test_server.py`) | Sat 23:15 |
+| INF-03 | `events.jsonl` writer + SSE `GET /api/jobs/{id}/events` with `Last-Event-ID` replay | A | done | INF-02 | Phone feed reconnects without losing events | `f3db491`: `eval/smoke.sh` reconnects mid-history with `Last-Event-ID` and gets every later event exactly once. Not tried with the phone client yet. A trycloudflare tunnel buffers SSE, so use `/events/poll` there (§6) | Sat 23:15 |
+| INF-04 | REST endpoints (§4.5): upload, status, plan, approve, retry, files | A | done | INF-02 | All return the documented shapes | `9b22d55`: all PLAN §4.5 routes; `tests/test_server.py` 11 of 11 pass; shapes listed in `README.md` | Sat 23:15 |
+| INF-05 | Hosting test G1 with C, then deploy | A | blocked | SET-03, SET-05 | G1 recorded in §2 | Mac half of G1 passes: the full pipeline through the server on an M4 Pro with headless Blender 5.3.0, 20 s. The boxd half waits for SET-03 | Sat 23:15 |
+| INF-06 | `POST /api/live/token` (single-use, 30 min, config locked) | A | doing | SET-02 | Phone and headset open a Live session with it | `9b22d55`: `server/live_token.py`, prompt in `prompts/live_voice.md`, tools from PLAN §6.4. Not tried against the API: no key on A's laptop | Sat 23:15 |
+| INF-07 | `eval/smoke.sh` end-to-end | A | done | INF-04 | Exit 0 on the golden guide | `f3db491`: `eval/smoke.sh` exits 0 on KNAGGLIG: 20.4 s on localhost, 50.6 s through an HTTPS tunnel. It uses the hand-checked plan until AGT-02 lands | Sat 23:15 |
+| INF-08 | Secrets scan, README, CREDITS | A | doing | – | No keys in git history; CREDITS complete | `make secrets` (gitleaks): no leaks in the history; `README.md` and `CREDITS.md` written; CREDITS lists 3 items to confirm before submission | Sat 23:15 |
 
 ### 3.3 Agent and prompts (B)
 
@@ -176,6 +176,10 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | Live silent on `turnComplete:false` | §6.4 | | | | |
 | Phase-2 replay accuracy / false alarms / latency | §9 | | | | |
 | Phone heat after 15 min (if the phone is the camera) | §7 | | | | |
+| End-to-end smoke through the server (golden guide, localhost) | §9 | pass | 20.4 s from upload to GLB; the three.js r187 load check (`eval/glb_check`) passes on the server-built job | A | Sat 23:10 |
+| Server killed during a job | §8.1 | pass | `kill -9` while waiting for approval and again during `steps`: the job resumed, only `steps` ran again, event numbers stayed unbroken | A | Sat 23:12 |
+| cloudflared quick tunnel without an account | §13 | pass, with a limit | HTTPS, upload, REST and files work. **SSE is buffered: 0 bytes in 20 s.** Smoke passes in 50.6 s with long-polling | A | Sat 23:14 |
+| First CadQuery import after an install | §13 | note | over 30 s once (bytecode compile), then about 1.4 s. The server waits up to 180 s before it reports CadQuery as missing | A | Sat 23:05 |
 
 ---
 
@@ -184,6 +188,8 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | Task | Blocked by | Who can unblock | Since | Resolved |
 |---|---|---|---|---|
 | SET-04, SET-05, SET-06 on the team MacBook Air | Disk had about 1 GB free; Blender, the CadQuery venv (1.3 GB) and node_modules need at least 5 GB | Laptop owner (free space), or move the pipeline to boxd / another laptop | Sat 19:10 | |
+| SET-01, SET-02, INF-06 | No `GEMINI_API_KEY` on A's laptop, and Tier 1 is not confirmed | A (in person): link billing in AI Studio, put the key in `.env`, run `make models` | Sat 23:15 | |
+| SET-03, INF-05, G1 on boxd | boxd CLI is not installed or logged in on A's laptop | A (in person): install the CLI, `boxd auth login`, add a payment method, run `make deploy-box` | Sat 23:15 | |
 
 ---
 
@@ -200,6 +206,10 @@ Decisions made during the build. Copy plan-changing ones into `docs/PLAN.md` §1
 | Sat 20:15 | Stay on vanilla three.js; reuse small scaffolding modules with a neutral credit (D14) | Reference has no WebXR or step playback; reusable parts are plain three.js | team |
 | Sat 20:15 | Brand: `docs/design/BRAND.md` + `tokens.css` (D15) | One consistent look across phone, XR and voice | team |
 | Sat 20:00 | Unlabelled IKEA parts cite page + drawing box with descriptive ids; warning pages filtered out; pre-assembled frames are single parts | Seen in the real guides (PLAN §0, §5.1, §5.2) | team |
+| Sat 23:15 | Build feed: SSE stays the main path; `GET /api/jobs/{id}/events/poll?since=&wait=` is the fallback, and the client switches to it when the stream stays silent (D16) | A trycloudflare quick tunnel delivers no SSE bytes until the stream ends (measured). boxd is not tested yet | A |
+| Sat 23:15 | `/healthz` without the demo key answers only `{ok: true}`; with the key it gives the full state (D17) | A client can tell "server down" from "wrong key", and nothing leaks | A |
+| Sat 23:15 | The Live token locks the model, prompt, tools and voice-activity settings but not `session_resumption`; the reply adds `api_version` (v1beta tried first, then v1alpha) (D18) | A locked field could not carry the resume handle on reconnect; SDK 3.3 documents token creation as v1alpha only. Not tried against the API yet | A |
+| Sat 23:15 | Until AGT-02 lands, a known test guide (matched by the PDF's sha256) uses its hand-checked plan and part scripts from `eval/golden/`, and the feed says so. Any other guide stops at `extract_plan` | D and E get a real server flow tonight; gate G3 allows a hand-fixed plan | A |
 
 ---
 
@@ -208,7 +218,12 @@ Decisions made during the build. Copy plan-changing ones into `docs/PLAN.md` §1
 Append one line per update, newest at the bottom of **your own** log only: `Sat 21:40 · TASK-ID · what changed · evidence`.
 
 ### Log A
--
+- Sat 23:15 · SET-10, INF-01 to INF-04, INF-07 · backend built and pushed: FastAPI app, demo key, job folders, `events.jsonl` with SSE and long-poll, a stage runner with `.done` markers, every PLAN §4.5 route, the smoke test; 11 tests pass · `9b22d55`, `6322b58`, `f3db491`
+- Sat 23:15 · for D · the API and event shapes as built are in `README.md`. SSE messages have no `event:` name, so one `onmessage` gets everything. `stage` in `GET /api/jobs/{id}` and in events is one of `ingest, extract_plan, await_approval, parts, place, steps, refs, export, done`; `status` is one of `queued, running, waiting_approval, done, error`. `POST /api/jobs` still answers `stage: "ingesting"` and approve answers `stage: "building"`, as PLAN §4.5 says. Through `make tunnel` SSE is buffered: fall back to `/events/poll`. `make dev` then `make smoke` gives you a finished job to load
+- Sat 23:15 · for B · agent hooks are in `server/orchestrator/stages.py`: `pipeline/agent/extract.py` with `async def extract_plan(job_dir, emit)`, and `pipeline/agent/parts.py` with `async def build_parts(job_dir, emit)`. A subprocess can print `EVENT {json}` and `RESULT {json}` lines instead. The uploaded guide is `jobs/<id>/guide.pdf`; the 200 dpi pages and their text are in `pages/`, listed in `pages/index.json`
+- Sat 23:15 · for C · the server runs the pipeline stage by stage (harness, fit check, `assemble.py`, `refs`, then `pack` and `crops`), not through `pipeline/run.py`. A test builds KNAGGLIG both ways and fails if the server makes fewer files, so a new step in `run.py` also needs a line in `server/orchestrator/stages.py` or `pipeline_cli.py`. `crops.build` gets a copy of the plan whose `guide` is the uploaded PDF
+- Sat 23:15 · for E · put the perception WebSocket in `server/perception/routes.py` as `router`; the app includes it when the module exists, and `server.auth.ws_has_key(ws)` checks the demo key. `POST /api/live/token` is written but not tried against the API. The client must send `sessionResumption` itself (D18)
+- Sat 23:15 · tools on A's Mac (M4 Pro) · Python 3.12 venv, Blender 5.3.0, cloudflared 2026.11.0, gitleaks and gltfpack (`npm ci` in `eval/glb_check`) are installed. The boxd CLI is not
 
 ### Log B
 -

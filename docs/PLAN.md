@@ -50,6 +50,9 @@ In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Th
 | D14 | Client framework and reuse | React + R3F (used by the 3D scaffolding reference) vs vanilla three.js | **Stay on vanilla three.js r187.** The reference has no WebXR and no step-clip playback, and its most reusable parts are already plain three.js. Copy the small modules listed in §7.2 and credit them neutrally in `CREDITS.md`. |
 | D15 | Look and feel | None defined | Follow `docs/design/BRAND.md` and `docs/design/tokens.css` (dark by default, one azure accent, `ag-*` tokens), derived from the brand reference design system. Do not name the reference in the product. |
 | D13 | Hand tracking | Not in the phone plan | Quest hand tracking (WebXR `hand-tracking`, 25 joints per hand) adds a second, free and instant signal: hand position relative to the anchored target. It gates Decision 1 calls (replacing MediaPipe on the headset) and confirms "hand is at the right hole". |
+| D16 | Build feed through proxies | SSE only (D5) vs proxies that buffer it | SSE stays the main path. **A trycloudflare quick tunnel delivers no SSE bytes until the stream ends (measured 14 Nov)**, so `GET /api/jobs/{id}/events/poll?since=<seq>&wait=<s>` returns the same events by long-polling. The client switches to it when the stream stays silent for a few seconds. |
+| D17 | `/healthz` and the demo key | "Every route requires the demo key" (§4.5) | Without the key `/healthz` answers only `{ok: true}`. With the key it gives the full state. |
+| D18 | Live token locking | §6.4 locks `session_resumption` in the token | The token locks the model, system instruction, tools and voice-activity settings. **`session_resumption` is left to the client**, so it can send the resume handle on reconnect. The reply adds `api_version`: the server tries v1beta, then v1alpha (SDK 3.3 documents token creation as v1alpha only). **UNVERIFIED** until tried with a key. |
 
 ---
 
