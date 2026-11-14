@@ -1,0 +1,831 @@
+{
+ "title": "KNAGGLIG box",
+ "guide_id": "AA-1159337-7",
+ "units": "mm",
+ "overall_mm": {
+  "L": 460,
+  "W": 310,
+  "H": 250
+ },
+ "cover_view_az_el_deg": [
+  -135,
+  22
+ ],
+ "dims": {
+  "L": 460,
+  "W": 310,
+  "H": 250,
+  "t": 12,
+  "bt": 22,
+  "bw": 34,
+  "gap_side": 12,
+  "gap_bottom": 10
+ },
+ "parts": [
+  {
+   "id": "side_panel",
+   "name": "Long side panel (3 slats on 2 corner battens, pre-assembled)",
+   "short": "side panel",
+   "el": "το πλαϊνό πάνελ",
+   "el_pron": "το",
+   "count": 2,
+   "script": "parts/side_panel.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, lying flat; step 3, the second one on the left"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "460 x 250 overall; 3 slats with even gaps above the bottom panel"
+   }
+  },
+  {
+   "id": "bottom_panel",
+   "name": "Bottom panel (4 slats on 2 battens, pre-assembled)",
+   "short": "bottom panel",
+   "el": "τον πάτο",
+   "el_pron": "τον",
+   "count": 1,
+   "script": "parts/bottom_panel.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, standing at the end of the side panel, battens outwards"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "460 x 310 overall; battens under it act as feet"
+   }
+  },
+  {
+   "id": "end_slat",
+   "name": "End slat",
+   "short": "end slat",
+   "el": "τη σανίδα του άκρου",
+   "el_pron": "την",
+   "count": 4,
+   "script": "parts/end_slat.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 5 (2 slats) and step 7 (2 slats)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "full box width, same width as the side slats"
+   }
+  },
+  {
+   "id": "end_slat_handle",
+   "name": "End slat with hand grip",
+   "short": "handle slat",
+   "el": "τη σανίδα με τη λαβή",
+   "el_pron": "την",
+   "count": 2,
+   "script": "parts/end_slat_handle.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 6 and step 8, grip cut-out in one long edge"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "as the end slat, grip proportions from the cover drawing"
+   }
+  }
+ ],
+ "hardware": [
+  {
+   "code": "108363",
+   "kind": "screw",
+   "name": "Long pan-head screw",
+   "short": "long screw",
+   "el": "μακριά βίδα",
+   "count": 4,
+   "script": "parts/screw_long.py",
+   "params": {
+    "length": 60,
+    "shank_d": 4.5,
+    "head_d": 10,
+    "head_h": 3.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 2,
+    "label": "108363"
+   }
+  },
+  {
+   "code": "108560",
+   "kind": "screw",
+   "name": "Short countersunk screw",
+   "short": "short screw",
+   "el": "κοντή βίδα",
+   "count": 24,
+   "script": "parts/screw_short.py",
+   "params": {
+    "length": 25,
+    "shank_d": 3.5,
+    "head_d": 7,
+    "head_h": 2.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 2,
+    "label": "108560"
+   }
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Stand the bottom panel against the end of the side panel lying flat",
+   "cite": {
+    "page": 3,
+    "label": "1"
+   },
+   "add": [
+    {
+     "instance": "side_panel#1",
+     "base": true
+    },
+    {
+     "instance": "bottom_panel#1",
+     "mates": [
+      {
+       "moving": "seat_A1",
+       "fixed": "side_panel#1.post_end_L"
+      },
+      {
+       "moving": "seat_A2",
+       "fixed": "side_panel#1.post_end_R"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "side_panel",
+    "bottom_panel"
+   ],
+   "hardware_used": {},
+   "pose": "box on its side, side panel flat with its outer face down",
+   "assembly_rotation_deg": [
+    90,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay the side panel flat, outer face down.",
+    "el": "Ακούμπησε το πλαϊνό πάνελ οριζόντια, με την εξωτερική πλευρά προς τα κάτω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    22
+   ]
+  },
+  {
+   "n": 2,
+   "title": "Fix the bottom panel to the side panel with 2 long screws",
+   "cite": {
+    "page": 3,
+    "label": "2"
+   },
+   "add": [
+    {
+     "instance": "108363#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom_panel#1.screw_A1"
+      }
+     ]
+    },
+    {
+     "instance": "108363#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom_panel#1.screw_A2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "108363": 2
+   },
+   "pose": "box on its side, side panel flat with its outer face down",
+   "assembly_rotation_deg": [
+    90,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the parts as they are.",
+    "el": "Άφησε τα κομμάτια όπως είναι."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    22
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Turn it upside down and put the second side panel against the other edge of the bottom panel",
+   "cite": {
+    "page": 4,
+    "label": "3"
+   },
+   "add": [
+    {
+     "instance": "side_panel#2",
+     "mates": [
+      {
+       "moving": "post_end_L",
+       "fixed": "bottom_panel#1.seat_B1"
+      },
+      {
+       "moving": "post_end_R",
+       "fixed": "bottom_panel#1.seat_B2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "side_panel"
+   ],
+   "hardware_used": {},
+   "pose": "upside down, bottom panel on top",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn it so the side panel stands up and the bottom panel is on top.",
+    "el": "Γύρισέ το ώστε το πλαϊνό πάνελ να στέκεται όρθιο και ο πάτος να είναι από πάνω."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    25,
+    25
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Fix the bottom panel to the second side panel with 2 long screws",
+   "cite": {
+    "page": 4,
+    "label": "4"
+   },
+   "add": [
+    {
+     "instance": "108363#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom_panel#1.screw_B2"
+      }
+     ]
+    },
+    {
+     "instance": "108363#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom_panel#1.screw_B1"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "108363": 2
+   },
+   "pose": "upside down, bottom panel on top",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep it upside down.",
+    "el": "Κράτησέ το ανάποδα."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    25,
+    25
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Stand the box on one end and screw 2 end slats across the top end",
+   "cite": {
+    "page": 5,
+    "label": "5"
+   },
+   "add": [
+    {
+     "instance": "end_slat#1",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#2.postL_1_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#2.postL_1_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#1.postR_1_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#1.postR_1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "end_slat#2",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#2.postL_2_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#2.postL_2_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#1.postR_2_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#1.postR_2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.out1_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.out2_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#5",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.out2_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#6",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#7",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#8",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.out1_lo"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "end_slat"
+   ],
+   "hardware_used": {
+    "108560": 8
+   },
+   "pose": "standing on one end, bottom panel facing you",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Stand the box on one end, with the bottom panel facing you.",
+    "el": "Στήσε το κουτί όρθιο στη μία άκρη, με τον πάτο προς το μέρος σου."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -22,
+    24
+   ]
+  },
+  {
+   "n": 6,
+   "title": "Screw the handle slat across the same end, grip towards the other slats",
+   "cite": {
+    "page": 6,
+    "label": "6"
+   },
+   "add": [
+    {
+     "instance": "end_slat_handle#1",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#2.postL_3_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#2.postL_3_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#1.postR_3_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#1.postR_3_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#9",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.out1_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#10",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#11",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#12",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.out2_lo"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "end_slat_handle"
+   ],
+   "hardware_used": {
+    "108560": 4
+   },
+   "pose": "standing on one end, bottom panel facing you",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the box standing on its end.",
+    "el": "Κράτησε το κουτί όρθιο στην άκρη του."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -22,
+    24
+   ]
+  },
+  {
+   "n": 7,
+   "title": "Turn the box over onto the finished end and screw 2 end slats across the other end",
+   "cite": {
+    "page": 7,
+    "label": "7"
+   },
+   "add": [
+    {
+     "instance": "end_slat#3",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#1.postL_1_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#1.postL_1_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#2.postR_1_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#2.postR_1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "end_slat#4",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#1.postL_2_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#1.postL_2_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#2.postR_2_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#2.postR_2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#13",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.out1_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#14",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#15",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#16",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.out2_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#17",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.out2_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#18",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#19",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#20",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.out1_lo"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "end_slat"
+   ],
+   "hardware_used": {
+    "108560": 8
+   },
+   "pose": "standing on the finished end, bottom panel facing you",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the box over so it stands on the finished end.",
+    "el": "Αναποδογύρισε το κουτί ώστε να στέκεται στην άκρη που τελείωσες."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    160,
+    24
+   ]
+  },
+  {
+   "n": 8,
+   "title": "Screw the second handle slat across this end, grip towards the other slats",
+   "cite": {
+    "page": 8,
+    "label": "8"
+   },
+   "add": [
+    {
+     "instance": "end_slat_handle#2",
+     "mates": [
+      {
+       "moving": "in1_lo",
+       "fixed": "side_panel#1.postL_3_lo"
+      },
+      {
+       "moving": "in1_hi",
+       "fixed": "side_panel#1.postL_3_hi"
+      },
+      {
+       "moving": "in2_lo",
+       "fixed": "side_panel#2.postR_3_lo"
+      },
+      {
+       "moving": "in2_hi",
+       "fixed": "side_panel#2.postR_3_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#21",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.out1_lo"
+      }
+     ]
+    },
+    {
+     "instance": "108560#22",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.out1_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#23",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.out2_hi"
+      }
+     ]
+    },
+    {
+     "instance": "108560#24",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.out2_lo"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "end_slat_handle"
+   ],
+   "hardware_used": {
+    "108560": 4
+   },
+   "pose": "standing on the finished end, bottom panel facing you",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the box standing on its end.",
+    "el": "Κράτησε το κουτί όρθιο στην άκρη του."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    160,
+    24
+   ]
+  }
+ ],
+ "final_turn_text": {
+  "en": "Turn the box the right way up, standing on its bottom panel.",
+  "el": "Γύρισε το κουτί στην κανονική του θέση, πάνω στον πάτο του."
+ },
+ "flags": [
+  {
+   "ref": "page:2",
+   "kind": "estimated_dimension",
+   "message": "Screw lengths are not given. 108363 is taken as 60 mm and 108560 as 25 mm, from their drawn sizes relative to each other and the board thicknesses."
+  },
+  {
+   "ref": "step:1",
+   "kind": "unclear_drawing",
+   "message": "Read as: the bottom panel (4 slats, battens facing out) stands at the end of a side panel (3 slats) lying outer face down. The side's corner battens stand on the bottom's slats, and the long screws go in from under the bottom's battens into the ends of those battens (the 4 round heads seen on the bottom in step 5)."
+  },
+  {
+   "ref": "step:5",
+   "kind": "unclear_drawing",
+   "message": "The guide does not say which end is done first. Steps 5-6 use the x = L end, steps 7-8 the x = 0 end. The two plain slats sit next to the bottom panel and the handle slat goes at the open top, as in step 6 and on the cover."
+  },
+  {
+   "ref": "part:end_slat_handle",
+   "kind": "unclear_drawing",
+   "message": "The grip is cut into the slat's lower edge (towards the middle slat), as the cover shows. Its size is estimated."
+  },
+  {
+   "ref": "part:bottom_panel",
+   "kind": "estimated_dimension",
+   "message": "The bottom's slats run the full 460 mm length. The lowest end slats rest on their ends. The battens are set in by one slat thickness and act as feet."
+  }
+ ],
+ "guide": "eval/guides/ikea/knagglig-box__AA-1159337-7.pdf"
+}

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -64,7 +65,15 @@ def build_all(plan_path: Path, out: Path) -> dict:
     built = {}
     for kind, items, key in (("part", plan["parts"], "id"), ("hardware", plan["hardware"], "code")):
         for it in items:
-            built[it[key]] = build_part(plan_path.parent / it["script"], it[key], out, kind, it.get("params"), plan.get("dims"))
+            args = (plan_path.parent / it["script"], it[key], out, kind, it.get("params"), plan.get("dims"))
+            if os.environ.get("CAD_SANDBOX") == "1":             # scripts a model wrote: run each in the sandbox
+                from pipeline.cad import sandbox
+                r = sandbox.run_part(*args)
+                if not r["ok"]:
+                    raise RuntimeError(f"{it[key]} ({it['script']}): {r['error']}\n{r.get('traceback', '')}")
+                built[it[key]] = r["info"]
+            else:
+                built[it[key]] = build_part(*args)
     return built
 
 

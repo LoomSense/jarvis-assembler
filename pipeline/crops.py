@@ -63,6 +63,8 @@ def auto_boxes(im: Image.Image, k: int) -> list[tuple[int, int, int, int]]:
 
 def build(plan_path: Path, job: Path) -> dict:
     plan = json.loads(plan_path.read_text())
+    if not plan.get("guide"):
+        return {"crops": 0, "reason": "the plan names no guide PDF"}
     pdf = Path(plan["guide"])
     pdf = pdf if pdf.is_absolute() else ROOT / pdf
     if not pdf.exists():

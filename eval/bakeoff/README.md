@@ -23,3 +23,15 @@ Claude's output is in `results/claude/` (`plan.json`, `parts/`, `steps.png`). To
     eval/bakeoff/setup.sh <workspace> jobs/knagglig/pages "<facts>"
     .venv/bin/python -m eval.bakeoff.run_gemini <workspace> gemini-4-hydrogen 5
     (cd <workspace> && claude -p "Read BRIEF.md and FACTS.md in this directory and do the task they describe." --permission-mode acceptEdits --allowedTools Read Write Edit Glob Grep "Bash(./py:*)")
+
+## Follow-up: the same task through the Agent SDK (Sat 14 Nov, 23:40)
+
+`pipeline/agent/extract.py` runs the brief with the Claude Agent SDK (`claude-opus-5-5`), in a workspace where the agent can only read and write its own files and run `./build`. Clean job, same guide, same overall-size fact:
+
+| Finished | Fit checks | `score_plan.py` | Time | Cost |
+|---|---|---|---|---|
+| Yes, the build passed on its first run | 37 pieces, 0.0 mm worst residual, no overlaps | PASS: 1.00 on all gates, `flip_acc` 0.88, `step_content_exact` 0.75 | 438 s, 33 turns | $2.12 reported by the run |
+
+Output: `results/claude_sdk/` (`plan.json`, `parts/`, `run.json`, the event feed). One run on one guide. The run before it failed on two bugs of ours, not the agent's: `crops.py` crashed on a plan with no `guide`, and the SDK's 1 MB message limit was too small for page images. `parts_added` lists each part type once, so the scorer reports "end_slat: steps add 2, list says 4"; the instances in `add` are right.
+
+    .venv/bin/python -m pipeline.agent.extract eval/guides/ikea/knagglig-box__AA-1159337-7.pdf jobs/agent-knagglig "Published overall size: 460 x 310 x 250 mm."

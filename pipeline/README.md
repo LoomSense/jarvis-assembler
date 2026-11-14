@@ -63,6 +63,16 @@ Fasteners use one frame, `seat`, under the head with the axis along the shank.
 
 A ready-made sample is in `eval/golden/knagglig/out/` (GLB, packed GLB and manifest; the pictures the manifest names are only in a job folder).
 
+## The build agent
+
+`pipeline/agent/extract.py` turns a guide PDF into `plan.json` and `parts/*.py` with the Claude Agent SDK (PLAN D20):
+
+```
+.venv/bin/python -m pipeline.agent.extract <guide.pdf> <job_dir> ["facts, e.g. the overall size"]
+```
+
+It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipeline, with part scripts in the sandbox), and lets it repeat until the build passes. KNAGGLIG took 438 s and $2.12. The server uses it when `AGJ_BUILD_AGENT=claude` is in its environment.
+
 ## Not done yet
 
 - `pipeline.run` still builds parts in its own process. Scripts a model wrote should go through `pipeline/cad/sandbox.py` (`sandbox.run_part`, same result as `harness.build_part`, about 1.9 s per part): the build loop (AGT-05) has to call it. On Linux it limits time, memory and file size but not network or file access.

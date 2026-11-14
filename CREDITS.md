@@ -7,7 +7,8 @@ Everything in this repository that we did not build ourselves during the hackath
 | What | Used for | Provider |
 |---|---|---|
 | `gemini-4-carbon` | Reading the guide and extracting the plan | Google (Gemini API) |
-| `gemini-4-hydrogen` | Writing and fixing CadQuery scripts, writing the per-step questions | Google (Gemini API) |
+| `claude-opus-5-5` | The build agent: reads the guide, writes the plan and the CadQuery scripts, fixes them until the fit checks pass (PLAN D20) | Anthropic (Claude Agent SDK) |
+| `gemini-4-hydrogen` | Writing the per-step questions | Google (Gemini API) |
 | `gemini-decision-1` | Comparing renders with the guide's drawings; checking live camera frames | Google (Gemini API) |
 | `gemini-3.8-live` | The always-on voice agent | Google (Gemini API) |
 | boxd | The VM that hosts the server | boxd.sh |
@@ -25,6 +26,7 @@ Everything in this repository that we did not build ourselves during the hackath
 | Uvicorn | ASGI server | BSD-3-Clause | https://www.uvicorn.org |
 | Pydantic, pydantic-settings | Settings and request models | MIT | https://docs.pydantic.dev |
 | google-genai | Gemini SDK | Apache-2.0 | https://github.com/googleapis/python-genai |
+| claude-agent-sdk | Runs the build agent (Claude Code as a library) | MIT (the bundled Claude Code CLI is under Anthropic's commercial terms) | https://github.com/anthropics/claude-agent-sdk-python |
 | PyMuPDF | Rasterising guide pages and reading their text | AGPL-3.0 | https://pymupdf.readthedocs.io |
 | OpenCV | Silhouette pre-checks | Apache-2.0 | https://opencv.org |
 | NumPy | Placement maths | BSD-3-Clause | https://numpy.org |

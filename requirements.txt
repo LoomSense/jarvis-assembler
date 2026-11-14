@@ -5,6 +5,7 @@ uvicorn[standard]>=0.30
 pydantic-settings>=2.4
 python-multipart>=0.0.9
 google-genai>=3.2
+claude-agent-sdk>=0.2.182      # build agent (PLAN D20); needs the Claude Code CLI it bundles
 httpx>=0.27
 
 # Pipeline (guide rasters, checks, CAD, placement)
