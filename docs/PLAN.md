@@ -21,7 +21,7 @@ Conventions:
 
 A user uploads a flat-pack furniture assembly guide (PDF). An agent reads it, builds every part in 3D with CadQuery, and assembles them in Blender, one animated step per guide step in the guide's exact order. It checks each part and each step against the guide's own drawings and fixes its mistakes. The phone plays the result as a 3D walkthrough beside the guide's drawings (**phase 1**).
 
-The phone then sits on a stand and watches the user build the real product. It confirms correct actions, warns before a mistake (wrong part, wrong way round, wrong hardware, out of order) and advances when a step is done. It does this through an always-on voice agent (**phase 2**).
+In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Through passthrough they see the next part as a glowing ghost, already sitting at its exact final position on the real assembly on their table, with its insertion path animated. Their tracked hands are checked against where the part should go. An always-on voice agent confirms correct actions, warns before a mistake (wrong part, wrong way round, wrong hardware, out of order) and advances when a step is done. The phone remains the fallback display and, if the headset camera is not reachable from the browser, the camera that watches the work (§6.0).
 
 **Grounding rules** (non-negotiable):
 1. Every part and every step cites a guide page and the label printed there.
@@ -45,6 +45,9 @@ The phone then sits on a stand and watches the user build the real product. It c
 | D8 | Fix attempts | 3 vs 4 | **3 fix attempts** per part and per step. Then keep the best attempt, add a flag, and move on. The pipeline never blocks on one part. |
 | D9 | Live token endpoint | `/live-token` vs `/api/live/token`; 30 vs 60 min | `POST /api/live/token`, **single-use, 30-minute expiry, 1-minute window to start**, with config locked server-side. |
 | D10 | Per-step manifest | Two different shapes | One merged `manifest.json` (§4.3). Part nodes are named `part_<ID>_<n>`. Instance `#` is not used in node names. |
+| D11 | Phase 2 display | Phone (original plan) vs Meta Quest 3 (added 14 Nov evening) | **Quest 3 is the primary phase-2 display**, as a WebXR `immersive-ar` page in Meta Quest Browser, built from the same `/client` codebase with three.js. The phone walkthrough stays as phase 1 and as the phase-2 fallback. No Unity or native app: there is no time to learn a second stack. |
+| D12 | Phase 2 camera for Decision 1 | Headset vs phone | WebXR gives no access to passthrough pixels (Meta's docs). **Test `getUserMedia` inside Quest Browser tonight** (reported, **UNVERIFIED**, to expose the passthrough cameras). If it works, the headset sends frames. If not, **the phone on a stand is the camera** and the headset is display, hands and voice. Both paths use the same perception WebSocket. |
+| D13 | Hand tracking | Not in the phone plan | Quest hand tracking (WebXR `hand-tracking`, 25 joints per hand) adds a second, free and instant signal: hand position relative to the anchored target. It gates Decision 1 calls (replacing MediaPipe on the headset) and confirms "hand is at the right hole". |
 
 ---
 
@@ -58,6 +61,12 @@ flowchart LR
     FEED[Agent reasoning feed - SSE]
     CAM[Camera 768px JPEG, MediaPipe hand gate]
     LIVE[Gemini Live session - audio only, ephemeral token]
+  end
+  subgraph Quest["Meta Quest 3 - Quest Browser, WebXR immersive-ar"]
+    XR[Anchored ghost of the next part on the real table]
+    HANDS[Hand tracking - 25 joints per hand]
+    QCAM[Passthrough camera via getUserMedia - UNVERIFIED]
+    QLIVE[Gemini Live session - audio only]
   end
   subgraph Server["FastAPI + uvicorn :8000 (boxd VM or MacBook + cloudflared)"]
     API[REST + SSE + WS + static client]
@@ -86,7 +95,14 @@ flowchart LR
   Phone -->|event text turns| LIVE
   LIVE <-->|WSS audio| GL
   API -->|ephemeral token| LIVE
+  API -->|GLB, manifest| XR
+  QCAM -.->|WS binary frames, if getUserMedia works| PERC
+  HANDS -->|hand pose summary over WS| PERC
+  PERC -->|WS decision events| Quest
+  QLIVE <-->|WSS audio| GL
 ```
+
+In phase 2 the headset and the phone connect to the **same perception session** (`/ws/perception/{job_id}`, one per role: `role=display`, `role=camera`). Whichever device sends frames is the camera; the headset is always the display and voice device when it is in use.
 
 **Why it is shaped this way:**
 - **Perception runs on the server.** Ephemeral tokens work only with the Live API, so a phone cannot call the Decisions API without exposing the key. The server also holds each step's reference images.
@@ -209,13 +225,15 @@ Every route requires the demo key (`X-Demo-Key` header, or `?key=` for SSE, WebS
 | POST | `/api/jobs/{id}/retry` | `{from_stage}` → `{stage}` (deletes later `.done` markers) |
 | GET | `/files/{id}/{path}` | static file from the job folder (GLB, crops, renders, manifest) |
 | POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model:"gemini-3.8-live"}` (rate-limited to 1 per 10 s per IP) |
-| WS | `/ws/perception/{job_id}` | see below |
+| WS | `/ws/perception/{job_id}?role=display\|camera` | see below; the headset and the phone can join the same session |
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
 
 **The perception WebSocket protocol:**
 - **Phone to server, control messages** (JSON text): `{type:"start", step}`, `{type:"step", n}`, `{type:"show_part", expected?}`, `{type:"stop"}`.
 - **Phone to server, frames** (binary): `[uint32 header_len][JSON header {seq, step, ts, hint:"low"|"medium"|"high"}][JPEG bytes]`.
+- **Headset to server, hand summary** (JSON text, about 10 per second): `{type:"hands", seq, hand_at_target, still, raised, ts}` (§6.0).
 - **Server to phone, one reply per frame:** `{type:"ack", seq, latency_ms}`.
+- Events go to **every** device in the session, so the headset shows the ghost colour and the phone shows the same state.
 - **Server to phone, state-change events:** `{type:"event", event:"wrong_part"|"flip_needed"|"wrong_hardware"|"out_of_order"|"step_complete"|"unsure_show_part"|"vision_paused", step, page, expected, observed, evidence:{question: prob}, ts}`.
 
 ---
@@ -345,6 +363,56 @@ Run limits:
 ## 6. Phase 2: live perception and voice
 
 Detail, the full example request, and the evaluation plan: `docs/research/03-live-perception-voice.md`.
+
+### 6.0 Meta Quest 3: the phase-2 experience
+
+**What the user sees.** They put on the headset at the table and open the job's URL in Meta Quest Browser.
+1. **Place.** The headset detects the table (WebXR `plane-detection`). The user pinches to place a virtual "build plate" on it, which is saved as an anchor (`anchors`). The whole assembly is drawn at **true scale** from the phase-1 GLB, in metres.
+2. **Align.** The user drags and rotates the plate until the virtual base panel sits exactly on the real one. From then on, the virtual model overlays the real assembly.
+3. **Guide.** For the current step, every part already placed is a faint outline. The **next part is a glowing ghost** at its exact final position, with an arrow and a looping insertion animation from the step's clip. The guide's own drawing for the step floats beside the table on a panel. Hardware for the step is shown as small labelled 3D icons with the guide code and count.
+4. **Check.** Hand tracking knows where the user's hands are. Decision 1 knows what they are holding and whether it is the right way round. The voice agent speaks, and the ghost turns green or red.
+5. **Advance.** On `step_complete` the ghost becomes solid and the next step's ghost appears.
+
+**Why this is better than the phone:** the instruction appears where the work happens, at true size, instead of on a small screen beside it.
+
+**Technology (WebXR in Meta Quest Browser, three.js):**
+
+| Feature | WebXR module | Use | Status |
+|---|---|---|---|
+| Passthrough | `immersive-ar` session | See the real room behind our 3D content (render on a transparent background) | Supported, Meta docs |
+| Hand tracking | `hand-tracking` | Pinch to place and press buttons, hand-position checks, gating Decision 1 calls | Supported, enabled by default |
+| Plane detection | `plane-detection` | Find the table; planes appear 2–3 s after the session starts | Supported, Meta docs |
+| Anchors | `anchors` (persistent anchors, max 8 per site) | Keep the build plate fixed to the table across sessions | Supported, Meta docs |
+| Hit test | `hit-test` | Place the plate where the user points | Reported supported, **UNVERIFIED** |
+| Depth sensing | `depth-sensing` | Hide virtual parts behind real hands (occlusion) | Reported CPU path only, **UNVERIFIED**; nice-to-have |
+| Passthrough pixels | none in WebXR | Camera frames for Decision 1 | **Not available through WebXR** (Meta docs). `getUserMedia` route reported by developers, **UNVERIFIED** |
+
+**three.js setup:** `renderer.xr.enabled = true`, a transparent clear colour, `ARButton.createButton(renderer, {requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking','plane-detection','anchors','hit-test','depth-sensing']})`, and `XRHandModelFactory` for the hand meshes. DOM overlays are not available on Quest, so the in-world UI (step panel, buttons) is drawn as 3D panels using canvas textures. Pinches are picked from the hand joints (index tip to thumb tip under 2 cm).
+
+**Hand-based checks (free, instant, on the headset).** Each frame the headset computes, in the plate's coordinates:
+- whether a hand is within 5 cm of the ghost's target position (`hand_at_target`)
+- whether the hands are still (wrist moves less than 1 cm over 0.5 s)
+- whether a hand is raised toward the user's face, which usually means they are looking at a part
+
+It sends a compact summary to the perception loop about 10 times a second over the same WebSocket: `{type:"hands", seq, hand_at_target, still, raised, ts}`. The perception loop uses it in two ways: to decide when to spend a Decision 1 call (it replaces MediaPipe on the headset), and as extra evidence for `step_complete` and for a placement position.
+
+**Camera options for Decision 1, decided by the 22:00 test:**
+
+| Option | How | Pros | Cons |
+|---|---|---|---|
+| A. Headset camera | `getUserMedia({video:{deviceId: <passthrough camera>}})` inside the XR page, frames to the same WS | Sees exactly what the user sees; one device | **UNVERIFIED**: the camera may not be listed or may be black. Field of view is the user's head, so it shakes. |
+| **B. Phone on a stand (fallback, already planned)** | Phone opens the URL with `?role=camera` and streams frames as in §7 | Already designed and tested on phones; stable viewpoint | Second device to set up and align |
+| C. Native Unity app with Meta's Passthrough Camera API | Horizon OS v74+, 1280×960 per camera | Official, supported | A new stack and permissions in 24 hours: **not chosen** |
+
+**Voice on the headset.** The Gemini Live session (§6.4) runs in Quest Browser exactly as on the phone, using the headset's microphone and speakers. The microphone through `getUserMedia({audio})` in Quest Browser is **UNVERIFIED** and must be tested. The headset's built-in speakers are close to the ears and its microphones are near the mouth, which should handle workshop noise better than a phone on a stand.
+
+**Development workflow:**
+- Develop on the laptop with Meta's **Immersive Web Emulator** (a Chrome extension) to fake the headset, hands and planes.
+- Test on the headset through the same HTTPS URL as the phone (boxd or the cloudflared tunnel). WebXR needs a secure context.
+- Debug with Chrome remote debugging: USB plus `chrome://inspect`, with developer mode enabled on the headset.
+- Performance budget on Quest 3: 72 fps minimum, the same GLB budgets as the phone (§7), no post-processing, and no shadows.
+
+**Demo capture:** record from the headset (built-in recording, or casting to the laptop) **and** film the user from outside. Whether built-in recording includes our WebXR layers over passthrough is **UNVERIFIED**, so test it tonight.
 
 ### 6.1 What one perception request contains (per frame)
 
@@ -493,7 +561,10 @@ Client folder layout:
 client/src/main.ts  api.ts  ui/{upload,review,feed,stepbar}.ts
 client/src/viewer/{Viewer,steps,highlight,cameraRig}.ts
 client/src/assist/{camera,frameLoop,gate,hands.worker,live,device}.ts  assist/audio/{mic-worklet,player}.ts
+client/src/xr/{session,placement,ghost,handChecks,panels,xrMain}.ts   # Quest 3 phase 2 (§6.0)
 ```
+
+The XR code reuses `viewer/steps.ts` (clips and visibility from the manifest), `assist/live.ts` (voice) and `assist/frameLoop.ts` (only if the headset camera works). `?mode=xr` opens the headset experience; `?role=camera` turns a phone into the camera only.
 
 ---
 
@@ -572,8 +643,8 @@ Thresholds are tuned on the phase-2 clips:
 | A | Backend and infra lead | FastAPI, SSE/WS, orchestrator skeleton, boxd or Mac host, smoke, `CREDITS.md` |
 | B | Agent and prompts | Carbon extraction, Hydrogen loops, tool schemas, golden plan eval, step-question writer |
 | C | CAD and Blender | CadQuery harness and helpers, Blender render/scene/animate/refs/export scripts, blender-mcp debugging |
-| D | Phone client | Viewer, plan review, feed, layout, QR; later the phase-2 camera loop and hand gate |
-| E | Phase 2 and story | Perception loop, Live voice, clip recording and eval; owns the video and pitch from 13:00 Sunday |
+| D | Phone client and Quest XR | Viewer, plan review, feed, layout, QR; then the Quest 3 `immersive-ar` experience (placement, ghost, hand checks, in-world panels) |
+| E | Phase 2 and story | Perception loop, Live voice, the camera path (headset or phone), clip recording and eval; owns the video and pitch from 13:00 Sunday |
 
 **First hour (now to about 20:00):**
 - **AI Studio and billing (A):** link billing and confirm **Tier 1**, create `GEMINI_API_KEY`, and call each model once: `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1` through `/v1beta/decisions`, and a Live connection with an ephemeral token.
@@ -583,6 +654,7 @@ Thresholds are tuned on the phase-2 clips:
   - A and C: Blender 5.3 on the Macs
   - D: Node with `three@0.187.0`, plus `cloudflared` from brew
 - **fal key** (one image-to-3D model chosen). treg token is optional.
+- **Quest 3 (D and E):** charge the headsets, update Horizon OS and Quest Browser, enable developer mode (Meta Horizon app on a phone), install Meta Quest Developer Hub on the Mac, and install the Immersive Web Emulator extension in desktop Chrome.
 - **Golden guide and product** chosen by 20:30, and B starts `expected_plan.json`.
 - **Repo skeleton pushed:** layout, `.gitignore`, `.env.example`, `CREDITS.md`, and the contracts in §4 copied to `/docs`.
 
@@ -590,13 +662,15 @@ Thresholds are tuned on the phase-2 clips:
 |---|---|---|---|---|---|
 | Sat 20–21 | API skeleton, `/healthz`, events.jsonl + SSE | Carbon extraction on the golden guide | **Render test on Mac and boxd (D2/D3)** | Two-step dummy GLB in the viewer | Decision 1 on still photos; Live token flow |
 | 21:00 | **Hosting decision** (§8.3) | | | | |
-| 21–24 | Orchestrator stages, approval gate, deploy | Plan validation, crops, approval data | CadQuery harness + 3 golden parts; render_parts batch | Upload, plan review, feed | Perception WS route, composite sheet spec |
+| 21–22 | Orchestrator stages, approval gate, deploy | Plan validation, crops, approval data | CadQuery harness + 3 golden parts | Upload, plan review, feed | **Quest tests:** `immersive-ar` + hands + planes with three.js on our HTTPS URL; `getUserMedia` camera inside Quest Browser; mic + Live in Quest Browser; headset recording |
+| **22:00** | **Quest camera decision (D12):** camera option A (headset) or B (phone on a stand). If `immersive-ar` itself fails on our URL, phase 2 falls back to the phone plan. | | | | |
+| 22–24 | Orchestrator, deploy | Plan validation | render_parts batch | Upload, plan review, feed | Perception WS route, composite sheet spec |
 | **00:00** | **GO/NO-GO phase 1:** golden guide gives a walkthrough with ≥ 3 animated steps on a phone (a hand-fixed plan is allowed). If no-go: parts are boxes with the right proportions, and E joins phase 1. | | | | |
-| 00–03 | Integration, retries, smoke | Hydrogen part loop and checks | Placement, animate, export, refs | Walkthrough player, highlighting | Record and label the 5 clips |
+| 00–03 | Integration, retries, smoke | Hydrogen part loop and checks | Placement, animate, export, refs | Walkthrough player, highlighting; XR placement of the plate on the table | Record and label the 5 clips (from the chosen camera) |
 | Sleep | 03:00–08:00 | 01:00–07:00 | 03:00–08:30 | 01:00–07:00 | 02:00–08:00 |
-| Sun 08–11 | Smoke on host, performance | Step fix loop, plan accuracy | Visual polish, crops, sheets | UI polish, phase-2 camera loop | Replay eval, thresholds, voice smoke |
-| **11:00** | **Phase-2 decision:** GO if replay accuracy ≥ 70%, 0 false alarms on the correct clip, event p50 ≤ 500 ms, and Live speaks an injected event. Otherwise phase 2 becomes "tap to check this step" (one frame plus a spoken result) or is cut. | | | | |
-| 11–13 | Hardening, resize VM | Second guide (stretch) | Fix failing parts | Phase-2 UI, hand gate | Phase-2 integration |
+| Sun 08–11 | Smoke on host, performance | Step fix loop, plan accuracy | Visual polish, crops, sheets | XR ghost + step panel + hand checks; phone UI polish | Replay eval, thresholds, voice smoke on the headset |
+| **11:00** | **Phase-2 decision:** GO if replay accuracy ≥ 70%, 0 false alarms on the correct clip, event p50 ≤ 500 ms, and Live speaks an injected event. Separately, **XR GO** if the ghost stays aligned with the real base panel while the user moves around. If XR fails, phase 2 runs on the phone. If perception fails, phase 2 becomes "tap to check this step" (one frame plus a spoken result) or is cut, and the headset still shows the ghost guide. | | | | |
+| 11–13 | Hardening, resize VM | Second guide (stretch) | Fix failing parts | XR polish, 72 fps check, phone fallback | Phase-2 integration with the headset |
 | **13:00** | **Record backup phase-1 footage** (screen and phone) | | | | |
 | **15:00** | **Feature freeze:** bug fixes only | | | | |
 | 15–16:30 | Final smoke, README | Freeze prompts | Pre-build the demo job | Final UI | Shoot the video |
@@ -616,13 +690,13 @@ Thresholds are tuned on the phase-2 clips:
 | 5–15 | The phone uploads the PDF; the plan appears with crops; a person taps Approve. |
 | 15–30 | Sped-up agent feed: CadQuery code, a render next to the guide drawing, a check passes; "Part B rejected: holes on wrong face, regenerating"; the Blender scene assembles. |
 | 30–42 | The walkthrough on the phone: swiping through steps, each 3D animation beside its guide drawing. |
-| 42–56 | Phase 2: the phone on a stand. The user picks the wrong panel: "That's panel C. Step 4 needs panel B, the shorter one." They hold it upside down: "Flip it, the holes face up." Then "Step 4 done." |
+| 42–56 | Phase 2 in the Quest 3, shown from the headset view with a small outside shot. The next panel glows as a ghost on the real table. The user picks the wrong panel and the ghost turns red: "That's panel C. Step 4 needs panel B, the shorter one." They hold it upside down: "Flip it, the holes face up." They slide it in where the ghost is: "Step 4 done." |
 | 56–60 | Tagline and the stack: Gemini 4, Decision 1, Gemini Live, CadQuery, Blender, boxd, fal. |
 
 **3-minute pitch:**
 - **0:00–0:30:** the problem.
 - **0:30–1:45:** judges scan the QR code and open a **pre-built job**, replaying its reasoning feed. A fresh PDF uploads in the background to prove it is real.
-- **1:45–2:30:** phase 2 live at the table, or the recorded clip.
+- **1:45–2:30:** phase 2 live at the table: a judge wears the Quest 3 while the headset view is cast to the laptop on the projector. Otherwise the recorded clip.
 - **2:30–3:00:** architecture, grounding rules, what's next.
 
 **Fallback:** the video plays on a laptop, with a screen capture cued in a second tab.
@@ -643,6 +717,10 @@ Thresholds are tuned on the phase-2 clips:
 | 8 | Venue network | High | Phone data plus a hotspot; server off the laptop; recorded fallback |
 | 9 | Key leak or spend through the public URL | Low | `DEMO_KEY`, server-only keys, rate-limited tokens, secret scan before push |
 | 10 | No physical product at the venue for phase 2 | Medium | Decide tonight who brings it; otherwise phase 2 runs on a cardboard mock-up, or the demo is phase 1 only |
+| 11 | Headset camera not reachable from the browser | High | Phone on a stand as the camera (D12, option B); decided at 22:00 |
+| 12 | Ghost drifts from the real assembly | Medium | Anchor the plate; a "re-align" pinch gesture; keep the demo at one table without walking far |
+| 13 | Headset frame rate drops below 72 fps | Low | Same GLB budgets as the phone; no post-processing or shadows; render on a transparent background only |
+| 14 | Casting or recording the headset view fails in the pitch | Medium | Test casting tonight; pre-record a headset clip; outside camera shot as backup |
 
 ---
 
@@ -655,6 +733,12 @@ Thresholds are tuned on the phase-2 clips:
 4. Images inside function results for Hydrogen (we attach them as separate parts regardless).
 5. NLA export with many objects; how the three.js clips blend when earlier steps are clamped (two-step dummy GLB).
 6. `cloudflared` quick tunnel without an account; the Vite `allowedHosts` setting.
+7. **Quest 3, by 22:00:**
+   - `immersive-ar` with `hand-tracking`, `plane-detection` and `anchors` from our HTTPS URL with three.js
+   - `navigator.mediaDevices.enumerateDevices()` inside Quest Browser lists a passthrough camera, and `getUserMedia` returns real frames (not black) while an XR session runs
+   - microphone through `getUserMedia({audio})` and a Gemini Live session in Quest Browser
+   - built-in recording and casting include our WebXR layers over passthrough
+   - `hit-test` and `depth-sensing` availability (both optional)
 
 **Saturday night and Sunday morning:**
 1. Decision 1 real latency, and whether question text is billed.
@@ -678,6 +762,7 @@ Thresholds are tuned on the phase-2 clips:
 - **Client:** [three.js releases](https://github.com/mrdoob/three.js/releases), [AnimationAction](https://threejs.org/docs/#api/en/animation/AnimationAction), [MediaPipe hand landmarker (web)](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/web_js), [getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia), [Screen Wake Lock](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API)
 - **Infrastructure:** [boxd docs index](https://docs.boxd.sh/llms.txt), [boxd HTTPS](https://docs.boxd.sh/guides/https.md), [boxd resources](https://docs.boxd.sh/guides/resources.md), [FastAPI WebSockets](https://fastapi.tiangolo.com/advanced/websockets/), [Vercel function limits](https://vercel.com/docs/functions/limitations)
 - **Voice alternative:** [ElevenLabs React SDK](https://elevenlabs.io/docs/eleven-agents/libraries/react), [client tools](https://elevenlabs.io/docs/agents-platform/customization/tools/client-tools), [pricing](https://elevenlabs.io/pricing/api)
+- **Meta Quest 3:** [WebXR mixed reality in Quest Browser](https://developers.meta.com/horizon/documentation/web/webxr-mixed-reality/), [Quest Browser release notes](https://developers.meta.com/horizon/documentation/web/browser-release-notes/), [Passthrough Camera API (native)](https://developers.meta.com/horizon/documentation/android-apps/passthrough-camera), [Spatial SDK camera overview](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-pca-overview), [Babylon.js forum on browser camera access](https://forum.babylonjs.com/t/webxr-camera-passthrough-support/58274), [developer report of getUserMedia passthrough](https://github.com/koshkakochka/gsforanything/pull/27), [Immersive Web Emulator](https://developers.meta.com/horizon/blog/immersive-web-emulator-1-1)
 - **3D generation:** [fal model docs](https://fal.ai/models/fal-ai/hunyuan-3d/v3.1/pro/image-to-3d/llms.txt)
 - **Prior work:** [IKEA-Manual](https://cs.stanford.edu/~rcwang/projects/ikea_manual), [Manual2Skill++](https://arxiv.org/pdf/2510.16344), [LEGO manual to plan](https://cs.stanford.edu/~rcwang/projects/lego_manual)
 - **Hackathon:** [prep](https://hackathon.polymath42.com/prep), [agenda](https://hackathon.polymath42.com/agenda), [terms](https://hackathon.polymath42.com/terms)
