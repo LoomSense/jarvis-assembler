@@ -1,10 +1,14 @@
 """Phase-2 reference renders: the correct result of every step, seen like a phone on a stand (CAD-07).
 
-    Blender -b --factory-startup -P pipeline/blender/render_refs.py -- <job_dir> [size_px]
+    Blender -b --factory-startup -P pipeline/blender/render_refs.py -- <job_dir> [size_px [view|- [out_dir [bg [mode]]]]]
 
 Reads <job>/scene.blend, manifest.json and placements.json (written by pipeline.run), writes <job>/refs/step-NN-ref.png.
 Each picture shows the pieces present after the step, in the pose the step leaves them in, in their real
 colours, from the front and REF_VIEW[1] degrees above the table, with a perspective lens like a phone's.
+mode "added" writes step-NN-added.png: the same picture with the pieces the step adds in orange (the left half of the
+reference sheet). mode "before" writes step-NN-before.png: the pieces of the step before, already in this step's pose
+(step 1 has no step before it, so no file is written for it); the question writer is shown it, and pipeline.perception.bench
+uses it as a "turned, nothing added yet" frame. step-NN-ref.png (manifest refRender) always stays the plain render.
 """
 import json
 import math
@@ -19,9 +23,12 @@ job = Path(args[0])
 SIZE = int(args[1]) if len(args) > 1 else 768
 REF_VIEW = (-90, 35)         # azimuth, elevation in degrees: front of the table, a phone on a stand
 # optional, for stand-in test frames (pipeline.perception.bench): another view, folder and background
-VIEW = tuple(float(x) for x in args[2].split(",")) if len(args) > 2 else None
+VIEW = tuple(float(x) for x in args[2].split(",")) if len(args) > 2 and args[2] not in ("", "-") else None
 OUT = Path(args[3]) if len(args) > 3 else job / "refs"
 BG = tuple(float(x) for x in args[4].split(",")) if len(args) > 4 else (1, 1, 1)
+MODE = args[5] if len(args) > 5 else "ref"
+assert MODE in ("ref", "added", "before"), f"unknown mode {MODE}"
+ADDED_RGBA = (1.0, 0.42, 0.05, 1)
 FOV_DEG = 60
 
 bpy.ops.wm.open_mainfile(filepath=str(job / "scene.blend"))
@@ -79,12 +86,16 @@ def root_pose(rot_deg, objs):
 
 
 done = []
-for s in manifest["steps"]:
-    shown = [o for o in pieces if o.name in s["visible"]]
+for k, s in enumerate(manifest["steps"]):
+    if MODE == "before" and not k:
+        continue
+    shown = [o for o in pieces if o.name in (manifest["steps"][k - 1]["visible"] if MODE == "before" else s["visible"])]
     root.rotation_euler, root.location = root_pose(s["assemblyRotationDeg"], shown)
     for o in pieces:
         o.hide_render = o not in shown
         o.color = o.data.materials[0].diffuse_color if o.data.materials else (0.8, 0.8, 0.8, 1)
+        if MODE == "added" and o.name in s["moving"]:
+            o.color = ADDED_RGBA
     bpy.context.view_layer.update()
     pts = [o.matrix_world @ Vector(c) for o in shown for c in o.bound_box]
     lo = Vector([min(p[k] for p in pts) for k in range(3)]); hi = Vector([max(p[k] for p in pts) for k in range(3)])
@@ -96,7 +107,7 @@ for s in manifest["steps"]:
     cam.location = centre + d * dist
     cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
     cam_data.clip_start, cam_data.clip_end = 0.01, dist + r * 2 + 1
-    path = OUT / f"step-{s['n']:02d}-ref.png"
+    path = OUT / f"step-{s['n']:02d}-{MODE}.png"
     scene.render.filepath = str(path)
     bpy.ops.render.render(write_still=True)
     done.append({"n": s["n"], "ref": f"{OUT.name}/{path.name}", "view_az_el_deg": [az, el], "pieces": len(shown)})

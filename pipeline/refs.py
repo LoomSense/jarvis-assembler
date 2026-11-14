@@ -4,8 +4,10 @@
 
 pipeline.run calls it as its last stage; run it alone to redo only the pictures. It writes, in the job folder:
     renders/part-<id>.png, part-<id>-shaded.png    every part and hardware item on its own
-    refs/step-NN-ref.png                            the correct result of the step, phone-on-a-stand view
-    refs/step-NN-sheet.png                          LEFT half: that result. RIGHT half: labelled candidates
+    refs/step-NN-ref.png                            the correct result of the step, phone-on-a-stand view (plain colours)
+    refs/step-NN-added.png                          the same, with the pieces this step adds drawn in orange
+    refs/step-NN-before.png                         the pieces of the step before, already in this step's pose (none for step 1)
+    refs/step-NN-sheet.png                          LEFT half: the "added" picture. RIGHT half: labelled candidates
     refs/step-NN-sheet.json                         the labels on the sheet, for whoever writes the questions
 and sets `thumb` on parts and hardware and `refRender`, `refSheet` on steps in manifest.json.
 
@@ -101,7 +103,8 @@ def font(size: int):
 
 def compose(job: Path, n: int, cands: list[dict], px_per_mm: dict) -> Path:
     sheet = Image.new("RGB", (2 * HALF, HALF), "white")
-    sheet.paste(Image.open(job / "refs" / f"step-{n:02d}-ref.png").convert("RGB").resize((HALF, HALF), Image.LANCZOS), (0, 0))
+    # the added pieces in orange show the model where to look for step_complete (stand-in bench, Sun 15 Nov)
+    sheet.paste(Image.open(job / "refs" / f"step-{n:02d}-added.png").convert("RGB").resize((HALF, HALF), Image.LANCZOS), (0, 0))
     draw = ImageDraw.Draw(sheet)
     draw.line([(HALF, 0), (HALF, HALF)], fill=INK, width=3)
     cols = 1 if len(cands) <= 2 else 2 if len(cands) <= 6 else 3
@@ -138,6 +141,8 @@ def build(plan_path: Path, job: Path) -> dict:
     parts = blender("render_parts.py", plan_path, job / "parts", job)
     t1 = time.perf_counter()
     refs = blender("render_refs.py", job)
+    for mode in ("added", "before"):
+        blender("render_refs.py", job, 768, "-", job / "refs", "1,1,1", mode)
     t2 = time.perf_counter()
     manifest = json.loads((job / "manifest.json").read_text())
     alike = look_alikes(plan, job / "parts")
@@ -150,8 +155,10 @@ def build(plan_path: Path, job: Path) -> dict:
         sizes.append(path.stat().st_size)
         (job / "refs" / f"step-{n:02d}-sheet.json").write_text(json.dumps({
             "step": n, "sheet": f"refs/{path.name}", "size_px": [2 * HALF, HALF],
-            "left": "the correct result of this step, seen from the front, about 35 degrees above the table",
-            "right": "labelled candidate parts and hardware", "candidates": cands}, indent=1))
+            "left": "the correct result of this step, seen from the front, about 35 degrees above the table, "
+                    "with the pieces this step adds drawn in orange",
+            "right": "labelled candidate parts and hardware", "candidates": cands,
+            "added": f"refs/step-{n:02d}-added.png", "before": f"refs/step-{n:02d}-before.png" if k else None}, indent=1))
         s["refRender"], s["refSheet"] = f"refs/step-{n:02d}-ref.png", f"refs/{path.name}"
     for p in manifest["parts"]:
         p["thumb"] = f"renders/part-{p['id']}-shaded.png"

@@ -9,7 +9,8 @@ the images) and the `questions` object, ready to send.
 Answer keys of the choice questions are the labels printed on the reference sheet (part ids and hardware
 codes), so "which part is this" needs no translation. Structure and wording come from a fixed template.
 What a part looks like, how the step must be oriented and what "done" looks like are written by
-`gemini-4-hydrogen`, which is shown the sheet; with --no-model, or if its answer is not usable, plain
+`gemini-4-hydrogen`, which is shown the sheet and the result of the step before (so it can describe what the step
+visibly adds); with --no-model, or if its answer is not usable, plain
 template wording is used and the file says so (`written_by`).
 """
 from __future__ import annotations
@@ -31,8 +32,14 @@ FIXED = {   # the same for every step and every guide; never generated
     "frame_matches_setup": {"type": "noul", "instructions": "Does Image 1 show the same object as the LEFT half of Image 2, "
                             "seen from roughly the same side?"},
 }
-SHEET_NOTE = ("Image 2 is a reference sheet. LEFT half: what the work area should look like when step {n} is done. "
+SHEET_NOTE = ("Image 2 is a reference sheet. LEFT half: what the work area should look like when step {n} is done{orange}. "
               "RIGHT half: labelled pictures of the parts and hardware that could be in use now.")
+ORANGE_NOTE = ("; the parts that step {n} adds are drawn in ORANGE there (in reality they have the same colour as the "
+               "other parts)")
+# The live camera rarely sees the assembly from the reference's side and height. On stand-in frames from another side,
+# finished steps scored as low as 0.17 on step_complete before this note and the wording below (bench, Sun 15 Nov).
+VIEW_NOTE = ("Image 1 may show the assembly from another side and height than the LEFT half of Image 2, "
+             "so judge which parts are attached, not the viewpoint.")
 
 
 def header(manifest: dict, k: int) -> str:
@@ -52,6 +59,16 @@ def header(manifest: dict, k: int) -> str:
     lines.append(f"The assembly is worked on in this position: {s.get('pose', 'upright')}." + (f" ({turn})" if turn else ""))
     lines.append("Image 1 is the live camera view of the user's work area.")
     return " ".join(lines)
+
+
+def added(manifest: dict, k: int) -> str:
+    """What step k adds, in words: "2 End slats and 8 Short screws"."""
+    s = manifest["steps"][k]
+    name = {p["id"]: p["name"] for p in manifest["parts"]} | {h["code"]: h["name"] for h in manifest["hardware"]}
+    picks = [a["partId"] for a in s["actions"] if a["type"] == "place" and a.get("node") in s["moving"]]
+    items = [f"{picks.count(p)} {name[p]}" + ("s" if picks.count(p) > 1 else "") for p in dict.fromkeys(picks)]
+    items += [f"{h['qty']} {name[h['code']]}" + ("s" if h["qty"] > 1 else "") for h in s["hardware"]]
+    return " and ".join(items) or "nothing new"
 
 
 def template(manifest: dict, sheet: dict, k: int) -> dict:
@@ -82,9 +99,19 @@ def template(manifest: dict, sheet: dict, k: int) -> dict:
     q["orientation_ok"] = {"type": "noul", "instructions": f"Is the assembly in Image 1 positioned the way step {n} needs?",
                            "criteria": {"true_description": "It stands or lies the same way as in the LEFT half of Image 2",
                                         "false_description": "It is turned another way: upside down, on another side, or on its end"}}
-    q["step_complete"] = {"type": "noul", "instructions": f"Compare Image 1 with the LEFT half of Image 2. Is step {n} finished?",
-                          "criteria": {"true_description": "Every part and screw of this step is in place, as in the reference",
-                                       "false_description": "A part or screw of this step is missing or loose, or the scene differs from the reference"}}
+    # Asked about the visible difference the step makes (what it adds), not about every screw: screws are too small
+    # to judge in a frame at `medium` resolution, and the answer must not depend on the camera's side.
+    a = added(manifest, k)
+    if sheet.get("added"):          # sheets from refs.py since Sun 15 Nov draw the added parts in orange
+        q["step_complete"] = {"type": "noul", "instructions": f"Step {n} adds {a}, drawn in ORANGE in the LEFT half of Image 2. "
+                              f"{VIEW_NOTE} In Image 1, are the parts shown in orange there now attached to the assembly?",
+                              "criteria": {"true_description": f"The {a} are attached in the places shown in orange",
+                                           "false_description": f"Those places are still empty: the {a} are not attached yet"}}
+    else:
+        q["step_complete"] = {"type": "noul", "instructions": f"Compare Image 1 with the LEFT half of Image 2. Is step {n} finished? "
+                              f"Step {n} adds {a}. {VIEW_NOTE}",
+                              "criteria": {"true_description": f"The {a} are attached, as in the LEFT half of Image 2",
+                                           "false_description": f"The {a} are not attached yet: the assembly still looks as it did before step {n}"}}
     ahead = [p for p in (nxt["pickParts"] if nxt else []) if p not in s["pickParts"]]
     if ahead:
         q["next_step_part_used"] = {"type": "noul", "instructions": "Is the user already fitting a part of the NEXT step ("
@@ -95,24 +122,39 @@ def template(manifest: dict, sheet: dict, k: int) -> dict:
 
 ASK = """You write visual criteria for an automatic checker that watches a person assemble flat-pack furniture.
 {header}
-The attached image is the reference sheet for this step. LEFT half: the correct result of this step. RIGHT half:
-labelled pictures of candidate parts and hardware. The labels are: {labels}.
+The first attached image is the reference sheet for this step. LEFT half: the correct result of this step. RIGHT half:
+labelled pictures of candidate parts and hardware. The labels are: {labels}.{more}
+The camera will see the assembly from an unknown side and height, in real light, often with hands in view.
 
 Return JSON with exactly these keys:
 - "looks": an object with one entry per label. Each value says in at most 25 words how to recognise that item in a
   camera picture and how to tell it from the other labelled items (size, shape, cut-outs, colour, holes).
 - "orientation_true": at most 30 words. What a camera sees when the assembly is positioned correctly for this step.
 - "orientation_false": at most 30 words. The wrong positions most likely here.
-- "complete_true": at most 30 words. What is visibly different once this step is finished.
-- "complete_false": at most 30 words. What the scene looks like when this step is not finished yet.
-Describe only what a camera can see. Do not mention the sheet, labels or step numbers inside the values."""
+- "complete_true": at most 30 words. What a camera sees, from any side, that shows the parts of this step are attached.
+  Name the visible change (which face or end gets which parts), not exact screw positions.
+- "complete_false": at most 30 words. What the assembly looks like just before this step, in the same position: what is
+  still missing or bare.
+Describe only what a camera can see. Do not mention the sheet, pictures, labels or step numbers inside the values."""
 
 
 def model_words(job: Path, manifest: dict, sheet: dict, k: int) -> dict | None:
     labels = [c["label"] for c in sheet["candidates"]]
+    # shown the state before the step as well, the model describes the difference the step makes; with the sheet
+    # alone it often described screw positions no camera can see (stand-in bench, Sun 15 Nov). Step 1 has no before.
+    before = sheet.get("before") and job / sheet["before"]
+    if k and not (before and before.exists()):     # older sheets: the previous step's result, in its own pose
+        before = job / "refs" / f"step-{manifest['steps'][k - 1]['n']:02d}-ref.png"
+    extra, more = [], ""
+    if k and before.exists():
+        extra.append(before)
+        more = ("\nThe second attached image is the assembly just BEFORE this step, "
+                + ("already in the position this step needs." if before.name.endswith("-before.png") else
+                   "as the step before left it (this step may first turn it).")
+                + " Compare it with the LEFT half of the sheet to see what this step adds.")
     try:
-        text = gemini.generate(MODEL, [ASK.format(header=header(manifest, k), labels=", ".join(labels)),
-                                       job / sheet["sheet"]], json_out=True, timeout=120, thinking_budget="medium")
+        text = gemini.generate(MODEL, [ASK.format(header=header(manifest, k), labels=", ".join(labels), more=more),
+                                       job / sheet["sheet"], *extra], json_out=True, timeout=120, thinking_budget="medium")
         w = json.loads(text)
     except (RuntimeError, json.JSONDecodeError, OSError):
         return None
@@ -165,7 +207,7 @@ def build(job: Path, use_model: bool = True) -> dict:
             raise ValueError(f"step {n}: " + "; ".join(problems))
         who = MODEL if w else "template"
         by["model" if w else "template"] += 1
-        out = {"step": n, "written_by": who, "header": header(manifest, k), "sheet_note": SHEET_NOTE.format(n=n),
+        out = {"step": n, "written_by": who, "header": header(manifest, k), "sheet_note": SHEET_NOTE.format(n=n, orange=ORANGE_NOTE.format(n=n) if sheet.get("added") else ""),
                "sheet": sheet["sheet"], "expects": {"parts": s["pickParts"], "hardware": [h["code"] for h in s["hardware"]]},
                "questions": q}
         (job / "refs" / f"step-{n:02d}-questions.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))

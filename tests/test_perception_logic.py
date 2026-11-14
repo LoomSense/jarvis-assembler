@@ -91,3 +91,15 @@ def test_unsure_asks_to_show_the_part():
 def test_thresholds_can_be_changed():
     _, ev = run([frame(orient=0.3)] * 8, cfg=Config(no=0.35))
     assert types(ev) == ["flip_needed"]
+
+
+def test_step_complete_uses_its_own_lower_threshold():
+    _, ev = run([frame(hands=0.05, done=0.5)] * 14)
+    assert types(ev) == ["step_complete"]
+    _, ev = run([frame(hands=0.05, done=0.4)] * 14)
+    assert ev == []
+
+
+def test_step_complete_does_not_count_when_the_assembly_is_not_turned():
+    _, ev = run([frame(hands=0.05, done=0.7, orient=0.3)] * 14)
+    assert ev == []

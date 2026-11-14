@@ -23,6 +23,11 @@ class Config:
     yes: float = 0.85                 # a yes/no answer counts as yes at or above this, as no at or below `no`
     no: float = 0.15
     choice: float = 0.75              # least confidence for a choice answer to count
+    # step_complete has its own, lower line: on stand-in frames finished steps scored 0.31 to 0.89 and unfinished ones
+    # 0.13 to 0.38 (bench, Sun 15 Nov), so 0.85 would miss most. Provisional until real clips exist.
+    done_yes: float = 0.45
+    done_orientation: float = 0.4     # ...and the vote counts only if orientation_ok is at least this (a not-yet-turned
+                                      # assembly can look finished from its other end)
     hands: float = 0.5
     unusable: float = 0.3             # frame skipped when image_poor or view_blocked reaches this
     windows: dict = field(default_factory=lambda: {   # event: (N, M)
@@ -76,7 +81,7 @@ class Watcher:
         seen = {"wrong_part": (wrong_part, held), "wrong_hardware": (wrong_hw, hw),
                 "flip_needed": (orient is not None and orient <= c.no, None),
                 "out_of_order": (hands and ahead is not None and ahead >= c.yes, None),
-                "step_complete": (done is not None and done >= c.yes, None)}
+                "step_complete": (done is not None and done >= c.done_yes and (orient is None or orient >= c.done_orientation), None)}
         out = []
         for event, (vote, observed) in seen.items():
             if event not in self.votes:
