@@ -5,6 +5,7 @@
  "units": "m",
  "fps": 24,
  "rootNode": "assembly",
+ "markerNode": "marker",
  "overall_mm": {
   "L": 460,
   "W": 310,
@@ -71,6 +72,7 @@
   {
    "id": "bottom_panel",
    "name": "Bottom panel (pre-assembled)",
+   "short": "bottom panel",
    "count": 1,
    "cite": {
     "page": 3,
@@ -85,6 +87,7 @@
   {
    "id": "side_panel",
    "name": "Long side panel (pre-assembled)",
+   "short": "side panel",
    "count": 2,
    "cite": {
     "page": 3,
@@ -100,6 +103,7 @@
   {
    "id": "end_slat",
    "name": "End slat",
+   "short": "plain slat",
    "count": 4,
    "cite": {
     "page": 5,
@@ -117,6 +121,7 @@
   {
    "id": "end_slat_handle",
    "name": "End slat with handle cut-out",
+   "short": "slat with the handle cut-out",
    "count": 2,
    "cite": {
     "page": 6,
@@ -134,12 +139,18 @@
   {
    "code": "108363",
    "name": "Long screw",
+   "short": "long screw",
    "kind": "screw",
    "count": 4,
    "cite": {
     "page": 2,
     "label": "108363"
    },
+   "color": [
+    0.72,
+    0.74,
+    0.77
+   ],
    "nodes": [
     "hw_108363_1",
     "hw_108363_2",
@@ -150,12 +161,18 @@
   {
    "code": "108560",
    "name": "Short screw",
+   "short": "short screw",
    "kind": "screw",
    "count": 24,
    "cite": {
     "page": 2,
     "label": "108560"
    },
+   "color": [
+    0.86,
+    0.64,
+    0.18
+   ],
    "nodes": [
     "hw_108560_1",
     "hw_108560_2",

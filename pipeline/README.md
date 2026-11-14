@@ -48,6 +48,8 @@ Fasteners use one frame, `seat`, under the head with the axis along the shank.
   - `place`: one part appears, then moves into position.
   - `fasten`: one screw flies to its own hole, then turns clockwise while it is driven in. Screws go in one after another, never together.
 - `manifest.json`: the start and end time of every step inside `walkthrough`, and per step the clip, title, orientation (`pose`, `assemblyRotationDeg`), visible nodes, parts to pick up, hardware and counts, camera, guide page, the check render, and the ordered `actions`. Each action has its type, node, start and end time inside the step clip, the target point (`target_m`, in the assembly's own frame), the direction it comes from, and the instruction text in English and Greek, for example "Take a short screw (108560) and screw it in here. Screw 3 of 8."
+- **Which screw goes where:** each hardware code has its own colour in the GLB (the manifest's `hardware[].color`), and a ring (node `marker`, named in `markerNode`) appears at the hole while that screw is driven.
+- **Preview video:** `.venv/bin/python -m pipeline.preview <job_dir> [en|el]` writes `preview_<lang>.mp4`: the step title, a "You need" list of that step's parts and screws with their colours, the part being placed tinted, a close-up of each hole while its screw goes in, and the action text underneath. A step with no actions has `clip: null`.
 - The plan gives each step a `pose` and `assembly_rotation_deg`. The order of a step's `add` list is the order of its actions.
 
 A ready-made sample is in `eval/golden/knagglig/out/`.

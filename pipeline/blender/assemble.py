@@ -37,6 +37,8 @@ PLACE_TRAVEL, SCREW_CLEAR = 0.20, 0.07             # metres
 HIDDEN = (1e-4, 1e-4, 1e-4)                        # glTF cannot animate visibility
 MATERIALS = {"pine": ((0.80, 0.62, 0.40, 1), 0.0, 0.65), "steel": ((0.72, 0.74, 0.77, 1), 1.0, 0.35)}
 ACCENT = (0.62, 0.81, 1.0, 1)
+# each hardware code gets its own colour, so it is clear which screw goes where (steel, brass, black, copper, green zinc)
+HW_COLOURS = [(0.72, 0.74, 0.77, 1), (0.86, 0.64, 0.18, 1), (0.16, 0.16, 0.18, 1), (0.76, 0.40, 0.24, 1), (0.45, 0.60, 0.45, 1)]
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -46,7 +48,7 @@ scene.render.fps = FPS
 def material(name):
     if name in bpy.data.materials:
         return bpy.data.materials[name]
-    col, metal, rough = MATERIALS[name]
+    col, metal, rough = MATERIALS.get(name, MATERIALS["pine"])
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
@@ -74,7 +76,11 @@ for pid, d in defs.items():
     if d["kind"] == "hardware":
         for poly in me.polygons:
             poly.use_smooth = True
-    me.materials.append(material(d.get("material", "pine")))
+    if d["kind"] == "hardware":
+        MATERIALS[f"hw_{pid}"] = (HW_COLOURS[list(h["code"] for h in plan["hardware"]).index(pid) % len(HW_COLOURS)], 1.0, 0.35)
+        me.materials.append(material(f"hw_{pid}"))
+    else:
+        me.materials.append(material(d.get("material", "pine")))
     meshes[pid] = me
     bpy.data.objects.remove(obj)
 
@@ -95,6 +101,17 @@ for inst, pl in placed.items():
     o.matrix_local = M
     o["instance"], o["partId"], o["step"] = inst, pid, pl["step"]
     objs[inst], nodes[inst] = o, name
+# a ring that appears at the hole where the current screw goes
+bpy.ops.mesh.primitive_torus_add(major_radius=0.011, minor_radius=0.002, major_segments=32, minor_segments=8)
+marker = bpy.context.active_object
+marker.name = "marker"
+MATERIALS["marker"] = (ACCENT, 0.0, 0.5)
+marker.data.materials.append(material("marker"))
+marker.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = ACCENT
+marker.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 1.0
+marker.parent = root
+marker.rotation_mode = "QUATERNION"
+marker.scale = HIDDEN
 bpy.context.view_layer.update()
 REST = {i: (o.location.copy(), o.rotation_quaternion.copy()) for i, o in objs.items()}
 
@@ -174,6 +191,21 @@ def key_root(frame, rot, instances):
     root.keyframe_insert("location", frame=frame)
 
 
+def key_marker(inst, f0, f1, approach):
+    """Show the ring at this piece's target point from f0 to f1: it pops in large, then settles."""
+    marker.location = REST[inst][0] + approach * 0.0015
+    marker.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(approach)
+    for f in (f0, f1):
+        marker.keyframe_insert("location", frame=f); marker.keyframe_insert("rotation_quaternion", frame=f)
+    marker.scale = HIDDEN
+    if f0 - 1 >= 1:
+        marker.keyframe_insert("scale", frame=f0 - 1)
+    marker.keyframe_insert("scale", frame=f1 + 1)
+    marker.scale = (1.9, 1.9, 1.9); marker.keyframe_insert("scale", frame=f0)
+    marker.scale = (1, 1, 1); marker.keyframe_insert("scale", frame=f0 + APPROACH_F); marker.keyframe_insert("scale", frame=f1)
+    marker.scale = HIDDEN
+
+
 def key_action(a, off):
     """Insert the keyframes of one action, shifted by `off` frames."""
     f0, f1 = a["f0"] + off, a["f1"] + off
@@ -189,6 +221,7 @@ def key_action(a, off):
             o.location = loc; o.keyframe_insert("location", frame=f1)
         return
     length = info[pl["part"]]["params"].get("length", 30) * MM
+    key_marker(a["inst"], f0, f1, approach)
     fd = f0 + APPROACH_F                                     # tip touches the hole, driving starts
     o.location = loc + approach * (length + SCREW_CLEAR); o.keyframe_insert("location", frame=f0)
     o.location = loc + approach * length; o.keyframe_insert("location", frame=fd)
@@ -204,7 +237,7 @@ def key_action(a, off):
 
 def push(track):
     """Move every object's freshly keyed action onto an NLA track of that name."""
-    for o in list(objs.values()) + [root]:
+    for o in list(objs.values()) + [root, marker]:
         ad = o.animation_data
         if ad and ad.action:
             ad.action.name = f"{track}__{o.name}"
@@ -213,12 +246,15 @@ def push(track):
             ad.action = None
     for i, o in objs.items():
         o.location, o.rotation_quaternion = REST[i]; o.scale = (1, 1, 1)
+    marker.scale = HIDDEN
 
 
 # one clip per step
 for sa in steps_actions:
     if not any(a["type"] == "turn" for a in sa["acts"]):
         key_root(1, sa["rot"], sa["shown"])                  # every clip states the assembly's orientation
+    if any(a["type"] == "fasten" for a in sa["acts"]):
+        marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
     for a in sa["acts"]:
         key_action(a, 0)
     push(f"step_{sa['step']['n']:02d}")
@@ -226,6 +262,7 @@ for sa in steps_actions:
 # the whole guide in one clip
 cursor, timeline = 0, []
 key_root(1, steps_actions[0]["rot"], steps_actions[0]["shown"])
+marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
 for sa in steps_actions:
     for a in sa["acts"]:
         key_action(a, cursor)
@@ -294,7 +331,7 @@ for sa, tl in zip(steps_actions, timeline):
             item["rotation_deg"] = a["to"]
         actions.append(item)
     steps_out.append({
-        "n": n, "clip": f"step_{n:02d}", "title": step["title"], "pose": step.get("pose", "upright"),
+        "n": n, "clip": f"step_{n:02d}" if sa["acts"] else None, "title": step["title"], "pose": step.get("pose", "upright"),
         "assemblyRotationDeg": sa["rot"], "actions": actions,
         "visible": [nodes[i] for i in sa["shown"]],
         "moving": [nodes[i] for i in added if not next(a for a in step["add"] if a["instance"] == i).get("base")],
@@ -308,12 +345,13 @@ for sa, tl in zip(steps_actions, timeline):
     })
 manifest = {
     "title": plan["title"], "guideId": plan.get("guide_id"), "glb": "walkthrough.glb", "units": "m", "fps": FPS,
-    "rootNode": "assembly", "overall_mm": plan.get("overall_mm"),
+    "rootNode": "assembly", "markerNode": "marker", "overall_mm": plan.get("overall_mm"),
     "walkthrough": {"clip": "walkthrough", "duration_s": round(TOTAL_FRAMES / FPS, 2), "steps": timeline},
-    "parts": [{"id": p["id"], "name": p["name"], "count": p["count"], "cite": p["cite"],
+    "parts": [{"id": p["id"], "name": p["name"], "short": p.get("short", p["name"]), "count": p["count"], "cite": p["cite"],
                "dimsEstimated": p.get("dims", {}).get("estimated", True),
                "nodes": [n for i, n in nodes.items() if i.split("#")[0] == p["id"]]} for p in plan["parts"]],
-    "hardware": [{"code": h["code"], "name": h["name"], "kind": h["kind"], "count": h["count"], "cite": h["cite"],
+    "hardware": [{"code": h["code"], "name": h["name"], "short": h.get("short", h["name"]), "kind": h["kind"], "count": h["count"], "cite": h["cite"],
+                  "color": [round(c, 3) for c in MATERIALS[f"hw_{h['code']}"][0][:3]],
                   "nodes": [n for i, n in nodes.items() if i.split("#")[0] == h["code"]]} for h in plan["hardware"]],
     "steps": steps_out, "flags": plan.get("flags", []),
 }
@@ -344,10 +382,12 @@ def order_animations(path):
 clip_order = order_animations(out / "walkthrough.glb")
 for i, o in objs.items():                                      # the exporter leaves objects in a stale pose
     o.location, o.rotation_quaternion = REST[i]; o.scale = (1, 1, 1)
+marker.scale = HIDDEN
 bpy.ops.wm.save_as_mainfile(filepath=str(out / "scene.blend"))
 
 # --- check renders: the state after each step, in the orientation the guide draws, new parts tinted ---------
-for o in list(objs.values()) + [root]:
+marker.hide_render = True
+for o in list(objs.values()) + [root, marker]:
     if o.animation_data:
         for tr in o.animation_data.nla_tracks:
             tr.mute = True
@@ -363,7 +403,7 @@ scene.view_settings.view_transform = "Standard"
 
 
 def base_colour(inst):
-    return MATERIALS[defs[inst.split("#")[0]].get("material", "pine")][0]
+    return tuple(meshes[inst.split("#")[0]].materials[0].diffuse_color)
 
 
 for sa, s in zip(steps_actions, steps_out):
