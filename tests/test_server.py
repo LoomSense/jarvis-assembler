@@ -10,7 +10,9 @@ import time
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI, WebSocket
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from server.app import create_app
 from server.events import EventLog
@@ -65,6 +67,27 @@ def test_gate_stops_big_or_keyless_uploads_before_reading_them(client):
     assert client.post("/api/jobs", content=b"", headers=big).status_code == 413
     assert client.post("/api/jobs", content=b"", headers={**big, "X-Demo-Key": "wrong"}).status_code == 401
     assert client.get("/").status_code == 200                       # the client page itself is public
+
+
+def test_gate_covers_websockets():
+    from server.auth import KeyGate
+
+    app = FastAPI()
+    app.add_middleware(KeyGate, demo_key=KEY, max_body_bytes=1024)
+
+    @app.websocket("/ws/perception/{job_id}")
+    async def echo(ws: WebSocket, job_id: str):
+        await ws.accept()
+        await ws.send_text(job_id)
+        await ws.close()
+
+    with TestClient(app) as c:
+        with c.websocket_connect(f"/ws/perception/abc?role=camera&key={KEY}") as ws:
+            assert ws.receive_text() == "abc"
+        with pytest.raises(WebSocketDisconnect) as refused:
+            with c.websocket_connect("/ws/perception/abc?role=camera&key=wrong"):
+                pass
+        assert refused.value.code == 4401
 
 
 def test_plan_scripts_must_stay_inside_parts():
@@ -132,7 +155,10 @@ def test_event_log_survives_a_torn_last_line(tmp_path):
     EventLog(path, "j").emit("thought", "ok")
     with open(path, "a") as f:
         f.write('{"seq": 2, "text": "cut off by a cra')
-    assert [e["seq"] for e in EventLog(path, "j").read()] == [1]
+    reopened = EventLog(path, "j")
+    assert [e["seq"] for e in reopened.read()] == [1]
+    reopened.emit("thought", "after the crash")                   # must not be glued to the torn line
+    assert [e["seq"] for e in EventLog(path, "j").read()] == [1, 2]
 
 
 def test_follow_replays_then_tails(tmp_path):

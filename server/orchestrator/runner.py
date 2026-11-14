@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import signal
+import subprocess
 import time
 import traceback
 from dataclasses import dataclass
@@ -62,7 +63,8 @@ class Ctx:
     async def run(self, argv: list[str], timeout: float | None = None) -> dict:
         """Run a subprocess, relay its EVENT lines, return its RESULT. Killed on timeout or cancel."""
         timeout = timeout or self.stage.timeout_s
-        env = dict(os.environ, PYTHONUNBUFFERED="1", BLENDER_BIN=self.settings.blender)
+        env = {k: v for k, v in os.environ.items() if not _is_secret(k)}
+        env.update(PYTHONUNBUFFERED="1", BLENDER_BIN=self.settings.blender)
         if self.settings.gemini_api_key:
             env["GEMINI_API_KEY"] = self.settings.gemini_api_key
         self.job.logs_dir.mkdir(parents=True, exist_ok=True)
@@ -73,6 +75,9 @@ class Ctx:
         proc = await asyncio.create_subprocess_exec(
             *[str(a) for a in argv], cwd=ROOT, env=env, limit=LINE_LIMIT, start_new_session=True,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        pid_file = self.job.stages_dir / f"{self.stage.name}.pid"     # lets a restarted server find an orphan
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text(str(proc.pid))
 
         async def pump(stream: asyncio.StreamReader, path: Path, is_stdout: bool) -> None:
             with open(path, "ab") as f:
@@ -89,15 +94,20 @@ class Ctx:
                         tail.append(line[:300])
                     f.write(raw)
 
+        tasks = [asyncio.ensure_future(t) for t in (pump(proc.stdout, out_path, True),
+                                                    pump(proc.stderr, err_path, False), proc.wait())]
         try:
-            await asyncio.wait_for(asyncio.gather(pump(proc.stdout, out_path, True),
-                                                  pump(proc.stderr, err_path, False), proc.wait()), timeout)
+            await asyncio.wait_for(asyncio.gather(*tasks), timeout)
         except asyncio.TimeoutError:
             await _kill(proc)
             raise StageError(f"`{Path(str(argv[0])).name}` was stopped after {timeout:.0f} s") from None
-        except asyncio.CancelledError:
+        except BaseException:                         # cancelled, or a pump failed (disk full, an endless line)
+            for t in tasks:
+                t.cancel()
             await _kill(proc)
             raise
+        finally:
+            pid_file.unlink(missing_ok=True)
         if proc.returncode != 0:
             detail = "\n".join(tail)[-1500:] or "no output"
             raise StageError(f"exit code {proc.returncode}:\n{detail}")
@@ -115,6 +125,29 @@ class Ctx:
         except (ValueError, TypeError, AttributeError):
             with open(self.job.logs_dir / f"{self.stage.name}.stdout", "ab") as f:
                 f.write(f"[bad EVENT line] {raw[:300]}\n".encode())
+
+
+SECRET_NAMES = {"DEMO_KEY", "FAL_KEY", "BOXD_API_KEY", "BOXD_TOKEN", "TREG_TOKEN"}
+
+
+def _is_secret(name: str) -> bool:
+    """Environment variables a stage process must not inherit. GEMINI_API_KEY is added back on purpose."""
+    upper = name.upper()
+    return upper in SECRET_NAMES or upper.endswith(("_KEY", "_TOKEN", "_SECRET", "_PASSWORD"))
+
+
+def kill_leftovers(job: Job) -> None:
+    """A stage process has its own session, so it outlives a crashed server. Stop it before the stage runs again."""
+    for pid_file in job.stages_dir.glob("*.pid"):
+        try:
+            pid = int(pid_file.read_text())
+            command = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True,
+                                     timeout=5).stdout
+            if str(job.dir) in command:               # same pid and it names this job folder: it is ours
+                os.killpg(pid, signal.SIGKILL)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+        pid_file.unlink(missing_ok=True)
 
 
 async def _kill(proc: asyncio.subprocess.Process) -> None:
@@ -210,7 +243,8 @@ class Orchestrator:
 
     async def _run(self, job: Job) -> None:
         log = self.store.log(job)
-        started = time.monotonic()
+        kill_leftovers(job)
+        spent = 0.0                                   # build time since approval; time in the queue does not count
         previous = 0.0
         stage = self.stages[0]
         try:
@@ -223,7 +257,7 @@ class Orchestrator:
                 result = None
                 if stage.run is None:
                     await self._await_approval(job, log, stage, previous)
-                    started = time.monotonic()        # the 40-minute budget counts build time only
+                    spent = 0.0                       # the 40-minute budget counts build time only
                 else:
                     job.set_status(stage=stage.name, status="queued" if self._heavy.locked() else "running",
                                    progress=previous, error=None)
@@ -232,14 +266,17 @@ class Orchestrator:
                         try:
                             job.set_status(status="running")
                             log.emit("progress", f"Stage `{stage.name}` started", stage=stage.name, progress=previous)
-                            left = self.settings.job_wall_budget_s - (time.monotonic() - started)
+                            left = self.settings.job_wall_budget_s - spent
                             if left <= 0:
                                 raise StageError("the job used up its 40-minute budget")
+                            t0 = time.monotonic()     # from here: the stage is running, not queued
                             try:
                                 result = await asyncio.wait_for(stage.run(Ctx(self, job, log, stage)),
                                                                 min(stage.timeout_s, left))
                             except asyncio.TimeoutError:
                                 raise StageError(f"stage `{stage.name}` ran out of time") from None
+                            finally:
+                                spent += time.monotonic() - t0
                         finally:
                             self.running_id = None
                 ms = round((time.monotonic() - t0) * 1000)

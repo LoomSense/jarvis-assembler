@@ -37,6 +37,12 @@ class EventLog:
         self._lock = threading.Lock()
         self._waiters: set[tuple[asyncio.AbstractEventLoop, asyncio.Event]] = set()
         self.closed = False
+        if self.path.exists() and self.path.stat().st_size:
+            with open(self.path, "rb+") as f:
+                f.seek(-1, os.SEEK_END)
+                if f.read(1) != b"\n":                # a crash cut the last line: end it, or the next event
+                    f.seek(0, os.SEEK_END)            # would be glued to the fragment and lost with it
+                    f.write(b"\n")
         events, _ = self._read_from(0)
         self._seq = events[-1]["seq"] if events else 0
 
