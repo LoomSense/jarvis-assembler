@@ -35,3 +35,7 @@ Claude's output is in `results/claude/` (`plan.json`, `parts/`, `steps.png`). To
 Output: `results/claude_sdk/` (`plan.json`, `parts/`, `run.json`, the event feed). One run on one guide. The run before it failed on two bugs of ours, not the agent's: `crops.py` crashed on a plan with no `guide`, and the SDK's 1 MB message limit was too small for page images. `parts_added` lists each part type once, so the scorer reports "end_slat: steps add 2, list says 4"; the instances in `add` are right.
 
     .venv/bin/python -m pipeline.agent.extract eval/guides/ikea/knagglig-box__AA-1159337-7.pdf jobs/agent-knagglig "Published overall size: 460 x 310 x 250 mm."
+
+### Second guide: LACK side table (Sun 15 Nov, 00:10)
+
+Same command on `lack-side-table__AA-2606170-1.pdf` with the fact "550 x 550 x 450 mm". The build passed on its first run: 121 s, 21 turns, $1.03; 9 pieces (top, 4 legs, 4 double-ended screws), 0.0 mm residual, no overlaps. `score_plan.py` against `eval/golden/lack-side-table/expected_plan.json`: gates PASS (parts 1.00, counts 1.00, order 1.00), but `step_recall` 0.50 and `step_content_exact` 0.00: the agent made one step where the hand label has two. The guide has one unnumbered drawing, and the expected plan already lists "we count them as 2 steps" as an open question, so this is a labelling choice, not a clear agent error. The agent flagged it. Output: `results/claude_sdk_lack/`.

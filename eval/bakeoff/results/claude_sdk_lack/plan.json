@@ -1,0 +1,235 @@
+{
+ "title": "LACK side table",
+ "guide_id": "AA-2606170-1",
+ "units": "mm",
+ "overall_mm": {
+  "L": 550,
+  "W": 550,
+  "H": 450
+ },
+ "cover_view_az_el_deg": [
+  -128,
+  22
+ ],
+ "dims": {
+  "L": 550,
+  "W": 550,
+  "H": 450,
+  "T": 50,
+  "leg_w": 40,
+  "pilot_d": 5.0,
+  "pilot_depth": 40
+ },
+ "parts": [
+  {
+   "id": "table_top",
+   "name": "Table top",
+   "short": "table top",
+   "el": "την επιφάνεια του τραπεζιού",
+   "el_pron": "την",
+   "count": 1,
+   "script": "parts/table_top.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 1,
+    "label": null,
+    "note": "zoom circles: corner of the upturned top; safety panel: top laid upside down on a rug"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "550 x 550 from the published size; 50 mm thickness from the drawing's proportions"
+   }
+  },
+  {
+   "id": "leg",
+   "name": "Leg",
+   "short": "leg",
+   "el": "το πόδι",
+   "el_pron": "το",
+   "count": 4,
+   "script": "parts/leg.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 1,
+    "label": null,
+    "note": "square post turned onto the screw, right-hand circle; one per screw (4x 115980)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "height 450 minus the 50 mm top; 40 mm square section from the drawing's proportions"
+   }
+  }
+ ],
+ "hardware": [
+  {
+   "code": "115980",
+   "kind": "screw",
+   "name": "Double-ended dowel screw",
+   "short": "double-ended screw",
+   "el": "τη διπλή βίδα",
+   "count": 4,
+   "script": "parts/dowel_screw.py",
+   "params": {
+    "half_len": 38,
+    "shank_d": 6.0,
+    "collar_d": 9.0,
+    "collar_h": 1.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 1,
+    "label": "115980"
+   }
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Screw a double-ended screw into each corner of the upturned top, then turn a leg onto each screw",
+   "cite": {
+    "page": 1,
+    "label": null
+   },
+   "add": [
+    {
+     "instance": "table_top#1",
+     "base": true
+    },
+    {
+     "instance": "115980#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "table_top#1.leg_1"
+      }
+     ]
+    },
+    {
+     "instance": "leg#1",
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "table_top#1.leg_1"
+      },
+      {
+       "moving": "top_key",
+       "fixed": "table_top#1.leg_1_key"
+      }
+     ]
+    },
+    {
+     "instance": "115980#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "table_top#1.leg_2"
+      }
+     ]
+    },
+    {
+     "instance": "leg#2",
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "table_top#1.leg_2"
+      },
+      {
+       "moving": "top_key",
+       "fixed": "table_top#1.leg_2_key"
+      }
+     ]
+    },
+    {
+     "instance": "115980#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "table_top#1.leg_3"
+      }
+     ]
+    },
+    {
+     "instance": "leg#3",
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "table_top#1.leg_3"
+      },
+      {
+       "moving": "top_key",
+       "fixed": "table_top#1.leg_3_key"
+      }
+     ]
+    },
+    {
+     "instance": "115980#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "table_top#1.leg_4"
+      }
+     ]
+    },
+    {
+     "instance": "leg#4",
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "table_top#1.leg_4"
+      },
+      {
+       "moving": "top_key",
+       "fixed": "table_top#1.leg_4_key"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "table_top",
+    "leg"
+   ],
+   "hardware_used": {
+    "115980": 4
+   },
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay the table top upside down on a soft surface, such as a rug.",
+    "el": "Τοποθέτησε την επιφάνεια του τραπεζιού ανάποδα πάνω σε μαλακή επιφάνεια, όπως ένα χαλί."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -60,
+    30
+   ]
+  }
+ ],
+ "final_turn_text": {
+  "en": "Turn the table the right way up and stand it on its legs.",
+  "el": "Γύρισε το τραπέζι στην κανονική του θέση και στήσ' το στα πόδια του."
+ },
+ "flags": [
+  {
+   "ref": "step:1",
+   "kind": "unclear_drawing",
+   "message": "The guide has a single unnumbered drawing for all four corners. It is modelled as one step, with each screw followed by its leg, in the order the drawing shows (screw into the top, then turn the leg on)."
+  },
+  {
+   "ref": "part:leg",
+   "kind": "unclear_drawing",
+   "message": "The guide has no parts list for the top or the legs. Four legs and one top are inferred from the 4x 115980 screws and the drawing."
+  },
+  {
+   "ref": "part:table_top",
+   "kind": "unclear_drawing",
+   "message": "The zoomed block is read as a corner of the upturned table top, not the end of a leg, because the leg is the post turned onto the screw and the safety panel shows the top laid upside down on a rug. The legs are assumed flush with the corners of the top."
+  }
+ ],
+ "guide": "eval/guides/ikea/lack-side-table__AA-2606170-1.pdf"
+}
