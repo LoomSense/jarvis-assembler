@@ -380,7 +380,7 @@
   {
    "n": 6,
    "clip": "step_06",
-   "title": "Screw on the handle slat, then turn the box over",
+   "title": "Screw on the handle slat",
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -421,7 +421,7 @@
      "qty": 4
     }
    ],
-   "flipWholeAssembly": true,
+   "flipWholeAssembly": false,
    "camera": {
     "node": "cam_step_06",
     "pos": [
@@ -449,7 +449,7 @@
   {
    "n": 7,
    "clip": "step_07",
-   "title": "Screw two end slats onto the other end",
+   "title": "Turn the box over and screw two end slats onto the other end",
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -505,7 +505,7 @@
      "qty": 8
     }
    ],
-   "flipWholeAssembly": false,
+   "flipWholeAssembly": true,
    "camera": {
     "node": "cam_step_07",
     "pos": [

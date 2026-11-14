@@ -215,6 +215,9 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 ### Log C
 - Sat 20:00 · CAD-01/02/04/05/08 · 3D pipeline built and run on KNAGGLIG (`pipeline/`, `eval/golden/knagglig/`): plan → parts → fit checks → GLB in about 3 s (done by the planning agent on Simos's machine)
 
+- Sat 20:20 · merge · rebased onto the data owner's commits (`51384ab`..`c6e79cd`); the pipeline's `plan.json` scores PASS on `eval/score_plan.py` against the hand-labelled expected plan (all gates 1.00, flips 1.00 after moving the turn-over to step 7)
+- Sat 20:20 · naming · the pipeline calls the pre-assembled panels `side_panel` (long, 436 mm) and the loose slats `end_slat` (short, 310 mm, with the handles); the expected plan calls them `end_frame` and `side_slat`. Counts and steps agree. Which side is long needs a look at the real product
+
 ### Log D
 -
 

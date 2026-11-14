@@ -46,7 +46,9 @@ def step(n, page, title, add, flip=False, view=(-55, 28)):  # view = camera azim
         code = a["instance"].split("#")[0]
         if code in used:
             hw[code] = hw.get(code, 0) + 1
+    parts_added = [a["instance"].split("#")[0] for a in add if a["instance"].split("#")[0] not in used]
     steps.append({"n": n, "title": title, "cite": {"page": page, "label": str(n)}, "add": add,
+                  "parts_added": parts_added,   # PLAN section 4.2 field, read by eval/score_plan.py
                   "hardware_used": hw, "flip_whole_assembly": flip, "view_az_el_deg": list(view)})
 
 
@@ -79,11 +81,11 @@ E2 = (("side_panel#1", 2), ("side_panel#2", 1))   # end at x = L
 step(5, 5, "Stand the box on end and screw on two end slats",
      [slat("end_slat#1", 1, *E1), slat("end_slat#2", 2, *E1)] + slat_screws("end_slat#1") + slat_screws("end_slat#2"),
      view=(-140, 25))
-step(6, 6, "Screw on the handle slat, then turn the box over",
-     [slat("end_slat_handle#1", 3, *E1)] + slat_screws("end_slat_handle#1"), flip=True, view=(-140, 25))
-step(7, 7, "Screw two end slats onto the other end",
+step(6, 6, "Screw on the handle slat",
+     [slat("end_slat_handle#1", 3, *E1)] + slat_screws("end_slat_handle#1"), view=(-140, 25))
+step(7, 7, "Turn the box over and screw two end slats onto the other end",
      [slat("end_slat#3", 1, *E2), slat("end_slat#4", 2, *E2)] + slat_screws("end_slat#3") + slat_screws("end_slat#4"),
-     view=(-40, 25))
+     flip=True, view=(-40, 25))
 step(8, 8, "Screw on the second handle slat",
      [slat("end_slat_handle#2", 3, *E2)] + slat_screws("end_slat_handle#2"), view=(-40, 25))
 
