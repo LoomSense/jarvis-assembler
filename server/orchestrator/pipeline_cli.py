@@ -93,7 +93,23 @@ def glb_json(path: Path) -> dict:
 
 
 def export(job: Path, job_id: str) -> int:
-    """Check the GLB against the manifest contract (PLAN §4.3) and stamp the manifest with the job id."""
+    """Pack the GLB, cut the guide crops, check the GLB against the manifest contract (PLAN §4.3) and
+    stamp the manifest with the job id."""
+    from pipeline import crops, pack
+
+    packed = pack.build(job)                             # optional: skipped when gltfpack is not installed
+    if packed.get("packed"):
+        event("thought", f"Compressed the model from {packed['from_bytes'] / 1e6:.1f} MB to {packed['bytes'] / 1e6:.2f} MB")
+    plan = json.loads((job / "plan.approved.json").read_text())
+    plan["guide"] = str(job / "guide.pdf")               # crops come from the uploaded guide, wherever the plan points
+    (job / "logs").mkdir(exist_ok=True)
+    plan_for_crops = job / "logs" / "plan.crops.json"
+    plan_for_crops.write_text(json.dumps(plan))
+    cut = crops.build(plan_for_crops, job)
+    if cut.get("auto"):
+        event("thought", f"Cut {cut['crops']} step drawings from the guide; {cut['auto']} by page layout, "
+                         "not from a box in the plan, so check them by eye.", level="warn")
+
     glb, manifest_path = job / "walkthrough.glb", job / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     gltf = glb_json(glb)
@@ -123,7 +139,8 @@ def export(job: Path, job_id: str) -> int:
         render = f"renders/step_{step['n']:02d}.png"
         event("step_ready", step.get("title") or f"Step {step['n']}", stepN=step["n"],
               image_url=f"/files/{job_id}/{render}" if (job / render).is_file() else None)
-    result(animations=len(clips), steps=len(manifest["steps"]), glb_bytes=size, title=manifest.get("title"))
+    result(animations=len(clips), steps=len(manifest["steps"]), glb_bytes=size, title=manifest.get("title"),
+           packed_glb_bytes=packed.get("bytes"), step_crops=cut.get("crops", 0))
     return 0
 
 

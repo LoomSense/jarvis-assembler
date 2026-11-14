@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -166,6 +168,17 @@ def test_golden_guide_end_to_end_then_retry_skips_finished_stages(client, tmp_pa
     events = [json.loads(line) for line in (job_dir / "events.jsonl").read_text().splitlines()]
     assert [e["seq"] for e in events] == list(range(1, len(events) + 1))
     assert events[-1]["type"] == "done" and {"approval_required", "part_status", "step_ready"} <= {e["type"] for e in events}
+
+    # The server must produce everything `pipeline.run` produces (it runs the same steps stage by stage).
+    reference = tmp_path / "reference"
+    run = subprocess.run([sys.executable, "-m", "pipeline.run", str(ROOT / "eval/golden/knagglig/plan.json"),
+                          str(reference)], cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert run.returncode == 0, run.stdout[-800:] + run.stderr[-800:]
+    produced = lambda d: {str(p.relative_to(d)) for p in d.rglob("*") if p.is_file()}   # noqa: E731
+    assert produced(reference) - produced(job_dir) == set(), "the server stages fell behind pipeline/run.py"
+    ref_manifest = json.loads((reference / "manifest.json").read_text())
+    assert set(ref_manifest) <= set(manifest) | {"glbPacked"}
+    assert set(ref_manifest["steps"][0]) <= set(client.get(f"/files/{job_id}/manifest.json").json()["steps"][0])
 
     before = {p.name: p.stat().st_mtime_ns for p in (job_dir / "stages").iterdir()}
     assert client.post(f"/api/jobs/{job_id}/retry", json={"from_stage": "refs"}).json() == {"stage": "refs"}

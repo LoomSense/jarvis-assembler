@@ -1,5 +1,8 @@
 """The stage list. Each stage is a thin wrapper that runs pipeline code in a subprocess.
 
+The stages together must do everything `pipeline/run.py` does. When a step is added there, add it here
+too: tests/test_server.py compares the two outputs and fails when the server falls behind.
+
 Agent hooks (owned by person B). When these modules exist they replace the fallbacks below:
     pipeline/agent/extract.py   async def extract_plan(job_dir: Path, emit) -> None   writes plan.json (+ crops/)
     pipeline/agent/parts.py     async def build_parts(job_dir: Path, emit) -> None    writes parts/<id>.py
@@ -152,6 +155,6 @@ STAGES = [
           progress=0.88, timeout_s=600),
     Stage("refs", refs, lambda j: [j.approved_plan, j.dir / "placements.json", j.glb], progress=0.96,
           timeout_s=600),
-    Stage("export", export, lambda j: [j.approved_plan, j.dir / "placements.json", j.glb], progress=1.0,
-          timeout_s=180),
+    Stage("export", export, lambda j: [j.approved_plan, j.dir / "placements.json", j.glb, j.guide], progress=1.0,
+          timeout_s=300),
 ]
