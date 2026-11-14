@@ -229,3 +229,4 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sat 19:45 · AGT-01 · done: golden KNAGGLIG and smoke LACK expected plans, hand-labelled from the PDFs · `51384ab`
 - Sat 19:45 · AGT-04 · doing: `eval/score_plan.py` (three gates, exit code) · `51384ab`
 - Sat 19:45 · data · IKEA-Manual downloaded to `eval/datasets/` (git-ignored); `eval/ikea_manual_to_expected.py` writes 102 expected plans. The dataset has no hardware, labels or flips: use it for parts, counts, step order and geometry only · `51384ab`
+- Sat 20:10 · LIV-04, LIV-05 · prepared, not started: `eval/phase2/p2.py` (frames at 4 Hz and 768 px, label check, G4 scoring), `labels.template.json` with the 5 KNAGGLIG clip scripts, README with the log format `replay.py` must write. Recording waits for the physical product (SET-09) and gate G2 · tested on a synthetic clip only
