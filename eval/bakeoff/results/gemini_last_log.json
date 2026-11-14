@@ -1,0 +1,36 @@
+{
+ "model": "gemini-4-hydrogen",
+ "total_s": 11.9,
+ "rounds": [
+  {
+   "round": 1,
+   "error": "Expecting value: line 1 column 1 (char 0)",
+   "latency_s": 11.9,
+   "usage": {
+    "promptTokenCount": 12097,
+    "candidatesTokenCount": 280,
+    "totalTokenCount": 14772,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 3361
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 8736
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 280
+     }
+    ],
+    "thoughtsTokenCount": 2395,
+    "serviceTier": "standard"
+   },
+   "finish": "STOP",
+   "feedback": null
+  }
+ ]
+}

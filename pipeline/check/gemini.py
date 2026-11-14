@@ -10,7 +10,7 @@ from pathlib import Path
 from pipeline.check.decisions import MIME, api_key
 
 
-def generate(model: str, parts: list, json_out: bool = False, timeout: float = 300) -> str:
+def generate(model: str, parts: list, json_out: bool = False, timeout: float = 300, thinking_budget: int | str | None = None) -> str:
     """parts: strings and image paths, in order. Returns the model's text."""
     body_parts = []
     for p in parts:
@@ -21,8 +21,12 @@ def generate(model: str, parts: list, json_out: bool = False, timeout: float = 3
         else:
             body_parts.append({"text": str(p)})
     body = {"contents": [{"role": "user", "parts": body_parts}]}
+    body["generationConfig"] = {"maxOutputTokens": 65536}
+    if thinking_budget is not None:                      # without a cap, thinking can use the whole output limit
+        body["generationConfig"]["thinkingConfig"] = ({"thinkingLevel": thinking_budget} if isinstance(thinking_budget, str)
+                                                      else {"thinkingBudget": thinking_budget})
     if json_out:
-        body["generationConfig"] = {"responseMimeType": "application/json"}
+        body["generationConfig"]["responseMimeType"] = "application/json"
     req = urllib.request.Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=json.dumps(body).encode(), headers={"x-goog-api-key": api_key(), "Content-Type": "application/json"})
@@ -32,6 +36,8 @@ def generate(model: str, parts: list, json_out: bool = False, timeout: float = 3
             out = json.loads(r.read())
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"{model} {e.code}: {e.read().decode()[:500]}") from None
-    text = "".join(p.get("text", "") for p in out["candidates"][0]["content"]["parts"])
-    generate.last = {"latency_s": round(time.perf_counter() - t0, 1), "usage": out.get("usageMetadata")}
+    cand = (out.get("candidates") or [{}])[0]
+    text = "".join(p.get("text", "") for p in cand.get("content", {}).get("parts", []) if not p.get("thought"))
+    generate.last = {"latency_s": round(time.perf_counter() - t0, 1), "usage": out.get("usageMetadata"),
+                     "finish": cand.get("finishReason"), "feedback": out.get("promptFeedback")}
     return text

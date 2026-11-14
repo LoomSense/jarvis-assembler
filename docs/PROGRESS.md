@@ -220,6 +220,7 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sat 20:20 · naming · the pipeline calls the pre-assembled panels `side_panel` (long, 436 mm) and the loose slats `end_slat` (short, 310 mm, with the handles); the expected plan calls them `end_frame` and `side_slat`. Counts and steps agree. Which side is long needs a look at the real product
 - Sat 21:00 · CAD-05/06 · the walkthrough now follows the guide action by action: the assembly is turned as each step draws it (upside down for 3–4, on end for 5–8), parts go in one at a time, each screw goes to its own hole and turns while driven in; the manifest lists every action with its target point and English/Greek text · `eval/golden/knagglig/out/`
 - Sat 21:00 · CAD-05 · Hydrogen read the KNAGGLIG drawings (205 s, one call) and disagrees with the model in two places, both flagged in `plan.json`: step 4's long screws look driven down through the flat panel into the upright ends, and the cover suggests the battens sit under the box. Needs the real product.
+- Sat 21:50 · AGT (bake-off, for B) · same brief and guide pages to both: headless Claude Code built the KNAGGLIG plan and 6 part scripts that pass the fit checks and `score_plan.py` in 504 s ($2.74); Gemini 4 Hydrogen as one call per round returned no usable answer in 4 tries (thinking used the whole output limit). No decision taken yet on the model for the build loop · `eval/bakeoff/README.md`, `pipeline/agent/BRIEF.md`
 
 ### Log D
 -
