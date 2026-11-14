@@ -105,3 +105,6 @@ It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipelin
   `tests/test_perception_logic.py`.
 - `replay.py <job> eval/phase2/labels.json eval/phase2/runs/<name> [--cached]` runs labelled clips through both and writes
   `frames.jsonl` and `events.jsonl` for `eval/phase2/p2.py score`. `--cached` reuses the stored answers to tune thresholds.
+- `stream.py`: `Stream(ask, Watcher(pack), k=4)` for live use. `submit(jpeg, ts)` never blocks; K requests run at once, a
+  frame that arrives while all are busy replaces the one waiting (old frames are never queued), answers reach the
+  watcher in time order. `subscribe()` gives an asyncio queue of events. Tests: `tests/test_perception_stream.py`.
