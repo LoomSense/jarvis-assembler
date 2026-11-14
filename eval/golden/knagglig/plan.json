@@ -10,6 +10,10 @@
   "estimated": false,
   "basis": "published product size"
  },
+ "cover_view_az_el_deg": [
+  -128,
+  24
+ ],
  "dims": {
   "L": 460,
   "W": 310,

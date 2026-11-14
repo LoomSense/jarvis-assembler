@@ -89,7 +89,7 @@ step(8, 8, "Screw on the second handle slat",
 
 plan = {"title": "KNAGGLIG box", "guide": GUIDE, "guide_id": "AA-1159337-7", "units": "mm",
         "overall_mm": {"L": 460, "W": 310, "H": 250, "estimated": False, "basis": "published product size"},
-        "dims": dims, "parts": parts, "hardware": hardware, "steps": steps, "flags": []}
+        "cover_view_az_el_deg": [-128, 24], "dims": dims, "parts": parts, "hardware": hardware, "steps": steps, "flags": []}
 for h in hardware:
     assert used[h["code"]] == h["count"], (h["code"], used[h["code"]])
 Path(__file__).with_name("plan.json").write_text(json.dumps(plan, indent=1))

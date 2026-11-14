@@ -184,6 +184,16 @@ for s in steps_out:
     scene.render.filepath = str(out / "renders" / f"step_{s['n']:02d}.png")
     bpy.ops.render.render(write_still=True)
 
+# the finished product from the cover's angle, for comparison with the guide's cover drawing
+az, el = plan.get("cover_view_az_el_deg", (-125, 25))
+cover_cam, _ = make_camera("cam_cover", list(objs), az, el)
+for inst, o in objs.items():
+    o.hide_render = False
+    o.color = MATERIALS[defs[inst.split("#")[0]].get("material", "pine")][0]
+scene.camera = cover_cam
+scene.render.filepath = str(out / "renders" / "cover.png")
+bpy.ops.render.render(write_still=True)
+
 tris = sum(len(o.data.loop_triangles) or len(o.data.polygons) for o in objs.values())
 print("RESULT " + json.dumps({"instances": len(objs), "steps": len(steps_out), "triangles": tris,
                               "glb_bytes": (out / "walkthrough.glb").stat().st_size}))
