@@ -1,0 +1,70 @@
+{
+  "_readme": "TEMPLATE with invented times. Copy to labels.json, record the clips, then replace every t0 and t with what you see in the frame file names.",
+  "guide": "eval/golden/knagglig/expected_plan.json",
+  "fps": 4,
+  "camera": "phone on stand | headset (fill in after gate G2)",
+  "parts": ["bottom_panel", "end_frame", "side_slat", "handle_slat"],
+  "hardware": ["108363", "108560"],
+  "clips": [
+    {
+      "id": "a_correct", "file": "clips/a_correct.mp4", "kind": "correct", "step": 1,
+      "script": "Bottom panel is on the table. Pick up an end frame, push it against the end of the bottom panel, take hands away.",
+      "segments": [
+        {"t0": 0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "hardware_in_hand": "no_hardware",
+         "right_part": null, "orientation_ok": null, "panel_on_base": false, "step_complete": false, "next_step_part_used": false,
+         "hands_present": false, "view_blocked": false, "image_poor": false, "frame_matches_setup": true},
+        {"t0": 3.0, "state": "PART_IN_HAND", "part_in_hand": "end_frame", "right_part": true, "orientation_ok": true, "hands_present": true},
+        {"t0": 9.0, "state": "PLACING", "panel_on_base": true},
+        {"t0": 14.0, "state": "STEP_COMPLETE", "part_in_hand": "nothing_held", "right_part": null, "orientation_ok": null, "step_complete": true, "hands_present": false}
+      ],
+      "events": [{"t": 14.0, "event": "step_complete"}]
+    },
+    {
+      "id": "b_wrong_panel", "file": "clips/b_wrong_panel.mp4", "kind": "mistake", "step": 1,
+      "script": "Pick up a side slat instead of the end frame and bring it to the bottom panel. Hold 5 s. Put it back.",
+      "segments": [
+        {"t0": 0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "hardware_in_hand": "no_hardware",
+         "right_part": null, "orientation_ok": null, "panel_on_base": false, "step_complete": false, "next_step_part_used": false,
+         "hands_present": false, "view_blocked": false, "image_poor": false, "frame_matches_setup": true},
+        {"t0": 3.0, "state": "PART_IN_HAND", "part_in_hand": "side_slat", "right_part": false, "hands_present": true},
+        {"t0": 12.0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "right_part": null, "hands_present": false}
+      ],
+      "events": [{"t": 3.0, "event": "wrong_part"}]
+    },
+    {
+      "id": "c_upside_down", "file": "clips/c_upside_down.mp4", "kind": "mistake", "step": 6,
+      "script": "Hold the handle slat with the cut-out facing the wrong way for 5 s, then turn it the right way and place it.",
+      "segments": [
+        {"t0": 0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "hardware_in_hand": "no_hardware",
+         "right_part": null, "orientation_ok": null, "panel_on_base": false, "step_complete": false, "next_step_part_used": false,
+         "hands_present": false, "view_blocked": false, "image_poor": false, "frame_matches_setup": true},
+        {"t0": 3.0, "state": "PART_IN_HAND", "part_in_hand": "handle_slat", "right_part": true, "orientation_ok": false, "hands_present": true},
+        {"t0": 9.0, "orientation_ok": true},
+        {"t0": 13.0, "state": "PLACING", "panel_on_base": true}
+      ],
+      "events": [{"t": 3.0, "event": "flip_needed"}]
+    },
+    {
+      "id": "d_wrong_hardware", "file": "clips/d_wrong_hardware.mp4", "kind": "mistake", "step": 2,
+      "script": "Step 2 needs the long screw 108363. Pick up a short screw 108560 and bring it to the hole. Hold 5 s.",
+      "segments": [
+        {"t0": 0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "hardware_in_hand": "no_hardware",
+         "right_part": null, "orientation_ok": null, "panel_on_base": true, "step_complete": false, "next_step_part_used": false,
+         "hands_present": false, "view_blocked": false, "image_poor": false, "frame_matches_setup": true},
+        {"t0": 3.0, "state": "PART_IN_HAND", "part_in_hand": "hardware_only", "hardware_in_hand": "108560", "hands_present": true}
+      ],
+      "events": [{"t": 3.0, "event": "wrong_hardware"}]
+    },
+    {
+      "id": "e_bad_light", "file": "clips/e_bad_light.mp4", "kind": "hard", "step": 5,
+      "script": "Dim the light. Do step 5 correctly but keep both hands over the work for long stretches. No warning may fire.",
+      "segments": [
+        {"t0": 0, "state": "WAITING_FOR_PART", "part_in_hand": "nothing_held", "hardware_in_hand": "no_hardware",
+         "right_part": null, "orientation_ok": null, "panel_on_base": false, "step_complete": false, "next_step_part_used": false,
+         "hands_present": false, "view_blocked": false, "image_poor": true, "frame_matches_setup": true},
+        {"t0": 3.0, "state": "PART_IN_HAND", "part_in_hand": null, "hands_present": true, "view_blocked": true, "note": "null = a person cannot tell from this frame either; not scored"}
+      ],
+      "events": []
+    }
+  ]
+}
