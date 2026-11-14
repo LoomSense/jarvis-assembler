@@ -18,11 +18,15 @@ args = sys.argv[sys.argv.index("--") + 1:]
 job = Path(args[0])
 SIZE = int(args[1]) if len(args) > 1 else 768
 REF_VIEW = (-90, 35)         # azimuth, elevation in degrees: front of the table, a phone on a stand
+# optional, for stand-in test frames (pipeline.perception.bench): another view, folder and background
+VIEW = tuple(float(x) for x in args[2].split(",")) if len(args) > 2 else None
+OUT = Path(args[3]) if len(args) > 3 else job / "refs"
+BG = tuple(float(x) for x in args[4].split(",")) if len(args) > 4 else (1, 1, 1)
 FOV_DEG = 60
 
 bpy.ops.wm.open_mainfile(filepath=str(job / "scene.blend"))
 manifest = json.loads((job / "manifest.json").read_text())
-(job / "refs").mkdir(exist_ok=True)
+OUT.mkdir(parents=True, exist_ok=True)
 scene = bpy.context.scene
 root = bpy.data.objects[manifest["rootNode"]]
 marker = bpy.data.objects.get(manifest.get("markerNode", "marker"))
@@ -51,7 +55,7 @@ scene.view_settings.view_transform = "Standard"
 sh = scene.display.shading
 sh.light = "STUDIO"; sh.color_type = "OBJECT"; sh.show_object_outline = True; sh.object_outline_color = (0.1, 0.1, 0.1)
 sh.show_cavity = True; sh.cavity_type = "BOTH"; sh.show_shadows = False
-sh.background_type = "VIEWPORT"; sh.background_color = (1, 1, 1)
+sh.background_type = "VIEWPORT"; sh.background_color = BG
 
 cam_data = bpy.data.cameras.new("cam_ref"); cam_data.type = "PERSP"
 cam_data.sensor_fit = "HORIZONTAL"; cam_data.angle = math.radians(FOV_DEG)
@@ -85,16 +89,16 @@ for s in manifest["steps"]:
     pts = [o.matrix_world @ Vector(c) for o in shown for c in o.bound_box]
     lo = Vector([min(p[k] for p in pts) for k in range(3)]); hi = Vector([max(p[k] for p in pts) for k in range(3)])
     centre, r = (lo + hi) / 2, (hi - lo).length / 2
-    az, el = s.get("refViewAzElDeg", REF_VIEW)
+    az, el = VIEW or s.get("refViewAzElDeg", REF_VIEW)
     a, e = math.radians(az), math.radians(el)
     d = Vector((math.cos(a) * math.cos(e), math.sin(a) * math.cos(e), math.sin(e)))
     dist = r / math.sin(math.radians(FOV_DEG) / 2) * 1.02
     cam.location = centre + d * dist
     cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
     cam_data.clip_start, cam_data.clip_end = 0.01, dist + r * 2 + 1
-    path = job / "refs" / f"step-{s['n']:02d}-ref.png"
+    path = OUT / f"step-{s['n']:02d}-ref.png"
     scene.render.filepath = str(path)
     bpy.ops.render.render(write_still=True)
-    done.append({"n": s["n"], "ref": f"refs/{path.name}", "view_az_el_deg": [az, el], "pieces": len(shown)})
+    done.append({"n": s["n"], "ref": f"{OUT.name}/{path.name}", "view_az_el_deg": [az, el], "pieces": len(shown)})
 
 print("RESULT " + json.dumps({"refs": done, "size": SIZE}))

@@ -80,3 +80,22 @@ It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipelin
 - Guide crops and the phase-2 reference sheets in the manifest.
 - Mesh compression (gltfpack); the sample is 400 KB, so it is not urgent.
 - The guide's "turn the whole thing over" steps are flagged in the manifest but not animated.
+
+## Phase-2 perception: questions and the Decision 1 request (`pipeline/perception/`)
+
+```
+.venv/bin/python -m pipeline.perception.questions jobs/<id>            # once per guide, after pipeline.run
+.venv/bin/python -m pipeline.perception.request  jobs/<id> 5 frame.jpg # one request for step 5
+.venv/bin/python -m pipeline.perception.bench    jobs/<id>             # stand-in benchmark, 64 requests
+```
+
+- `questions.py` writes `refs/step-NN-questions.json` (`header`, `sheet_note`, `sheet`, `expects`, `questions`) and sets
+  `questions` on each manifest step. Option keys of `part_in_hand` and `hardware_in_hand` are the labels on the reference
+  sheet, plus `hardware_only`, `nothing_held`, `no_hardware`, `other` (the names `eval/phase2/p2.py` scores).
+  `gemini-4-hydrogen` writes what each part looks like and the orientation and completion criteria; `--no-model` uses
+  plain template wording.
+- `request.py`: `ask(job, step_n, frame)` where `frame` is a path or JPEG bytes. Images are sent as JPEG on a connection
+  that stays open (`pipeline/check/decisions.py`); with PNG and a new connection per request the round trip was 2.5 s
+  instead of 0.7 s.
+- `bench.py` uses renders from another side as stand-in camera frames. It says nothing about hands or real light.
+  Read `part_in_hand` only when `hands_present` is high: on frames with no hands it still names a part.
