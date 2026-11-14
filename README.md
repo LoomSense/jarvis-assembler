@@ -1,0 +1,94 @@
+# Assembly Guide Agent
+
+Upload a flat-pack furniture guide (PDF). An agent reads it, builds every part in 3D, assembles them step by step in the guide's own order, and checks its work against the guide's drawings. A phone plays the result as a 3D walkthrough. Then a Meta Quest 3 shows the next part as a ghost on the real table while a voice agent watches the build and warns before a mistake.
+
+Built at the Gen AI Summit Hackathon, Athens, 14–15 Nov 2026.
+
+- The plan: [docs/PLAN.md](docs/PLAN.md)
+- Who is doing what, and what is done: [docs/PROGRESS.md](docs/PROGRESS.md)
+- What we did not build ourselves: [CREDITS.md](CREDITS.md)
+
+## Run it
+
+Needs: macOS or Linux, [uv](https://docs.astral.sh/uv/), Blender 5.3 (`brew install --cask blender`), about 5 GB of disk.
+
+```sh
+make setup     # Python 3.12 venv with all packages
+make env       # creates .env with a fresh DEMO_KEY; then add GEMINI_API_KEY to it
+make dev       # server on http://localhost:8000 with auto-reload
+make smoke     # in a second terminal: upload the golden guide, approve, wait for the GLB (about 20 s)
+make test      # unit tests
+make tunnel    # public HTTPS URL for phones and the headset (cloudflared)
+```
+
+`make smoke` prints a job id. Its files are under `jobs/<job_id>/` and at `/files/<job_id>/…`.
+
+## Layout
+
+| Folder | What |
+|---|---|
+| `server/` | FastAPI app: REST, SSE, the job runner, the Live token |
+| `pipeline/` | Plan → CadQuery parts → placement and fit checks → Blender scene, animation, GLB, reference sheets |
+| `client/` | Vite + three.js app for the phone and the Quest 3 (served by the server from `client/dist`) |
+| `prompts/` | Prompts as files; their version is logged in the events |
+| `eval/` | Golden guides and expected plans, scorers, `smoke.sh`, phase-2 clips and replay |
+| `deploy/` | boxd VM deploy scripts |
+| `docs/` | Plan, progress, research, brand |
+
+## API
+
+Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` where headers cannot be set (EventSource, WebSocket, `<img>`, QR links). `GET /healthz` without the key answers only `{"ok": true}`.
+
+| Method | Path | Request → Response |
+|---|---|---|
+| POST | `/api/jobs` | multipart `file=guide.pdf` → `{job_id, stage: "ingesting"}` |
+| GET | `/api/jobs` | → `{jobs: [...]}`, newest first |
+| GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title}` |
+| GET | `/api/jobs/{id}/events` | SSE stream of events; resumes from `Last-Event-ID` or `?since=<seq>` |
+| GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
+| POST | `/api/jobs/{id}/plan/approve` | `{plan?, note?}` → `{stage: "building"}` |
+| POST | `/api/jobs/{id}/retry` | `{from_stage}` → `{stage}` |
+| GET | `/files/{id}/{path}` | a file from the job folder: `walkthrough.glb`, `manifest.json`, `pages/…`, `renders/…`, `refs/…` |
+| POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model, api_version}` (one per 10 s per address) |
+| GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
+
+**Job state.** `stage` is one of `ingest`, `extract_plan`, `await_approval`, `parts`, `place`, `steps`, `refs`, `export`, `done`. `status` is one of `queued`, `running`, `waiting_approval`, `done`, `error`. The same stage names appear in every event and in `retry`.
+
+**Events** (`events.jsonl`, also the SSE feed). Each SSE message has `id: <seq>` and `data: <json>`, with no `event:` name, so one `onmessage` handler receives everything:
+
+```json
+{"seq": 16, "ts": 1794690259100, "jobId": "1114-2304-61c9a6", "stage": "parts", "type": "part_status",
+ "level": "success", "partId": "side_panel", "stepN": null, "text": "Built side_panel: 16 mate points", "ms": 566}
+```
+
+`type` is one of `thought`, `tool_call`, `tool_result`, `image`, `part_status`, `step_ready`, `approval_required`, `progress`, `error`, `done`. Images carry `image_url`. The stream sends a `: ping` comment every 15 s.
+
+## How a job runs
+
+One job builds at a time. Every stage runs in its own process with a time limit, and writes `stages/<stage>.done` when it succeeds. After a crash or a restart the job continues from the first unfinished stage. `retry` clears the markers from one stage onward.
+
+A stage process reports back on its standard output:
+
+```
+EVENT {"type": "thought", "text": "Part B rejected: holes on the wrong face"}
+RESULT {"built": 6}
+```
+
+**Plugging in the agent** (see `server/orchestrator/stages.py`). When these exist they are used instead of the fallbacks:
+
+- `pipeline/agent/extract.py`: `async def extract_plan(job_dir, emit)` writes `plan.json` and `crops/`.
+- `pipeline/agent/parts.py`: `async def build_parts(job_dir, emit)` writes `parts/<id>.py`.
+
+Until then a known test guide uses its hand-checked plan from `eval/golden/`, and the feed says so. Any other guide stops at `extract_plan` with a clear message.
+
+**Phase-2 WebSocket.** The server includes `server/perception/routes.py` (`router`) when that module exists. Use `server.auth.ws_has_key` to check the demo key.
+
+## Deploy
+
+```sh
+boxd auth login          # once, in a browser
+make deploy-box          # creates or updates the VM `agj`, installs Blender, starts the service
+eval/smoke.sh https://agj.boxd.sh
+```
+
+Before every push: `make secrets`.
