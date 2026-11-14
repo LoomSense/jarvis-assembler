@@ -33,6 +33,9 @@
   {
    "id": "bottom_panel",
    "name": "Bottom panel (pre-assembled)",
+   "short": "bottom panel",
+   "el": "\u03c4\u03bf \u03ba\u03ac\u03c4\u03c9 \u03c0\u03ac\u03bd\u03b5\u03bb",
+   "el_pron": "\u03c4\u03bf",
    "count": 1,
    "script": "parts/bottom_panel.py",
    "material": "pine",
@@ -49,6 +52,9 @@
   {
    "id": "side_panel",
    "name": "Long side panel (pre-assembled)",
+   "short": "side panel",
+   "el": "\u03c4\u03bf \u03c0\u03bb\u03b1\u03ca\u03bd\u03cc \u03c0\u03ac\u03bd\u03b5\u03bb",
+   "el_pron": "\u03c4\u03bf",
    "count": 2,
    "script": "parts/side_panel.py",
    "material": "pine",
@@ -65,6 +71,9 @@
   {
    "id": "end_slat",
    "name": "End slat",
+   "short": "plain slat",
+   "el": "\u03bc\u03b9\u03b1 \u03b1\u03c0\u03bb\u03ae \u03c3\u03b1\u03bd\u03af\u03b4\u03b1",
+   "el_pron": "\u03c4\u03b7\u03bd",
    "count": 4,
    "script": "parts/end_slat.py",
    "material": "pine",
@@ -81,6 +90,9 @@
   {
    "id": "end_slat_handle",
    "name": "End slat with handle cut-out",
+   "short": "slat with the handle cut-out",
+   "el": "\u03c4\u03b7 \u03c3\u03b1\u03bd\u03af\u03b4\u03b1 \u03bc\u03b5 \u03c4\u03b7 \u03bb\u03b1\u03b2\u03ae",
+   "el_pron": "\u03c4\u03b7\u03bd",
    "count": 2,
    "script": "parts/end_slat.py",
    "params": {
@@ -103,6 +115,8 @@
    "code": "108363",
    "kind": "screw",
    "name": "Long screw",
+   "short": "long screw",
+   "el": "\u03bc\u03b1\u03ba\u03c1\u03b9\u03ac \u03b2\u03af\u03b4\u03b1",
    "count": 4,
    "script": "parts/screw.py",
    "params": {
@@ -125,6 +139,8 @@
    "code": "108560",
    "kind": "screw",
    "name": "Short screw",
+   "short": "short screw",
+   "el": "\u03ba\u03bf\u03bd\u03c4\u03ae \u03b2\u03af\u03b4\u03b1",
    "count": 24,
    "script": "parts/screw.py",
    "params": {
@@ -180,7 +196,17 @@
    "view_az_el_deg": [
     125,
     28
-   ]
+   ],
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the box the right way up.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03bf \u03ba\u03bf\u03c5\u03c4\u03af \u03c3\u03c4\u03b7\u03bd \u03ba\u03b1\u03bd\u03bf\u03bd\u03b9\u03ba\u03ae \u03c4\u03bf\u03c5 \u03b8\u03ad\u03c3\u03b7."
+   }
   },
   {
    "n": 2,
@@ -217,7 +243,17 @@
    "view_az_el_deg": [
     -55,
     20
-   ]
+   ],
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the box the right way up.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03bf \u03ba\u03bf\u03c5\u03c4\u03af \u03c3\u03c4\u03b7\u03bd \u03ba\u03b1\u03bd\u03bf\u03bd\u03b9\u03ba\u03ae \u03c4\u03bf\u03c5 \u03b8\u03ad\u03c3\u03b7."
+   }
   },
   {
    "n": 3,
@@ -249,7 +285,17 @@
    "view_az_el_deg": [
     -55,
     28
-   ]
+   ],
+   "pose": "upside_down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the assembly upside down.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03b7\u03bd \u03ba\u03b1\u03c4\u03b1\u03c3\u03ba\u03b5\u03c5\u03ae \u03b1\u03bd\u03ac\u03c0\u03bf\u03b4\u03b1."
+   }
   },
   {
    "n": 4,
@@ -286,7 +332,17 @@
    "view_az_el_deg": [
     125,
     20
-   ]
+   ],
+   "pose": "upside_down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the assembly upside down.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03b7\u03bd \u03ba\u03b1\u03c4\u03b1\u03c3\u03ba\u03b5\u03c5\u03ae \u03b1\u03bd\u03ac\u03c0\u03bf\u03b4\u03b1."
+   }
   },
   {
    "n": 5,
@@ -421,8 +477,18 @@
    "flip_whole_assembly": false,
    "view_az_el_deg": [
     -140,
-    25
-   ]
+    35
+   ],
+   "pose": "on_end_a",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Stand the assembly on its end, open end up.",
+    "el": "\u03a3\u03c4\u03ae\u03c3\u03b5 \u03c4\u03b7\u03bd \u03ba\u03b1\u03c4\u03b1\u03c3\u03ba\u03b5\u03c5\u03ae \u03cc\u03c1\u03b8\u03b9\u03b1, \u03bc\u03b5 \u03c4\u03b7\u03bd \u03b1\u03bd\u03bf\u03b9\u03c7\u03c4\u03ae \u03ac\u03ba\u03c1\u03b7 \u03c0\u03c1\u03bf\u03c2 \u03c4\u03b1 \u03c0\u03ac\u03bd\u03c9."
+   }
   },
   {
    "n": 6,
@@ -499,8 +565,18 @@
    "flip_whole_assembly": false,
    "view_az_el_deg": [
     -140,
-    25
-   ]
+    35
+   ],
+   "pose": "on_end_a",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Stand the assembly on its end, open end up.",
+    "el": "\u03a3\u03c4\u03ae\u03c3\u03b5 \u03c4\u03b7\u03bd \u03ba\u03b1\u03c4\u03b1\u03c3\u03ba\u03b5\u03c5\u03ae \u03cc\u03c1\u03b8\u03b9\u03b1, \u03bc\u03b5 \u03c4\u03b7\u03bd \u03b1\u03bd\u03bf\u03b9\u03c7\u03c4\u03ae \u03ac\u03ba\u03c1\u03b7 \u03c0\u03c1\u03bf\u03c2 \u03c4\u03b1 \u03c0\u03ac\u03bd\u03c9."
+   }
   },
   {
    "n": 7,
@@ -634,9 +710,19 @@
    },
    "flip_whole_assembly": true,
    "view_az_el_deg": [
-    -40,
-    25
-   ]
+    -140,
+    35
+   ],
+   "pose": "on_end_b",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the box over onto the finished end.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03bf \u03ba\u03bf\u03c5\u03c4\u03af \u03b1\u03bd\u03ac\u03c0\u03bf\u03b4\u03b1, \u03c0\u03ac\u03bd\u03c9 \u03c3\u03c4\u03b7\u03bd \u03ad\u03c4\u03bf\u03b9\u03bc\u03b7 \u03ac\u03ba\u03c1\u03b7."
+   }
   },
   {
    "n": 8,
@@ -712,10 +798,35 @@
    },
    "flip_whole_assembly": false,
    "view_az_el_deg": [
-    -40,
-    25
-   ]
+    -140,
+    35
+   ],
+   "pose": "on_end_b",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the box over onto the finished end.",
+    "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03bf \u03ba\u03bf\u03c5\u03c4\u03af \u03b1\u03bd\u03ac\u03c0\u03bf\u03b4\u03b1, \u03c0\u03ac\u03bd\u03c9 \u03c3\u03c4\u03b7\u03bd \u03ad\u03c4\u03bf\u03b9\u03bc\u03b7 \u03ac\u03ba\u03c1\u03b7."
+   }
   }
  ],
- "flags": []
+ "final_turn_text": {
+  "en": "Turn the box the right way up.",
+  "el": "\u0393\u03cd\u03c1\u03b9\u03c3\u03b5 \u03c4\u03bf \u03ba\u03bf\u03c5\u03c4\u03af \u03c3\u03c4\u03b7\u03bd \u03ba\u03b1\u03bd\u03bf\u03bd\u03b9\u03ba\u03ae \u03c4\u03bf\u03c5 \u03b8\u03ad\u03c3\u03b7."
+ },
+ "flags": [
+  {
+   "ref": "step:4",
+   "kind": "unclear_drawing",
+   "message": "The drawing shows the two long screws driven straight down through the flat panel into the ends of the uprights. The model fixes the second side panel like the first (sideways into the batten ends). Check on the real product."
+  },
+  {
+   "ref": "part:bottom_panel",
+   "kind": "unclear_drawing",
+   "message": "Steps 1-2 draw the cross battens on the inside face; the cover suggests they sit underneath as feet. The model has them inside."
+  }
+ ]
 }

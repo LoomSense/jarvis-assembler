@@ -101,8 +101,8 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | CAD-02 | CadQuery harness `run_part.py` (STL, STEP, `mates.json`, missing-frame check) | C | done | SET-04 | 3 fixture parts export | `pipeline/cad/harness.py`, `lib.py`; 6 KNAGGLIG parts build in 1.3 s | Sat 20:00 |
 | CAD-03 | `render_parts.py` batch with guide angle and line-art style | C | todo | CAD-01 | One Blender call renders N parts | | |
 | CAD-04 | Placement code: mates → transforms, Kabsch, flip candidates (§5.3) | C | done | CAD-02 | Golden step 1–3 placed correctly | `pipeline/assemble/placement.py` + `collide.py`; 37 pieces, 0.0 mm residual; misfit and overlap tests caught | Sat 20:00 |
-| CAD-05 | Scene + per-step NLA animation + `render_step.py` | C | done | CAD-04 | Step renders match the guide angle | `pipeline/blender/assemble.py`; `eval/golden/knagglig/out/steps.png` | Sat 20:00 |
-| CAD-06 | GLB export (§5.4) + `manifest.json` (§4.3) + gltfpack | C | doing | CAD-05 | GLB loads in three.js with one clip per step, ≤ 5 MB | GLB + manifest done (400 KB, 8 clips, 23.5k triangles); gltfpack not applied; crops missing | Sat 20:00 |
+| CAD-05 | Scene + per-step NLA animation + `render_step.py` | C | done | CAD-04 | Step renders match the guide angle | `pipeline/blender/assemble.py`; action-by-action animation (turn, place, fasten one screw at a time), 41 actions, 65 s; `eval/golden/knagglig/out/walkthrough_frames.png` | Sat 21:00 |
+| CAD-06 | GLB export (§5.4) + `manifest.json` (§4.3) + gltfpack | C | doing | CAD-05 | GLB loads in three.js with one clip per step, ≤ 5 MB | GLB + manifest with ordered `actions` done (1.7 MB, `walkthrough` + 8 step clips, 23.5k triangles); not yet loaded in three.js; gltfpack not applied; crops missing | Sat 21:00 |
 | CAD-07 | Phase-2 refs: `step-NN-ref.png` and composite `step-NN-sheet.png` | C | todo | CAD-05 | Sheets exist for every golden step | | |
 | CAD-08 | Hand-made two-step dummy GLB + manifest for D, tonight | C | done | SET-05 | D can play it on a phone | `eval/golden/knagglig/out/walkthrough.glb` + `manifest.json` (the real 8-step KNAGGLIG) | Sat 20:00 |
 | CAD-09 | Sandboxed runner for LLM-written CadQuery (CPU, memory, file limits; killable), reusing the reference runner only if its owner agrees (PLAN §7.2) | C | todo | CAD-02 | A runaway script is killed within its limit | | |
@@ -196,6 +196,7 @@ Decisions made during the build. Copy plan-changing ones into `docs/PLAN.md` §1
 | Sat 19:30 | Quest 3 is the primary phase-2 display; phone is the fallback (D11) | Instructions in place, at true scale, beat a small screen | team |
 | Sat 19:30 | Headset camera decided by test G2; phone on a stand otherwise (D12) | WebXR gives no passthrough pixels | team |
 | Sat 20:00 | Golden guide = IKEA KNAGGLIG box; smoke = LACK side table; stretch = BEKVÄM, KALLAX, Sauder | Reviewed the PDFs: KNAGGLIG has 8 clear steps, board-only parts, and hardware counts that cross-check | team |
+| Sat 21:00 | Steps are split into ordered actions (`turn`, `place`, `fasten`) in the GLB and the manifest; the root node `assembly` turns the whole assembly (PLAN §4.3) | The guide tells a person one action at a time: this screw, here, then the next | team |
 | Sat 20:15 | Stay on vanilla three.js; reuse small scaffolding modules with a neutral credit (D14) | Reference has no WebXR or step playback; reusable parts are plain three.js | team |
 | Sat 20:15 | Brand: `docs/design/BRAND.md` + `tokens.css` (D15) | One consistent look across phone, XR and voice | team |
 | Sat 20:00 | Unlabelled IKEA parts cite page + drawing box with descriptive ids; warning pages filtered out; pre-assembled frames are single parts | Seen in the real guides (PLAN §0, §5.1, §5.2) | team |
@@ -217,6 +218,8 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 
 - Sat 20:20 · merge · rebased onto the data owner's commits (`51384ab`..`c6e79cd`); the pipeline's `plan.json` scores PASS on `eval/score_plan.py` against the hand-labelled expected plan (all gates 1.00, flips 1.00 after moving the turn-over to step 7)
 - Sat 20:20 · naming · the pipeline calls the pre-assembled panels `side_panel` (long, 436 mm) and the loose slats `end_slat` (short, 310 mm, with the handles); the expected plan calls them `end_frame` and `side_slat`. Counts and steps agree. Which side is long needs a look at the real product
+- Sat 21:00 · CAD-05/06 · the walkthrough now follows the guide action by action: the assembly is turned as each step draws it (upside down for 3–4, on end for 5–8), parts go in one at a time, each screw goes to its own hole and turns while driven in; the manifest lists every action with its target point and English/Greek text · `eval/golden/knagglig/out/`
+- Sat 21:00 · CAD-05 · Hydrogen read the KNAGGLIG drawings (205 s, one call) and disagrees with the model in two places, both flagged in `plan.json`: step 4's long screws look driven down through the flat panel into the upright ends, and the cover suggests the battens sit under the box. Needs the real product.
 
 ### Log D
 -

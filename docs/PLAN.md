@@ -206,7 +206,8 @@ A failure produces a `count_mismatch` flag that the human must resolve before ap
 ```
 
 The viewer and the exporter share these rules:
-- **Animations:** one glTF animation per step, named `step_NN` in guide order. Each animation touches **only the nodes that move in that step**, with absolute keyframes.
+- **Animations:** the first glTF animation, `walkthrough`, plays the whole guide. After it comes one animation per step, named `step_NN` in guide order. Each step animation touches only the nodes that move in that step, plus the root node `assembly`, with absolute keyframes.
+- **Actions (added Sat 21:00):** each step carries an ordered `actions` list, one entry per thing the person does: `turn` (the whole assembly is turned as the guide draws it, by animating the root node `assembly`), `place` (one part) and `fasten` (one screw goes to its hole, then turns while driven in). Each action has `type`, `node`, `t0_s`/`t1_s` inside the step clip, `target_m`, `from_dir` and `text.en`/`text.el`. Screws are never animated together. The step also has `pose` and `assemblyRotationDeg`. The viewer shows the current action's text and can highlight its node. Phase 2 uses the same list to say which screw comes next.
 - **Visibility:** glTF cannot toggle visibility, so the viewer shows `visible` nodes in their final pose and hides the rest.
 - **Units:** metres, Y-up.
 - **Camera:** an optional per-step camera node named `cam_step_NN`.

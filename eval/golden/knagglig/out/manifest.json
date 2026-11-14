@@ -4,6 +4,7 @@
  "glb": "walkthrough.glb",
  "units": "m",
  "fps": 24,
+ "rootNode": "assembly",
  "overall_mm": {
   "L": 460,
   "W": 310,
@@ -13,47 +14,56 @@
  },
  "walkthrough": {
   "clip": "walkthrough",
-  "duration_s": 20.17,
+  "duration_s": 65.0,
   "steps": [
    {
     "n": 1,
     "start_s": 0.0,
-    "end_s": 1.833
+    "end_s": 2.792
    },
    {
     "n": 2,
-    "start_s": 1.833,
-    "end_s": 4.583
+    "start_s": 2.792,
+    "end_s": 6.333
    },
    {
     "n": 3,
-    "start_s": 4.583,
-    "end_s": 6.417
+    "start_s": 6.333,
+    "end_s": 10.208
    },
    {
     "n": 4,
-    "start_s": 6.417,
-    "end_s": 9.167
+    "start_s": 10.208,
+    "end_s": 13.75
    },
    {
     "n": 5,
-    "start_s": 9.167,
-    "end_s": 11.917
+    "start_s": 13.75,
+    "end_s": 30.458
    },
    {
     "n": 6,
-    "start_s": 11.917,
-    "end_s": 14.667
+    "start_s": 30.458,
+    "end_s": 38.333
    },
    {
     "n": 7,
-    "start_s": 14.667,
-    "end_s": 17.417
+    "start_s": 38.333,
+    "end_s": 55.042
    },
    {
     "n": 8,
-    "start_s": 17.417,
-    "end_s": 20.167
+    "start_s": 55.042,
+    "end_s": 62.917
+   },
+   {
+    "n": "finish",
+    "start_s": 62.917,
+    "end_s": 65.0,
+    "text": {
+     "en": "Turn the box the right way up.",
+     "el": "Γύρισε το κουτί στην κανονική του θέση."
+    }
    }
   ]
  },
@@ -179,6 +189,56 @@
    "n": 1,
    "clip": "step_01",
    "title": "Stand a side panel against the end of the bottom panel",
+   "pose": "upright",
+   "assemblyRotationDeg": [
+    0,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "place",
+     "text": {
+      "en": "Lay the bottom panel flat in front of you.",
+      "el": "Ακούμπησε το κάτω πάνελ μπροστά σου."
+     },
+     "t0_s": 0.0,
+     "t1_s": 0.333,
+     "node": "part_bottom_panel_1",
+     "partId": "bottom_panel",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the side panel and put it in place here.",
+      "el": "Πάρε το πλαϊνό πάνελ και βάλε το στη θέση που φαίνεται."
+     },
+     "t0_s": 0.583,
+     "t1_s": 1.833,
+     "node": "part_side_panel_1",
+     "partId": "side_panel",
+     "target_m": [
+      0.0,
+      0.0,
+      0.006
+     ],
+     "from_dir": [
+      0.0,
+      -1.0,
+      0.0
+     ]
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1"
@@ -204,10 +264,14 @@
      0.148,
      0.125
     ],
-    "ortho_height": 0.6587,
+    "ortho_height": 0.7114,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 1.25,
+   "duration_s": 2.79,
+   "walkthrough": {
+    "start_s": 0.0,
+    "end_s": 2.792
+   },
    "cite": {
     "page": 3,
     "label": "1"
@@ -220,6 +284,58 @@
    "n": 2,
    "clip": "step_02",
    "title": "Fix it with two long screws",
+   "pose": "upright",
+   "assemblyRotationDeg": [
+    0,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a long screw (108363) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια μακριά βίδα (108363) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.167,
+     "node": "hw_108363_1",
+     "partId": "108363",
+     "target_m": [
+      0.01,
+      0.0,
+      0.02
+     ],
+     "from_dir": [
+      0.0,
+      -1.0,
+      0.0
+     ],
+     "code": "108363"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a long screw (108363) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια μακριά βίδα (108363) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 1.417,
+     "t1_s": 2.583,
+     "node": "hw_108363_2",
+     "partId": "108363",
+     "target_m": [
+      0.426,
+      0.0,
+      0.02
+     ],
+     "from_dir": [
+      0.0,
+      -1.0,
+      0.0
+     ],
+     "code": "108363"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -243,17 +359,21 @@
     "pos": [
      1.296,
      -1.4915,
-     0.809
+     0.699
     ],
     "target": [
      0.218,
      0.048,
-     0.125
+     0.015
     ],
-    "ortho_height": 0.8021,
+    "ortho_height": 0.8662,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 3.54,
+   "walkthrough": {
+    "start_s": 2.792,
+    "end_s": 6.333
+   },
    "cite": {
     "page": 3,
     "label": "2"
@@ -266,6 +386,49 @@
    "n": 3,
    "clip": "step_03",
    "title": "Turn it over and add the second side panel",
+   "pose": "upside_down",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "turn",
+     "text": {
+      "en": "Turn the assembly upside down.",
+      "el": "Γύρισε την κατασκευή ανάποδα."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.417,
+     "rotation_deg": [
+      180,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the side panel and put it in place here.",
+      "el": "Πάρε το πλαϊνό πάνελ και βάλε το στη θέση που φαίνεται."
+     },
+     "t0_s": 1.667,
+     "t1_s": 2.917,
+     "node": "part_side_panel_2",
+     "partId": "side_panel",
+     "target_m": [
+      0.436,
+      0.31,
+      0.006
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ]
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -286,17 +449,21 @@
     "pos": [
      1.2309,
      -1.2915,
-     1.0639
+     0.9539
     ],
     "target": [
      0.218,
      0.155,
-     0.125
+     0.015
     ],
-    "ortho_height": 0.9555,
+    "ortho_height": 0.801,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 1.25,
+   "duration_s": 3.88,
+   "walkthrough": {
+    "start_s": 6.333,
+    "end_s": 10.208
+   },
    "cite": {
     "page": 4,
     "label": "3"
@@ -309,6 +476,58 @@
    "n": 4,
    "clip": "step_04",
    "title": "Fix it with two long screws",
+   "pose": "upside_down",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a long screw (108363) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια μακριά βίδα (108363) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.167,
+     "node": "hw_108363_3",
+     "partId": "108363",
+     "target_m": [
+      0.426,
+      0.31,
+      0.02
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "108363"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a long screw (108363) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια μακριά βίδα (108363) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 1.417,
+     "t1_s": 2.583,
+     "node": "hw_108363_4",
+     "partId": "108363",
+     "target_m": [
+      0.01,
+      0.31,
+      0.02
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "108363"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -335,17 +554,21 @@
     "pos": [
      -0.86,
      1.6945,
-     0.809
+     0.699
     ],
     "target": [
      0.218,
      0.155,
-     0.125
+     0.015
     ],
-    "ortho_height": 0.9555,
+    "ortho_height": 0.9014,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 3.54,
+   "walkthrough": {
+    "start_s": 10.208,
+    "end_s": 13.75
+   },
    "cite": {
     "page": 4,
     "label": "4"
@@ -358,6 +581,246 @@
    "n": 5,
    "clip": "step_05",
    "title": "Stand the box on end and screw on two end slats",
+   "pose": "on_end_a",
+   "assemblyRotationDeg": [
+    0,
+    90,
+    0
+   ],
+   "actions": [
+    {
+     "type": "turn",
+     "text": {
+      "en": "Stand the assembly on its end, open end up.",
+      "el": "Στήσε την κατασκευή όρθια, με την ανοιχτή άκρη προς τα πάνω."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.417,
+     "rotation_deg": [
+      0,
+      90,
+      0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the plain slat and put it in place here.",
+      "el": "Πάρε μια απλή σανίδα και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 1.667,
+     "t1_s": 2.917,
+     "node": "part_end_slat_1",
+     "partId": "end_slat",
+     "target_m": [
+      -0.012,
+      0.31,
+      0.006
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the plain slat and put it in place here.",
+      "el": "Πάρε μια απλή σανίδα και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 3.167,
+     "t1_s": 4.417,
+     "node": "part_end_slat_2",
+     "partId": "end_slat",
+     "target_m": [
+      -0.012,
+      0.31,
+      0.093
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 1 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 1 από 8."
+     },
+     "t0_s": 4.667,
+     "t1_s": 5.833,
+     "node": "hw_108560_1",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.023
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 2 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 2 από 8."
+     },
+     "t0_s": 6.083,
+     "t1_s": 7.25,
+     "node": "hw_108560_2",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.059
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 3 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 3 από 8."
+     },
+     "t0_s": 7.5,
+     "t1_s": 8.667,
+     "node": "hw_108560_3",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.023
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 4 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 4 από 8."
+     },
+     "t0_s": 8.917,
+     "t1_s": 10.083,
+     "node": "hw_108560_4",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.059
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 5 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 5 από 8."
+     },
+     "t0_s": 10.333,
+     "t1_s": 11.5,
+     "node": "hw_108560_5",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.11
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 6 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 6 από 8."
+     },
+     "t0_s": 11.75,
+     "t1_s": 12.917,
+     "node": "hw_108560_6",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.146
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 7 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 7 από 8."
+     },
+     "t0_s": 13.167,
+     "t1_s": 14.333,
+     "node": "hw_108560_7",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.11
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 8 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 8 από 8."
+     },
+     "t0_s": 14.583,
+     "t1_s": 15.75,
+     "node": "hw_108560_8",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.146
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -402,19 +865,23 @@
    "camera": {
     "node": "cam_step_05",
     "pos": [
-     -1.2765,
-     -1.0101,
-     0.9702
+     -1.0773,
+     -0.8981,
+     1.4712
     ],
     "target": [
-     0.112,
+     0.1777,
      0.155,
-     0.125
+     0.324
     ],
-    "ortho_height": 1.009,
+    "ortho_height": 0.9678,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 16.71,
+   "walkthrough": {
+    "start_s": 13.75,
+    "end_s": 30.458
+   },
    "cite": {
     "page": 5,
     "label": "5"
@@ -427,6 +894,123 @@
    "n": 6,
    "clip": "step_06",
    "title": "Screw on the handle slat",
+   "pose": "on_end_a",
+   "assemblyRotationDeg": [
+    0,
+    90,
+    0
+   ],
+   "actions": [
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the slat with the handle cut-out and put it in place here.",
+      "el": "Πάρε τη σανίδα με τη λαβή και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.25,
+     "node": "part_end_slat_handle_1",
+     "partId": "end_slat_handle",
+     "target_m": [
+      -0.012,
+      0.31,
+      0.18
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 1 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 1 από 4."
+     },
+     "t0_s": 1.5,
+     "t1_s": 2.667,
+     "node": "hw_108560_9",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.197
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 2 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 2 από 4."
+     },
+     "t0_s": 2.917,
+     "t1_s": 4.083,
+     "node": "hw_108560_10",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.284,
+      0.233
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 3 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 3 από 4."
+     },
+     "t0_s": 4.333,
+     "t1_s": 5.5,
+     "node": "hw_108560_11",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.197
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 4 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 4 από 4."
+     },
+     "t0_s": 5.75,
+     "t1_s": 6.917,
+     "node": "hw_108560_12",
+     "partId": "108560",
+     "target_m": [
+      -0.012,
+      0.026,
+      0.233
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -471,19 +1055,23 @@
    "camera": {
     "node": "cam_step_06",
     "pos": [
-     -1.2765,
-     -1.0101,
-     0.9702
+     -1.0338,
+     -0.8981,
+     1.4712
     ],
     "target": [
-     0.112,
+     0.2212,
      0.155,
-     0.125
+     0.324
     ],
-    "ortho_height": 1.009,
+    "ortho_height": 1.0194,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 7.88,
+   "walkthrough": {
+    "start_s": 30.458,
+    "end_s": 38.333
+   },
    "cite": {
     "page": 6,
     "label": "6"
@@ -496,6 +1084,246 @@
    "n": 7,
    "clip": "step_07",
    "title": "Turn the box over and screw two end slats onto the other end",
+   "pose": "on_end_b",
+   "assemblyRotationDeg": [
+    0,
+    -90,
+    0
+   ],
+   "actions": [
+    {
+     "type": "turn",
+     "text": {
+      "en": "Turn the box over onto the finished end.",
+      "el": "Γύρισε το κουτί ανάποδα, πάνω στην έτοιμη άκρη."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.417,
+     "rotation_deg": [
+      0,
+      -90,
+      0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the plain slat and put it in place here.",
+      "el": "Πάρε μια απλή σανίδα και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 1.667,
+     "t1_s": 2.917,
+     "node": "part_end_slat_3",
+     "partId": "end_slat",
+     "target_m": [
+      0.448,
+      0.0,
+      0.006
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the plain slat and put it in place here.",
+      "el": "Πάρε μια απλή σανίδα και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 3.167,
+     "t1_s": 4.417,
+     "node": "part_end_slat_4",
+     "partId": "end_slat",
+     "target_m": [
+      0.448,
+      0.0,
+      0.093
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 1 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 1 από 8."
+     },
+     "t0_s": 4.667,
+     "t1_s": 5.833,
+     "node": "hw_108560_13",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.023
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 2 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 2 από 8."
+     },
+     "t0_s": 6.083,
+     "t1_s": 7.25,
+     "node": "hw_108560_14",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.059
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 3 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 3 από 8."
+     },
+     "t0_s": 7.5,
+     "t1_s": 8.667,
+     "node": "hw_108560_15",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.023
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 4 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 4 από 8."
+     },
+     "t0_s": 8.917,
+     "t1_s": 10.083,
+     "node": "hw_108560_16",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.059
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 5 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 5 από 8."
+     },
+     "t0_s": 10.333,
+     "t1_s": 11.5,
+     "node": "hw_108560_17",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.11
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 6 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 6 από 8."
+     },
+     "t0_s": 11.75,
+     "t1_s": 12.917,
+     "node": "hw_108560_18",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.146
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 7 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 7 από 8."
+     },
+     "t0_s": 13.167,
+     "t1_s": 14.333,
+     "node": "hw_108560_19",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.11
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 8 of 8.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 8 από 8."
+     },
+     "t0_s": 14.583,
+     "t1_s": 15.75,
+     "node": "hw_108560_20",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.146
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -555,19 +1383,23 @@
    "camera": {
     "node": "cam_step_07",
     "pos": [
-     1.6065,
-     -1.0101,
-     0.9702
+     -1.0402,
+     -0.8981,
+     1.5772
     ],
     "target": [
-     0.218,
+     0.2148,
      0.155,
-     0.125
+     0.43
     ],
-    "ortho_height": 1.0302,
+    "ortho_height": 0.9828,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 16.71,
+   "walkthrough": {
+    "start_s": 38.333,
+    "end_s": 55.042
+   },
    "cite": {
     "page": 7,
     "label": "7"
@@ -580,6 +1412,123 @@
    "n": 8,
    "clip": "step_08",
    "title": "Screw on the second handle slat",
+   "pose": "on_end_b",
+   "assemblyRotationDeg": [
+    0,
+    -90,
+    0
+   ],
+   "actions": [
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the slat with the handle cut-out and put it in place here.",
+      "el": "Πάρε τη σανίδα με τη λαβή και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.25,
+     "node": "part_end_slat_handle_2",
+     "partId": "end_slat_handle",
+     "target_m": [
+      0.448,
+      0.0,
+      0.18
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 1 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 1 από 4."
+     },
+     "t0_s": 1.5,
+     "t1_s": 2.667,
+     "node": "hw_108560_21",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.197
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 2 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 2 από 4."
+     },
+     "t0_s": 2.917,
+     "t1_s": 4.083,
+     "node": "hw_108560_22",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.026,
+      0.233
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 3 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 3 από 4."
+     },
+     "t0_s": 4.333,
+     "t1_s": 5.5,
+     "node": "hw_108560_23",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.197
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a short screw (108560) and screw it in here. Screw 4 of 4.",
+      "el": "Πάρε μια κοντή βίδα (108560) και βίδωσέ την εδώ. Βίδα 4 από 4."
+     },
+     "t0_s": 5.75,
+     "t1_s": 6.917,
+     "node": "hw_108560_24",
+     "partId": "108560",
+     "target_m": [
+      0.448,
+      0.284,
+      0.233
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "108560"
+    }
+   ],
    "visible": [
     "part_bottom_panel_1",
     "part_side_panel_1",
@@ -639,19 +1588,23 @@
    "camera": {
     "node": "cam_step_08",
     "pos": [
-     1.6065,
-     -1.0101,
-     0.9702
+     -1.0402,
+     -0.8981,
+     1.5772
     ],
     "target": [
-     0.218,
+     0.2148,
      0.155,
-     0.125
+     0.43
     ],
-    "ortho_height": 1.0302,
+    "ortho_height": 0.9828,
     "up": "Z (Blender); the GLB is Y-up"
    },
-   "duration_s": 2.17,
+   "duration_s": 7.88,
+   "walkthrough": {
+    "start_s": 55.042,
+    "end_s": 62.917
+   },
    "cite": {
     "page": 8,
     "label": "8"
@@ -659,6 +1612,18 @@
    "crop": null,
    "refRender": "renders/step_08.png",
    "flags": []
+  }
+ ],
+ "flags": [
+  {
+   "ref": "step:4",
+   "kind": "unclear_drawing",
+   "message": "The drawing shows the two long screws driven straight down through the flat panel into the ends of the uprights. The model fixes the second side panel like the first (sideways into the batten ends). Check on the real product."
+  },
+  {
+   "ref": "part:bottom_panel",
+   "kind": "unclear_drawing",
+   "message": "Steps 1-2 draw the cross battens on the inside face; the cover suggests they sit underneath as feet. The model has them inside."
   }
  ]
 }

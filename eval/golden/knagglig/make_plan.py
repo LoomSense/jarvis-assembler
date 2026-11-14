@@ -11,20 +11,20 @@ dims = {"L": 460, "W": 310, "H": 250, "t": 12, "slat_h": 70, "row_gap": 17, "z0"
 est = {"estimated": True, "basis": "scaled from published overall size 460 x 310 x 250 mm"}
 
 parts = [
-    {"id": "bottom_panel", "name": "Bottom panel (pre-assembled)", "count": 1, "script": "parts/bottom_panel.py",
+    {"id": "bottom_panel", "name": "Bottom panel (pre-assembled)", "short": "bottom panel", "el": "το κάτω πάνελ", "el_pron": "το", "count": 1, "script": "parts/bottom_panel.py",
      "material": "pine", "cite": {"page": 3, "label": None, "note": "step 1, lying flat"}, "dims": est},
-    {"id": "side_panel", "name": "Long side panel (pre-assembled)", "count": 2, "script": "parts/side_panel.py",
+    {"id": "side_panel", "name": "Long side panel (pre-assembled)", "short": "side panel", "el": "το πλαϊνό πάνελ", "el_pron": "το", "count": 2, "script": "parts/side_panel.py",
      "material": "pine", "cite": {"page": 3, "label": None, "note": "step 1, standing"}, "dims": est},
-    {"id": "end_slat", "name": "End slat", "count": 4, "script": "parts/end_slat.py",
+    {"id": "end_slat", "name": "End slat", "short": "plain slat", "el": "μια απλή σανίδα", "el_pron": "την", "count": 4, "script": "parts/end_slat.py",
      "material": "pine", "cite": {"page": 5, "label": None, "note": "step 5"}, "dims": est},
-    {"id": "end_slat_handle", "name": "End slat with handle cut-out", "count": 2, "script": "parts/end_slat.py",
+    {"id": "end_slat_handle", "name": "End slat with handle cut-out", "short": "slat with the handle cut-out", "el": "τη σανίδα με τη λαβή", "el_pron": "την", "count": 2, "script": "parts/end_slat.py",
      "params": {"handle": True}, "material": "pine", "cite": {"page": 6, "label": None, "note": "step 6"}, "dims": est},
 ]
 hardware = [
-    {"code": "108363", "kind": "screw", "name": "Long screw", "count": 4, "script": "parts/screw.py",
+    {"code": "108363", "kind": "screw", "name": "Long screw", "short": "long screw", "el": "μακριά βίδα", "count": 4, "script": "parts/screw.py",
      "params": {"length": 60, "shank_d": 4.5, "head_d": 9.0, "head_h": 3.5}, "material": "steel",
      "cite": {"page": 2, "label": "108363"}, "dims": est},
-    {"code": "108560", "kind": "screw", "name": "Short screw", "count": 24, "script": "parts/screw.py",
+    {"code": "108560", "kind": "screw", "name": "Short screw", "short": "short screw", "el": "κοντή βίδα", "count": 24, "script": "parts/screw.py",
      "params": {"length": 30, "shank_d": 3.5, "head_d": 7.0, "head_h": 2.8}, "material": "steel",
      "cite": {"page": 2, "label": "108560"}, "dims": est},
 ]
@@ -40,7 +40,14 @@ def screws(code, targets):
     return out
 
 
-def step(n, page, title, add, flip=False, view=(-55, 28)):  # view = camera azimuth, elevation
+ROT = {"upright": [0, 0, 0], "upside_down": [180, 0, 0], "on_end_a": [0, 90, 0], "on_end_b": [0, -90, 0]}
+TURN = {"upright": ("Turn the box the right way up.", "Γύρισε το κουτί στην κανονική του θέση."),
+        "upside_down": ("Turn the assembly upside down.", "Γύρισε την κατασκευή ανάποδα."),
+        "on_end_a": ("Stand the assembly on its end, open end up.", "Στήσε την κατασκευή όρθια, με την ανοιχτή άκρη προς τα πάνω."),
+        "on_end_b": ("Turn the box over onto the finished end.", "Γύρισε το κουτί ανάποδα, πάνω στην έτοιμη άκρη.")}
+
+
+def step(n, page, title, add, flip=False, view=(-55, 28), pose="upright"):  # view = camera azimuth, elevation
     hw = {}
     for a in add:
         code = a["instance"].split("#")[0]
@@ -49,7 +56,9 @@ def step(n, page, title, add, flip=False, view=(-55, 28)):  # view = camera azim
     parts_added = [a["instance"].split("#")[0] for a in add if a["instance"].split("#")[0] not in used]
     steps.append({"n": n, "title": title, "cite": {"page": page, "label": str(n)}, "add": add,
                   "parts_added": parts_added,   # PLAN section 4.2 field, read by eval/score_plan.py
-                  "hardware_used": hw, "flip_whole_assembly": flip, "view_az_el_deg": list(view)})
+                  "hardware_used": hw, "flip_whole_assembly": flip, "view_az_el_deg": list(view),
+                  "pose": pose, "assembly_rotation_deg": ROT[pose],
+                  "turn_text": {"en": TURN[pose][0], "el": TURN[pose][1]}})
 
 
 def panel(i, pilots):
@@ -74,24 +83,28 @@ def slat_screws(inst):
 step(1, 3, "Stand a side panel against the end of the bottom panel",
      [{"instance": "bottom_panel#1", "base": True}, panel(1, ("pilot_A1", "pilot_A2"))], view=(125, 28))
 step(2, 3, "Fix it with two long screws", screws("108363", ["side_panel#1.bolt_in_1", "side_panel#1.bolt_in_2"]), view=(-55, 20))
-step(3, 4, "Turn it over and add the second side panel", [panel(2, ("pilot_B2", "pilot_B1"))], flip=True, view=(-55, 28))
-step(4, 4, "Fix it with two long screws", screws("108363", ["side_panel#2.bolt_in_1", "side_panel#2.bolt_in_2"]), view=(125, 20))
+step(3, 4, "Turn it over and add the second side panel", [panel(2, ("pilot_B2", "pilot_B1"))], flip=True, view=(-55, 28), pose="upside_down")
+step(4, 4, "Fix it with two long screws", screws("108363", ["side_panel#2.bolt_in_1", "side_panel#2.bolt_in_2"]), view=(125, 20), pose="upside_down")
 E1 = (("side_panel#2", 2), ("side_panel#1", 1))   # end at x = 0
 E2 = (("side_panel#1", 2), ("side_panel#2", 1))   # end at x = L
 step(5, 5, "Stand the box on end and screw on two end slats",
      [slat("end_slat#1", 1, *E1), slat("end_slat#2", 2, *E1)] + slat_screws("end_slat#1") + slat_screws("end_slat#2"),
-     view=(-140, 25))
+     view=(-140, 35), pose="on_end_a")
 step(6, 6, "Screw on the handle slat",
-     [slat("end_slat_handle#1", 3, *E1)] + slat_screws("end_slat_handle#1"), view=(-140, 25))
+     [slat("end_slat_handle#1", 3, *E1)] + slat_screws("end_slat_handle#1"), view=(-140, 35), pose="on_end_a")
 step(7, 7, "Turn the box over and screw two end slats onto the other end",
      [slat("end_slat#3", 1, *E2), slat("end_slat#4", 2, *E2)] + slat_screws("end_slat#3") + slat_screws("end_slat#4"),
-     flip=True, view=(-40, 25))
+     flip=True, view=(-140, 35), pose="on_end_b")
 step(8, 8, "Screw on the second handle slat",
-     [slat("end_slat_handle#2", 3, *E2)] + slat_screws("end_slat_handle#2"), view=(-40, 25))
+     [slat("end_slat_handle#2", 3, *E2)] + slat_screws("end_slat_handle#2"), view=(-140, 35), pose="on_end_b")
 
 plan = {"title": "KNAGGLIG box", "guide": GUIDE, "guide_id": "AA-1159337-7", "units": "mm",
         "overall_mm": {"L": 460, "W": 310, "H": 250, "estimated": False, "basis": "published product size"},
-        "cover_view_az_el_deg": [-128, 24], "dims": dims, "parts": parts, "hardware": hardware, "steps": steps, "flags": []}
+        "cover_view_az_el_deg": [-128, 24], "dims": dims, "parts": parts, "hardware": hardware, "steps": steps,
+        "final_turn_text": {"en": TURN["upright"][0], "el": TURN["upright"][1]},
+        "flags": [
+            {"ref": "step:4", "kind": "unclear_drawing", "message": "The drawing shows the two long screws driven straight down through the flat panel into the ends of the uprights. The model fixes the second side panel like the first (sideways into the batten ends). Check on the real product."},
+            {"ref": "part:bottom_panel", "kind": "unclear_drawing", "message": "Steps 1-2 draw the cross battens on the inside face; the cover suggests they sit underneath as feet. The model has them inside."}]}
 for h in hardware:
     assert used[h["code"]] == h["count"], (h["code"], used[h["code"]])
 Path(__file__).with_name("plan.json").write_text(json.dumps(plan, indent=1))
