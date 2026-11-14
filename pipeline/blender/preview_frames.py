@@ -10,6 +10,7 @@ import json
 import sys
 
 import bpy
+from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
 args = sys.argv[sys.argv.index("--") + 1:]
@@ -66,5 +67,14 @@ for f in range(1, s.frame_end + 1, fstep):
     i += 1
     s.render.filepath = f"{out}/f{i:05d}.jpg"
     bpy.ops.render.render(write_still=True)
-    index.append({"step": si, "action": ai, "after_last": t >= steps[-1]["walkthrough"]["end_s"]})
+    entry = {"step": si, "action": ai, "after_last": t >= steps[-1]["walkthrough"]["end_s"]}
+    if act and act.get("target_m"):
+        # where the action's target point is in the picture, and which way the piece comes from, for a callout
+        bpy.context.view_layer.update()
+        tw = root.matrix_world @ Vector(act["target_m"])
+        fw = tw + (root.matrix_world.to_3x3() @ Vector(act["from_dir"])) * 0.05
+        px = [world_to_camera_view(s, cam, v) for v in (tw, fw)]
+        entry["target_px"] = [round(px[0].x * size, 1), round((1 - px[0].y) * size, 1)]
+        entry["from_px"] = [round(px[1].x * size, 1), round((1 - px[1].y) * size, 1)]
+    index.append(entry)
 json.dump({"fps": fps / fstep, "size": size, "frames": index}, open(f"{out}/frames.json", "w"))
