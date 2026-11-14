@@ -228,6 +228,7 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sat 23:15 · for C · the server runs the pipeline stage by stage (harness, fit check, `assemble.py`, `refs`, then `pack` and `crops`), not through `pipeline/run.py`. A test builds KNAGGLIG both ways and fails if the server makes fewer files, so a new step in `run.py` also needs a line in `server/orchestrator/stages.py` or `pipeline_cli.py`. `crops.build` gets a copy of the plan whose `guide` is the uploaded PDF
 - Sat 23:15 · for E · put the perception WebSocket in `server/perception/routes.py` as `router`; the app includes it when the module exists, and `server.auth.ws_has_key(ws)` checks the demo key. `POST /api/live/token` is written but not tried against the API. The client must send `sessionResumption` itself (D18)
 - Sat 23:15 · tools on A's Mac (M4 Pro) · Python 3.12 venv, Blender 5.3.0, cloudflared 2026.11.0, gitleaks and gltfpack (`npm ci` in `eval/glb_check`) are installed. The boxd CLI is not
+- Sat 23:25 · INF-01 to INF-04 · hardened after an independent review of `server/`: the demo key is checked before an upload is read (also on `/ws`), plan scripts must be `parts/<name>.py`, a crashed server's leftover Blender is stopped on restart (tested with `kill -9` during `steps`), queue time no longer counts against the 40-minute budget, stage processes do not inherit secrets; 14 tests pass · `1abcaa0`, `cecaaea`
 
 ### Log B
 -
