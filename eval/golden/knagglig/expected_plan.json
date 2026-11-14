@@ -1,0 +1,31 @@
+{
+  "title": "KNAGGLIG box",
+  "guide": "eval/guides/ikea/knagglig-box__AA-1159337-7.pdf",
+  "labelled": {"by": "hand, from the PDF pages", "date": "2026-11-14", "checked_against_product": false},
+  "pages": {"1": "cover", "2": "parts_list", "3": "step", "4": "step", "5": "step", "6": "step", "7": "step", "8": "step"},
+  "parts": [
+    {"id": "bottom_panel", "aliases": ["bottom", "base", "floor", "bottom frame", "slatted bottom"], "name": "Bottom panel (pre-assembled: 3 boards on 2 battens)", "count": 1, "shape": "other", "cite": {"page": 3, "label": ""}},
+    {"id": "end_frame", "aliases": ["end panel", "end", "side frame", "short side", "end wall"], "name": "End frame (pre-assembled: 2 uprights with slats)", "count": 2, "shape": "other", "cite": {"page": 3, "label": ""}},
+    {"id": "side_slat", "aliases": ["side board", "long slat", "slat", "side panel", "plain slat"], "name": "Side slat, plain", "count": 4, "shape": "board", "cite": {"page": 5, "label": ""}},
+    {"id": "handle_slat", "aliases": ["side slat with handle", "handle board", "top slat", "slat with cutout", "handle"], "name": "Side slat with handle cut-out", "count": 2, "shape": "board", "cite": {"page": 6, "label": ""}}
+  ],
+  "hardware": [
+    {"code": "108363", "kind": "screw", "count": 4, "cite": {"page": 2, "label": "108363"}},
+    {"code": "108560", "kind": "screw", "count": 24, "cite": {"page": 2, "label": "108560"}}
+  ],
+  "steps": [
+    {"n": 1, "cite": {"page": 3, "label": "1"}, "parts_added": ["bottom_panel", "end_frame"], "hardware_used": {}, "flip_whole_assembly": false, "notes": "Push the first end frame against the end of the bottom panel."},
+    {"n": 2, "cite": {"page": 3, "label": "2"}, "parts_added": [], "hardware_used": {"108363": 2}, "flip_whole_assembly": false, "notes": "2 long screws through the end frame into the bottom battens."},
+    {"n": 3, "cite": {"page": 4, "label": "3"}, "parts_added": ["end_frame"], "hardware_used": {}, "flip_whole_assembly": true, "notes": "Inset shows the assembly turned over before the second end frame goes on."},
+    {"n": 4, "cite": {"page": 4, "label": "4"}, "parts_added": [], "hardware_used": {"108363": 2}, "flip_whole_assembly": false, "notes": "2 long screws, driven from above."},
+    {"n": 5, "cite": {"page": 5, "label": "5"}, "parts_added": ["side_slat", "side_slat"], "hardware_used": {"108560": 8}, "flip_whole_assembly": false, "notes": "Box stands on one end frame. Info box on the same page: slat ends flush with the frame."},
+    {"n": 6, "cite": {"page": 6, "label": "6"}, "parts_added": ["handle_slat"], "hardware_used": {"108560": 4}, "flip_whole_assembly": false, "notes": "Handle slat goes at the open (top) edge."},
+    {"n": 7, "cite": {"page": 7, "label": "7"}, "parts_added": ["side_slat", "side_slat"], "hardware_used": {"108560": 8}, "flip_whole_assembly": true, "notes": "Turn-over arrow is printed at the bottom of page 6, after step 6."},
+    {"n": 8, "cite": {"page": 8, "label": "8"}, "parts_added": ["handle_slat"], "hardware_used": {"108560": 4}, "flip_whole_assembly": false, "notes": ""}
+  ],
+  "open_questions": [
+    "The guide has no parts list for the wooden parts; part ids are ours (PLAN §0 rule 1).",
+    "Flip at step 3 and step 7 is our reading of the two turn-over insets. Confirm on the physical product.",
+    "The reorientation between step 4 and step 5 (box stood on its end) is drawn but has no arrow; not counted as a flip."
+  ]
+}

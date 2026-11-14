@@ -1,0 +1,21 @@
+{
+  "title": "LACK side table",
+  "guide": "eval/guides/ikea/lack-side-table__AA-2606170-1.pdf",
+  "labelled": {"by": "hand, from the PDF pages", "date": "2026-11-14", "checked_against_product": false},
+  "pages": {"1": "step", "2": "warning_text", "3": "warning_text", "4": "warning_text"},
+  "parts": [
+    {"id": "table_top", "aliases": ["top", "tabletop", "top panel", "board"], "name": "Table top", "count": 1, "shape": "board", "cite": {"page": 1, "label": ""}},
+    {"id": "leg", "aliases": ["table leg", "post"], "name": "Leg", "count": 4, "shape": "other", "cite": {"page": 1, "label": ""}}
+  ],
+  "hardware": [
+    {"code": "115980", "kind": "screw", "count": 4, "cite": {"page": 1, "label": "115980"}}
+  ],
+  "steps": [
+    {"n": 1, "cite": {"page": 1, "label": ""}, "parts_added": ["table_top"], "hardware_used": {"115980": 4}, "flip_whole_assembly": false, "notes": "Twist a double-ended screw by hand into each corner hole of the top."},
+    {"n": 2, "cite": {"page": 1, "label": ""}, "parts_added": ["leg", "leg", "leg", "leg"], "hardware_used": {}, "flip_whole_assembly": false, "notes": "Twist each leg onto its screw."}
+  ],
+  "open_questions": [
+    "The guide prints no step numbers: both actions are two circles on page 1. We count them as 2 steps.",
+    "The final turn-upright is not drawn, so it is not a step."
+  ]
+}
