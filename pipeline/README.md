@@ -42,8 +42,8 @@ Fasteners use one frame, `seat`, under the head with the axis along the shank.
 
 ## What the viewer gets
 
-- `walkthrough.glb`: metres, Y-up, one animation per step named `step_NN`, nodes `part_<id>_<n>` and `hw_<code>_<n>`, one camera per step `cam_step_NN`. Pieces rest at their assembled pose; each clip moves only that step's pieces in from the direction they are inserted (boards first, then their screws).
-- `manifest.json`: per step the clip, title, visible nodes, moving nodes, parts to pick up, hardware and counts, camera, guide page, and the check render.
+- `walkthrough.glb`: metres, Y-up. The first animation, `walkthrough`, plays the whole assembly in the guide's order (20 s for KNAGGLIG): each piece stays hidden until its step, then moves into place, with a short pause between steps. After it come one animation per step named `step_NN`, in order, for viewers that step through manually. Other details: nodes `part_<id>_<n>` and `hw_<code>_<n>`, one camera per step `cam_step_NN`. Pieces rest at their assembled pose; each clip moves only that step's pieces in from the direction they are inserted (boards first, then their screws).
+- `manifest.json`: the start and end time of every step inside `walkthrough`, and per step the clip, title, visible nodes, moving nodes, parts to pick up, hardware and counts, camera, guide page, and the check render.
 
 A ready-made sample is in `eval/golden/knagglig/out/`.
 

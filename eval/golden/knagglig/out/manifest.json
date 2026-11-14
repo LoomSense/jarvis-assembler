@@ -11,6 +11,52 @@
   "estimated": false,
   "basis": "published product size"
  },
+ "walkthrough": {
+  "clip": "walkthrough",
+  "duration_s": 20.17,
+  "steps": [
+   {
+    "n": 1,
+    "start_s": 0.0,
+    "end_s": 1.833
+   },
+   {
+    "n": 2,
+    "start_s": 1.833,
+    "end_s": 4.583
+   },
+   {
+    "n": 3,
+    "start_s": 4.583,
+    "end_s": 6.417
+   },
+   {
+    "n": 4,
+    "start_s": 6.417,
+    "end_s": 9.167
+   },
+   {
+    "n": 5,
+    "start_s": 9.167,
+    "end_s": 11.917
+   },
+   {
+    "n": 6,
+    "start_s": 11.917,
+    "end_s": 14.667
+   },
+   {
+    "n": 7,
+    "start_s": 14.667,
+    "end_s": 17.417
+   },
+   {
+    "n": 8,
+    "start_s": 17.417,
+    "end_s": 20.167
+   }
+  ]
+ },
  "parts": [
   {
    "id": "bottom_panel",
@@ -365,7 +411,7 @@
      0.155,
      0.125
     ],
-    "ortho_height": 1.0302,
+    "ortho_height": 1.009,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 2.17,
@@ -434,7 +480,7 @@
      0.155,
      0.125
     ],
-    "ortho_height": 1.0302,
+    "ortho_height": 1.009,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 2.17,

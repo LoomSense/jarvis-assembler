@@ -99,6 +99,41 @@ for step in plan["steps"]:
         ad.action = None
         o.location = final
 
+# --- one combined track: every step in the guide's order, pieces appearing only when their step starts ---
+# glTF cannot animate visibility, so a piece is scaled to (almost) nothing until its step begins.
+HOLD = 14                                              # frames of pause after each step
+HIDDEN = (1e-4, 1e-4, 1e-4)
+timeline, cursor = [], 0
+for step in plan["steps"]:
+    has_hw = any(placed[a["instance"]]["kind"] == "hardware" for a in step["add"])
+    length = (SPAN["hardware"][1] if has_hw else SPAN["part"][1]) + HOLD
+    timeline.append({"n": step["n"], "start_s": round(cursor / FPS, 3), "end_s": round((cursor + length) / FPS, 3)})
+    for add in step["add"]:
+        if add.get("base"):
+            continue
+        inst = add["instance"]; pl = placed[inst]; o = objs[inst]
+        final = o.location.copy()
+        f0, f1 = cursor + SPAN[pl["kind"]][0], cursor + SPAN[pl["kind"]][1]
+        o.scale = HIDDEN
+        o.keyframe_insert("scale", frame=1)
+        if f0 - 1 > 1:
+            o.keyframe_insert("scale", frame=f0 - 1)
+        o.scale = (1, 1, 1)
+        o.keyframe_insert("scale", frame=f0)
+        o.location = final + Vector(pl["approach"]) * TRAVEL[pl["kind"]]
+        o.keyframe_insert("location", frame=f0)
+        o.location = final
+        o.keyframe_insert("location", frame=f1)
+        ad = o.animation_data
+        act = ad.action; act.name = f"walkthrough__{o.name}"
+        tr = ad.nla_tracks.new(); tr.name = "walkthrough"
+        tr.strips.new(act.name, 1, act)
+        ad.action = None
+        o.location = final; o.scale = (1, 1, 1)
+    cursor += length
+TOTAL_FRAMES = cursor
+scene.frame_start, scene.frame_end = 1, TOTAL_FRAMES
+
 
 # --- cameras: one per step, orthographic like the guide's drawings ---------------------------------
 def bounds(instances):
@@ -147,6 +182,7 @@ for step in plan["steps"]:
 manifest = {
     "title": plan["title"], "guideId": plan.get("guide_id"), "glb": "walkthrough.glb", "units": "m", "fps": FPS,
     "overall_mm": plan.get("overall_mm"),
+    "walkthrough": {"clip": "walkthrough", "duration_s": round(TOTAL_FRAMES / FPS, 2), "steps": timeline},
     "parts": [{"id": p["id"], "name": p["name"], "count": p["count"], "cite": p["cite"],
                "dimsEstimated": p.get("dims", {}).get("estimated", True),
                "nodes": [n for i, n in nodes.items() if i.split("#")[0] == p["id"]]} for p in plan["parts"]],
@@ -161,8 +197,30 @@ bpy.ops.export_scene.gltf(
     filepath=str(out / "walkthrough.glb"), export_format="GLB", export_animations=True,
     export_animation_mode="NLA_TRACKS", export_merge_animation="NLA_TRACK", export_anim_slide_to_zero=True,
     export_force_sampling=True, export_cameras=True, export_yup=True, export_extras=True, export_apply=False)
-scene.frame_start, scene.frame_end = 1, SPAN["hardware"][1]
-scene.frame_set(scene.frame_end)                              # every step finished: the assembled state
+
+
+def order_animations(path):
+    """Put `walkthrough` first, then step_01, step_02, ... A plain GLB viewer plays the first animation."""
+    import struct
+    raw = path.read_bytes()
+    jlen = struct.unpack_from("<I", raw, 12)[0]
+    doc = json.loads(raw[20:20 + jlen])
+    doc["animations"].sort(key=lambda a: (a["name"] != "walkthrough", a["name"]))
+    body = json.dumps(doc, separators=(",", ":")).encode()
+    body += b" " * (-len(body) % 4)
+    rest = raw[20 + jlen:]
+    path.write_bytes(struct.pack("<4sII", b"glTF", 2, 12 + 8 + len(body) + len(rest))
+                     + struct.pack("<I4s", len(body), b"JSON") + body + rest)
+    return [a["name"] for a in doc["animations"]]
+
+
+clip_order = order_animations(out / "walkthrough.glb")
+for o in objs.values():                                        # stills show the assembled state, not the combined clip
+    if o.animation_data:
+        for tr in o.animation_data.nla_tracks:
+            if tr.name == "walkthrough":
+                tr.mute = True
+scene.frame_set(SPAN["hardware"][1])                           # every per-step clip finished
 bpy.ops.wm.save_as_mainfile(filepath=str(out / "scene.blend"))
 
 # --- check renders: the state after each step, the step's new parts tinted -------------------------------
@@ -196,4 +254,5 @@ bpy.ops.render.render(write_still=True)
 
 tris = sum(len(o.data.loop_triangles) or len(o.data.polygons) for o in objs.values())
 print("RESULT " + json.dumps({"instances": len(objs), "steps": len(steps_out), "triangles": tris,
-                              "glb_bytes": (out / "walkthrough.glb").stat().st_size}))
+                              "glb_bytes": (out / "walkthrough.glb").stat().st_size,
+                              "clips": clip_order, "walkthrough_s": round(TOTAL_FRAMES / FPS, 1)}))
