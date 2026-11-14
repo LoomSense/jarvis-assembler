@@ -135,6 +135,20 @@ def compose(job: Path, n: int, cands: list[dict], px_per_mm: dict) -> Path:
     return path
 
 
+def questions(job: Path) -> dict:
+    """Phase-2 questions for every step (pipeline.perception.questions). AGJ_QUESTIONS=model lets gemini-4-hydrogen
+    write the visual criteria (one call per step, needs GEMINI_API_KEY); the default is template wording, with no
+    network; `off` skips it. A failure here never fails the build: phase 1 does not need the questions."""
+    mode = os.environ.get("AGJ_QUESTIONS", "template")
+    if mode == "off":
+        return {"skipped": "AGJ_QUESTIONS=off"}
+    try:
+        from pipeline.perception import questions as writer
+        return writer.build(job, use_model=mode == "model")
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"[:300]}
+
+
 def build(plan_path: Path, job: Path) -> dict:
     t0 = time.perf_counter()
     plan = json.loads(plan_path.read_text())
@@ -165,7 +179,9 @@ def build(plan_path: Path, job: Path) -> dict:
     for h in manifest["hardware"]:
         h["thumb"] = f"renders/part-{h['code']}-shaded.png"
     (job / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
-    return {"part_renders": parts["files"], "refs": len(refs["refs"]), "sheets": len(sizes), "sheet_bytes_max": max(sizes),
+    t3 = time.perf_counter()
+    asked = questions(job)
+    return {"questions": asked, "questions_s": round(time.perf_counter() - t3, 2), "part_renders": parts["files"], "refs": len(refs["refs"]), "sheets": len(sizes), "sheet_bytes_max": max(sizes),
             "look_alikes": {k: v for k, v in alike.items() if v},
             "timings_s": {"parts": round(t1 - t0, 2), "refs": round(t2 - t1, 2), "sheets": round(time.perf_counter() - t2, 2)}}
 

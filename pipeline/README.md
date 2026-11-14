@@ -108,3 +108,6 @@ It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipelin
 - `stream.py`: `Stream(ask, Watcher(pack), k=4)` for live use. `submit(jpeg, ts)` never blocks; K requests run at once, a
   frame that arrives while all are busy replaces the one waiting (old frames are never queued), answers reach the
   watcher in time order. `subscribe()` gives an asyncio queue of events. Tests: `tests/test_perception_stream.py`.
+- The refs stage (`pipeline.refs`, also what the server runs) now writes the questions itself. `AGJ_QUESTIONS=template`
+  (default) adds no time and no network; `AGJ_QUESTIONS=model` lets `gemini-4-hydrogen` write the criteria (about 25 s
+  for 8 steps, four calls at a time); `off` skips it. A failure there is reported in the result and never stops the build.

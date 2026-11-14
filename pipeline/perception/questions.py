@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from pipeline.check import gemini
@@ -195,11 +196,16 @@ def validate(q: dict) -> list[str]:
 def build(job: Path, use_model: bool = True) -> dict:
     manifest = json.loads((job / "manifest.json").read_text())
     by = {"model": 0, "template": 0}
+    sheets = [json.loads((job / "refs" / f"step-{s['n']:02d}-sheet.json").read_text()) for s in manifest["steps"]]
+    words = [None] * len(sheets)
+    if use_model:                                              # one call per step, four at a time
+        with ThreadPoolExecutor(4) as ex:
+            words = list(ex.map(lambda k: model_words(job, manifest, sheets[k], k), range(len(sheets))))
     for k, s in enumerate(manifest["steps"]):
         n = s["n"]
-        sheet = json.loads((job / "refs" / f"step-{n:02d}-sheet.json").read_text())
+        sheet = sheets[k]
         q = template(manifest, sheet, k)
-        w = model_words(job, manifest, sheet, k) if use_model else None
+        w = words[k]
         if w:
             q = merge(q, w)
         problems = validate(q)
