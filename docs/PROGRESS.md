@@ -91,7 +91,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | AGT-04 | `score_plan.py` against the expected plan | B (scorer by the data owner) | done | AGT-01, AGT-02 | Recall ≥ 0.9, counts exact ≥ 80%, Kendall τ ≥ 0.8 | `51384ab`: `eval/score_plan.py`. The plan written by the build agent from the PDF alone passes all three gates (1.00, 1.00, 1.00; flips 0.88; step content 0.75) · `eval/bakeoff/results/claude_sdk/` | Sat 23:50 |
 | AGT-05 | Hydrogen part loop with tools (§5.6), 3 attempts, events logged | B | doing | CAD-02, CAD-03 | Golden parts pass or are flagged | D20: done by the build agent on the Claude Agent SDK, not by Carbon/Hydrogen (`pipeline/agent/extract.py`, by the data owner). KNAGGLIG from a clean job: plan + 6 scripts, the build passed on its first run, 438 s, 33 turns, $2.12; `score_plan.py` PASS (all gates 1.00, flips 0.88). One run, one guide. The agent's scripts run in the CAD-09 sandbox. Events go to the feed; not yet seen through the server | Sat 23:50 |
 | AGT-06 | Hydrogen step-fix loop and flip choice | B | doing | CAD-05 | Golden steps pass or are flagged | D20: done by the build agent on the Claude Agent SDK, not by Carbon/Hydrogen (`pipeline/agent/extract.py`, by the data owner). KNAGGLIG from a clean job: plan + 6 scripts, the build passed on its first run, 438 s, 33 turns, $2.12; `score_plan.py` PASS (all gates 1.00, flips 0.88). One run, one guide. The agent compares the step renders with the guide itself; nothing measures how well | Sat 23:50 |
-| AGT-07 | Per-step Decision 1 question writer for phase 2 (§6.1) | B | todo | AGT-02 | Questions JSON cached per step and valid | | |
+| AGT-07 | Per-step Decision 1 question writer for phase 2 (§6.1) | B | done | AGT-02 | `94c1a86`: `pipeline/perception/questions.py` writes `refs/step-NN-questions.json` and sets `questions` on each manifest step; KNAGGLIG 8 of 8 written with `gemini-4-hydrogen` and valid against the API limits; option keys are the sheet labels. Done by the data owner. Not run from the server yet | Sun 00:45 |
 
 ### 3.4 CAD and Blender (C)
 
@@ -137,7 +137,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | ID | Task | Owner | Status | Depends on | Done when | Evidence | Updated |
 |---|---|---|---|---|---|---|---|
 | LIV-01 | Perception WS route with roles, frame protocol, ≤ 2 in flight, acks (§4.5) | E | todo | INF-01 | Replay script streams frames and gets acks | | |
-| LIV-02 | Decision 1 request builder (step header + frame + composite sheet + questions) | E | todo | AGT-07, CAD-07 | One real request returns all answers | | |
+| LIV-02 | Decision 1 request builder (step header + frame + composite sheet + questions) | E | done | AGT-07, CAD-07 | `94c1a86`: `pipeline/perception/request.py` `ask(job, step, frame)`; 64 real requests, 0 failed, all 10 answers each. Frames were renders, not camera pictures. Done by the data owner | Sun 00:45 |
 | LIV-03 | Thresholds, N-of-M smoothing, hysteresis, state machine, cooldowns (§6.2) | E | todo | LIV-02 | Events emitted on recorded clips | | |
 | LIV-04 | Record and label 5 clips with the camera chosen at G2 | E | todo | XR-02 | `eval/phase2/labels.json` committed | | |
 | LIV-05 | `replay.py` eval and threshold tuning → G4 | E | todo | LIV-03, LIV-04 | Metrics recorded in §4 | | |
@@ -167,7 +167,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | CadQuery import on M4, Python 3.12 | §13 | pass | cold import 1.36 s; part build 35–101 ms; one process per part costs 1.6 s | planning agent | Sat 19:10 |
 | Blender 5.3 GLB export with one clip per step | §5.4 | pass | 8 parts-steps, 39 nodes → 940 KB GLB, 8 animations, 0.77 s wall (`eval/bench/blender_assemble.py`) | planning agent | Sat 19:10 |
 | Carbon structured output | §13 | | | | |
-| Decision 1 latency p50 / p95 | §6.3 | | | | |
+| Decision 1 latency p50 / p95 | §6.3 | fail | p50 802 ms, p95 1764 ms (limits 250 / 600) over 64 requests, 4 at a time, from a Mac on home wifi in Athens; 2 JPEG images at `medium` and 10 questions, 2,300 input tokens. One at a time: median 709 ms, best 462 ms. Not measured from the host | data owner | Sun 00:45 |
 | Quest `immersive-ar` + hands + planes + anchors | §6.0 | | | | |
 | Quest `getUserMedia` passthrough camera during XR | §6.0 | | | | |
 | Quest mic + Gemini Live | §6.0 | | | | |
@@ -275,3 +275,9 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sat 23:50 · for A · `requirements.txt` gained `claude-agent-sdk`; `pipeline/cad/harness.py` runs part scripts in the sandbox when `CAD_SANDBOX=1` (the agent's `./build` sets it, the server's `parts` stage does not yet)
 - Sun 00:10 · AGT-02/05 · the build agent also finishes the LACK side table from its PDF: first build passes, 121 s, $1.03 · `eval/bakeoff/results/claude_sdk_lack/`. Two guides so far, both simple (boards and screws); nothing with cam locks, dowels or more than 10 parts tried
 - Sun 00:30 · SET-01/02 (A's rows, not edited) · a Gemini key now works on the data owner's Mac: `make models` passes for all four models (Carbon 3.6 s, Hydrogen 1.2 s, Decision 1 742 ms, Live tool call after 1.7 s). The project is on Prepay: it answered 402 "prepayment credits are depleted" until $5 of prepaid credit was bought, even with eligible Cloud credits on the account. The key is only in that Mac's `.env`; A's laptop and the host still need one
+- Sun 00:45 · AGT-07/LIV-02 (B's and E's rows, filled in by the data owner) · questions and the Decision 1 request exist (`94c1a86`, `pipeline/perception/`, usage in `pipeline/README.md`). Measured on KNAGGLIG with stand-in frames (renders from another side, no hands; `pipeline.perception.bench`, result in `eval/phase2/runs/synth-knagglig/bench.json`, not in git):
+  - **Latency fails the limit**: p50 802 ms, p95 1764 ms against 250 / 600. Sending PNG on a new connection per request gave 2.5 s; JPEG on a kept-open connection gives 0.7 s. `low` resolution or 3 questions instead of 10 saved under 100 ms. The rest is the round trip and the model. For E: plan for about 1 frame per second per connection, or several connections; the N-of-M windows in PLAN §6.2 (for example 8 of 10) then take 10 s, not 2 s
+  - **`step_complete` does not reach 0.85**: on the frame of the finished step it answered 0.17 to 0.86 (only step 6 passed 0.85). On the frame just before the step it answered 0.06 to 0.24. In all 7 steps that have a "before" frame, the finished frame scored higher than the "before" frame. A fixed 0.85 threshold would miss 7 of 8 completions here; a rise against the value at step start may work. Needs real clips to decide
+  - **`orientation_ok`**: right side of 0.5 in 15 of 15, but correct poses score only 0.52 to 0.85 and two of three wrong poses 0.40 and 0.46. Too close to trust for `flip_needed` as is
+  - **`part_in_hand` names a part when nobody holds one**: 44 of 64 frames with no hands. `hands_present` was below 0.5 in 64 of 64. LIV-03 must read `part_in_hand` and `right_part` only when `hands_present` is high
+  - Not tested: hands, real light, a real camera, any guide other than KNAGGLIG
