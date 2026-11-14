@@ -1,0 +1,8 @@
+{
+  "name": "glb-check",
+  "private": true,
+  "type": "module",
+  "description": "Loads a job's walkthrough.glb with the three.js loader and checks it against manifest.json",
+  "scripts": { "check": "node check.mjs" },
+  "dependencies": { "three": "0.187.0", "gltfpack": "^0.25.0" }
+}

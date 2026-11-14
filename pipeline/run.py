@@ -1,4 +1,5 @@
-"""Plan -> parts -> placement -> fit checks -> animated GLB, manifest, check renders, part pictures and reference sheets.
+"""Plan -> parts -> placement -> fit checks -> animated GLB, manifest, check renders, part pictures, reference sheets,
+packed GLB and guide crops.
 
     .venv/bin/python -m pipeline.run eval/golden/knagglig/plan.json jobs/knagglig
 
@@ -15,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from pipeline import refs
+from pipeline import crops, pack, refs
 from pipeline.assemble import collide, placement
 from pipeline.cad import harness
 
@@ -67,8 +68,10 @@ def main(plan_path: Path, out: Path) -> int:
         print(e)
         return 3
     t["refs_s"] = time.perf_counter() - t3
+    packed = pack.build(out)                                     # optional: skipped when gltfpack is not installed
+    cut = crops.build(plan_path, out)                            # optional: skipped when the guide PDF is not there
     summary = dict(json.loads(res[-1][7:]), unique_parts=len(built), part_renders=pictures["part_renders"],
-                   ref_sheets=pictures["sheets"],
+                   ref_sheets=pictures["sheets"], packed_glb_bytes=packed.get("bytes"), step_crops=cut["crops"],
                    worst_residual_mm=max(v["residual_mm"] for v in placed["instances"].values()),
                    timings_s={k: round(v, 2) for k, v in t.items()})
     print("RESULT " + json.dumps(summary))

@@ -257,6 +257,15 @@ for sa in steps_actions:
         marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
     for a in sa["acts"]:
         key_action(a, 0)
+        if a["type"] != "turn" and not a.get("base") and a["f0"] > 1:
+            # Hold the start pose from frame 1. The exporter slides each object's keys to time zero on its
+            # own, so without this key every piece of the step moved at once at the start of the clip.
+            o = objs[a["inst"]]
+            scene.frame_set(a["f0"])
+            o.keyframe_insert("location", frame=1)
+            if a["type"] == "fasten":
+                o.keyframe_insert("rotation_quaternion", frame=1)
+            o.location, o.rotation_quaternion = REST[a["inst"]]
     push(f"step_{sa['step']['n']:02d}")
 
 # the whole guide in one clip

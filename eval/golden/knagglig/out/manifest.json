@@ -82,7 +82,8 @@
    "dimsEstimated": true,
    "nodes": [
     "part_bottom_panel_1"
-   ]
+   ],
+   "thumb": "renders/part-bottom_panel-shaded.png"
   },
   {
    "id": "side_panel",
@@ -98,7 +99,8 @@
    "nodes": [
     "part_side_panel_1",
     "part_side_panel_2"
-   ]
+   ],
+   "thumb": "renders/part-side_panel-shaded.png"
   },
   {
    "id": "end_slat",
@@ -116,7 +118,8 @@
     "part_end_slat_2",
     "part_end_slat_3",
     "part_end_slat_4"
-   ]
+   ],
+   "thumb": "renders/part-end_slat-shaded.png"
   },
   {
    "id": "end_slat_handle",
@@ -132,7 +135,8 @@
    "nodes": [
     "part_end_slat_handle_1",
     "part_end_slat_handle_2"
-   ]
+   ],
+   "thumb": "renders/part-end_slat_handle-shaded.png"
   }
  ],
  "hardware": [
@@ -156,7 +160,8 @@
     "hw_108363_2",
     "hw_108363_3",
     "hw_108363_4"
-   ]
+   ],
+   "thumb": "renders/part-108363-shaded.png"
   },
   {
    "code": "108560",
@@ -198,7 +203,8 @@
     "hw_108560_22",
     "hw_108560_23",
     "hw_108560_24"
-   ]
+   ],
+   "thumb": "renders/part-108560-shaded.png"
   }
  ],
  "steps": [
@@ -293,9 +299,11 @@
     "page": 3,
     "label": "1"
    },
-   "crop": null,
-   "refRender": "renders/step_01.png",
-   "flags": []
+   "crop": "crops/step-01.png",
+   "refRender": "refs/step-01-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-01-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 2,
@@ -375,15 +383,15 @@
     "node": "cam_step_02",
     "pos": [
      1.296,
-     -1.4915,
-     0.699
+     -1.3933,
+     0.809
     ],
     "target": [
      0.218,
-     0.048,
-     0.015
+     0.1462,
+     0.125
     ],
-    "ortho_height": 0.8662,
+    "ortho_height": 0.7114,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 3.54,
@@ -395,9 +403,11 @@
     "page": 3,
     "label": "2"
    },
-   "crop": null,
-   "refRender": "renders/step_02.png",
-   "flags": []
+   "crop": "crops/step-02.png",
+   "refRender": "refs/step-02-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-02-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 3,
@@ -465,15 +475,15 @@
     "node": "cam_step_03",
     "pos": [
      1.2309,
-     -1.2915,
-     0.9539
+     -1.3898,
+     1.0639
     ],
     "target": [
      0.218,
-     0.155,
-     0.015
+     0.0568,
+     0.125
     ],
-    "ortho_height": 0.801,
+    "ortho_height": 0.7114,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 3.88,
@@ -485,9 +495,11 @@
     "page": 4,
     "label": "3"
    },
-   "crop": null,
-   "refRender": "renders/step_03.png",
-   "flags": []
+   "crop": "crops/step-03.png",
+   "refRender": "refs/step-03-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-03-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 4,
@@ -570,15 +582,15 @@
     "node": "cam_step_04",
     "pos": [
      -0.86,
-     1.6945,
-     0.699
+     1.5963,
+     0.809
     ],
     "target": [
      0.218,
-     0.155,
-     0.015
+     0.0568,
+     0.125
     ],
-    "ortho_height": 0.9014,
+    "ortho_height": 0.8118,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 3.54,
@@ -590,9 +602,11 @@
     "page": 4,
     "label": "4"
    },
-   "crop": null,
-   "refRender": "renders/step_04.png",
-   "flags": []
+   "crop": "crops/step-04.png",
+   "refRender": "refs/step-04-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-04-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 5,
@@ -882,16 +896,16 @@
    "camera": {
     "node": "cam_step_05",
     "pos": [
-     -1.0773,
-     -0.8981,
+     -1.0253,
+     -0.7998,
      1.4712
     ],
     "target": [
-     0.1777,
-     0.155,
+     0.2297,
+     0.2533,
      0.324
     ],
-    "ortho_height": 0.9678,
+    "ortho_height": 0.9225,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 16.71,
@@ -903,9 +917,11 @@
     "page": 5,
     "label": "5"
    },
-   "crop": null,
-   "refRender": "renders/step_05.png",
-   "flags": []
+   "crop": "crops/step-05.png",
+   "refRender": "refs/step-05-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-05-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 6,
@@ -1072,16 +1088,16 @@
    "camera": {
     "node": "cam_step_06",
     "pos": [
-     -1.0338,
-     -0.8981,
+     -1.0253,
+     -0.7998,
      1.4712
     ],
     "target": [
-     0.2212,
-     0.155,
+     0.2297,
+     0.2533,
      0.324
     ],
-    "ortho_height": 1.0194,
+    "ortho_height": 0.9741,
     "up": "Z (Blender); the GLB is Y-up"
    },
    "duration_s": 7.88,
@@ -1093,9 +1109,11 @@
     "page": 6,
     "label": "6"
    },
-   "crop": null,
-   "refRender": "renders/step_06.png",
-   "flags": []
+   "crop": "crops/step-06.png",
+   "refRender": "refs/step-06-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-06-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 7,
@@ -1400,13 +1418,13 @@
    "camera": {
     "node": "cam_step_07",
     "pos": [
-     -1.0402,
-     -0.8981,
+     -1.0487,
+     -0.7998,
      1.5772
     ],
     "target": [
-     0.2148,
-     0.155,
+     0.2063,
+     0.2533,
      0.43
     ],
     "ortho_height": 0.9828,
@@ -1421,9 +1439,11 @@
     "page": 7,
     "label": "7"
    },
-   "crop": null,
-   "refRender": "renders/step_07.png",
-   "flags": []
+   "crop": "crops/step-07.png",
+   "refRender": "refs/step-07-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-07-sheet.png",
+   "cropSource": "auto"
   },
   {
    "n": 8,
@@ -1605,13 +1625,13 @@
    "camera": {
     "node": "cam_step_08",
     "pos": [
-     -1.0402,
-     -0.8981,
+     -1.0487,
+     -0.7998,
      1.5772
     ],
     "target": [
-     0.2148,
-     0.155,
+     0.2063,
+     0.2533,
      0.43
     ],
     "ortho_height": 0.9828,
@@ -1626,9 +1646,11 @@
     "page": 8,
     "label": "8"
    },
-   "crop": null,
-   "refRender": "renders/step_08.png",
-   "flags": []
+   "crop": "crops/step-08.png",
+   "refRender": "refs/step-08-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-08-sheet.png",
+   "cropSource": "auto"
   }
  ],
  "flags": [
@@ -1642,5 +1664,6 @@
    "kind": "unclear_drawing",
    "message": "Steps 1-2 draw the cross battens on the inside face; the cover suggests they sit underneath as feet. The model has them inside."
   }
- ]
+ ],
+ "glbPacked": "walkthrough.packed.glb"
 }

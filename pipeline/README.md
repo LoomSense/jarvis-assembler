@@ -52,7 +52,11 @@ Fasteners use one frame, `seat`, under the head with the axis along the shank.
 - **Preview video:** `.venv/bin/python -m pipeline.preview <job_dir> [en|el]` writes `preview_<lang>.mp4`: the step title, a "You need" list of that step's parts and screws with their colours, the part being placed tinted, a close-up of each hole while its screw goes in, and the action text underneath. A step with no actions has `clip: null`.
 - The plan gives each step a `pose` and `assembly_rotation_deg`. The order of a step's `add` list is the order of its actions.
 
-A ready-made sample is in `eval/golden/knagglig/out/`.
+- **Packed GLB:** `walkthrough.packed.glb` (named in the manifest's `glbPacked`) is the same file after `gltfpack -cc -kn -ke`: 197 kB instead of 2.0 MB for KNAGGLIG. A three.js viewer needs `loader.setMeshoptDecoder(MeshoptDecoder)` to open it. It is written only when gltfpack is installed (`cd eval/glb_check && npm install`).
+- **Pictures:** `renders/part-<id>.png` (line art) and `part-<id>-shaded.png` for every part and screw (`thumb` in the manifest), `crops/step-NN.png` cut from the guide at 300 dpi (`crop`), and for phase 2 `refs/step-NN-ref.png`, `step-NN-sheet.png` and `step-NN-sheet.json` (`refRender`, `refSheet`). `pipeline/refs.py` and `pipeline/crops.py` explain each.
+- **Load check:** `cd eval/glb_check && npm install && node check.mjs ../../jobs/knagglig [walkthrough.packed.glb]` opens the GLB with the three.js r187 loader and checks sizes, clips, node names and that every action happens at the time the manifest gives it.
+
+A ready-made sample is in `eval/golden/knagglig/out/` (GLB, packed GLB and manifest; the pictures the manifest names are only in a job folder).
 
 ## Not done yet
 
