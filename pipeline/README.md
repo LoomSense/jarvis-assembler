@@ -60,7 +60,7 @@ A ready-made sample is in `eval/golden/knagglig/out/` (GLB, packed GLB and manif
 
 ## Not done yet
 
-- Running agent-written scripts in a sandbox (CAD-09).
+- `pipeline.run` still builds parts in its own process. Scripts a model wrote should go through `pipeline/cad/sandbox.py` (`sandbox.run_part`, same result as `harness.build_part`, about 1.9 s per part): the build loop (AGT-05) has to call it. On Linux it limits time, memory and file size but not network or file access.
 - Comparing check renders with the guide's drawings (needs Gemini Decision 1).
 - Guide crops and the phase-2 reference sheets in the manifest.
 - Mesh compression (gltfpack); the sample is 400 KB, so it is not urgent.
