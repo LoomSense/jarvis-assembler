@@ -99,3 +99,9 @@ It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipelin
   instead of 0.7 s.
 - `bench.py` uses renders from another side as stand-in camera frames. It says nothing about hands or real light.
   Read `part_in_hand` only when `hands_present` is high: on frames with no hands it still names a part.
+- `logic.py`: `Watcher(pack).feed(answers, ts)` returns events `{type, step, guide_page, part, expected, observed, evidence, ts}`
+  (`wrong_part`, `wrong_hardware`, `flip_needed`, `out_of_order`, `step_complete`, `unsure_show_part`) and keeps `state`.
+  Thresholds, N-of-M windows and cooldowns are in `Config`. No network and no clock, so it can be replayed. Tests:
+  `tests/test_perception_logic.py`.
+- `replay.py <job> eval/phase2/labels.json eval/phase2/runs/<name> [--cached]` runs labelled clips through both and writes
+  `frames.jsonl` and `events.jsonl` for `eval/phase2/p2.py score`. `--cached` reuses the stored answers to tune thresholds.
