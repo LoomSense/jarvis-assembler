@@ -11,6 +11,8 @@ What the dataset gives: primitive parts with real 3D shape, which parts join in 
 What it does NOT give: hardware (screws, dowels), printed labels, part names, turn-over marks.
 So these files set "anonymous_parts": true and have no "hardware" key; the scorer adapts.
 Identical parts are grouped by bounding-box size, because the dataset's own equivalence field is incomplete.
+Pages are 1-based like our Cite.page (checked: the smallest page_id is 1 and 35 objects have a step on
+their PDF's last page). Two objects cite a page past the end of their PDF; ignore step_page_acc for those.
 """
 import json, os, sys
 
@@ -59,7 +61,7 @@ def convert(obj):
         })
     return {
         "title": f"{cat}/{name}", "guide": f"eval/datasets/ikea_manual/pdfs/{cat}/{name}/0.pdf",
-        "labelled": {"by": "IKEA-Manual dataset (Wang et al., NeurIPS 2022)", "page_index_base": "as in the dataset, unverified"},
+        "labelled": {"by": "IKEA-Manual dataset (Wang et al., NeurIPS 2022)", "page_index_base": 1},
         "anonymous_parts": True, "parts": parts, "steps": steps,
         "unused_parts": sorted(set(range(n)) - seen),
     }
