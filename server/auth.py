@@ -5,7 +5,9 @@ The key travels in the `X-Demo-Key` header, or in `?key=` where headers cannot b
 """
 from __future__ import annotations
 
+import json
 import secrets
+from urllib.parse import parse_qs
 
 from fastapi import HTTPException, Request, WebSocket
 
@@ -22,6 +24,53 @@ def has_key(request: Request) -> bool:
 def require_key(request: Request) -> None:
     if not has_key(request):
         raise HTTPException(status_code=401, detail="Missing or wrong demo key")
+
+
+class KeyGate:
+    """ASGI middleware: turns away /api, /files and /ws requests without the key before any body is read,
+    and caps the request body. The route-level `require_key` stays as a second check."""
+
+    PROTECTED = ("/api/", "/files/", "/ws/")
+
+    def __init__(self, app, demo_key: str, max_body_bytes: int):
+        self.app, self.demo_key, self.max_body = app, demo_key, max_body_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket") or not scope["path"].startswith(self.PROTECTED) \
+                or scope.get("method") == "OPTIONS":                 # a CORS preflight carries no key
+            return await self.app(scope, receive, send)
+        headers = dict(scope["headers"])
+        query = parse_qs(scope["query_string"].decode("latin-1"))
+        if not (_matches(headers.get(b"x-demo-key", b"").decode("latin-1"), self.demo_key)
+                or _matches((query.get("key") or [""])[0], self.demo_key)):
+            if scope["type"] == "websocket":
+                await receive()
+                return await send({"type": "websocket.close", "code": 4401})
+            return await self._reject(send, 401, "Missing or wrong demo key")
+        if scope["type"] == "websocket":
+            return await self.app(scope, receive, send)
+        declared = headers.get(b"content-length", b"")
+        if declared.isdigit() and int(declared) > self.max_body:
+            return await self._reject(send, 413, "The request body is too large")
+        seen = 0
+
+        async def capped_receive():
+            nonlocal seen
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > self.max_body:                             # a chunked upload with no declared length
+                    return {"type": "http.disconnect"}
+            return message
+
+        await self.app(scope, capped_receive, send)
+
+    @staticmethod
+    async def _reject(send, status: int, detail: str) -> None:
+        body = json.dumps({"detail": detail}).encode()
+        await send({"type": "http.response.start", "status": status,
+                    "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
 
 
 def ws_has_key(ws: WebSocket) -> bool:

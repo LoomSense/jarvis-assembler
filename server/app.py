@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from server.auth import has_key
+from server.auth import KeyGate, has_key
 from server.jobs import JobStore
 from server.orchestrator import Orchestrator
 from server.orchestrator.stages import STAGES
@@ -96,7 +96,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.health = {"blender_version": None, "cadquery_ok": None}   # None: not probed yet
     app.state.probed_at = 0.0
 
-    if settings.cors:
+    app.add_middleware(KeyGate, demo_key=settings.demo_key,
+                       max_body_bytes=(settings.max_upload_mb + 1) * 1024 * 1024)
+    if settings.cors:                                  # added last, so it wraps the gate and its 401s get CORS headers
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_methods=["*"],
                            allow_headers=["X-Demo-Key", "Content-Type", "Last-Event-ID"])
 

@@ -60,6 +60,22 @@ def test_every_route_needs_the_key(client):
     assert client.get("/api/jobs?key=" + KEY, headers={"X-Demo-Key": ""}).status_code == 200
 
 
+def test_gate_stops_big_or_keyless_uploads_before_reading_them(client):
+    big = {"Content-Length": str(60 * 1024 * 1024), "Content-Type": "multipart/form-data; boundary=x"}
+    assert client.post("/api/jobs", content=b"", headers=big).status_code == 413
+    assert client.post("/api/jobs", content=b"", headers={**big, "X-Demo-Key": "wrong"}).status_code == 401
+    assert client.get("/").status_code == 200                       # the client page itself is public
+
+
+def test_plan_scripts_must_stay_inside_parts():
+    from server.orchestrator.stages import validate_plan
+    plan = {"parts": [{"id": "a", "script": "parts/a.py"}], "hardware": [], "steps": [{"n": 1}]}
+    assert validate_plan(plan) == []
+    for bad in ("../a.py", "/etc/a.py", "parts/../../a.py", "parts/sub/a.py", "guide.pdf", "parts/a.txt", 7):
+        plan["parts"][0]["script"] = bad
+        assert validate_plan(plan), bad
+
+
 def test_healthz_says_little_without_the_key(client):
     assert client.get("/healthz", headers={"X-Demo-Key": ""}).json() == {"ok": True}
     full = client.get("/healthz").json()

@@ -44,6 +44,16 @@ def validate_plan(plan) -> list[str]:
         problems.append("the plan has no steps")
     if not problems and not plan["parts"]:
         problems.append("the plan has no parts")
+    if not problems:
+        for item in plan["parts"] + plan["hardware"]:
+            script = item.get("script") if isinstance(item, dict) else None
+            if script is None:
+                continue
+            path = Path(script) if isinstance(script, str) else None
+            # the harness runs this file as Python, so it may only name a script inside the job's parts/ folder
+            if path is None or path.is_absolute() or ".." in path.parts or path.parts[:1] != ("parts",) \
+                    or len(path.parts) != 2 or path.suffix != ".py":
+                problems.append(f"`script` must look like parts/<name>.py, found {script!r}")
     return problems
 
 
