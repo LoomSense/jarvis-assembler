@@ -1,0 +1,266 @@
+/* ============================================================
+   Assembly Guide (ag) design tokens
+   Derived from the brand reference design system, renamed to --ag-*.
+   Dark is the default theme (matches the 3D canvas and the XR panels).
+   Light applies via prefers-color-scheme or [data-theme="light"].
+   See docs/design/BRAND.md for roles and usage rules.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Surfaces (dark) ---- */
+  --ag-bg: #000000;                 /* page: true black (reference "void") */
+  --ag-surface: #0c0c0c;            /* lifted card on the page, always with a border */
+  --ag-surface-2: #161618;          /* chosen: nested surface, e.g. chip on card */
+  --ag-surface-glass: rgba(12, 12, 12, 0.82); /* floating bars over the 3D canvas */
+  --ag-scrim: rgba(0, 0, 0, 0.6);
+
+  /* ---- Text (dark) ---- */
+  --ag-text-strong: #ffffff;
+  --ag-text: rgba(255, 255, 255, 0.82);
+  --ag-text-muted: rgba(255, 255, 255, 0.8);
+  --ag-text-meta: rgba(255, 255, 255, 0.66);
+  --ag-text-on-primary: #000000;
+
+  /* ---- Borders ---- */
+  --ag-border: rgba(255, 255, 255, 0.09);
+  --ag-border-soft: rgba(255, 255, 255, 0.12);
+  --ag-border-strong: rgba(255, 255, 255, 0.16);
+  --ag-border-field: rgba(255, 255, 255, 0.15);
+  --ag-field-bg: rgba(255, 255, 255, 0.07);
+
+  /* ---- The one accent: azure (used as light, sparingly) ---- */
+  --ag-accent: #9ecfff;
+  --ag-accent-deep: #274a6b;
+  --ag-accent-glow: rgba(158, 207, 255, 0.8);
+  --ag-accent-glow-soft: rgba(158, 207, 255, 0.3);
+
+  /* ---- Primary action ---- */
+  --ag-primary: #ffffff;
+  --ag-primary-hover: #f2f2f2;
+
+  /* ---- Status semantics (shared with XR) ----
+     info = accent (reference). unsure = reference amber.
+     success, warn, error: not in the reference; chosen, all >= 7:1 on --ag-surface. */
+  --ag-info: #9ecfff;
+  --ag-success: #6fdc9b;
+  --ag-warn: #ffa95c;
+  --ag-error: #ff8a7a;
+  --ag-unsure: #e8c14b;
+  --ag-info-bg: rgba(158, 207, 255, 0.1);
+  --ag-success-bg: rgba(111, 220, 155, 0.1);
+  --ag-warn-bg: rgba(255, 169, 92, 0.1);
+  --ag-error-bg: rgba(255, 138, 122, 0.1);
+  --ag-unsure-bg: rgba(232, 193, 75, 0.1);
+
+  /* ---- Focus ---- */
+  --ag-focus-ring: #ffffff;
+
+  /* ---- Typography ---- */
+  --ag-font: "Google Sans", Arial, system-ui, sans-serif;
+  --ag-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ag-weight-body: 400;
+  --ag-weight-heading: 500;
+  --ag-weight-label: 600;
+
+  --ag-text-display: 31px;   /* screen title (reference H2 floor) */
+  --ag-text-h3: 21px;
+  --ag-text-lead: 20px;
+  --ag-text-body: 17px;
+  --ag-text-small: 15px;
+  --ag-text-label: 12.5px;
+
+  --ag-leading-display: 1.06;
+  --ag-leading-h3: 1.25;
+  --ag-leading-lead: 1.55;
+  --ag-leading-body: 1.7;
+  --ag-leading-small: 1.6;
+  --ag-leading-label: 1.45;
+
+  --ag-tracking-display: -0.035em;
+  --ag-tracking-h3: -0.01em;
+  --ag-tracking-label: 0.08em;       /* uppercase labels, never above 0.1em */
+  --ag-tracking-chip: 0.01em;
+
+  /* ---- Spacing (4px base) ---- */
+  --ag-space-1: 4px;
+  --ag-space-2: 8px;
+  --ag-space-3: 12px;
+  --ag-space-4: 16px;
+  --ag-space-5: 20px;
+  --ag-space-6: 24px;
+  --ag-space-8: 32px;
+  --ag-space-10: 40px;
+  --ag-space-12: 48px;
+  --ag-space-16: 64px;
+  --ag-gutter: 16px;          /* chosen for phone; reference uses 24px on web */
+  --ag-tap-min: 44px;         /* chosen: minimum touch target */
+
+  /* ---- Radii ---- */
+  --ag-radius-sm: 8px;
+  --ag-radius-md: 12px;       /* inputs, thumbnails, icon tiles */
+  --ag-radius-lg: 16px;       /* cards, canvas frame */
+  --ag-radius-xl: 18px;       /* bottom sheets */
+  --ag-radius-pill: 999px;    /* buttons, chips, badges */
+
+  /* ---- Elevation ---- */
+  --ag-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 60px -28px rgba(0, 0, 0, 0.65);
+  --ag-shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 16px 40px -18px rgba(0, 0, 0, 0.55);
+  --ag-shadow-primary: 0 8px 28px -10px rgba(255, 255, 255, 0.3);
+  --ag-card-fill: linear-gradient(150deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.016) 55%);
+  --ag-glass-fill: linear-gradient(150deg, rgba(15, 17, 19, 0.88), rgba(5, 6, 7, 0.8));
+  --ag-glass-blur: blur(16px) saturate(1.3);
+
+  /* ---- Motion ---- */
+  --ag-ease: cubic-bezier(0.16, 1, 0.3, 1);   /* signature ease-out-expo */
+  --ag-dur-micro: 200ms;
+  --ag-dur-base: 250ms;
+  --ag-dur-slow: 300ms;
+  --ag-dur-enter: 850ms;      /* screen / feed item rise */
+  --ag-dur-pulse: 2.4s;       /* status-dot breathe, 0.42 Hz */
+  --ag-dur-pulse-live: 1.8s;  /* live badge, 0.56 Hz */
+}
+
+/* ---- Light theme ---- */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ag-bg: #ffffff;
+  --ag-surface: #ffffff;
+  --ag-surface-2: #f4f4f5;
+  --ag-surface-glass: rgba(255, 255, 255, 0.82);
+  --ag-scrim: rgba(0, 0, 0, 0.4);
+  --ag-text-strong: #000000;
+  --ag-text: rgba(0, 0, 0, 0.85);
+  --ag-text-muted: rgba(0, 0, 0, 0.8);
+  --ag-text-meta: rgba(0, 0, 0, 0.66);
+  --ag-text-on-primary: #ffffff;
+  --ag-border: rgba(10, 10, 10, 0.14);
+  --ag-border-soft: rgba(0, 0, 0, 0.15);
+  --ag-border-strong: rgba(0, 0, 0, 0.22);
+  --ag-border-field: rgba(0, 0, 0, 0.2);
+  --ag-field-bg: rgba(0, 0, 0, 0.03);
+  --ag-accent: #2a6db5;        /* chosen: reference light-ring #3d86d6 is 3.8:1, too faint for text */
+  --ag-accent-deep: #3d86d6;
+  --ag-accent-glow: rgba(61, 134, 214, 0.5);
+  --ag-accent-glow-soft: rgba(61, 134, 214, 0.2);
+  --ag-primary: #000000;
+  --ag-primary-hover: #1c1c1c;
+  --ag-info: #2a6db5;
+  --ag-success: #1e7a47;
+  --ag-warn: #a14d00;
+  --ag-error: #b42318;
+  --ag-unsure: #8a6500;
+  --ag-info-bg: rgba(42, 109, 181, 0.08);
+  --ag-success-bg: rgba(30, 122, 71, 0.08);
+  --ag-warn-bg: rgba(161, 77, 0, 0.08);
+  --ag-error-bg: rgba(180, 35, 24, 0.08);
+  --ag-unsure-bg: rgba(138, 101, 0, 0.1);
+  --ag-focus-ring: #000000;
+  --ag-shadow-card: 0 24px 54px -26px rgba(10, 10, 10, 0.4);
+  --ag-shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px -16px rgba(10, 10, 10, 0.35);
+  --ag-shadow-primary: 0 14px 34px -14px rgba(10, 10, 10, 0.55);
+  --ag-card-fill: #ffffff;
+  --ag-glass-fill: linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.7));
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ag-bg: #ffffff;
+    --ag-surface: #ffffff;
+    --ag-surface-2: #f4f4f5;
+    --ag-surface-glass: rgba(255, 255, 255, 0.82);
+    --ag-scrim: rgba(0, 0, 0, 0.4);
+    --ag-text-strong: #000000;
+    --ag-text: rgba(0, 0, 0, 0.85);
+    --ag-text-muted: rgba(0, 0, 0, 0.8);
+    --ag-text-meta: rgba(0, 0, 0, 0.66);
+    --ag-text-on-primary: #ffffff;
+    --ag-border: rgba(10, 10, 10, 0.14);
+    --ag-border-soft: rgba(0, 0, 0, 0.15);
+    --ag-border-strong: rgba(0, 0, 0, 0.22);
+    --ag-border-field: rgba(0, 0, 0, 0.2);
+    --ag-field-bg: rgba(0, 0, 0, 0.03);
+    --ag-accent: #2a6db5;
+    --ag-accent-deep: #3d86d6;
+    --ag-accent-glow: rgba(61, 134, 214, 0.5);
+    --ag-accent-glow-soft: rgba(61, 134, 214, 0.2);
+    --ag-primary: #000000;
+    --ag-primary-hover: #1c1c1c;
+    --ag-info: #2a6db5;
+    --ag-success: #1e7a47;
+    --ag-warn: #a14d00;
+    --ag-error: #b42318;
+    --ag-unsure: #8a6500;
+    --ag-info-bg: rgba(42, 109, 181, 0.08);
+    --ag-success-bg: rgba(30, 122, 71, 0.08);
+    --ag-warn-bg: rgba(161, 77, 0, 0.08);
+    --ag-error-bg: rgba(180, 35, 24, 0.08);
+    --ag-unsure-bg: rgba(138, 101, 0, 0.1);
+    --ag-focus-ring: #000000;
+    --ag-shadow-card: 0 24px 54px -26px rgba(10, 10, 10, 0.4);
+    --ag-shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px -16px rgba(10, 10, 10, 0.35);
+    --ag-shadow-primary: 0 14px 34px -14px rgba(10, 10, 10, 0.55);
+    --ag-card-fill: #ffffff;
+    --ag-glass-fill: linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.7));
+  }
+}
+
+/* ---- Base ---- */
+body {
+  background: var(--ag-bg);
+  color: var(--ag-text);
+  font-family: var(--ag-font);
+  font-size: var(--ag-text-body);
+  line-height: var(--ag-leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+@keyframes agPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.08); }
+}
+@keyframes agRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.ag-pulse { animation: agPulse var(--ag-dur-pulse) ease-in-out infinite; }
+.ag-rise { animation: agRise var(--ag-dur-enter) var(--ag-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-pulse, .ag-rise { animation: none !important; }
+}
+
+/* ============================================================
+   XR canvas-texture palette (three.js). Copy into xr/palette.ts.
+   Panels sit over passthrough: never fill a large area with white.
+
+   export const AG_XR = {
+     panelBg:        '#0c0c0c', panelBgAlpha: 0.82,
+     panelBorder:    'rgba(255,255,255,0.16)',
+     textStrong:     '#ffffff',
+     text:           'rgba(255,255,255,0.86)',
+     textMeta:       'rgba(255,255,255,0.7)',
+     accent:         '#9ecfff',
+     accentDeep:     '#274a6b',   // button fill (white text on top)
+     chipBg:         '#161618',
+     info:           '#9ecfff',
+     success:        '#6fdc9b',
+     warn:           '#ffa95c',
+     error:          '#ff8a7a',
+     unsure:         '#e8c14b',
+     // ghost part materials (MeshStandardMaterial, transparent, depthWrite:false)
+     ghostNext:      { color: '#9ecfff', emissive: '#9ecfff', emissiveIntensity: 0.6, opacity: 0.40, pulseHz: 0.42 },
+     ghostCorrect:   { color: '#4ade80', emissive: '#4ade80', emissiveIntensity: 0.5, opacity: 0.45, pulseHz: 0 },
+     ghostWrong:     { color: '#ff6b6b', emissive: '#ff6b6b', emissiveIntensity: 0.7, opacity: 0.50, pulseHz: 0.83 },
+     ghostUnsure:    { color: '#e8c14b', emissive: '#e8c14b', emissiveIntensity: 0.5, opacity: 0.40, pulseHz: 0.42 },
+     ghostEdge:      '#ffffff',   // EdgesGeometry line, opacity 0.6
+   } as const;
+   ============================================================ */

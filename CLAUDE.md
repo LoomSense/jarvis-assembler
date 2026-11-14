@@ -1,8 +1,9 @@
 # Assembly Guide Agent: instructions for coding agents
 
-Read these two files before starting any task:
+Read these files before starting any task:
 - `docs/PLAN.md`: the technical plan. Its §1 decisions override everything else, including `docs/research/`.
 - `docs/PROGRESS.md`: shared team status. Find your person (A–E) and your task IDs there.
+- `docs/design/BRAND.md` and `docs/design/tokens.css`: look, copy and XR UI rules for any user-facing work.
 
 ## You must keep docs/PROGRESS.md up to date
 
@@ -21,5 +22,5 @@ If you don't know which person you are working for, ask the human before editing
 - Never put `GEMINI_API_KEY`, `FAL_KEY` or `BOXD_API_KEY` in client code or in git. Use `.env` (ignored) and `.env.example`.
 - Model IDs: `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1`, `gemini-3.8-live`. Do not substitute older models.
 - Keep the contracts in `docs/PLAN.md` §4 (job folder, plan schema, manifest, events, endpoints). Changing one is a decision: log it.
-- Credit third-party code in `CREDITS.md`.
+- Credit third-party code in `CREDITS.md`. Never write the names of the brand reference or the 3D scaffolding reference in code, docs, UI or commits; refer to them as "the brand reference design system" and "the 3D scaffolding reference".
 - Code freeze: Sunday 15 Nov 2026, 18:00 Athens time.

@@ -105,6 +105,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | CAD-06 | GLB export (§5.4) + `manifest.json` (§4.3) + gltfpack | C | todo | CAD-05 | GLB loads in three.js with one clip per step, ≤ 5 MB | | |
 | CAD-07 | Phase-2 refs: `step-NN-ref.png` and composite `step-NN-sheet.png` | C | todo | CAD-05 | Sheets exist for every golden step | | |
 | CAD-08 | Hand-made two-step dummy GLB + manifest for D, tonight | C | todo | SET-05 | D can play it on a phone | | |
+| CAD-09 | Sandboxed runner for LLM-written CadQuery (CPU, memory, file limits; killable), reusing the reference runner only if its owner agrees (PLAN §7.2) | C | todo | CAD-02 | A runaway script is killed within its limit | | |
 
 ### 3.5 Phone client (D)
 
@@ -115,6 +116,8 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | CLI-03 | Build feed over SSE | D | todo | INF-03 | Live events appear with thumbnails | | |
 | CLI-04 | Walkthrough UI: step bar, scrub, highlight, camera tween, portrait layout | D | todo | CLI-01 | Golden walkthrough usable on a phone | | |
 | CLI-05 | Phone camera role `?role=camera`: capture loop with backpressure + MediaPipe gate | D | todo | LIV-01 | Frames reach the server at ≤ 4 Hz | | |
+| CLI-06 | Apply `docs/design/tokens.css` and BRAND.md to every phone screen (status = colour + shape, reduced motion) | D | todo | CLI-01 | Screens match BRAND.md; checked in light and dark | | |
+| CLI-07 | Port reusable scaffolding (PLAN §7.2): camera framing, viewer skeleton, emissive highlight/fade, studio lighting, easing; add the CREDITS line | D | todo | CLI-01 | Viewer uses the ported modules; CREDITS updated | | |
 
 ### 3.6 Quest 3 XR (D)
 
@@ -127,6 +130,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | XR-05 | Hand checks (`hand_at_target`, `still`, `raised`) sent over the perception WS | D | todo | XR-03, LIV-01 | Server logs hand summaries at about 10 Hz | | |
 | XR-06 | Ghost colour from perception events (green/red), pinch buttons (next, back, repeat) | D | todo | XR-04, LIV-03 | Events change the ghost in the headset | | |
 | XR-07 | Performance (≥ 72 fps) and headset recording/casting test | D | todo | XR-04 | Measured fps recorded; casting works | | |
+| XR-08 | XR panels and ghost follow BRAND.md XR rules (0.40 × 0.28 m at 0.8 m, text ≥ 0.7°, 82% opaque, ghost pulse ≤ 0.83 Hz, world-anchored) | D | todo | XR-04 | Checked in the headset | | |
 
 ### 3.7 Phase 2 perception and voice (E)
 
@@ -158,9 +162,10 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 
 | Test | Plan ref | Result | Measured value | Who | When |
 |---|---|---|---|---|---|
-| Headless render on M4 (Workbench / EEVEE / Cycles) | §8.3 | | | | |
+| Headless render on M4 (Workbench / EEVEE / Cycles) | §8.3 | pass | Workbench 0.11 s, EEVEE 0.31 s (3.3 s first run), Cycles 4 spp 0.10 s; all non-black; Freestyle drew no lines | planning agent | Sat 19:10 |
 | Headless render on boxd, `uname -m` | §8.3 | | | | |
-| CadQuery import on M4, Python 3.12 | §13 | | | | |
+| CadQuery import on M4, Python 3.12 | §13 | pass | cold import 1.36 s; part build 35–101 ms; one process per part costs 1.6 s | planning agent | Sat 19:10 |
+| Blender 5.3 GLB export with one clip per step | §5.4 | pass | 8 parts-steps, 39 nodes → 940 KB GLB, 8 animations, 0.77 s wall (`eval/bench/blender_assemble.py`) | planning agent | Sat 19:10 |
 | Carbon structured output | §13 | | | | |
 | Decision 1 latency p50 / p95 | §6.3 | | | | |
 | Quest `immersive-ar` + hands + planes + anchors | §6.0 | | | | |
@@ -178,7 +183,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 
 | Task | Blocked by | Who can unblock | Since | Resolved |
 |---|---|---|---|---|
-| | | | | |
+| SET-04, SET-05, SET-06 on the team MacBook Air | Disk had about 1 GB free; Blender, the CadQuery venv (1.3 GB) and node_modules need at least 5 GB | Laptop owner (free space), or move the pipeline to boxd / another laptop | Sat 19:10 | |
 
 ---
 
@@ -190,6 +195,10 @@ Decisions made during the build. Copy plan-changing ones into `docs/PLAN.md` §1
 |---|---|---|---|
 | Sat 19:30 | Quest 3 is the primary phase-2 display; phone is the fallback (D11) | Instructions in place, at true scale, beat a small screen | team |
 | Sat 19:30 | Headset camera decided by test G2; phone on a stand otherwise (D12) | WebXR gives no passthrough pixels | team |
+| Sat 20:00 | Golden guide = IKEA KNAGGLIG box; smoke = LACK side table; stretch = BEKVÄM, KALLAX, Sauder | Reviewed the PDFs: KNAGGLIG has 8 clear steps, board-only parts, and hardware counts that cross-check | team |
+| Sat 20:15 | Stay on vanilla three.js; reuse small scaffolding modules with a neutral credit (D14) | Reference has no WebXR or step playback; reusable parts are plain three.js | team |
+| Sat 20:15 | Brand: `docs/design/BRAND.md` + `tokens.css` (D15) | One consistent look across phone, XR and voice | team |
+| Sat 20:00 | Unlabelled IKEA parts cite page + drawing box with descriptive ids; warning pages filtered out; pre-assembled frames are single parts | Seen in the real guides (PLAN §0, §5.1, §5.2) | team |
 
 ---
 

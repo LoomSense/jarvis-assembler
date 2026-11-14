@@ -24,7 +24,7 @@ A user uploads a flat-pack furniture assembly guide (PDF). An agent reads it, bu
 In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Through passthrough they see the next part as a glowing ghost, already sitting at its exact final position on the real assembly on their table, with its insertion path animated. Their tracked hands are checked against where the part should go. An always-on voice agent confirms correct actions, warns before a mistake (wrong part, wrong way round, wrong hardware, out of order) and advances when a step is done. The phone remains the fallback display and, if the headset camera is not reachable from the browser, the camera that watches the work (§6.0).
 
 **Grounding rules** (non-negotiable):
-1. Every part and every step cites a guide page and the label printed there.
+1. Every part and every step cites a guide page and the label printed there. **IKEA guides print no letters on panels, only codes on hardware**, so an unlabelled part cites its page plus a box on the drawing (`box_2d`) and gets a descriptive id such as `end_frame` or `bottom_slat`.
 2. Part and hardware counts must equal the guide's parts list.
 3. Nothing is invented. Values the guide does not print are flagged `estimated`.
 4. Unclear drawings are flagged for a human, who approves the extracted plan before any 3D is built.
@@ -37,7 +37,7 @@ In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Th
 |---|---|---|---|
 | D1 | Python version | Phase 1 said 3.12; backend said 3.13 (for the `bpy` wheel) | **Python 3.12 venv** for server and CadQuery. **Blender runs as its own app** (`blender -b -P script.py -- args.json`) with its bundled Python, so the `bpy` wheel is not used. `cadquery-ocp` has macOS arm64 and Linux wheels for cp311–cp314. |
 | D2 | Where heavy work runs | Backend wanted the boxd VM first; Phase 1 assumed the MacBook | **Run the same render test on both at 21:00 Saturday** (§8.3). The winner hosts the pipeline. Default if both work: **boxd** (independent of laptop sleep and venue Wi‑Fi). The MacBook always keeps blender-mcp for interactive debugging. |
-| D3 | Check-render engine | Workbench, EEVEE or Cycles | First test **Workbench**, then **EEVEE**, then **Cycles CPU, 4–16 samples + Freestyle**. Keep the first that produces non-black PNGs headless. On a GPU-less Linux VM, expect Cycles CPU. |
+| D3 | Check-render engine | Workbench, EEVEE or Cycles | **Measured on the M4 (docs/research/06-benchmark.md): all three render correctly headless.** Use **Workbench** for check renders (0.11 s render, 0.6 s wall at 512²) with object outline and cavity for the line-art look. **Freestyle drew no lines headless**, so don't rely on it. EEVEE (0.3 s, 3.3 s first run for shaders) is for viewer thumbnails. On a GPU-less Linux VM, still expect Cycles CPU. |
 | D4 | Client hosting | Same-origin FastAPI vs Vercel + CORS | **Same origin**: FastAPI serves `client/dist` on the public HTTPS URL, so one QR code works with no CORS. Vercel is a **mirror** only, with `VITE_API_URL` pointing at the backend and CORS allowing that origin. |
 | D5 | Build progress feed | WebSocket (backend) vs SSE (mobile) | **SSE** `GET /api/jobs/{id}/events` with `Last-Event-ID` replay from `events.jsonl`. **WebSocket** only for phase-2 perception. Event schema in §4.4. |
 | D6 | Frames | 640 px q0.6/0.7 vs 768 px | **768 px long edge, JPEG q0.7**, cropped to the work area calibrated at session start. The server sends it to Decision 1 at `medium`. |
@@ -47,6 +47,8 @@ In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Th
 | D10 | Per-step manifest | Two different shapes | One merged `manifest.json` (§4.3). Part nodes are named `part_<ID>_<n>`. Instance `#` is not used in node names. |
 | D11 | Phase 2 display | Phone (original plan) vs Meta Quest 3 (added 14 Nov evening) | **Quest 3 is the primary phase-2 display**, as a WebXR `immersive-ar` page in Meta Quest Browser, built from the same `/client` codebase with three.js. The phone walkthrough stays as phase 1 and as the phase-2 fallback. No Unity or native app: there is no time to learn a second stack. |
 | D12 | Phase 2 camera for Decision 1 | Headset vs phone | WebXR gives no access to passthrough pixels (Meta's docs). **Test `getUserMedia` inside Quest Browser tonight** (reported, **UNVERIFIED**, to expose the passthrough cameras). If it works, the headset sends frames. If not, **the phone on a stand is the camera** and the headset is display, hands and voice. Both paths use the same perception WebSocket. |
+| D14 | Client framework and reuse | React + R3F (used by the 3D scaffolding reference) vs vanilla three.js | **Stay on vanilla three.js r187.** The reference has no WebXR and no step-clip playback, and its most reusable parts are already plain three.js. Copy the small modules listed in §7.2 and credit them neutrally in `CREDITS.md`. |
+| D15 | Look and feel | None defined | Follow `docs/design/BRAND.md` and `docs/design/tokens.css` (dark by default, one azure accent, `ag-*` tokens), derived from the brand reference design system. Do not name the reference in the product. |
 | D13 | Hand tracking | Not in the phone plan | Quest hand tracking (WebXR `hand-tracking`, 25 joints per hand) adds a second, free and instant signal: hand position relative to the anchored target. It gates Decision 1 calls (replacing MediaPipe on the headset) and confirms "hand is at the right hole". |
 
 ---
@@ -129,7 +131,20 @@ In phase 2 the headset and the phone connect to the **same perception session** 
 
 Optional sponsor tool: treg (a single token for 4,100+ pay-per-call tools) only if a real need appears. It is not needed for the core loop.
 
-**Cost per guide in phase 1 (estimate):** about **$1**, budget $3, and **8–15 minutes**. Details in `01` §9.
+**Time per guide in phase 1, measured where possible** (`docs/research/06-benchmark.md`, KNAGGLIG, MacBook Air M4):
+
+| Work | Measured | Per guide |
+|---|---|---|
+| CadQuery: cold import | 1.36 s | once per worker process |
+| CadQuery: build one part + STL (0.05 mm) + STEP | 40–115 ms | under 2 s for all parts, in one process |
+| Same, one subprocess per part | 1.6 s per part (mostly the import) | about 8 s for 5 parts, so avoid it |
+| Blender: headless startup | 0.51 s | once per batch |
+| Blender: import 5 parts, place 39 instances, 8 step animations, GLB export | 0.22 s (0.77 s with startup); GLB 940 KB, 8 clips | under 1 s |
+| Check render, Workbench 512² | 0.11 s render, 0.6 s with startup | about 40 renders: under 10 s when batched |
+| **All CPU and render work** | | **about 20–80 s** |
+| Gemini calls (not measured) | 5–30 s each, about 57–85 calls | **about 5–40 min, typically about 13 min** |
+
+**The LLM calls, not CadQuery or Blender, are the bottleneck.** The orchestrator therefore runs the part loops **concurrently** (up to 4 parts at once) and batches Blender work. **Cost per guide (estimate):** about **$1**, budget $3.
 
 **Phase 2 cost (estimate):** about **$3/hour at a constant 4 Hz**. With the adaptive rate (§6.3) it averages about $1.9/hour, plus voice at about $1.4/hour or less.
 
@@ -157,7 +172,7 @@ jobs/<job_id>/
 ### 4.2 Plan JSON (`plan.json`)
 
 The full Pydantic schema is in `docs/research/01-phase1-pipeline.md` §2. Summary:
-- **Part:** `{id (printed label), name, count, shape, dims_mm{…: Estimate}, features[{id, kind, face, pos_uv, diameter_mm?}], cite{page,label,box_2d}, drawing?}`
+- **Part:** `{id (printed label, or a descriptive id such as end_frame when the guide prints none), name, count, shape, dims_mm{…: Estimate}, features[{id, kind, face, pos_uv, diameter_mm?}], cite{page,label,box_2d}, drawing?}`
 - **Hardware:** `{code (printed), kind, count, length_mm?, cite}`
 - **Step:** `{n, cite, parts_added[], hardware_used{code: qty}, mates[{moving_part, moving_feature, fixed_part, fixed_feature, type: insert|flush|edge_on_face, hardware?}], view, view_az_el_deg, flip_whole_assembly, notes}`
 - **Flag:** `{ref, kind: unclear_drawing|count_mismatch|estimated_dims|unclear_box|ambiguous_mate, message}`
@@ -251,6 +266,7 @@ INGEST → EXTRACT_PLAN (Carbon) → AWAIT_APPROVAL ⏸ → PARTS → PLACE → 
 ### 5.1 Ingest and plan extraction
 
 1. **Rasterise.** PyMuPDF renders every page to PNG at 200 dpi and extracts its native text (`page.get_text()`).
+1a. **Classify pages.** One cheap Decision 1 `choice` call per page (`cover`, `parts_list`, `step`, `warning_text`, `tools`, `other`) keeps only the parts list and step pages. In our test guides, up to a third of IKEA pages are multilingual warnings, and the first 7 of KALLAX's 24 pages contain no steps.
 2. **Extract.** `gemini-4-carbon` receives every page image at `resolution:"high"` plus its native text, and returns the `Plan` as structured output. It returns `box_2d` for every part drawing, step drawing and the parts-list table.
 3. **Crop.** Crops are cut at 300 dpi from the PDF using the boxes.
 4. **Re-check the boxes.** A cheap second pass (Hydrogen, `thinking: low`) re-detects the boxes per page. Any box whose IoU with Carbon's box is below 0.7 gets an `unclear_box` flag.
@@ -274,9 +290,13 @@ def build(p):
     return b, frames
 ```
 
-**Runtime.** Each run is a subprocess with a 30 s timeout. The traceback goes back to the agent on failure.
+**Runtime.** Generated scripts run in a **long-lived sandboxed CadQuery worker** (§7.2, CAD-09) that has already paid the 1.4 s import, with a 30 s limit per script. A fresh process per part costs about 1.6 s each (measured). The traceback goes back to the agent on failure.
 
-**Scale.** Guides rarely print dimensions, so absolute scale comes from the product's published overall size and is marked `estimated`.
+**Tessellation gotcha (measured):** OpenCascade caches the mesh on a solid, so exporting the same solid at a second tolerance silently reuses the first mesh. Use one tolerance (0.05 mm for check renders, or 0.5 mm for the phone GLB) or rebuild the solid.
+
+**Scale.** None of our IKEA test guides print dimensions, so absolute scale comes from the product's published overall size (KNAGGLIG: about 46 × 31 × 25 cm) and every part dimension is marked `estimated`.
+
+**Pre-assembled parts.** Some parts arrive already assembled, such as KNAGGLIG's slatted end frames. If the guide draws one as a single unit in the parts list and never shows it being built, it is **one part** in the plan, modelled as one CadQuery solid.
 
 **Part loop.**
 1. Write the script.
@@ -555,6 +575,28 @@ Detail and code skeletons: `docs/research/02-mobile-client.md`.
 | Device | Wake Lock (re-request on `visibilitychange`; iOS 18.4+ **UNVERIFIED**). Vibration on Android only; iOS gets a sound tick and a coloured screen flash. Pixel ratio ≤ 2. Render only when something changes. Keep the phone plugged in on the stand. |
 | Budgets | GLB ≤ 5 MB, ≤ 150k triangles, ≤ 100 draw calls, orbit ≥ 45 fps, frame grab < 25 ms, frame round trip p50 < 500 ms, first render after `done` < 3 s on 4G. |
 
+### 7.1 Brand and UI
+
+Every screen, the XR panels and the voice follow `docs/design/BRAND.md`. Copy `docs/design/tokens.css` into `client/src/styles/`. Key rules:
+- **Look:** dark by default (true-black page, `#0c0c0c` cards), a single azure accent `#9ecfff`, Google Sans 500 for headings and 400 for text, JetBrains Mono only for tool calls in the build feed.
+- **Status:** always colour **plus** a shape or icon, so it works for colour-blind users.
+- **Motion:** `cubic-bezier(.16,1,.3,1)` at 200–300 ms. Every loop stops when the user has asked for reduced motion.
+- **XR:** step panel 0.40 × 0.28 m at 0.8 m, text at least 0.7° tall, panels 82% opaque and world-anchored (never head-locked), ghost pulse at most 0.83 Hz.
+- **Voice:** short, cites step and page, calm, never scolding. Example lines in English and Greek are in BRAND.md.
+
+### 7.2 3D scaffolding to reuse
+
+Full map with file paths: `docs/research/05-3d-scaffolding.md`. The reference is plain three.js where it matters, so nothing forces a framework change. Copy or re-implement:
+1. **Camera framing** (fit a camera to a bounding box, perspective and orthographic) for step cameras and the "re-center" button.
+2. **The plain three.js viewer skeleton** (renderer, resize, cleanup), switched to render-on-demand.
+3. **Emissive save/restore and fade pattern** for the pick-up highlight, faded parts and the XR ghost.
+4. **Studio lighting** (room environment plus three lights sized to the model) and **frame-rate-independent easing** for camera tweens.
+5. **Sandboxed Python CAD runner** (a killable child process with CPU, file and memory limits) for running LLM-written CadQuery. Use it only if its owner agrees, otherwise write our own with `resource` limits.
+
+**Still ours to write:** step-clip playback, the whole WebXR mode, everything on the Blender side, and the GLB optimisation step. Credit line for `CREDITS.md`: "internal 3D scaffolding from a team member's prior work, adapted".
+
+### 7.3 Client folder layout
+
 Client folder layout:
 
 ```
@@ -623,7 +665,10 @@ Conventions:
 
 | Test | What | Pass criterion |
 |---|---|---|
-| Golden guide (choose by 20:30 Sat) | One simple panel-furniture guide (≤ 8 unique parts, ≤ 10 steps) plus a hand-written `expected_plan.json` | `score_plan.py`: part recall ≥ 0.9; exact counts for ≥ 80% of parts; step-order Kendall τ ≥ 0.8 |
+| Golden guide: **IKEA KNAGGLIG box** (`eval/guides/ikea/knagglig-box__AA-1159337-7.pdf`) | 8 numbered steps, all boards and frames, two screw types whose counts cross-check (108363: 2+2 = 4×; 108560: 8+4+8+4 = 24×), plus a hand-written `expected_plan.json`. Buy one for the phase-2 demo. | `score_plan.py`: part recall ≥ 0.9; exact counts for ≥ 80% of parts; step-order Kendall τ ≥ 0.8 |
+| Smoke guide: LACK side table | One assembly drawing (4 legs, 4 screws) | Pipeline runs end to end in under 5 minutes |
+| Ground-truth check: IKEA-Manual dataset (`eval/datasets/`, git-ignored; `WITH_DATASET=1 eval/guides/fetch.sh`) | Real 3D parts (OBJ) and step plans for `Table/lack`, `Chair/bekvam_3017`, `Desk/flisat` | Our plan's steps and connections match the dataset's; our part proportions are within 15% |
+| Generality (stretch) | BEKVÄM (mirrored left/right parts), KALLAX (26 steps), Sauder/Teknik guides (lettered parts, written steps) | Plan extracted and approved without hand edits |
 | Smoke | `eval/smoke.sh BASE KEY`: health, upload, wait for approval, approve, wait for done, check the GLB has one animation per step (`npx @gltf-transform/cli inspect`) | Exit 0. Run before every merge after 02:00 and before recording. |
 | First GLB contract test (tonight) | A hand-made two-step GLB plus manifest, loaded on a real phone | Clips play and clamp, visibility is right, no blending artifacts |
 | Phase 2 offline (Sat night / Sun morning) | 5 clips of 20–40 s at the demo angle: correct step; wrong panel; upside-down then flipped; wrong hardware; bad light with hands in the way. Labelled at 4 Hz (~600 frames), replayed through the real WebSocket route. | Event accuracy ≥ 70%; **0 false alarms** on the correct clip; detection < 2 s; Decision p50 ≤ 250 ms / p95 ≤ 600 ms; frame-to-phone event p50 ≤ 500 ms. Replay cost about $0.50. |
@@ -727,8 +772,9 @@ Thresholds are tuned on the phase-2 clips:
 ## 13. UNVERIFIED items, ordered by when to test
 
 **Saturday, first hours:**
-1. Headless render: Workbench / EEVEE / Cycles on the M4 and on boxd; boxd `uname -m`; the `BLENDER_WORKBENCH` engine id.
-2. CadQuery 2.8 import on the M4 in Python 3.12; `cq.exporters.export` against `result.export`.
+1. ~~Headless render on the M4~~ **verified** (all engines work; Workbench recommended; Freestyle draws nothing headless). Still open: headless render on boxd and boxd `uname -m`.
+2. ~~CadQuery 2.8 import on the M4 in Python 3.12~~ **verified** (1.36 s cold import; the venv is 1.3 GB).
+2a. **Disk space:** the team laptop had about 1 GB free. Blender (about 1.5 GB installed), the CadQuery venv (1.3 GB) and `node_modules` need at least **5 GB free**. Clear space first, or run the pipeline on boxd or another laptop.
 3. `gemini-4-carbon` with a structured-output schema (fallback: Hydrogen at `xhigh`).
 4. Images inside function results for Hydrogen (we attach them as separate parts regardless).
 5. NLA export with many objects; how the three.js clips blend when earlier steps are clamped (two-step dummy GLB).
