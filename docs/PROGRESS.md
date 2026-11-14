@@ -31,7 +31,7 @@ Code freeze: **Sunday 15 Nov 2026, 18:00 Athens time.** Submit by 17:30.
 |---|---|---|---|---|---|
 | A | Evangelos | Backend and infra lead | INF-05, INF-06 | blocked | Sat 23:15 |
 | B | | Agent and prompts | AGT-01 | todo | |
-| C | | CAD and Blender | CAD-01 | todo | |
+| C | (covered by the data owner on Sat) | CAD and Blender | DEM-02 (waits for G3); CAD-01…09 done | todo | Sat 23:20 |
 | D | | Phone client and Quest XR | CLI-01 | todo | |
 | E | | Phase 2 perception, voice, demo story | LIV-01 | todo | |
 
@@ -61,7 +61,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | SET-02 | Smoke-call `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1` (`/v1beta/decisions`), and a Live session with an ephemeral token | A | doing | SET-01 | All four return without error | A key on the planning machine listed all four models (Sat 20:00). `eval/smoke_models.py` (`make models`) calls the four models and opens a Live session with a minted token; not run: no `GEMINI_API_KEY` on A's laptop | Sat 23:15 |
 | SET-03 | boxd login + payment method, create VM `agj`, run `uname -m` | A | blocked | – | Architecture recorded here | boxd CLI not installed or logged in on A's laptop: needs a browser sign-in and a payment method. `deploy/boxd.sh` is ready, written from the boxd docs, not run | Sat 23:15 |
 | SET-04 | Python 3.12 venv with cadquery, google-genai, fastapi, uvicorn, pymupdf, opencv-python-headless, numpy, pydantic-settings | all | todo | – | `python -c "import cadquery, fitz, cv2"` works on each laptop | | |
-| SET-05 | Install Blender 5.3 on the Macs (A, C) | C | todo | – | `blender -b --version` prints 5.3 | | |
+| SET-05 | Install Blender 5.3 on the Macs (A, C) | C | todo | – | `blender -b --version` prints 5.3 | Blender 5.3.0 runs headless on the data owner's Mac (`brew install --cask blender`), where the C tasks were done. The team MacBook Air is still blocked by disk space (§5) | Sat 23:20 |
 | SET-06 | Node + `three@0.187.0`, cloudflared | D | todo | – | `npm create vite` app runs on a phone via tunnel | | |
 | SET-07 | fal key; treg token (optional) | A | todo | – | Keys in `.env` | | |
 | SET-08 | Quest 3: charge, update, developer mode, Meta Quest Developer Hub, Immersive Web Emulator in Chrome | D | todo | – | Headset visible in `chrome://inspect` | | |
@@ -88,7 +88,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | AGT-01 | Hand-write `expected_plan.json` for the golden guide | B (done by the data owner) | done | SET-09 | File committed | `51384ab`: `eval/golden/knagglig/expected_plan.json` (4 part types, 9 pieces, 28 screws, 8 steps) and `eval/golden/lack-side-table/`. Labelled from the PDF, not yet checked on the physical product | Sat 19:45 |
 | AGT-02 | Rasterise + Carbon structured extraction with `box_2d` (§5.1); fallback Hydrogen `xhigh` if Carbon rejects the schema | B | todo | SET-02 | `plan.json` for the golden guide | | |
 | AGT-03 | Crops + box re-check + count validation + flags | B | todo | AGT-02 | Crops look right; mismatches flagged | | |
-| AGT-04 | `score_plan.py` against the expected plan | B (scorer by the data owner) | doing | AGT-01, AGT-02 | Recall ≥ 0.9, counts exact ≥ 80%, Kendall τ ≥ 0.8 | `51384ab`: `eval/score_plan.py` written and self-tested; waits for a real `plan.json` from AGT-02 | Sat 19:45 |
+| AGT-04 | `score_plan.py` against the expected plan | B (scorer by the data owner) | doing | AGT-01, AGT-02 | Recall ≥ 0.9, counts exact ≥ 80%, Kendall τ ≥ 0.8 | `51384ab`: `eval/score_plan.py`. Run on real plans: the bake-off plan written by headless Claude Code passes all three gates (flip accuracy 0.88); `eval/golden/knagglig/plan.json` passes at 1.00 but was aligned to the expected plan, so that one proves nothing. Not yet run on a plan from AGT-02 (Carbon), which does not exist | Sat 23:20 |
 | AGT-05 | Hydrogen part loop with tools (§5.6), 3 attempts, events logged | B | todo | CAD-02, CAD-03 | Golden parts pass or are flagged | | |
 | AGT-06 | Hydrogen step-fix loop and flip choice | B | todo | CAD-05 | Golden steps pass or are flagged | | |
 | AGT-07 | Per-step Decision 1 question writer for phase 2 (§6.1) | B | todo | AGT-02 | Questions JSON cached per step and valid | | |
@@ -178,6 +178,9 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | Phone heat after 15 min (if the phone is the camera) | §7 | | | | |
 | End-to-end smoke through the server (golden guide, localhost) | §9 | pass | 20.4 s from upload to GLB; the three.js r187 load check (`eval/glb_check`) passes on the server-built job | A | Sat 23:10 |
 | Server killed during a job | §8.1 | pass | `kill -9` while waiting for approval and again during `steps`: the job resumed, only `steps` ran again, event numbers stayed unbroken | A | Sat 23:12 |
+| GLB load check with the three.js r187 loader (`eval/glb_check`) | §5.4 | pass | KNAGGLIG: 2.0 MB, 24k triangles, 38 meshes, `walkthrough` + 8 step clips, every action at its manifest time. Packed with gltfpack: 197 kB, same checks pass. In Node, not in a browser | data owner | Sat 23:00 |
+| CadQuery sandbox self-test | §7.2 | pass | 11 of 11 on macOS: endless loop killed at the 4 s CPU limit, sleep at 6 s, memory hog (1.2 GB) in 1.7 s, 40 MB file refused; network, outside writes and `.env` reads refused. Not run on Linux, where those last three are not blocked | data owner | Sat 23:00 |
+| Part pictures, reference sheets and crops | §5.4 | pass | 12 part pictures 1.2 s, 8 reference renders 0.8 s, 8 sheets (1536×768, ≤ 445 kB) 1.9 s, 8 crops at 300 dpi. Sheets not yet sent to Decision 1 | data owner | Sat 23:00 |
 | cloudflared quick tunnel without an account | §13 | pass, with a limit | HTTPS, upload, REST and files work. **SSE is buffered: 0 bytes in 20 s.** Smoke passes in 50.6 s with long-polling | A | Sat 23:14 |
 | First CadQuery import after an install | §13 | note | over 30 s once (bytecode compile), then about 1.4 s. The server waits up to 180 s before it reports CadQuery as missing | A | Sat 23:05 |
 
@@ -209,6 +212,7 @@ Decisions made during the build. Copy plan-changing ones into `docs/PLAN.md` §1
 | Sat 23:15 | Build feed: SSE stays the main path; `GET /api/jobs/{id}/events/poll?since=&wait=` is the fallback, and the client switches to it when the stream stays silent (D16) | A trycloudflare quick tunnel delivers no SSE bytes until the stream ends (measured). boxd is not tested yet | A |
 | Sat 23:15 | `/healthz` without the demo key answers only `{ok: true}`; with the key it gives the full state (D17) | A client can tell "server down" from "wrong key", and nothing leaks | A |
 | Sat 23:15 | The Live token locks the model, prompt, tools and voice-activity settings but not `session_resumption`; the reply adds `api_version` (v1beta tried first, then v1alpha) (D18) | A locked field could not carry the resume handle on reconnect; SDK 3.3 documents token creation as v1alpha only. Not tried against the API yet | A |
+| Sat 23:20 | Manifest and job folder gain `glbPacked`, `cropSource`, `refs/step-NN-sheet.json` and the `part-<id>.png` / `-shaded.png` names; the CadQuery sandbox uses a fresh process per script (D19) | Additions made while finishing CAD-03/06/07/09; nothing a reader of the old contract relied on was renamed | data owner |
 | Sat 23:15 | Until AGT-02 lands, a known test guide (matched by the PDF's sha256) uses its hand-checked plan and part scripts from `eval/golden/`, and the feed says so. Any other guide stops at `extract_plan` | D and E get a real server flow tonight; gate G3 allows a hand-fixed plan | A |
 
 ---
@@ -258,3 +262,4 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
   - **Virtual side:** draw the same arrow and label in the viewer at the current action's `target_m` (the manifest has it, with `code` and the action text). Once the GLB is aligned to the real base (XR-03), the arrow also points at the real hole. No vision needed.
   - **Real side:** the screws carry no printed code, so there is nothing to OCR. Telling long from short is the `hardware_in_hand` choice question, answered from the reference sheet (`refs/step-NN-sheet.png`, labels in `step-NN-sheet.json`).
   - **Highlighting the real screw:** locating a 3 cm screw in headset space from a 768 px frame at 4 Hz is not realistic this weekend. Cheaper and nearly the same for the user: a ring at the pinch point from Quest hand tracking, green when `hardware_in_hand` is the step's code, red with the right code shown when it is not. It lags by the decision latency (target p50 ≤ 250 ms, alert within 2 s).
+- Sat 23:20 · docs · brought `pipeline/README.md`, `CREDITS.md` (gltfpack), PLAN §4.1/§4.3 and D19, and the SET-05, AGT-04 and §2/§4 rows here in line with what was built today

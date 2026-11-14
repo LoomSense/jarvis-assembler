@@ -53,6 +53,7 @@ In **phase 2** the user wears a **Meta Quest 3** and builds the real product. Th
 | D16 | Build feed through proxies | SSE only (D5) vs proxies that buffer it | SSE stays the main path. **A trycloudflare quick tunnel delivers no SSE bytes until the stream ends (measured 14 Nov)**, so `GET /api/jobs/{id}/events/poll?since=<seq>&wait=<s>` returns the same events by long-polling. The client switches to it when the stream stays silent for a few seconds. |
 | D17 | `/healthz` and the demo key | "Every route requires the demo key" (§4.5) | Without the key `/healthz` answers only `{ok: true}`. With the key it gives the full state. |
 | D18 | Live token locking | §6.4 locks `session_resumption` in the token | The token locks the model, system instruction, tools and voice-activity settings. **`session_resumption` is left to the client**, so it can send the resume handle on reconnect. The reply adds `api_version`: the server tries v1beta, then v1alpha (SDK 3.3 documents token creation as v1alpha only). **UNVERIFIED** until tried with a key. |
+| D19 | Manifest and job-folder additions from the CAD side | §4.1 and §4.3 as first written | Additions only, nothing renamed: `glbPacked` (`walkthrough.packed.glb`, meshopt-compressed; `glb` stays uncompressed), `cropSource` on steps (`box` or `auto`), `refs/step-NN-sheet.json` (the labels printed on the sheet, to use as answer keys), part pictures named `renders/part-<id>.png` and `part-<id>-shaded.png` (`thumb` points to the shaded one). The CadQuery sandbox starts a fresh process per script (about 1.9 s) instead of a long-lived worker: simpler to kill cleanly. |
 
 ---
 
@@ -161,13 +162,13 @@ Optional sponsor tool: treg (a single token for 4,100+ pay-per-call tools) only 
 jobs/<job_id>/
   guide.pdf
   pages/page-001.png ...             # 200 dpi rasters (PyMuPDF)
-  crops/part-A.png  step-03.png ...  # 300 dpi crops from box_2d
+  crops/part-A.png  step-03.png ...  # 300 dpi crops from box_2d (step crops fall back to an automatic page split)
   plan.json  plan.approved.json      # build stages read ONLY the approved plan
   parts/A.py  A.stl  A.step  A.mates.json
-  renders/part-A-v2.png  step-03-cand1.png  check-*.json
-  refs/step-03-ref.png  step-03-sheet.png   # phase-2 reference render + composite sheet
+  renders/part-A.png  part-A-shaded.png  step_03.png  check-*.json   # line art, shaded, guide-angle check render
+  refs/step-03-ref.png  step-03-sheet.png  step-03-sheet.json   # phase-2 reference render, composite sheet, its labels
   scene.blend
-  walkthrough.glb  manifest.json
+  walkthrough.glb  walkthrough.packed.glb  manifest.json   # packed = meshopt-compressed, optional
   events.jsonl                       # append-only; feeds SSE and post-mortem
   stages/<stage>.done  logs/*.stderr
 ```
@@ -193,15 +194,15 @@ A failure produces a `count_mismatch` flag that the human must resolve before ap
 
 ```json
 {
-  "jobId": "abc", "title": "LACK side table", "glb": "walkthrough.glb", "units": "m",
-  "parts": [{"id": "A", "name": "Side panel", "nodes": ["part_A_1", "part_A_2"], "thumb": "renders/part-A-v2.png", "cite": {"page": 2, "label": "A"}}],
+  "jobId": "abc", "title": "LACK side table", "glb": "walkthrough.glb", "glbPacked": "walkthrough.packed.glb", "units": "m",
+  "parts": [{"id": "A", "name": "Side panel", "nodes": ["part_A_1", "part_A_2"], "thumb": "renders/part-A-shaded.png", "cite": {"page": 2, "label": "A"}}],
   "hardware": [{"code": "101350", "kind": "dowel", "count": 8, "nodes": ["hw_101350_1", "..."], "cite": {"page": 2, "label": "101350"}}],
   "steps": [{
     "n": 3, "clip": "step_03", "title": "Attach side panel A to base C",
     "visible": ["part_C_1", "part_A_1", "hw_101350_1"],
     "pickParts": ["A"], "hardware": [{"code": "101350", "qty": 4}],
     "camera": {"node": "cam_step_03", "pos": [0.9, 0.7, 0.9], "target": [0, 0.2, 0], "ortho_height": 0.9},
-    "crop": "crops/step-03.png", "cite": {"page": 4, "label": "3"},
+    "crop": "crops/step-03.png", "cropSource": "box", "cite": {"page": 4, "label": "3"},
     "refRender": "refs/step-03-ref.png", "refSheet": "refs/step-03-sheet.png",
     "check": {"pass": true, "score": 0.86}, "flags": []
   }]
@@ -294,7 +295,7 @@ def build(p):
     return b, frames
 ```
 
-**Runtime.** Generated scripts run in a **long-lived sandboxed CadQuery worker** (§7.2, CAD-09) that has already paid the 1.4 s import, with a 30 s limit per script. A fresh process per part costs about 1.6 s each (measured). The traceback goes back to the agent on failure.
+**Runtime.** Generated scripts run in a **long-lived sandboxed CadQuery worker** (§7.2, CAD-09) that has already paid the 1.4 s import, with a 30 s limit per script. (As built, D19: `pipeline/cad/sandbox.py` starts a fresh process per script, about 1.9 s each.) A fresh process per part costs about 1.6 s each (measured). The traceback goes back to the agent on failure.
 
 **Tessellation gotcha (measured):** OpenCascade caches the mesh on a solid, so exporting the same solid at a second tolerance silently reuses the first mesh. Use one tolerance (0.05 mm for check renders, or 0.5 mm for the phone GLB) or rebuild the solid.
 
