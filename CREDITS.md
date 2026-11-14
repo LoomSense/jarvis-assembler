@@ -31,7 +31,8 @@ Everything in this repository that we did not build ourselves during the hackath
 | trimesh | Overlap checks, look-alike parts | MIT | https://trimesh.org |
 | Pillow | Reference sheets, preview frames | MIT-CMU | https://python-pillow.org |
 | python-multipart, httpx, pytest | Uploads, tests | Apache-2.0; BSD-3-Clause; MIT | |
-| three.js | 3D viewer and WebXR on the phone and headset | MIT | https://threejs.org |
+| three.js | 3D viewer and WebXR on the phone and headset; its GLB loader in `eval/glb_check` | MIT | https://threejs.org |
+| gltfpack (meshoptimizer) | Compressing the GLB (`pipeline/pack.py`); the viewer needs its meshopt decoder, which ships with three.js | MIT | https://github.com/zeux/meshoptimizer |
 | MediaPipe Tasks Vision | On-device hand gate on the phone | Apache-2.0 | https://developers.google.com/edge/mediapipe |
 | uv | Python environment | Apache-2.0 or MIT | https://docs.astral.sh/uv |
 | gitleaks | Secret scan before pushing | MIT | https://gitleaks.io |
