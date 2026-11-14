@@ -269,6 +269,8 @@ class Orchestrator:
             return
         flag.clear()
         job.set_status(stage=stage.name, status="waiting_approval", progress=progress, error=None)
-        log.emit("approval_required", "The plan is ready. Check it against the guide, then approve.",
-                 stage=stage.name, progress=progress, plan_url=f"/api/jobs/{job.id}/plan")
+        last = log.read(after=log.last_seq - 1)
+        if not (last and last[-1]["type"] == "approval_required"):     # after a restart, do not ask twice
+            log.emit("approval_required", "The plan is ready. Check it against the guide, then approve.",
+                     stage=stage.name, progress=progress, plan_url=f"/api/jobs/{job.id}/plan")
         await flag.wait()

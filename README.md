@@ -45,6 +45,7 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/api/jobs` | → `{jobs: [...]}`, newest first |
 | GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title}` |
 | GET | `/api/jobs/{id}/events` | SSE stream of events; resumes from `Last-Event-ID` or `?since=<seq>` |
+| GET | `/api/jobs/{id}/events/poll?since=<seq>&wait=20` | → `{events: [...], last_seq}`; long-poll fallback for the stream above |
 | GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
 | POST | `/api/jobs/{id}/plan/approve` | `{plan?, note?}` → `{stage: "building"}` |
 | POST | `/api/jobs/{id}/retry` | `{from_stage}` → `{stage}` |
@@ -62,6 +63,8 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 ```
 
 `type` is one of `thought`, `tool_call`, `tool_result`, `image`, `part_status`, `step_ready`, `approval_required`, `progress`, `error`, `done`. Images carry `image_url`. The stream sends a `: ping` comment every 15 s.
+
+**A `make tunnel` URL (trycloudflare) buffers SSE: no event arrives until the stream ends** (measured 14 Nov). Everything else works through it. A client must fall back to `/events/poll` when the stream stays silent: the server sends `retry: 2000` at once, so a stream with no bytes after a few seconds is a buffered one. Whether the boxd URL streams SSE is not tested yet.
 
 ## How a job runs
 

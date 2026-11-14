@@ -91,6 +91,19 @@ async def job_events(request: Request, since: int | None = None, job: Job = Depe
         "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
 
+@router.get("/api/jobs/{job_id}/events/poll")
+async def poll_events(request: Request, since: int = 0, wait: float = 20.0, job: Job = Depends(get_job)) -> dict:
+    """Long-poll fallback for proxies that buffer SSE (a trycloudflare quick tunnel does).
+    Returns the events with seq > `since` at once, or waits up to `wait` seconds (max 25) for the next one."""
+    log = request.app.state.store.log(job)
+    events = log.read(since)
+    if not events and wait > 0:
+        async for event in log.follow(since, heartbeat=min(wait, 25.0)):
+            events = log.read(since) if event else []
+            break
+    return {"events": events, "last_seq": log.last_seq}
+
+
 @router.get("/api/jobs/{job_id}/plan")
 async def job_plan(job: Job = Depends(get_job)) -> dict:
     """The plan (the approved one once it exists), with the URL of every crop and page image."""

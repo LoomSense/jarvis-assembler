@@ -50,23 +50,38 @@ class Api:
         with self.open("/api/jobs", body, {"Content-Type": f"multipart/form-data; boundary={boundary}"}) as r:
             return json.loads(r.read())
 
+    sse_works: bool | None = None      # None: not known yet
+
     def events(self, job_id: str, last_event_id: int | None, until, timeout: float) -> list[dict]:
-        """Read the SSE stream until `until(event)` is true. Returns the events read."""
-        headers = {"Accept": "text/event-stream"}
-        if last_event_id is not None:
-            headers["Last-Event-ID"] = str(last_event_id)
-        seen, deadline = [], time.time() + timeout
-        with self.open(f"/api/jobs/{job_id}/events", headers=headers, timeout=30) as r:
-            for raw in r:
-                line = raw.decode().rstrip("\n")
-                if line.startswith("data: "):
-                    event = json.loads(line[6:])
-                    seen.append(event)
-                    if until(event):
-                        return seen
-                if time.time() > deadline:
-                    break
-        raise SystemExit(f"FAIL: the event stream did not reach the expected event in {timeout:.0f} s")
+        """Read events after `last_event_id` until `until(event)` is true. Returns the events read.
+        Uses the SSE stream; if no byte of it arrives (a buffering proxy), falls back to long-polling."""
+        after = last_event_id or 0
+        seen, deadline, got_bytes = [], time.time() + timeout, False
+        if self.sse_works is not False:
+            try:
+                with self.open(f"/api/jobs/{job_id}/events", timeout=20,     # the server pings every 15 s
+                               headers={"Accept": "text/event-stream", "Last-Event-ID": str(after)}) as r:
+                    for raw in r:
+                        got_bytes = self.sse_works = True
+                        line = raw.decode().rstrip("\n")
+                        if line.startswith("data: "):
+                            seen.append(json.loads(line[6:]))
+                            if until(seen[-1]):
+                                return seen
+                        if time.time() > deadline:
+                            break
+            except (TimeoutError, urllib.error.URLError, ConnectionError) as e:
+                if got_bytes:
+                    raise SystemExit(f"FAIL: the event stream stalled: {e}") from None
+                self.sse_works = False
+                print("  WARN  no SSE bytes arrived in 20 s: this proxy buffers the stream. Using long-polling.", flush=True)
+        while self.sse_works is False and time.time() < deadline:
+            for event in self.json(f"/api/jobs/{job_id}/events/poll?since={after}&wait=20")["events"]:
+                seen.append(event)
+                after = event["seq"]
+                if until(event):
+                    return seen
+        raise SystemExit(f"FAIL: the event feed did not reach the expected event in {timeout:.0f} s")
 
 
 def glb_json(data: bytes) -> dict:
@@ -152,7 +167,8 @@ def main(argv: list[str]) -> int:
     if manifest.get("jobId") != job_id:
         raise SystemExit("FAIL: manifest.json has no jobId")
     step(f"GLB: {len(glb) / 1e6:.2f} MB, `walkthrough` + {len(wanted)} step clips for {n_steps} steps")
-    print(f"PASS in {time.time() - t0:.1f} s  →  {base}/?job={job_id}")
+    feed = "SSE" if api.sse_works else "long-polling only (SSE is buffered on this URL)"
+    print(f"PASS in {time.time() - t0:.1f} s  ·  event feed: {feed}  →  {base}/?job={job_id}")
     return 0
 
 

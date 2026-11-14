@@ -165,6 +165,11 @@ def test_golden_guide_end_to_end_then_retry_skips_finished_stages(client, tmp_pa
     assert client.get(f"/api/jobs/{job_id}/plan").json()["approved"] is True
 
     job_dir = tmp_path / "jobs" / job_id
+    polled = client.get(f"/api/jobs/{job_id}/events/poll?since=5&wait=0").json()       # the long-poll fallback
+    assert polled["events"][0]["seq"] == 6 and polled["events"][-1]["seq"] == polled["last_seq"]
+    t0 = time.time()
+    assert client.get(f"/api/jobs/{job_id}/events/poll?since={polled['last_seq']}&wait=0.3").json()["events"] == []
+    assert time.time() - t0 >= 0.25                                                    # it waited for news
     events = [json.loads(line) for line in (job_dir / "events.jsonl").read_text().splitlines()]
     assert [e["seq"] for e in events] == list(range(1, len(events) + 1))
     assert events[-1]["type"] == "done" and {"approval_required", "part_status", "step_ready"} <= {e["type"] for e in events}
