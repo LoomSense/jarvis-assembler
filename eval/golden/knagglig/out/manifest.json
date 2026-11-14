@@ -1,0 +1,618 @@
+{
+ "title": "KNAGGLIG box",
+ "guideId": "AA-1159337-7",
+ "glb": "walkthrough.glb",
+ "units": "m",
+ "fps": 24,
+ "overall_mm": {
+  "L": 460,
+  "W": 310,
+  "H": 250,
+  "estimated": false,
+  "basis": "published product size"
+ },
+ "parts": [
+  {
+   "id": "bottom_panel",
+   "name": "Bottom panel (pre-assembled)",
+   "count": 1,
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, lying flat"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_bottom_panel_1"
+   ]
+  },
+  {
+   "id": "side_panel",
+   "name": "Long side panel (pre-assembled)",
+   "count": 2,
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, standing"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_side_panel_1",
+    "part_side_panel_2"
+   ]
+  },
+  {
+   "id": "end_slat",
+   "name": "End slat",
+   "count": 4,
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 5"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "part_end_slat_3",
+    "part_end_slat_4"
+   ]
+  },
+  {
+   "id": "end_slat_handle",
+   "name": "End slat with handle cut-out",
+   "count": 2,
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 6"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_end_slat_handle_1",
+    "part_end_slat_handle_2"
+   ]
+  }
+ ],
+ "hardware": [
+  {
+   "code": "108363",
+   "name": "Long screw",
+   "kind": "screw",
+   "count": 4,
+   "cite": {
+    "page": 2,
+    "label": "108363"
+   },
+   "nodes": [
+    "hw_108363_1",
+    "hw_108363_2",
+    "hw_108363_3",
+    "hw_108363_4"
+   ]
+  },
+  {
+   "code": "108560",
+   "name": "Short screw",
+   "kind": "screw",
+   "count": 24,
+   "cite": {
+    "page": 2,
+    "label": "108560"
+   },
+   "nodes": [
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8",
+    "hw_108560_9",
+    "hw_108560_10",
+    "hw_108560_11",
+    "hw_108560_12",
+    "hw_108560_13",
+    "hw_108560_14",
+    "hw_108560_15",
+    "hw_108560_16",
+    "hw_108560_17",
+    "hw_108560_18",
+    "hw_108560_19",
+    "hw_108560_20",
+    "hw_108560_21",
+    "hw_108560_22",
+    "hw_108560_23",
+    "hw_108560_24"
+   ]
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "clip": "step_01",
+   "title": "Stand a side panel against the end of the bottom panel",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1"
+   ],
+   "moving": [
+    "part_side_panel_1"
+   ],
+   "pickParts": [
+    "bottom_panel",
+    "side_panel"
+   ],
+   "hardware": [],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_01",
+    "pos": [
+     -0.7949,
+     1.5945,
+     1.0639
+    ],
+    "target": [
+     0.218,
+     0.148,
+     0.125
+    ],
+    "ortho_height": 0.6587,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 1.25,
+   "cite": {
+    "page": 3,
+    "label": "1"
+   },
+   "crop": null,
+   "refRender": "renders/step_01.png",
+   "flags": []
+  },
+  {
+   "n": 2,
+   "clip": "step_02",
+   "title": "Fix it with two long screws",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2"
+   ],
+   "moving": [
+    "hw_108363_1",
+    "hw_108363_2"
+   ],
+   "pickParts": [],
+   "hardware": [
+    {
+     "code": "108363",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_02",
+    "pos": [
+     1.296,
+     -1.4915,
+     0.809
+    ],
+    "target": [
+     0.218,
+     0.048,
+     0.125
+    ],
+    "ortho_height": 0.8021,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 3,
+    "label": "2"
+   },
+   "crop": null,
+   "refRender": "renders/step_02.png",
+   "flags": []
+  },
+  {
+   "n": 3,
+   "clip": "step_03",
+   "title": "Turn it over and add the second side panel",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2"
+   ],
+   "moving": [
+    "part_side_panel_2"
+   ],
+   "pickParts": [
+    "side_panel"
+   ],
+   "hardware": [],
+   "flipWholeAssembly": true,
+   "camera": {
+    "node": "cam_step_03",
+    "pos": [
+     1.2309,
+     -1.2915,
+     1.0639
+    ],
+    "target": [
+     0.218,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 0.9555,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 1.25,
+   "cite": {
+    "page": 4,
+    "label": "3"
+   },
+   "crop": null,
+   "refRender": "renders/step_03.png",
+   "flags": []
+  },
+  {
+   "n": 4,
+   "clip": "step_04",
+   "title": "Fix it with two long screws",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2",
+    "hw_108363_3",
+    "hw_108363_4"
+   ],
+   "moving": [
+    "hw_108363_3",
+    "hw_108363_4"
+   ],
+   "pickParts": [],
+   "hardware": [
+    {
+     "code": "108363",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_04",
+    "pos": [
+     -0.86,
+     1.6945,
+     0.809
+    ],
+    "target": [
+     0.218,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 0.9555,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 4,
+    "label": "4"
+   },
+   "crop": null,
+   "refRender": "renders/step_04.png",
+   "flags": []
+  },
+  {
+   "n": 5,
+   "clip": "step_05",
+   "title": "Stand the box on end and screw on two end slats",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2",
+    "hw_108363_3",
+    "hw_108363_4",
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8"
+   ],
+   "moving": [
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8"
+   ],
+   "pickParts": [
+    "end_slat"
+   ],
+   "hardware": [
+    {
+     "code": "108560",
+     "qty": 8
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_05",
+    "pos": [
+     -1.2765,
+     -1.0101,
+     0.9702
+    ],
+    "target": [
+     0.112,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 1.0302,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 5,
+    "label": "5"
+   },
+   "crop": null,
+   "refRender": "renders/step_05.png",
+   "flags": []
+  },
+  {
+   "n": 6,
+   "clip": "step_06",
+   "title": "Screw on the handle slat, then turn the box over",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2",
+    "hw_108363_3",
+    "hw_108363_4",
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8",
+    "part_end_slat_handle_1",
+    "hw_108560_9",
+    "hw_108560_10",
+    "hw_108560_11",
+    "hw_108560_12"
+   ],
+   "moving": [
+    "part_end_slat_handle_1",
+    "hw_108560_9",
+    "hw_108560_10",
+    "hw_108560_11",
+    "hw_108560_12"
+   ],
+   "pickParts": [
+    "end_slat_handle"
+   ],
+   "hardware": [
+    {
+     "code": "108560",
+     "qty": 4
+    }
+   ],
+   "flipWholeAssembly": true,
+   "camera": {
+    "node": "cam_step_06",
+    "pos": [
+     -1.2765,
+     -1.0101,
+     0.9702
+    ],
+    "target": [
+     0.112,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 1.0302,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 6,
+    "label": "6"
+   },
+   "crop": null,
+   "refRender": "renders/step_06.png",
+   "flags": []
+  },
+  {
+   "n": 7,
+   "clip": "step_07",
+   "title": "Screw two end slats onto the other end",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2",
+    "hw_108363_3",
+    "hw_108363_4",
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8",
+    "part_end_slat_handle_1",
+    "hw_108560_9",
+    "hw_108560_10",
+    "hw_108560_11",
+    "hw_108560_12",
+    "part_end_slat_3",
+    "part_end_slat_4",
+    "hw_108560_13",
+    "hw_108560_14",
+    "hw_108560_15",
+    "hw_108560_16",
+    "hw_108560_17",
+    "hw_108560_18",
+    "hw_108560_19",
+    "hw_108560_20"
+   ],
+   "moving": [
+    "part_end_slat_3",
+    "part_end_slat_4",
+    "hw_108560_13",
+    "hw_108560_14",
+    "hw_108560_15",
+    "hw_108560_16",
+    "hw_108560_17",
+    "hw_108560_18",
+    "hw_108560_19",
+    "hw_108560_20"
+   ],
+   "pickParts": [
+    "end_slat"
+   ],
+   "hardware": [
+    {
+     "code": "108560",
+     "qty": 8
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_07",
+    "pos": [
+     1.6065,
+     -1.0101,
+     0.9702
+    ],
+    "target": [
+     0.218,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 1.0302,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 7,
+    "label": "7"
+   },
+   "crop": null,
+   "refRender": "renders/step_07.png",
+   "flags": []
+  },
+  {
+   "n": 8,
+   "clip": "step_08",
+   "title": "Screw on the second handle slat",
+   "visible": [
+    "part_bottom_panel_1",
+    "part_side_panel_1",
+    "hw_108363_1",
+    "hw_108363_2",
+    "part_side_panel_2",
+    "hw_108363_3",
+    "hw_108363_4",
+    "part_end_slat_1",
+    "part_end_slat_2",
+    "hw_108560_1",
+    "hw_108560_2",
+    "hw_108560_3",
+    "hw_108560_4",
+    "hw_108560_5",
+    "hw_108560_6",
+    "hw_108560_7",
+    "hw_108560_8",
+    "part_end_slat_handle_1",
+    "hw_108560_9",
+    "hw_108560_10",
+    "hw_108560_11",
+    "hw_108560_12",
+    "part_end_slat_3",
+    "part_end_slat_4",
+    "hw_108560_13",
+    "hw_108560_14",
+    "hw_108560_15",
+    "hw_108560_16",
+    "hw_108560_17",
+    "hw_108560_18",
+    "hw_108560_19",
+    "hw_108560_20",
+    "part_end_slat_handle_2",
+    "hw_108560_21",
+    "hw_108560_22",
+    "hw_108560_23",
+    "hw_108560_24"
+   ],
+   "moving": [
+    "part_end_slat_handle_2",
+    "hw_108560_21",
+    "hw_108560_22",
+    "hw_108560_23",
+    "hw_108560_24"
+   ],
+   "pickParts": [
+    "end_slat_handle"
+   ],
+   "hardware": [
+    {
+     "code": "108560",
+     "qty": 4
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_08",
+    "pos": [
+     1.6065,
+     -1.0101,
+     0.9702
+    ],
+    "target": [
+     0.218,
+     0.155,
+     0.125
+    ],
+    "ortho_height": 1.0302,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 2.17,
+   "cite": {
+    "page": 8,
+    "label": "8"
+   },
+   "crop": null,
+   "refRender": "renders/step_08.png",
+   "flags": []
+  }
+ ]
+}

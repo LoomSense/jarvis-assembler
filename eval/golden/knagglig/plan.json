@@ -1,0 +1,694 @@
+{
+ "title": "KNAGGLIG box",
+ "guide": "eval/guides/ikea/knagglig-box__AA-1159337-7.pdf",
+ "guide_id": "AA-1159337-7",
+ "units": "mm",
+ "overall_mm": {
+  "L": 460,
+  "W": 310,
+  "H": 250,
+  "estimated": false,
+  "basis": "published product size"
+ },
+ "dims": {
+  "L": 460,
+  "W": 310,
+  "H": 250,
+  "t": 12,
+  "slat_h": 70,
+  "row_gap": 17,
+  "z0": 6,
+  "bot_t": 10,
+  "batten_w": 20,
+  "batten_h": 20,
+  "up_x": 20,
+  "up_y": 28,
+  "screw_dz": 18
+ },
+ "parts": [
+  {
+   "id": "bottom_panel",
+   "name": "Bottom panel (pre-assembled)",
+   "count": 1,
+   "script": "parts/bottom_panel.py",
+   "material": "pine",
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, lying flat"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  },
+  {
+   "id": "side_panel",
+   "name": "Long side panel (pre-assembled)",
+   "count": 2,
+   "script": "parts/side_panel.py",
+   "material": "pine",
+   "cite": {
+    "page": 3,
+    "label": null,
+    "note": "step 1, standing"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  },
+  {
+   "id": "end_slat",
+   "name": "End slat",
+   "count": 4,
+   "script": "parts/end_slat.py",
+   "material": "pine",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 5"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  },
+  {
+   "id": "end_slat_handle",
+   "name": "End slat with handle cut-out",
+   "count": 2,
+   "script": "parts/end_slat.py",
+   "params": {
+    "handle": true
+   },
+   "material": "pine",
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 6"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  }
+ ],
+ "hardware": [
+  {
+   "code": "108363",
+   "kind": "screw",
+   "name": "Long screw",
+   "count": 4,
+   "script": "parts/screw.py",
+   "params": {
+    "length": 60,
+    "shank_d": 4.5,
+    "head_d": 9.0,
+    "head_h": 3.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 2,
+    "label": "108363"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  },
+  {
+   "code": "108560",
+   "kind": "screw",
+   "name": "Short screw",
+   "count": 24,
+   "script": "parts/screw.py",
+   "params": {
+    "length": 30,
+    "shank_d": 3.5,
+    "head_d": 7.0,
+    "head_h": 2.8
+   },
+   "material": "steel",
+   "cite": {
+    "page": 2,
+    "label": "108560"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from published overall size 460 x 310 x 250 mm"
+   }
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Stand a side panel against the end of the bottom panel",
+   "cite": {
+    "page": 3,
+    "label": "1"
+   },
+   "add": [
+    {
+     "instance": "bottom_panel#1",
+     "base": true
+    },
+    {
+     "instance": "side_panel#1",
+     "mates": [
+      {
+       "moving": "bolt_out_1",
+       "fixed": "bottom_panel#1.pilot_A1"
+      },
+      {
+       "moving": "bolt_out_2",
+       "fixed": "bottom_panel#1.pilot_A2"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {},
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    125,
+    28
+   ]
+  },
+  {
+   "n": 2,
+   "title": "Fix it with two long screws",
+   "cite": {
+    "page": 3,
+    "label": "2"
+   },
+   "add": [
+    {
+     "instance": "108363#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "side_panel#1.bolt_in_1"
+      }
+     ]
+    },
+    {
+     "instance": "108363#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "side_panel#1.bolt_in_2"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108363": 2
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -55,
+    20
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Turn it over and add the second side panel",
+   "cite": {
+    "page": 4,
+    "label": "3"
+   },
+   "add": [
+    {
+     "instance": "side_panel#2",
+     "mates": [
+      {
+       "moving": "bolt_out_1",
+       "fixed": "bottom_panel#1.pilot_B2"
+      },
+      {
+       "moving": "bolt_out_2",
+       "fixed": "bottom_panel#1.pilot_B1"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {},
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -55,
+    28
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Fix it with two long screws",
+   "cite": {
+    "page": 4,
+    "label": "4"
+   },
+   "add": [
+    {
+     "instance": "108363#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "side_panel#2.bolt_in_1"
+      }
+     ]
+    },
+    {
+     "instance": "108363#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "side_panel#2.bolt_in_2"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108363": 2
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    125,
+    20
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Stand the box on end and screw on two end slats",
+   "cite": {
+    "page": 5,
+    "label": "5"
+   },
+   "add": [
+    {
+     "instance": "end_slat#1",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#2.end2_r1a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#2.end2_r1b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#1.end1_r1a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#1.end1_r1b"
+      }
+     ]
+    },
+    {
+     "instance": "end_slat#2",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#2.end2_r2a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#2.end2_r2b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#1.end1_r2a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#1.end1_r2b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#1.in_R_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#5",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#6",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#7",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#8",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#2.in_R_b"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108560": 8
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -140,
+    25
+   ]
+  },
+  {
+   "n": 6,
+   "title": "Screw on the handle slat, then turn the box over",
+   "cite": {
+    "page": 6,
+    "label": "6"
+   },
+   "add": [
+    {
+     "instance": "end_slat_handle#1",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#2.end2_r3a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#2.end2_r3b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#1.end1_r3a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#1.end1_r3b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#9",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#10",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#11",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#12",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#1.in_R_b"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108560": 4
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -140,
+    25
+   ]
+  },
+  {
+   "n": 7,
+   "title": "Screw two end slats onto the other end",
+   "cite": {
+    "page": 7,
+    "label": "7"
+   },
+   "add": [
+    {
+     "instance": "end_slat#3",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#1.end2_r1a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#1.end2_r1b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#2.end1_r1a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#2.end1_r1b"
+      }
+     ]
+    },
+    {
+     "instance": "end_slat#4",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#1.end2_r2a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#1.end2_r2b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#2.end1_r2a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#2.end1_r2b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#13",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#14",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#15",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#16",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#3.in_R_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#17",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#18",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#19",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#20",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat#4.in_R_b"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108560": 8
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -40,
+    25
+   ]
+  },
+  {
+   "n": 8,
+   "title": "Screw on the second handle slat",
+   "cite": {
+    "page": 8,
+    "label": "8"
+   },
+   "add": [
+    {
+     "instance": "end_slat_handle#2",
+     "mates": [
+      {
+       "moving": "out_L_a",
+       "fixed": "side_panel#1.end2_r3a"
+      },
+      {
+       "moving": "out_L_b",
+       "fixed": "side_panel#1.end2_r3b"
+      },
+      {
+       "moving": "out_R_a",
+       "fixed": "side_panel#2.end1_r3a"
+      },
+      {
+       "moving": "out_R_b",
+       "fixed": "side_panel#2.end1_r3b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#21",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.in_L_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#22",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.in_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "108560#23",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.in_R_a"
+      }
+     ]
+    },
+    {
+     "instance": "108560#24",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "end_slat_handle#2.in_R_b"
+      }
+     ]
+    }
+   ],
+   "hardware_used": {
+    "108560": 4
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -40,
+    25
+   ]
+  }
+ ],
+ "flags": []
+}

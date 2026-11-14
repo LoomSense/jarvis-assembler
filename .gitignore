@@ -1,0 +1,9 @@
+.venv/
+jobs/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.blend1
+node_modules/
+client/dist/
