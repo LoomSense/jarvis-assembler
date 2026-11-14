@@ -85,10 +85,10 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 
 | ID | Task | Owner | Status | Depends on | Done when | Evidence | Updated |
 |---|---|---|---|---|---|---|---|
-| AGT-01 | Hand-write `expected_plan.json` for the golden guide | B | todo | SET-09 | File committed | | |
+| AGT-01 | Hand-write `expected_plan.json` for the golden guide | B (done by the data owner) | done | SET-09 | File committed | `51384ab`: `eval/golden/knagglig/expected_plan.json` (4 part types, 9 pieces, 28 screws, 8 steps) and `eval/golden/lack-side-table/`. Labelled from the PDF, not yet checked on the physical product | Sat 19:45 |
 | AGT-02 | Rasterise + Carbon structured extraction with `box_2d` (§5.1); fallback Hydrogen `xhigh` if Carbon rejects the schema | B | todo | SET-02 | `plan.json` for the golden guide | | |
 | AGT-03 | Crops + box re-check + count validation + flags | B | todo | AGT-02 | Crops look right; mismatches flagged | | |
-| AGT-04 | `score_plan.py` against the expected plan | B | todo | AGT-01, AGT-02 | Recall ≥ 0.9, counts exact ≥ 80%, Kendall τ ≥ 0.8 | | |
+| AGT-04 | `score_plan.py` against the expected plan | B (scorer by the data owner) | doing | AGT-01, AGT-02 | Recall ≥ 0.9, counts exact ≥ 80%, Kendall τ ≥ 0.8 | `51384ab`: `eval/score_plan.py` written and self-tested; waits for a real `plan.json` from AGT-02 | Sat 19:45 |
 | AGT-05 | Hydrogen part loop with tools (§5.6), 3 attempts, events logged | B | todo | CAD-02, CAD-03 | Golden parts pass or are flagged | | |
 | AGT-06 | Hydrogen step-fix loop and flip choice | B | todo | CAD-05 | Golden steps pass or are flagged | | |
 | AGT-07 | Per-step Decision 1 question writer for phase 2 (§6.1) | B | todo | AGT-02 | Questions JSON cached per step and valid | | |
@@ -220,3 +220,9 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 
 ### Log E
 -
+
+
+### Log Data (ground truth, evaluation, benchmarking)
+- Sat 19:45 · AGT-01 · done: golden KNAGGLIG and smoke LACK expected plans, hand-labelled from the PDFs · `51384ab`
+- Sat 19:45 · AGT-04 · doing: `eval/score_plan.py` (three gates, exit code) · `51384ab`
+- Sat 19:45 · data · IKEA-Manual downloaded to `eval/datasets/` (git-ignored); `eval/ikea_manual_to_expected.py` writes 102 expected plans. The dataset has no hardware, labels or flips: use it for parts, counts, step order and geometry only · `51384ab`
