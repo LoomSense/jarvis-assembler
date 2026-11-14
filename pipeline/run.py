@@ -1,4 +1,4 @@
-"""Plan -> parts -> placement -> fit checks -> animated GLB, manifest and check renders.
+"""Plan -> parts -> placement -> fit checks -> animated GLB, manifest, check renders, part pictures and reference sheets.
 
     .venv/bin/python -m pipeline.run eval/golden/knagglig/plan.json jobs/knagglig
 
@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+from pipeline import refs
 from pipeline.assemble import collide, placement
 from pipeline.cad import harness
 
@@ -59,7 +60,15 @@ def main(plan_path: Path, out: Path) -> int:
         print(r.stdout[-2000:], r.stderr[-2000:])
         return 2
     t["blender_s"] = time.perf_counter() - t2
-    summary = dict(json.loads(res[-1][7:]), unique_parts=len(built),
+    t3 = time.perf_counter()
+    try:                                                         # part pictures and phase-2 reference sheets
+        pictures = refs.build(plan_path, out)
+    except Exception as e:
+        print(e)
+        return 3
+    t["refs_s"] = time.perf_counter() - t3
+    summary = dict(json.loads(res[-1][7:]), unique_parts=len(built), part_renders=pictures["part_renders"],
+                   ref_sheets=pictures["sheets"],
                    worst_residual_mm=max(v["residual_mm"] for v in placed["instances"].values()),
                    timings_s={k: round(v, 2) for k, v in t.items()})
     print("RESULT " + json.dumps(summary))
