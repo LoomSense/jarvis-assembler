@@ -400,7 +400,8 @@ class MainActivity : AppSystemActivity() {
       CoachFlow.Stage.REGISTER -> {
         registerSince = SystemClock.elapsedRealtime()
         card(5, s("coachLockTitle"), s("coachLockBody"))
-        armTouch()
+        // the two-corner touch belongs to the marker flow and no card explains it: armed only with `--ez touch true`
+        if (intent?.getBooleanExtra("touch", false) == true) armTouch()
       }
       CoachFlow.Stage.GUIDE -> {
         val a = assembly?.guide ?: return
