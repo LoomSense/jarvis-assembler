@@ -101,6 +101,12 @@ class WorldModule(
       flatOutline?.reducedMotion = v
     }
 
+  /** BOARD-CUE: what the app sees of the lit board ("Αριστερό πλαϊνό · με τη ράγα προς τα πάνω"); null = no more than its name. */
+  fun boardLine(lang: String): String? = if (flatGuiding && flatShow) flat.describe(lang) else null
+
+  /** BOARD-CUE: a line to speak when the only board of the needed kind in view is the other one ("Αυτό είναι το δεξί πλαϊνό, πάρε το άλλο."); else null. */
+  fun boardHint(lang: String): String? = if (flatGuiding) flat.hint(lang) else null
+
   /** FLAT-PARTS: should the detector look for rectangles now? (camera thread) */
   val wantsRects: Boolean
     get() = flatGuiding && flat.wanted
