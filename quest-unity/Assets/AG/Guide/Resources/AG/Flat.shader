@@ -15,6 +15,7 @@ Shader "AG/Flat"
         _SweepGain ("Sweep gain", Float) = 0
         _MainTex ("Line art (crop)", 2D) = "white" {}
         _LineArt ("Line art: dark lines -> white on glass (0/1)", Float) = 0
+        _Image ("Image: texture colour (camera preview) (0/1)", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
         [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4
     }
@@ -46,6 +47,7 @@ Shader "AG/Flat"
                 half _ZWrite;
                 half _ZTest;
                 half _LineArt;
+                half _Image;
                 float4 _MainTex_ST;
             CBUFFER_END
             TEXTURE2D(_MainTex);
@@ -99,6 +101,7 @@ Shader "AG/Flat"
                     a = saturate(a + _SweepGain * saturate(1 - s / max(_SweepWidth * 0.5, 1e-3)));
                 }
                 half3 rgb = _Color.rgb * i.color.rgb;
+                if (_Image > 0.5) rgb *= SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv).rgb;
                 return half4(rgb * a, a);
             }
             ENDHLSL

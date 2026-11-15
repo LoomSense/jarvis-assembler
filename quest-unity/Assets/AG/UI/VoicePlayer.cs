@@ -49,6 +49,19 @@ namespace AG.UI
             finally { _pending.Remove(text); }
         }
 
+        /// <summary>Play WAV bytes the server already synthesised (voice reply <c>tts</c>), cached under <paramref name="text"/>.</summary>
+        public void PlayWav(byte[] wav, string text, bool interrupt = true)
+        {
+            try
+            {
+                var clip = Wav.ToClip(wav, "tts");
+                if (!string.IsNullOrEmpty(text)) _cache[text] = clip;
+                if (interrupt) { _queue.Clear(); Source.Stop(); }
+                _queue.Enqueue(clip);
+            }
+            catch (Exception e) { AgLog.Error("voice.wav", e.Message); _ = SayAsync(text, interrupt); }
+        }
+
         public void StopSpeaking() { _queue.Clear(); if (Source != null) Source.Stop(); }
 
         void Update()

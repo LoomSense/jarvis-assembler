@@ -258,12 +258,15 @@ namespace AG.Guide
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var t = go.AddComponent<TextMeshPro>();
+            EnsureGlyphs(font);
             if (font != null) t.font = font;
             t.fontSize = emM * 100f;
             t.color = color;
             t.alignment = align;
             t.enableWordWrapping = true;
-            t.overflowMode = TextOverflowModes.Ellipsis;
+            // TMP finds no ellipsis glyph for BOLD text in a font without a bold weight-table entry (its styled lookup
+            // never falls back to the regular face): bold texts truncate and get their … from SetEllipsized
+            t.overflowMode = bold ? TextOverflowModes.Truncate : TextOverflowModes.Ellipsis;
             t.rectTransform.pivot = new Vector2(0, 1);
             go.transform.localScale = Vector3.one * 0.1f;
             t.rectTransform.sizeDelta = new Vector2(widthM * 10f, heightM * 10f);
@@ -276,6 +279,38 @@ namespace AG.Guide
                 t.fontSharedMaterial = QueueMat(t.fontSharedMaterial, queue);
             }
             return t;
+        }
+
+        static readonly HashSet<TMP_FontAsset> Ensured = new HashSet<TMP_FontAsset>();
+        /// <summary>
+        /// The ellipsis TMP uses for <see cref="TextOverflowModes.Ellipsis"/> and the few symbols the UI writes: added
+        /// to the dynamic atlas once per font so truncation shows "…" (the saved asset has an empty character table).
+        /// </summary>
+        public const string UiGlyphs = "\u2026\u00B7\u00D7\u2013\u203A\u2039";
+        public static bool EnsureGlyphs(TMP_FontAsset font)
+        {
+            if (font == null || !Ensured.Add(font)) return font != null;
+            bool ok = font.TryAddCharacters(UiGlyphs, out string missing);
+            if (!ok && !string.IsNullOrEmpty(missing)) Debug.LogWarning("AG font: missing glyphs " + missing + " in " + font.name);
+            return ok;
+        }
+
+        /// <summary>Set text; when it does not fit, cut at the longest prefix that fits with "…" (works for bold too).</summary>
+        public static void SetEllipsized(TextMeshPro t, string s)
+        {
+            s ??= "";
+            t.text = s;
+            t.ForceMeshUpdate();
+            if (!t.isTextTruncated || s.Length == 0) return;
+            int lo = 0, hi = s.Length - 1;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) / 2;
+                t.text = s.Substring(0, mid).TrimEnd() + "…";
+                t.ForceMeshUpdate();
+                if (t.isTextTruncated) hi = mid - 1; else lo = mid;
+            }
+            t.text = s.Substring(0, lo).TrimEnd() + "…";
         }
 
         static readonly Dictionary<(Material, int), Material> Mats = new Dictionary<(Material, int), Material>();

@@ -27,6 +27,11 @@ namespace AG.UI
         float _startedAt;
         readonly Dictionary<int, Texture> _crops = new Dictionary<int, Texture>();
         int _cardNo;
+        CancellationTokenSource _attempt;
+
+        /// <summary>The job being guided (null before identify).</summary>
+        public string JobId => _job;
+        public AssemblyGuide Guide => _c?.Guide;
         const int Cards = 5;
 
         public CoachStage Stage { get; private set; }
@@ -70,14 +75,16 @@ namespace AG.UI
             _startedAt = Time.realtimeSinceStartup;
             while (!ct.IsCancellationRequested)
             {
+                _attempt?.Dispose();
+                _attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 try
                 {
-                    await RunOnce(ct);
+                    await RunOnce(_attempt.Token);
                     return;
                 }
                 catch (HandledFailure) { }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
-                catch (OperationCanceledException) { _retry = null; continue; }   // Cancel on a card: start over
+                catch (OperationCanceledException) { _retry = null; AgLog.Ev("coach", new { stage = "Cancelled" }); continue; }   // Cancel on a card: start over
                 catch (HttpError e) when (e.Status == 0 || e.Status >= 500)
                 {
                     Fail(Stage.ToString(), e.Message, "No answer from the server. Retry.", "Δεν απαντά ο server. Ξανά.");
@@ -176,6 +183,7 @@ namespace AG.UI
                 {
                     await _c.Socket.ConnectAsync(job);
                     _c.Socket.EventReceived += OnEvent;
+                    _c.Socket.ConnectionChanged += OnConnection;
                     _c.Socket.Start(Step, 0);
                 }
                 catch (Exception e) { AgLog.Error("coach.socket", e.Message); }
@@ -195,7 +203,7 @@ namespace AG.UI
 
         void Unsubscribe()
         {
-            if (_c?.Socket != null) _c.Socket.EventReceived -= OnEvent;
+            if (_c?.Socket != null) { _c.Socket.EventReceived -= OnEvent; _c.Socket.ConnectionChanged -= OnConnection; }
         }
 
         async Task<byte[]> NextJpeg(CancellationToken ct, int tries = 600)
@@ -213,6 +221,12 @@ namespace AG.UI
         }
 
         // ------------------------------------------------------------------ perception
+
+        void OnConnection(bool open)
+        {
+            if (Stage != CoachStage.Guide) return;
+            _c.Panel?.SetStatusPill(open ? null : L("Offline · reconnecting", "Χωρίς σύνδεση · ξανασυνδέομαι"), StatusKind.Unsure);
+        }
 
         void OnEvent(PerceptionEvent ev)
         {
@@ -277,7 +291,7 @@ namespace AG.UI
 
         // ------------------------------------------------------------------ guide
 
-        void ShowCurrent(string by, bool stepStart = false)
+        void ShowCurrent(string by, bool stepStart = false, bool speak = true)
         {
             var g = _c.Guide;
             if (g == null || g.Steps.Count == 0) return;
@@ -296,13 +310,20 @@ namespace AG.UI
                 Crop = _crops.TryGetValue(s.N, out var crop) ? crop : null,
                 IsLast = _stepIndex == g.Steps.Count - 1 && Action >= s.Actions.Count - 1,
             };
+            if (a?.PartId != null && g.Parts.TryGetValue(a.PartId, out var pick))
+            {
+                _view.PickName = Cap(pick.Names?.Get(_c.Lang) ?? pick.Id);
+                _view.PickCode = pick.IsHardware ? pick.Id : null;
+                _view.PickCount = a.CountTotal > 1 ? L($"{a.CountIndex} of {a.CountTotal}", $"{a.CountIndex} από {a.CountTotal}") : null;
+                _view.PickModel = a.Node != null && g.Nodes.TryGetValue(a.Node, out var pn) ? pn.Instance : null;
+            }
             _c.Panel?.SetStatusPill(null);
             _c.Panel?.Show(_view);
-            if (!_crops.ContainsKey(s.N) && !string.IsNullOrEmpty(s.CropPath)) LoadCrop(s);
+            if (!_crops.ContainsKey(s.N) && _job != null && !_job.StartsWith("local:")) LoadCrop(s);
             string line = a?.Text?.Get(_c.Lang) ?? s.Title;
             if (stepStart || Action == 0)
                 line = (s.Page.HasValue ? L($"Step {s.N}, page {s.Page}. ", $"Βήμα {s.N}, σελίδα {s.Page}. ") : L($"Step {s.N}. ", $"Βήμα {s.N}. ")) + line;
-            _ = _c.Voice?.SayAsync(line, by == "button");
+            if (speak) _ = _c.Voice?.SayAsync(line, by == "button");
             // prefetch the next action's line
             var next = Action + 1 < s.Actions.Count ? s.Actions[Action + 1] : (_stepIndex + 1 < g.Steps.Count && g.Steps[_stepIndex + 1].Actions.Count > 0 ? g.Steps[_stepIndex + 1].Actions[0] : null);
             if (next?.Text != null)
@@ -340,7 +361,9 @@ namespace AG.UI
             _crops[s.N] = null;
             try
             {
-                var tex = await _c.Jobs.FetchTextureAsync(_job, s.CropPath, _ct);
+                // the manifest's crop, else the server's conventional path /files/{job}/crops/step-NN.png
+                string rel = !string.IsNullOrEmpty(s.CropPath) ? s.CropPath : $"crops/step-{s.N:00}.png";
+                var tex = await _c.Jobs.FetchTextureAsync(_job, rel, _ct);
                 _crops[s.N] = tex;
                 if (Stage == CoachStage.Guide && Step == s.N) { _view.Crop = tex; _c.Panel?.Show(_view); }
             }
@@ -420,10 +443,47 @@ namespace AG.UI
             }
         }
 
+        /// <summary>Cancel on the identify / build cards: aborts the request in flight (UnityWebRequest.Abort) and starts over.</summary>
         public void Cancel()
         {
-            // identify / build cards: back to the first card
-            _retry?.TrySetResult(true);
+            if (Stage == CoachStage.Look || Stage == CoachStage.Identify || Stage == CoachStage.BuildGuide || Stage == CoachStage.Locate)
+            {
+                AgLog.Ev("coach", new { stage = "Cancel", from = Stage.ToString() });
+                _attempt?.Cancel();
+            }
+            else _retry?.TrySetResult(true);
+        }
+
+        /// <summary>Jump to a step (index into Guide.Steps) and action; <paramref name="by"/> goes to the AGQ <c>step</c> event.</summary>
+        public void GoTo(int stepIndex, int action, string by, bool speak = true)
+        {
+            var g = _c?.Guide;
+            if (g == null || Stage != CoachStage.Guide || stepIndex < 0 || stepIndex >= g.Steps.Count) return;
+            int prev = _stepIndex;
+            _stepIndex = stepIndex;
+            Action = Mathf.Clamp(action, 0, Math.Max(0, g.Steps[stepIndex].Actions.Count - 1));
+            if (_stepIndex != prev) _c.Socket?.SetStep(Step, Action); else _c.Socket?.SetAction(Action);
+            ShowCurrent(by, _stepIndex != prev, speak);
+        }
+
+        /// <summary>
+        /// A reply of POST /api/voice: move to its target (logged <c>step</c> by "voice"), show the transcript and the
+        /// answer as the caption, and return the line to speak (the server's own answer), or null.
+        /// </summary>
+        public string ApplyVoice(VoiceReply r)
+        {
+            var plan = VoiceReplyMap.Map(r, _c?.Guide);
+            if (Stage != CoachStage.Guide) return plan.Say;
+            if (plan.StepIndex >= 0) GoTo(plan.StepIndex, plan.Action, "voice", speak: false);
+            if (plan.Say != null || !string.IsNullOrEmpty(r?.Transcript))
+            {
+                string heard = string.IsNullOrEmpty(r?.Transcript) ? "" : $"«{r.Transcript.Trim()}» ";
+                _view.Detail = heard + (plan.Say ?? "");
+                _c.Panel?.Show(_view);
+            }
+            if (plan.Highlight != null && _c.Guide.Parts.TryGetValue(plan.Highlight, out var hp))
+                Badge(Cap(hp.Names?.Get(_c.Lang) ?? hp.Id) + (hp.IsHardware ? " · " + hp.Id : ""), StatusKind.Info);
+            return plan.Intent == VoiceIntent.None ? null : plan.Say;
         }
 
         sealed class HandledFailure : Exception { }

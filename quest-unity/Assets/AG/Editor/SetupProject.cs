@@ -196,7 +196,7 @@ namespace AG.Editor
                 else if (rig.GetComponent(passthroughLayerType) == null) rig.AddComponent(passthroughLayerType);
             }
             else Todo("OVRManager not on the rig: enable passthrough by hand");
-            Todo("OVRManager: tick 'Enabled Passthrough Camera Access', Hand Tracking Support = Controllers And Hands, Scene Support, Anchor Support (Project Setup Tool can do it)");
+            OvrProjectConfig();
 
             // passthrough camera access (MRUK)
             var pcaGo = new GameObject("PassthroughCamera");
@@ -268,6 +268,26 @@ namespace AG.Editor
             fa.TryAddCharacters(chars.ToString(), out _);
             EditorUtility.SetDirty(fa);
             return fa;
+        }
+
+        /// <summary>OVRProjectConfig: hands + controllers, passthrough camera access, scene and anchors (Assets/Oculus/OculusProjectConfig.asset).</summary>
+        static void OvrProjectConfig()
+        {
+            try
+            {
+                var t = FindType("OVRProjectConfig");
+                var cfg = t?.GetMethod("GetProjectConfig", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null)?.Invoke(null, null)
+                          ?? t?.GetMethod("GetProjectConfig", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] { true });
+                if (cfg == null) { Todo("OVRProjectConfig not found: set Hand Tracking Support = Controllers And Hands, Passthrough Camera Access, Scene, Anchors by hand"); return; }
+                void E(string field, int v) { var f = t.GetField(field); if (f != null) f.SetValue(cfg, Enum.ToObject(f.FieldType, v)); else Todo("OVRProjectConfig." + field); }
+                E("handTrackingSupport", 1);   // ControllersAndHands
+                E("anchorSupport", 1);
+                E("sceneSupport", 1);          // Supported
+                var pca = t.GetField("isPassthroughCameraAccessEnabled");
+                if (pca != null) pca.SetValue(cfg, true); else Todo("OVRProjectConfig.isPassthroughCameraAccessEnabled");
+                t.GetMethod("CommitProjectConfig", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new[] { cfg });
+            }
+            catch (Exception e) { Todo("OVRProjectConfig: " + e.Message); }
         }
 
         // ---------- helpers ----------

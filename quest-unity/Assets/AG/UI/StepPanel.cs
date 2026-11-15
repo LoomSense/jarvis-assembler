@@ -24,7 +24,7 @@ namespace AG.UI
     /// Input: <see cref="Pointer"/> with a ray and the pinch state (AppRoot feeds hands/controllers/mouse).
     /// Hover 1.03, press 0.97, tick at pinch down, action at release.
     /// </summary>
-    public sealed class StepPanel : MonoBehaviour, IStepPanel
+    public sealed partial class StepPanel : MonoBehaviour, IStepPanel
     {
         public UiTheme Theme;
         public string Lang = "en";
@@ -32,6 +32,22 @@ namespace AG.UI
         public AudioSource Audio;
 
         public event Action<PanelButton> Pressed;
+        /// <summary>Push-to-talk: true at pinch down on the mic button, false at release (anywhere).</summary>
+        public event Action<bool> MicHeld;
+        /// <summary>Freeze the parts turntable (spec §7 reduced motion).</summary>
+        public bool ReducedMotion;
+        /// <summary>When &gt; 0, the window centre stays within this many degrees (yaw, from the eyes) of the object: used while untracked.</summary>
+        public float MaxSideDeg;
+        /// <summary>Camera preview shown / hidden (key P, or a long press on Repeat).</summary>
+        public event Action<bool> PreviewToggled;
+
+        public void TogglePreview()
+        {
+            PreviewVisible = !PreviewVisible;
+            _previewOn = PreviewVisible;
+            LayoutOrnaments(_compact ? Compact : Full, _compact);
+            PreviewToggled?.Invoke(PreviewVisible);
+        }
 
         const float D = 0.8f;                       // design distance for angular sizes
         static readonly Vector2 Full = new Vector2(0.52f, 0.34f), Compact = new Vector2(0.36f, 0.20f);
@@ -59,6 +75,7 @@ namespace AG.UI
             public bool Primary, Hover, Down;
             public float Scale = 1f, ScaleVel;
             public float HoverAt;
+            public Transform Glyph;
 #if AG_HAS_TMP
             public TextMeshPro Text;
 #endif
@@ -114,11 +131,16 @@ namespace AG.UI
             _pillText.rectTransform.pivot = new Vector2(0, 0.5f);
             _pillText.enableWordWrapping = false;
 #endif
+            BuildPartsCard();
+            BuildPreview();
             SetStatusPill(null);
-            SetButtons(new[] { PanelButton.Back, PanelButton.Repeat, PanelButton.WhereAmI, PanelButton.Next }, PanelButton.Next);
+            SetButtons(GuideButtons, PanelButton.Next);
             Layout(false);
             _placed = false;
         }
+
+        /// <summary>Toolbar while guiding (spec §2.5): Back, Repeat, microphone, Next. "Where am I" is a voice command and key W.</summary>
+        static readonly PanelButton[] GuideButtons = { PanelButton.Back, PanelButton.Repeat, PanelButton.Mic, PanelButton.Next };
 
         Transform Quad(string name, Material m, Transform parent = null)
         {
@@ -142,12 +164,13 @@ namespace AG.UI
             PanelButton.Retry => L("Retry", "Ξανά"),
             PanelButton.Cancel => L("Cancel", "Άκυρο"),
             PanelButton.ShowPart => L("Show part", "Δείξε"),
+            PanelButton.Mic => MicLabel(),
             _ => L("Rescan", "Σάρωση"),
         };
 
         public void SetButtons(PanelButton[] buttons, PanelButton? primary = null)
         {
-            foreach (var b in _buttons) { Destroy(b.Glass.Go); }
+            foreach (var b in _buttons) { Destroy(b.Glass.Go); if (b.Glyph != null) Destroy(b.Glyph.gameObject); }
 #if AG_HAS_TMP
             foreach (var b in _buttons) if (b.Text != null) Destroy(b.Text.gameObject);
 #endif
@@ -169,10 +192,11 @@ namespace AG.UI
                 btn.Text.rectTransform.pivot = new Vector2(0.5f, 0.5f);
                 btn.Text.enableWordWrapping = false;
                 btn.Text.text = Label(id, false);
-                float w = btn.Text.GetPreferredValues(btn.Text.text).x * btn.Text.transform.localScale.x + 0.024f;
+                float w = btn.Text.GetPreferredValues(id == PanelButton.Mic ? LongestMicLabel() : btn.Text.text).x * btn.Text.transform.localScale.x + 0.024f;
 #else
                 float w = 0.07f;
 #endif
+                if (id == PanelButton.Mic) { w += 0.014f; MakeMicGlyph(btn); }
                 btn.Size = new Vector2(Mathf.Max(prim ? 0.08f : 0.06f, w), prim ? 0.044f : BtnH);
                 btn.Glass.SetSize(btn.Size);
                 btn.Glass.Mat.SetFloat("_RadiusM", btn.Size.y / 2);
@@ -261,12 +285,14 @@ namespace AG.UI
                 var p = new Vector3(bx + b.Size.x / 2, ty, OrnamentZ - 0.001f);
                 b.Glass.Go.transform.localPosition = p;
 #if AG_HAS_TMP
-                b.Text.transform.localPosition = p + new Vector3(0, 0, -0.0006f);
+                b.Text.transform.localPosition = p + new Vector3(b.Glyph != null ? 0.007f : 0, 0, -0.0006f);
 #endif
+                if (b.Glyph != null) b.Glyph.localPosition = p + new Vector3(-b.Size.x / 2 + 0.016f, 0, -0.0008f);
                 bx += b.Size.x + BtnGap;
             }
             _grab.Go.transform.localPosition = new Vector3(0, ty - ToolbarH / 2 - 0.010f - 0.003f, OrnamentZ);
             _grab.Go.SetActive(!compact);
+            LayoutOrnaments(size, compact);
             // status pill above the top edge
             _pill.Go.transform.localPosition = new Vector3(0, top + 0.012f + 0.014f, -0.004f);
         }
@@ -291,12 +317,13 @@ namespace AG.UI
             SetStatus(v.BadgeKind != StatusKind.None && v.Badge != null ? v.BadgeKind : StatusKind.Info,
                 v.Badge ?? StatusLine(v));
 #if AG_HAS_TMP
-            _title.text = v.Title ?? "";
+            Txt.SetEllipsized(_title, v.Title ?? "");
             _body.text = v.Detail ?? "";
             _page.text = v.Page.HasValue ? L($"p. {v.Page}", $"σ. {v.Page}") : "";
 #endif
             SetChips(v.Chips);
             SetCrop(v.Crop);
+            SetPartsCard(v.PickName, v.PickCode, v.PickCount, v.PickModel);
             foreach (var b in _buttons)
                 if (b.Id == PanelButton.Next)
                 {
@@ -305,8 +332,8 @@ namespace AG.UI
 #endif
                 }
             SetProgress(v.StepCount > 0 ? (v.StepIndex + (v.ActionCount > 0 ? (float)v.Action / v.ActionCount : 0)) / v.StepCount : 0);
-            if (relayout || _buttons.Count == 0 || _buttons[0].Id == PanelButton.Retry || _buttons[0].Id == PanelButton.Cancel)
-                SetButtons(new[] { PanelButton.Back, PanelButton.Repeat, PanelButton.WhereAmI, PanelButton.Next }, PanelButton.Next);
+            if (relayout || _buttons.Count != GuideButtons.Length || _buttons[0].Id != PanelButton.Back)
+                SetButtons(GuideButtons, PanelButton.Next);
             Layout(false);
             Pop();
         }
@@ -366,11 +393,12 @@ namespace AG.UI
         {
             SetStatus(StatusKind.Info, _cardLabel ?? "");
 #if AG_HAS_TMP
-            _title.text = title ?? "";
+            Txt.SetEllipsized(_title, title ?? "");
             _body.text = detail ?? "";
 #endif
             SetChips(null);
             SetCrop(null);
+            SetPartsCard(null, null, null, null);
             SetProgress(progress01 ?? 0);
             Layout(true);
             Pop();
@@ -416,6 +444,8 @@ namespace AG.UI
         // ------------------------------------------------------------------ input
 
         PanelButton? _downOn;
+        bool _micDown;
+        float _downAt;
         bool _wasPinch;
 
         /// <summary>
@@ -471,13 +501,18 @@ namespace AG.UI
             if (down && hover != null)
             {
                 _downOn = hover.Id;
+                _downAt = Time.realtimeSinceStartup;
                 hover.Down = true;
                 UiSounds.Play(Audio, Cue.Tick);
+                if (hover.Id == PanelButton.Mic) { _micDown = true; MicHeld?.Invoke(true); }
             }
+            if (up && _micDown) { _micDown = false; MicHeld?.Invoke(false); }
             if (up)
             {
                 foreach (var b in _buttons) b.Down = false;
-                if (_downOn.HasValue && hover != null && hover.Id == _downOn.Value)
+                bool longPress = Time.realtimeSinceStartup - _downAt >= 0.8f;
+                if (_downOn == PanelButton.Repeat && hover != null && hover.Id == PanelButton.Repeat && longPress) TogglePreview();
+                else if (_downOn.HasValue && hover != null && hover.Id == _downOn.Value && hover.Id != PanelButton.Mic)
                 {
                     AgLog.Ev("button", new { id = hover.Id.ToString() });
                     Pressed?.Invoke(hover.Id);
@@ -521,6 +556,13 @@ namespace AG.UI
                 }, this);
                 return;
             }
+            // the object turning (a turn step, or the user rotating it) changes its world bounds' extents: the window does
+            // not orbit with it; it waits until the object has been still for 1 s, then re-evaluates (spec 2.6 rule 5)
+            float now = Time.realtimeSinceStartup;
+            if (_placed && (b.extents - _lastExtents).magnitude > 0.01f) _turningAt = now;
+            _lastExtents = b.extents;
+            _viewer = viewer;
+            if (_placed && now - _turningAt < 1f) return;
             var target = Compute(b, viewer, _sideRef);
             if (!_placed)
             {
@@ -529,11 +571,27 @@ namespace AG.UI
                 _placed = true;
                 return;
             }
+            // a big jump (after a turn, or the object moved > 0.25 m from the window): fade out, move, fade in;
+            // never slide the window across the work zone (rules 5 and 6)
+            if (Vector3.Distance(target, transform.position) > 0.25f) { Relocate(target, viewer); return; }
             if (Vector3.Distance(target, _target) > 0.03f) _target = target;   // 3 cm dead band
-            _viewer = viewer;
         }
 
-        Vector3 _viewer;
+        Vector3 _viewer, _lastExtents;
+        float _turningAt = -10f;
+
+        void Relocate(Vector3 target, Vector3 viewer)
+        {
+            _relocating = true;
+            AgLog.Ev("window_relocate", new { dist_m = Vector3.Distance(target, transform.position) });
+            Tween.Run(0.15f, Ease.Linear, t => _fade = 1 - t, () =>
+            {
+                _target = target;
+                transform.SetPositionAndRotation(target, Facing(viewer, target));
+                _vel = Vector3.zero;
+                Tween.Run(0.25f, Ease.OutCubic, t => _fade = t, () => _relocating = false, this);
+            }, this);
+        }
 
         /// <summary>
         /// Coach cards before anything is tracked (spec §5.4): placed once 0.8 m ahead and 15 deg down, then
@@ -566,6 +624,18 @@ namespace AG.UI
             // centre 10 - 20 deg below eye level
             float yMax = eye.y - h * Mathf.Tan(10f * Mathf.Deg2Rad), yMin = eye.y - h * Mathf.Tan(20f * Mathf.Deg2Rad);
             p.y = Mathf.Clamp(p.y, yMin, yMax);
+            if (MaxSideDeg > 0)
+            {
+                // keep the window close to the object in the view (untracked preview placement)
+                var toObj = Vector3.ProjectOnPlane(b.center - eye, Vector3.up);
+                var toWin = Vector3.ProjectOnPlane(p - eye, Vector3.up);
+                float ang = Vector3.SignedAngle(toObj, toWin, Vector3.up);
+                if (Mathf.Abs(ang) > MaxSideDeg && toObj.sqrMagnitude > 1e-6f)
+                {
+                    var flatP = eye + Quaternion.AngleAxis(Mathf.Sign(ang) * MaxSideDeg, Vector3.up) * toObj.normalized * toWin.magnitude;
+                    p = new Vector3(flatP.x, p.y, flatP.z);
+                }
+            }
             return p;
         }
 
@@ -606,6 +676,7 @@ namespace AG.UI
                 b.Text.transform.localScale = Vector3.one * 0.1f * b.Scale;
 #endif
             }
+            TickOrnaments(dt);
             float a = _alpha * _fade;
             if (Mathf.Abs(a - _lastA) > 1e-3f)
             {
@@ -623,6 +694,7 @@ namespace AG.UI
         {
             yield return _window; yield return _toolbar; yield return _pill; yield return _well; yield return _grab;
             foreach (var c in _chips) yield return c;
+            yield return _partsCard; yield return _previewCard;
             foreach (var b in _buttons) yield return b.Glass;
         }
 

@@ -24,9 +24,17 @@ namespace AG.UI
         public bool BadgeWarning;
         public StatusKind BadgeKind;
         public bool IsLast;                  // last action of the last step: Next becomes Finish
+        // parts ornament (spec §2.5): the part to pick for this action; PickName null = no card
+        public string PickName;              // "Δεξί πλαϊνό"
+        public string PickCode;              // hardware code or null
+        public string PickCount;             // "2 από 2" or null
+        public GameObject PickModel;         // the part's node in the loaded guide (meshes are copied for the turntable)
     }
 
-    public enum PanelButton { Next, Back, Repeat, ShowPart, Rescan, WhereAmI, Retry, Cancel }
+    /// <summary>Microphone button state in the toolbar (spec §2.5).</summary>
+    public enum MicState { Idle, Listening, Thinking, Off }
+
+    public enum PanelButton { Next, Back, Repeat, ShowPart, Rescan, WhereAmI, Retry, Cancel, Mic }
 
     /// <summary>
     /// World-space glass window BESIDE the object (never head-locked): AppRoot calls <see cref="PlaceBeside"/> with the
