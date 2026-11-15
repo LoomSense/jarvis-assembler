@@ -65,12 +65,32 @@ data class ManifestStep(
     val visible: List<String> = emptyList(),
     val moving: List<String> = emptyList(),
     val actions: List<ManifestAction> = emptyList(),
+    val walkthrough: ClipWindow? = null,
 )
 
-@Serializable data class ManifestPart(val id: String, val short: String = "", val name: String = "")
+@Serializable
+data class ManifestPart(
+    val id: String,
+    val short: String = "",
+    val name: String = "",
+    val names: LocalizedText = LocalizedText(),
+    val nodes: List<String> = emptyList(),
+    val dimsEstimated: Boolean = true,
+)
 
 @Serializable
-data class ManifestHardware(val code: String, val short: String = "", val color: List<Double> = emptyList())
+data class ManifestHardware(
+    val code: String,
+    val short: String = "",
+    val name: String = "",
+    val names: LocalizedText = LocalizedText(),
+    val kind: String = "",
+    val color: List<Double> = emptyList(),
+    val nodes: List<String> = emptyList(),
+)
+
+/** A step's window in the `walkthrough` clip, seconds. */
+@Serializable data class ClipWindow(val start_s: Double = 0.0, val end_s: Double = 0.0)
 
 @Serializable data class OverallMm(val L: Double = 0.0, val W: Double = 0.0, val H: Double = 0.0)
 
@@ -110,6 +130,8 @@ data class Assembly(
     val manifest: Manifest,
     val glbPath: String?,
     val finalPoses: Map<String, Pose3> = emptyMap(),
+    /** Steps → actions with geometry, labels and step poses; null until the GLB is parsed. */
+    val guide: Guide? = null,
 ) {
   val stepNumbers: List<Int>
     get() = manifest.steps.map { it.n }

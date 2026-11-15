@@ -22,12 +22,10 @@ interface JobRepository {
 }
 
 /**
- * Phase 1: manifest and GLB download are real; final poses are left empty.
- *
- * TODO(phase 2, guide owner): parse the GLB (glTF 2.0 binary: JSON chunk + BIN chunk), sample the `walkthrough`
- * animation's last keyframe for every node under [Manifest.rootNode], and fill [Assembly.finalPoses]. The Spatial SDK
- * loads the GLB for rendering itself (`Mesh(Uri)`), but it does not expose node animation curves to Kotlin
- * (UNVERIFIED), so read them from the file.
+ * Downloads manifest + GLB (demo key header via [ServerApi]), parses the GLB with [Glb] (JSON + BIN chunks, node
+ * hierarchy, the `walkthrough` clip sampled at its last keyframe) and builds the [Guide]: each part's final transform
+ * and baked mesh under the `assembly` root, each step's pose. The renderer draws from that data, not from `Mesh(Uri)`,
+ * so the hidden-at-1e-4 rest pose never matters.
  */
 class HttpJobRepository(private val api: ServerApi, private val cacheDir: File) : JobRepository {
   override suspend fun manifest(jobId: String): Manifest =
@@ -48,8 +46,29 @@ class HttpJobRepository(private val api: ServerApi, private val cacheDir: File) 
     val t0 = System.nanoTime()
     val m = manifest(jobId)
     val glb = glb(jobId, m)
-    val a = Assembly(jobId, m, glb.path)
-    Agq.log.jobLoaded(jobId, m.steps.size, m.actionCount, (System.nanoTime() - t0) / 1_000_000)
+    val t1 = System.nanoTime()
+    val a = assemble(jobId, m, glb)
+    val ms = (System.nanoTime() - t0) / 1_000_000
+    Agq.log.event(
+        "job_loaded",
+        mapOf(
+            "job" to jobId,
+            "steps" to m.steps.size,
+            "actions" to m.actionCount,
+            "ms" to ms,
+            "parse_ms" to (System.nanoTime() - t1) / 1_000_000,
+            "parts" to (a.guide?.parts?.size ?: 0),
+            "glb_bytes" to glb.length(),
+        ),
+    )
     return a
+  }
+
+  companion object {
+    /** Manifest + local GLB → [Assembly] with the [Guide] (pure; used by tests with the real job files). */
+    fun assemble(jobId: String, m: Manifest, glbFile: File): Assembly {
+      val guide = Guide.build(m, Glb.read(glbFile))
+      return Assembly(jobId, m, glbFile.path, guide.finalPoses, guide)
+    }
   }
 }

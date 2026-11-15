@@ -4,6 +4,7 @@
 
     <item type="id" name="panel_step" />
     <item type="id" name="panel_hud" />
+    <item type="id" name="panel_label" />
 
     <style name="PanelAppThemeTransparent" parent="android:Theme">
         <item name="android:windowIsTranslucent">true</item>

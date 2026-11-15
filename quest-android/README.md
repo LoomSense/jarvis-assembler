@@ -4,10 +4,25 @@ A new client for the same server (docs/HANDOFF.md §2): passthrough, the guide G
 headset camera with intrinsics and pose, marker tracking, hands, voice. Framework choice and sources:
 [RESEARCH.md](RESEARCH.md). Package id `com.agj.android` (the Unity app is `com.agj.unity`).
 
-Status (phase 1): skeleton builds, unit tests pass, **never run on a headset**. Real: params/config, AGQ logger,
-HUD and step panel (world-space Compose panels), passthrough on, replay camera, Camera2 passthrough-camera discovery,
-REST client, manifest model, two-corner solver, marker pipeline (OpenCV, compiled, not run), fresnel ghost shader
-(compiled). Stubs: live camera capture, GLB final poses, ghost renderer, perception socket, voice.
+Status (round 1, guide + UI): builds, 29 unit tests pass, **never run on a headset** (none was connected).
+
+- **Real and JVM-tested against the real job** (`app/src/test/resources/malm-drawer/`): own GLB reader
+  (`guide/Glb.kt`: JSON + BIN chunks, node tree, mesh primitives, animation samplers), each node's final transform
+  under `assembly` at the last keyframe of `walkthrough` (all 19 part/hardware nodes within 2 mm of the manifest's
+  `target_m` after Z-up → Y-up, scale 1), each step's pose (the `assembly` node at the step's end in the clip),
+  the `Guide` model (steps → actions, labels "Μικρή βίδα · 100365 2 από 4" from `names.el/en`, navigation that skips
+  `note` actions), insertion paths, window follow spring.
+- **Real, compiled, not run:** `SpatialGhostRenderer` (every part is its own mesh built from the parsed GLB, fresnel
+  ghost material, placed parts subtle, one ghost at a time, mover loop along `from_dir` (1.5 s), dotted path with
+  travelling dash + arrowhead, 290° turning arrow for fasten/tighten, turn preview for `turn` actions, label pill in a
+  mesh-mode Compose panel with leader line, correct/wrong/unsure/lost states); glass step window with toolbar
+  ornament (Back · Where am I · Repeat · Next), window follows the object (critically damped, 3 cm dead band, never
+  head-locked); coach flow wired to `ServerApi` (identify → catalog/open + job polling → locate → register → guide);
+  server voice (`/api/tts` → WAV → MediaPlayer, cached, next two lines prefetched).
+- From phase 1: params/config, AGQ logger, HUD, passthrough, replay camera, Camera2 discovery, REST client,
+  two-corner solver, marker pipeline (vision/, owned by the vision agent).
+- Stubs / not yet: hole ripple rings, sounds (tick/success/warning), parts ornament, reduced-motion setting, voice
+  commands, hand-dwell confirmation, perception socket events → `setState` (needs `net/PerceptionSocket`).
 
 ## Toolchain (macOS arm64, as installed on Sun 15 Nov 2026)
 
@@ -48,7 +63,7 @@ cd quest-android
 ./gradlew test              # JVM unit tests (params, AGQ JSON, manifest, frame packing, snap, coach, replay)
 ```
 
-Measured here: clean `assembleDebug` 1 min 31 s; `test` 17 tests, 0 failures. Most of the APK is native
+Measured here: clean `assembleDebug` 1 min 31 s (incremental 14 s); `test` 29 tests, 0 failures (round 1). APK 114.3 MB. Most of the APK is native
 libraries: Spatial SDK 46 MB, OpenCV 21 MB, MRUK 6 MB.
 
 ## Install and launch
@@ -59,6 +74,12 @@ adb shell am start -n com.agj.android/.MainActivity \
   --es server https://HOST --es key DEMO_KEY --es job malm-drawer --es lang el --ez replay true --ez hud true
 adb logcat -s AGQ:I -v raw          # one JSON object per line
 ```
+
+With `--es job malm-drawer` the app skips look/identify/build: it downloads manifest + GLB, asks `/locate` with
+the latest camera frame (if any), then waits up to 5 s for the marker; without a marker pose it puts the drawer at
+a fixed table spot 0.55 m ahead and 0.45 m below the head (logged as `coach` `register: fixed_spot`) and starts the
+guide. Without `job` it starts at "Look at the box" and sends a frame to `/api/identify` as soon as the camera runs.
+Next / Back walk the actions (`step` log with `by: button`), "Where am I" re-runs `/locate`, Repeat replays the line.
 
 Never commit the key. Instead of extras, the same keys can go in
 `/sdcard/Android/data/com.agj.android/files/config.json` (`{"server": "...", "key": "...", "job": "...", "lang": "el",
@@ -85,8 +106,9 @@ adb push tools/quest/replay/<dataset>/. /sdcard/Android/data/com.agj.android/fil
 Tag `AGQ`, `{"t": ms since start, "app": "android", "ev": ..., ...}`. Events: `start` (version, params; key only as
 `key_set`), `job_loaded`, `identify`, `locate`, `track` (every 1 s: fps = camera fps, tracked, pos_m, yaw_deg,
 reproj_px, source), `perception`, `step`, `frame` (every 5 s: render_fps, cpu_ms, gpu_ms = null for now), `error`.
-Extra: `camera` (discovery result: ids, intrinsics, lens pose, JPEG sizes), `coach` (stage changes), `ghost_show`,
-`voice`.
+Extra: `camera` (discovery result: ids, intrinsics, lens pose, JPEG sizes), `coach` (stage changes), `ghost_load`
+(parts, ms), `ghost_show` (step, action, kind, node, path_dots), `voice` (lang, text, ms), `voice_fetch`, `finish`.
+`job_loaded` also carries `parse_ms`, `parts`, `glb_bytes`.
 
 ## Module map
 
@@ -99,9 +121,13 @@ Each module sits behind an interface so different people can work in parallel wi
 | | `AgqLog.kt`, `Agq.kt` | AGQ JSON logger (pure) + logcat sink |
 | | `Geom.kt` | `Vec3`, `Quat`, `Pose3`, frames, `blenderToGltf` |
 | `guide/` | `Assembly.kt` | manifest model (lenient), `Assembly` |
-| | `JobRepository.kt` | `JobRepository` → `HttpJobRepository` (manifest + GLB download real; final poses TODO) |
-| | `GhostRenderer.kt` | `GhostRenderer` → `StubGhostRenderer` |
-| | `GhostMaterial.kt` + `app/src/shaders/ghost_fresnel.*` | fresnel ghost material (compiled, not yet used) |
+| | `Glb.kt` | GLB reader: nodes, meshes, animation sampling (pure, tested) |
+| | `Guide.kt` | `Guide` / `GuideStep` / `GuideAction` / `PartGeometry` built from manifest + GLB (pure, tested) |
+| | `JobRepository.kt` | `JobRepository` → `HttpJobRepository` (download + parse + build) |
+| | `GhostRenderer.kt` | `GhostRenderer` (`setStep`, `setState`, `setAssemblyPose`, `setTablePose`, `tick`) |
+| | `SpatialGhostRenderer.kt` | the Spatial SDK implementation (entities, meshes, animation, label) |
+| | `Shapes.kt` | procedural meshes: dots, cone, cylinder, turning arrow, ring; insertion path |
+| | `GhostMaterial.kt` + `app/src/shaders/ghost_fresnel.*` | fresnel material, token tints |
 | `vision/` | `CameraSource.kt` | `CameraSource`, `CameraFrame`, `Intrinsics` |
 | | `ReplayCameraSource.kt` | replay folder at 10 fps (real) |
 | | `LiveCameraSource.kt` | Camera2 passthrough discovery (real), capture TODO |
@@ -112,8 +138,11 @@ Each module sits behind an interface so different people can work in parallel wi
 | `net/` | `ServerApi.kt` | `ServerApi` → `HttpServerApi` (OkHttp, all REST calls) |
 | | `PerceptionSocket.kt` | `PerceptionSocket` (+ `packFrame`, tested) → `StubPerceptionSocket` |
 | `ui/` | `CoachFlow.kt` | look → identify → build → locate → register → guide (pure, tested) |
-| | `Panels.kt` | `StepPanel`, `Hud` (Compose, world-space panels) |
-| | `Voice.kt` | `Voice` → `StubVoice` |
+| | `Panels.kt` | glass `StepPanel` + toolbar ornament, `LabelPill`, `Hud` (Compose, world-space panels) |
+| | `Strings.kt` | EL/EN copy (from client/src/xr/i18n.ts and XR_NATIVE_SPEC §5.4), Greek caps without tonos |
+| | `WindowFollow.kt` | step window placement beside the object, spring + dead band (pure, tested) |
+| | `Voice.kt` | `Voice` → `ServerVoice` (`/api/tts`, cache, prefetch), `StubVoice` without a server |
+| | `Jpeg.kt` | camera JPEG → 768 px q70 for identify/locate |
 
 Frames and units (all metres, right-handed): WORLD = Spatial SDK tracking space (+Y up); ASSEMBLY = GLB root
 `assembly` (glTF Y-up; manifest vectors are Blender Z-up, convert with `blenderToGltf`); CAMERA = OpenCV axes
@@ -123,8 +152,12 @@ Frames and units (all metres, right-handed): WORLD = Spatial SDK tracking space 
 
 - Lens pose axis conversion and camera-timestamp alignment (RESEARCH.md §1): needs a marker test on device.
 - Spatial SDK fingertip joint API for the two-corner touch (ISDK / AvatarBody): to confirm.
-- GLB final transforms: parse the `walkthrough` clip's last keyframe from the file (the SDK does not seem to expose
-  animation curves to Kotlin: UNVERIFIED).
+- Needs a headset (UNVERIFIED until then): `SceneMesh.meshWithMaterials` with our arrays (materialRanges
+  `[0, indexCount]`, colours `-1`), `MeshManager.registerMeshCreator` + `Mesh(Uri)` per part, the custom shader on
+  those meshes, `Visible`/`TransformParent`/`Scale` on custom meshes and panels, label panel facing
+  (`Quaternion.lookRotationAroundY(panel − head)`; if the pill shows its back, negate the vector), panel
+  `DpPerMeterDisplayOptions(1000, 3)` density, Compose hover/press states on hand rays, MediaPlayer WAV playback.
+- Step window starts at (0, 1.15, −0.8) in session space; it only follows once the guide runs.
 - cpu/gpu frame times for the `frame` event (OVR Metrics feature?).
 - Label text quality: Compose mesh panels vs. an SDF text shader.
 - APK size: 114 MB debug; release with R8 and without unused SDK modules should be smaller.
