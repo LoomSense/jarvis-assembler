@@ -20,7 +20,7 @@ class VoiceLinesTest {
   @Test
   fun stepEntrySpeaksTheCoachLineFirstInOneUtterance() {
     val v = Recorder()
-    val coach = "Βάλε το κομμάτι «Πρόσοψη συρταριού» μέσα στο μπλε περίγραμμα."
+    val coach = "Βάλε το κομμάτι «Πρόσοψη συρταριού» μέσα στο πράσινο περίγραμμα."
     val step = "Βήμα 1, σελίδα 5. Βίδωσε τις δύο βίδες στην πρόσοψη."
     v.sayStep(listOf(coach, step), "el")
     // one utterance: the step line cannot cut the coach line, and the coach line comes first

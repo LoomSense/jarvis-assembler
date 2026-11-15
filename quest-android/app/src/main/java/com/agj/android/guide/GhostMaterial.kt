@@ -98,6 +98,13 @@ object GhostMaterial {
     val WHITE = floatArrayOf(0.86f, 0.86f, 0.86f) // never pure white (spec §1.4.13)
     /** Edges: azure lightened 8 % (spec §4.1). */
     val EDGE = floatArrayOf(0.42f, 0.69f, 1.0f)
+    /**
+     * "Put it here": the ghost at the target, its path, hole ring, turning arrow and the outline on the floor. Green,
+     * so that it cannot be taken for the azure "take this" cues on the loose parts (asked for by the user after the
+     * headset runs of 15 Nov: both were azure, and azure reads poorly on the dark blue-grey carpet).
+     */
+    val PLACE = floatArrayOf(0.20f, 0.85f, 0.30f)
+    val PLACE_EDGE = floatArrayOf(0.36f, 0.93f, 0.46f)
   }
 
   /** `ghost_fresnel.frag`: colour = tint × (BODY_GAIN + 0.9 × rim). A JVM test keeps this equal to the shader. */

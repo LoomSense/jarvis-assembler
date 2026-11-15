@@ -167,7 +167,7 @@ class SpatialGhostRenderer(
     dashMat = GhostMat.create(body = 0.95f, rim = 0.2f, rimPower = 1.5f, mark = true)
     arrowMat = GhostMat.create(body = 0.9f, rim = 0.1f, rimPower = 1.5f, mark = true)
     leaderMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.7f, rim = 0f, mark = true)
-    edgeMat = GhostMat.create(GhostMaterial.Tint.EDGE, body = 0.85f, rim = 0f, mark = true)
+    edgeMat = GhostMat.create(GhostMaterial.Tint.PLACE_EDGE, body = 0.85f, rim = 0f, mark = true)
     outlineMat = GhostMat.create(GhostMaterial.Tint.ERROR, body = 1f, rim = 0f, mark = true)
     ringMat = GhostMat.create(body = 0.9f, rim = 0f, mark = true)
     rippleMat = GhostMat.create(body = 0.6f, rim = 0f, mark = true)
@@ -439,8 +439,8 @@ class SpatialGhostRenderer(
   /** Two ripples, a new pair every 2.0 s: each grows 1.0 → 2.2 × r and fades 0.6 → 0 in 1.2 s (ease-out). */
   private fun updateRings(tAction: Float, lostK: Float) {
     val h = hole ?: return
-    ringMat.set(GhostMaterial.Tint.ACCENT, 0.9f, 0f, opacity = lostK)
-    staticRingMat.set(GhostMaterial.Tint.ACCENT, 0.35f, 0f, opacity = lostK)
+    ringMat.set(GhostMaterial.Tint.PLACE, 0.9f, 0f, opacity = lostK)
+    staticRingMat.set(GhostMaterial.Tint.PLACE, 0.35f, 0f, opacity = lostK)
     if (reducedMotion) return
     val c = tAction % 2.0f
     rippleE.forEachIndexed { i, e ->
@@ -452,7 +452,7 @@ class SpatialGhostRenderer(
       }
       show(e, on)
     }
-    rippleMat.set(GhostMaterial.Tint.ACCENT, 0.6f * (1f - easeOutCubic((c / 1.5f).coerceIn(0f, 1f))), 0f, opacity = lostK)
+    rippleMat.set(GhostMaterial.Tint.PLACE, 0.6f * (1f - easeOutCubic((c / 1.5f).coerceIn(0f, 1f))), 0f, opacity = lostK)
   }
 
   private fun pushLabel() {
@@ -536,7 +536,7 @@ class SpatialGhostRenderer(
     when (state) {
       GhostState.NEXT -> {
         val breathe = if (reducedMotion) 0f else 0.05f * sin(2f * PI.toFloat() * 0.42f * t)
-        ghostMat.set(GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = markK)
+        ghostMat.set(GhostMaterial.Tint.PLACE, 0.14f + breathe, 0.65f, opacity = markK)
       }
       GhostState.GOOD -> ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = markK)
       GhostState.CORRECT -> {
@@ -561,7 +561,7 @@ class SpatialGhostRenderer(
       val d = if (a.kind.twists) 0.09f else 0.12f
       moverE[a.node]!!.setComponent(Transform(Pose((dir * (d * (1f - travel))).toSdk())))
       val fade = (k / 0.12f).coerceIn(0f, 1f) * (1f - ((k - 0.85f) / 0.15f).coerceIn(0f, 1f))
-      moverMat.set(GhostMaterial.Tint.ACCENT, 0.10f, 0.45f, opacity = fade * markK)
+      moverMat.set(GhostMaterial.Tint.PLACE, 0.10f, 0.45f, opacity = fade * markK)
     }
 
     // Travelling dash: 4 bright dots run start → end in 1.6 s, 0.6 s pause (0.45 Hz).
@@ -573,18 +573,18 @@ class SpatialGhostRenderer(
         val idx = (head - i).coerceIn(0, path.size - 1)
         e.setComponent(Transform(Pose(path[idx].toSdk())))
       }
-      dashMat.set(GhostMaterial.Tint.ACCENT, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, markK)
+      dashMat.set(GhostMaterial.Tint.PLACE, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, markK)
     }
-    dotMat.set(GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, markK)
+    dotMat.set(GhostMaterial.Tint.PLACE, 0.55f, 0.3f, 1.5f, markK)
     // Turning arrow: static arc, brightness sweep at 0.8 Hz.
-    arrowMat.set(GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, markK)
+    arrowMat.set(GhostMaterial.Tint.PLACE, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, markK)
 
     // Edges: constant (no breathing); the dashed outline pulses 0.6 ↔ 1.0 at 0.83 Hz for 3 cycles when wrong (§4.8).
     val edgeTint =
         when (state) {
           GhostState.GOOD, GhostState.CORRECT -> GhostMaterial.Tint.SUCCESS
           GhostState.UNSURE -> GhostMaterial.Tint.UNSURE
-          else -> GhostMaterial.Tint.EDGE
+          else -> GhostMaterial.Tint.PLACE_EDGE
         }
     val edgeK = if (state == GhostState.CORRECT) 1f - (t / 0.6f).coerceIn(0f, 1f) else 1f
     edgeMat.set(edgeTint, 0.85f * edgeK, 0f, opacity = markK)
@@ -593,7 +593,7 @@ class SpatialGhostRenderer(
       outlineMat.set(GhostMaterial.Tint.ERROR, 1f, 0f, opacity = pulse)
     } else {
       // lost: azure dashed edges at 30 %, like the ghost (§4.12)
-      outlineMat.set(GhostMaterial.Tint.EDGE, 0.85f, 0f, opacity = markK)
+      outlineMat.set(GhostMaterial.Tint.PLACE_EDGE, 0.85f, 0f, opacity = markK)
     }
     updateRings(tAction, markK)
 

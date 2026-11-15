@@ -140,6 +140,7 @@ class MainActivity : AppSystemActivity() {
   private var panel: PanelPoseTracker? = null
   private var dump: FrameDump? = null
   private val showPartHiRes = java.util.concurrent.atomic.AtomicBoolean(false)
+  private var coachSaid: String? = null
   private var cameraStarted = false
   private var camDeadTicks = 0
   private var socket: OkHttpPerceptionSocket? = null
@@ -1366,7 +1367,16 @@ class MainActivity : AppSystemActivity() {
             ?.let { t -> showCameraBox(PreviewBox((t.box[1] / 1000).toFloat(), (t.box[0] / 1000).toFloat(), (t.box[3] / 1000).toFloat(), (t.box[2] / 1000).toFloat(), t.label)) }
             ?: showCameraBox(null)
         if (side.showCamera) side.caption = if (camFps > 0.5) s("cameraLive", "fps" to camFps.toInt()) else s("cameraOff")
-        if (!realigning) stepPanel.coach = coachLine() ?: "" // gone once the part is followed live, or the base part's step is over
+        if (!realigning) {
+          val line = coachLine() ?: "" // gone once the part is followed live, or the base part's step is over
+          // "Found it, bring it closer…" appears in the middle of a step: say it when it appears (once per change)
+          if (line.isNotEmpty() && line != coachSaid && stepPanel.coach != line && world.farFromWearer) {
+            coachSaid = line
+            voice.say(line, lang)
+          }
+          if (line.isEmpty()) coachSaid = null
+          stepPanel.coach = line
+        }
         stepPanel.align = alignLabel()
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0

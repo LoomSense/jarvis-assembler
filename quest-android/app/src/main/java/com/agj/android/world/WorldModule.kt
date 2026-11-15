@@ -388,8 +388,48 @@ class WorldModule(
       // a guessed anchor (fixed spot, server box, flow) sits at the measured surface height; no-op within 3 cm
       if (t == null) surfaceY?.let { anchor.setSurfaceHeight(it) }
     }
-    outline?.update(if (outlineVisible()) anchor.pose else null, footprint())
+    if (head != null) updateComfort(head)
+    // the outline: where to put the base part while nothing follows it, or the comfortable spot when it lies far away
+    outline?.update(if (farFromWearer) comfort else if (outlineVisible()) anchor.pose else null, footprint())
     flatOutline?.update(if (flatGuiding && flatShow) flat.lit() else null, dtS) // FLAT-PARTS: the outline on the real part to pick up
+  }
+
+  // ---- "bring it to your centre" ----
+
+  /** The detector follows the base part, but it lies far from the wearer: [coachLine] asks to bring it closer. */
+  @Volatile var farFromWearer = false
+    private set
+  @Volatile private var comfort: Pose3? = null
+
+  /**
+   * On the base part's own step, while the detector follows the real part: farther than [FAR_M] from the wearer
+   * (measured on the floor) switches the hint on and latches a comfortable spot (the fixed spot in front of the
+   * head, on the measured surface); nearer than [NEAR_M] switches it off. In between nothing changes.
+   */
+  private fun updateComfort(head: Pose3) {
+    val b = basePart
+    val a = anchor.pose
+    val fp = footprint()
+    val live = b != null && a != null && fp != null && (curStep == null || curStep == b.step) &&
+        anchor.source == PlaceSource.MARKERLESS && anchor.sourceName == PlaceSource.MARKERLESS.wire && anchor.markerlessFresh(4000)
+    if (!live) {
+      if (farFromWearer && (b == null || a == null || (curStep != null && curStep != b.step))) farFromWearer = false
+      return // not seen right now (carried in the hands): keep the hint and its outline where they are
+    }
+    val c = a!!.transform(com.agj.android.core.Vec3(fp!!.cx, 0f, fp.cz))
+    val dx = c.x - head.t.x
+    val dz = c.z - head.t.z
+    val dist = kotlin.math.sqrt(dx * dx + dz * dz)
+    if (!farFromWearer && dist > FAR_M) {
+      val spot = BasePlacement.fixedSpot(head)
+      val y = surfaceY ?: a.t.y
+      comfort = centred(Pose3(com.agj.android.core.Vec3(spot.t.x, y, spot.t.z), spot.q))
+      farFromWearer = true
+      Agq.log.event("comfort", mapOf("far" to true, "dist_m" to dist, "spot_m" to comfort?.t))
+    } else if (farFromWearer && dist < NEAR_M) {
+      farFromWearer = false
+      Agq.log.event("comfort", mapOf("far" to false, "dist_m" to dist))
+    }
   }
 
   /** The outline shows while the anchor is a placed one (no live tracking) and the base part's step is on. */
@@ -533,9 +573,10 @@ class WorldModule(
    */
   fun coachLine(lang: String = this.lang): String? {
     val s = anchor.source ?: return null
-    if (s == PlaceSource.MARKERLESS || markerTracking()) return null
     val b = basePart ?: return null
     val name = b.names[if (lang == "el") "el" else "en"] ?: b.names["en"] ?: return null
+    if (farFromWearer) return WorldStrings.bringCloser(lang, name) // found, but far: bring it to the centre
+    if (s == PlaceSource.MARKERLESS || markerTracking()) return null
     return WorldStrings.placeInOutline(lang, name)
   }
 
@@ -557,6 +598,9 @@ class WorldModule(
     /** Without a scene table this long after the guide is loaded, the fixed spot is used. */
     const val FIXED_SPOT_AFTER_MS = 2500L
     const val FOLLOW_EVERY_MS = 2500L
+    /** "Bring it closer": on beyond this distance from the wearer on the floor, off again inside the second one. */
+    const val FAR_M = 0.85f
+    const val NEAR_M = 0.70f
     /** A trusted panel pose keeps the surface height from being re-measured for this long. */
     const val HEIGHT_CONFIRMED_MS = 15_000L
     /** Gaze probe: this many samples (0.7 s apart) within this spread before a looked-at height counts. */
@@ -570,8 +614,13 @@ class WorldModule(
 object WorldStrings {
   /** [name] as the label pill shows it ("Drawer front" / "Πρόσοψη συρταριού"). */
   fun placeInOutline(lang: String, name: String): String =
-      if (lang == "el") "Βάλε το κομμάτι «$name» μέσα στο μπλε περίγραμμα."
-      else "Place the ${name.replaceFirstChar { it.lowercase() }} inside the blue outline."
+      if (lang == "el") "Βάλε το κομμάτι «$name» μέσα στο πράσινο περίγραμμα."
+      else "Place the ${name.replaceFirstChar { it.lowercase() }} inside the green outline."
+
+  /** The part was found, but far from the wearer: work goes better close by, in front of them. */
+  fun bringCloser(lang: String, name: String): String =
+      if (lang == "el") "Το βρήκα. Φέρε το κομμάτι «$name» πιο κοντά σου, μπροστά σου στο κέντρο, μέσα στο πράσινο περίγραμμα."
+      else "Found it. Bring the ${name.replaceFirstChar { it.lowercase() }} closer, in front of you, inside the green outline."
 
   fun realigning(lang: String): String =
       if (lang == "el") "Κοιτάζω ξανά πού είναι το κομμάτι." else "Looking again for where the part is."

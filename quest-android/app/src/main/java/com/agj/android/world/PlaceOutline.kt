@@ -61,7 +61,7 @@ class PlaceOutline(private val registerMesh: (String, () -> SceneMesh) -> Unit) 
         return
       }
       if (edges.isEmpty()) create()
-      mat?.set(GhostMaterial.Tint.ACCENT, 0.95f, 0.2f, rimPower = 1.5f, opacity = opacity)
+      mat?.set(GhostMaterial.Tint.PLACE, 0.95f, 0.2f, rimPower = 1.5f, opacity = opacity)
       val key = worldFromTable to fp
       if (key != last) {
         last = key
