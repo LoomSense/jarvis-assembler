@@ -125,3 +125,15 @@ A plan can build a group of parts on its own and attach it later as one piece, a
 - The refs stage (`pipeline.refs`, also what the server runs) now writes the questions itself. `AGJ_QUESTIONS=template`
   (default) adds no time and no network; `AGJ_QUESTIONS=model` lets `gemini-4-hydrogen` write the criteria (about 25 s
   for 8 steps, four calls at a time); `off` skips it. A failure there is reported in the result and never stops the build.
+
+## Finding a guide from a QR link, barcode or name (`pipeline/find_guide.py`)
+
+```
+.venv/bin/python -m pipeline.find_guide "https://maker.example/qr/123" out.pdf
+.venv/bin/python -m pipeline.find_guide "Teknik 2-Shelf Bookcase model 5431916" out.pdf
+```
+
+A link is followed first: a PDF is taken as it is, a product page gives the PDF link that looks most like assembly
+instructions. Otherwise an agent session with web search finds the maker's PDF (about 25 s). Our code downloads and
+checks every file: public addresses only, redirects checked one by one, size caps, real PDF. The server uses it in
+`POST /api/catalog/open`; `AGJ_FIND_GUIDE` = `links` (default), `agent` or `off`.

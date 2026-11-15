@@ -194,3 +194,30 @@ def test_ikea_product_search_by_name(client, monkeypatch):
                       "url": "https://www.ikea.com/us/en/p/billy-bookcase-white-20522046/", "image": "https://x/i.jpg",
                       "design": None, "colors": []}]
     assert client.get("/api/catalog/ikea?q=b").json()["items"] == []
+
+
+def test_open_follows_a_link_from_a_code_to_another_makers_guide(client, monkeypatch):
+    from pipeline import find_guide
+    from server.routes import catalog as routes
+
+    async def fake_find(q, emit=None, use_agent=True):
+        assert q == "https://maker.example/qr/123" and use_agent is False     # links only by default: no paid search
+        return find_guide.Found(b"%PDF-1.4\n% another maker\n", "shelf.pdf", "Shelf 80", "maker.example", q, "page")
+    monkeypatch.setattr(routes.find_guide, "find", fake_find)
+    monkeypatch.setattr(routes, "start_job", lambda request, pdf, filename, size, files=None, **st: type("J", (), {"id": "j1", "st": st})())
+    r = client.post("/api/catalog/open", json={"q": "https://maker.example/qr/123"})
+    assert r.status_code == 200 and r.json() == {"job_id": "j1", "ready": False, "product": "Shelf 80"}
+
+
+def test_open_does_not_search_the_web_for_a_name_unless_switched_on(client, monkeypatch):
+    from server.routes import catalog as routes
+    called = []
+
+    async def fake_find(q, emit=None, use_agent=True):
+        called.append(q)
+        raise routes.find_guide.NotFound("nothing")
+    monkeypatch.setattr(routes.find_guide, "find", fake_find)
+    assert client.post("/api/catalog/open", json={"q": "some unknown shelf"}).status_code == 404 and called == []
+    monkeypatch.setattr(routes, "FIND", "agent")
+    r = client.post("/api/catalog/open", json={"q": "some unknown shelf"})
+    assert r.status_code == 404 and called == ["some unknown shelf"] and "No guide found" in r.json()["detail"]
