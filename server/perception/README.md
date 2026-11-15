@@ -260,7 +260,7 @@ The simplest client sends frames steadily at 4 Hz and lets the server ack the ga
 - **`flip_needed`** is about how the assembly stands, from `orientation_ok` ≤ 0.15. Measured to separate poorly; it was not retuned.
 - **`unsure_show_part`.** 8 frames in a row with hands in view and a part that is not recognised, including a confident `other` (a tool).
 - **Slow answers.** A request gets 4 s; without an answer by then the frame is acked `timeout` and does not count. The pipeline's client tries a dead connection a second time first, so that ack can take 8 s. After 3 s of failures without a success: `vision_paused`.
-- **Logs.** `jobs/<job>/perception/<session>/{frames,events,hands}.jsonl`. The job's own `events.jsonl` (build feed) is not touched.
+- **Logs.** `jobs/<job>/perception/<session>/{frames,events,hands}.jsonl`. Since Sun 15 Nov `frames` rows also carry `wall_ms` (when the frame arrived), `ts` (the frame header's own clock) and `luma` (mean brightness), and `hands` rows `wall_ms`: `t` restarts at every `start`, so the two files could not be joined by it. The job's own `events.jsonl` (build feed) is not touched.
 
 ## What comes from where
 

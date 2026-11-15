@@ -1243,6 +1243,8 @@ def test_session_logs_have_the_eval_shapes(client, tmp_path):
     frames = [json.loads(l) for l in (folder / "frames.jsonl").read_text().splitlines()]
     events = [json.loads(l) for l in (folder / "events.jsonl").read_text().splitlines()]
     assert len(frames) == 5 and {"clip", "frame", "t", "latency_ms", "answers"} <= set(frames[0])
+    assert abs(frames[0]["wall_ms"] - time.time() * 1000) < 60_000 and frames[0]["luma"] > 100 and "wall_ms" in json.loads(
+        (folder / "hands.jsonl").read_text().splitlines()[0])    # added: the two logs join by wall clock, not by `t`
     assert [(f["clip"], f["frame"], f["t"]) for f in frames][:2] == [("d_wrong_hardware", 11, 2.75), ("d_wrong_hardware", 12, 3.0)]
     assert frames[0]["answers"]["hardware_in_hand"][SHORT] == 0.93 and frames[0]["answers"]["right_hardware"] == 0.07
     assert 0 <= frames[0]["answers"]["hands_present"] <= 1 and frames[0]["sim"] is True

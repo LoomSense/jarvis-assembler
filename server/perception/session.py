@@ -540,7 +540,7 @@ class PerceptionSession:
     def _on_hands(self, conn: Conn, msg: dict) -> None:
         now = self.clock()
         self.hands.update(msg, now)
-        self.log.write("hands", {"t": round(now - self.t0, 3), "seq": msg.get("seq"),
+        self.log.write("hands", {"t": round(now - self.t0, 3), "seq": msg.get("seq"), "wall_ms": int(time.time() * 1000),
                                  "hand_at_target": self.hands.at_target, "still": self.hands.still,
                                  "raised": self.hands.raised, "present": self.hands.present})
         self._dirty = True
@@ -704,6 +704,10 @@ class PerceptionSession:
         self.log.write("frames", {"clip": clip, "frame": index, "t": clip_t, "latency_ms": answers.ms,
                                   "answers": normalise(answers), "seq": frame.seq, "step": frame.step,
                                   "source": frame.source, "resolution": answers.resolution,
+                                  # added Sun 15 Nov: `t` restarts at every `start`, so the logs could not be joined
+                                  "wall_ms": round((time.time() - (now - frame.t_recv)) * 1000),
+                                  **({"ts": frame.header["ts"]} if isinstance(frame.header.get("ts"), (int, float)) else {}),
+                                  **({"luma": round(answers.luma, 1)} if answers.luma is not None else {}),
                                   **({"show_part": True} if frame.show else {}),
                                   **({"sim": True} if self.simulated else {})})
         poor = ((answers.get("image_poor") or {}).get("noul") or 0.0) >= max(self.t.poor_at, self.t.watcher_config().unusable)

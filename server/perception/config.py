@@ -104,9 +104,9 @@ class Tuning:
     #                                        had a mean of 82-120, and "more light" was said 53 times that day.
     #                                        0: every poor frame counts, as before
     show_nothing_max: float = 0.1          # show_part names a code only if `no_hardware` is below this (an empty
-    #                                        pinching hand scored 0.18-0.44, a held screw 0.01-0.04)
+    #                                        pinching hand scored 0.18-0.76, a held bolt 0.01-0.06; real and drawn)
     show_right_min: float = 0.7            # ...and, for a code needed now, only if `right_hardware` reaches this
-    #                                        (empty hand 0.21-0.62, the right screw 0.80-0.94)
+    #                                        (empty hand 0.14-0.62; the right bolt 0.72-0.94, so the margin is thin)
 
     # ---- failure handling (§6.5) ----
     decision_timeout_s: float = 4.0        # above the measured p95 (up to 2.6 s). PLAN's 800 ms is below the median
