@@ -29,7 +29,10 @@ if (mode === 'xr') {
   void import('./nav').then((m) => m.mountNav('ready'))
 } else if (mode === 'build') {
   // Drop a flat-pack guide (PDF), watch the agent build the 3D guide, approve its plan, open the result.
-  void import('./build/build').then((m) => m.startBuild(app))
+  void import('./build/overview').then((m) => {
+    m.startOverview() // listening before the feed's first event
+    return import('./build/build').then((b) => b.startBuild(app))
+  })
   void import('./nav').then((m) => m.mountNav('build'))
 } else {
   // The guide's markup goes into the document now, still hidden, so that it is there when `load` fires.

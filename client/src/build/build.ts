@@ -694,6 +694,7 @@ export function startBuild(app: HTMLElement): void {
 
     // ---- the agent's state, as the events say it
     const apply = (e: AgentEvent) => {
+      window.dispatchEvent(new CustomEvent('agj:event', { detail: e })) // for the panels beside the feed (overview.ts)
       if (!first) first = e.ts
       lastTs = e.ts
       if (e.stage && !(e.type === 'progress' && / finished$/.test(e.text ?? ''))) stage = e.stage
