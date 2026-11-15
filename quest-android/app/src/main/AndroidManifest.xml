@@ -22,6 +22,16 @@
     <uses-feature android:name="oculus.software.handtracking" android:required="false" />
     <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
 
+    <!--
+      Finger joints: in Spatial SDK 0.15.0 they only come from the body-tracking skeleton
+      (Scene.updateBodyTrackingBuffersAtTime, vision/SpatialInput.kt). Meta's BodyTrackingSample declares these two
+      features; without them the session fails with "Failed to initialize session for body" (seen on the headset).
+      The permission is from Meta's native body-tracking documentation; vision/HandSetup.kt asks for it at start.
+    -->
+    <uses-feature android:name="com.oculus.software.body_tracking" android:required="false" />
+    <uses-feature android:name="com.oculus.experimental.enabled" android:required="true" />
+    <uses-permission android:name="com.oculus.permission.BODY_TRACKING" />
+
     <!-- Passthrough Camera API (Camera2): both permissions, the second is a runtime permission -->
     <uses-feature android:name="horizonos.feature.HEADSET_CAMERA" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />

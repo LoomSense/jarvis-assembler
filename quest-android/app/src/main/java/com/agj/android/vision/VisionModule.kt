@@ -112,6 +112,7 @@ class VisionModule(
 
   fun start() {
     stop()
+    if (!replay) HandSetup.onStart(context) // `hands_setup` + the body-tracking permission prompt (finger joints)
     Agq.log.event("vision", mapOf("camera" to cameraKind, "config" to config.toLogMap()))
     val src: CameraSource = if (replay) ReplayCameraSource(replayDir) else LiveCameraSource(context, heads, config)
     camera = src

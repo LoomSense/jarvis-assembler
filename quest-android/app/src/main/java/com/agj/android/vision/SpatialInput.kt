@@ -82,14 +82,19 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
   private var skelCalls = 0
   private var skelData = false
   private var seenTrackedBit = false
-  private var wristFlags = 0
+  private val wristFlags = IntArray(2)
   private var permCheckAtMs = 0L
   private var permWasGranted: Boolean? = null
   private var avatarError: String? = null
-  private var avatarKinds = "none/none"
+  private val avatarKind = arrayOf("none", "none") // left, right: hand | controller | inactive | unknown | other | none
+  private var avatarHandSeen = false
   private var everTracked = false
+  private var loggedSource = "none"
   private var sourceLogMs = Long.MIN_VALUE / 2
   private var errors = 0
+
+  private val avatarKinds: String
+    get() = "${avatarKind[0]}/${avatarKind[1]}"
 
   override fun execute() {
     renderFrames.incrementAndGet()
@@ -143,39 +148,43 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
 
   private fun readHands(sc: Scene, now: Long, head: Vec3?): HandsFrame? {
     val nowMs = now / 1_000_000
-    var src = "none"
-    var left: HandSample? = null
-    var right: HandSample? = null
     val sk = readSkeleton(sc, nowMs)
-    if (sk != null && (sk.first != null || sk.second != null)) {
-      left = sk.first
-      right = sk.second
-      src = "skeleton"
+    val av = readAvatar() // also says what each hand entity is (avatarKind)
+    // The body tracker can go on giving estimated hand joints when a hand is not tracked (or hand tracking is off).
+    // The SDK's own hand input knows: a side it calls inactive or a controller is not a tracked hand.
+    fun vetoed(i: Int) = av != null && avatarKind[i] != "hand" && avatarKind[i] != "unknown"
+    var left = sk?.first
+    var right = sk?.second
+    // Drop such a side only once the SDK has shown a tracked hand at all (then its "inactive" is known to mean it).
+    if (avatarHandSeen) {
+      if (vetoed(0)) left = null
+      if (vetoed(1)) right = null
     }
-    var avatarWorks = false
-    if (src == "none") {
-      val av = readAvatar()
-      if (av != null) {
-        avatarWorks = true
-        left = av.first
-        right = av.second
-        if (left != null || right != null) src = "avatar_body"
-      }
+    var src = if (left != null || right != null) "skeleton" else "none"
+    if (src == "none" && av != null) {
+      left = av.first
+      right = av.second
+      if (left != null || right != null) src = "avatar_body"
     }
-    val works = sk != null || avatarWorks
+    val works = sk != null || av != null
     val any = left != null || right != null
-    val fingers = left?.hasFingers == true || right?.hasFingers == true
+    // for the status, a hand counts only when the SDK's hand input does not contradict it
+    val realLeft = left != null && !vetoed(0)
+    val realRight = right != null && !vetoed(1)
+    val fingers = (realLeft && left?.hasFingers == true) || (realRight && right?.hasFingers == true)
     if (any) {
       everTracked = true
-      if (src != handsSource && nowMs - sourceLogMs >= SOURCE_LOG_MS) {
+      handsSource = src
+      if (src != loggedSource && nowMs - sourceLogMs >= SOURCE_LOG_MS) {
         sourceLogMs = nowMs
-        handsSource = src
+        loggedSource = src
         Agq.log.event("hands_source", mapOf("source" to src, "joints" to if (src == "skeleton") jointCount else 2,
-            "fingertips" to fingers, "wrist_flags" to wristFlags, "skeleton" to skeletonState(), "avatar" to avatarKinds,
+            "fingertips" to (left?.hasFingers == true || right?.hasFingers == true), "tracked" to (realLeft || realRight),
+            "wrist_flags" to wristFlags, "skeleton" to skeletonState(), "avatar" to avatarKinds,
             "render_frame" to renderFrames.get()))
       }
     }
-    val state = status.update(nowMs, fingers, any, "controller" in avatarKinds, works)
+    val state = status.update(nowMs, fingers, realLeft || realRight, "controller" in avatarKinds, works)
     if (state != null) {
       Agq.log.event("hands_status", mapOf("state" to state, "message" to HandsStatusTracker.message(state),
           "source" to src, "skeleton" to skeletonState(), "skeleton_error" to skelError, "avatar" to avatarKinds,
@@ -271,9 +280,9 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
   private fun hand(wrist: JointType, palm: JointType, thumb: JointType, index: JointType, middle: JointType,
       ring: JointType, little: JointType): HandSample? {
     val wf = jointPoses.getOrNull(wrist.index)?.flags ?: return null
+    wristFlags[if (wrist == JointType.LEFT_HAND_WRIST) 0 else 1] = wf
     if (wf and ControllerPose.LocationTrackedBit != 0) seenTrackedBit = true
     val w = joint(wrist) ?: return null
-    wristFlags = wf
     return HandSample(w, joint(index), palm = joint(palm), thumbTip = joint(thumb), middleTip = joint(middle),
         ringTip = joint(ring), littleTip = joint(little))
   }
@@ -295,13 +304,16 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
     return try {
       val body = systemManager.findSystem<PlayerBodyAttachmentSystem>().tryGetLocalPlayerAvatarBody()
       if (body == null) {
-        avatarKinds = "none/none"
+        avatarKind[0] = "none"
+        avatarKind[1] = "none"
         avatarError = "no local AvatarBody yet"
         return null
       }
       val l = avatarHand(body.leftHand, ButtonBits.ButtonX or ButtonBits.ButtonTriggerL or ButtonBits.ButtonSqueezeL)
       val r = avatarHand(body.rightHand, ButtonBits.ButtonA or ButtonBits.ButtonTriggerR or ButtonBits.ButtonSqueezeR)
-      avatarKinds = "${l.second}/${r.second}"
+      avatarKind[0] = l.second
+      avatarKind[1] = r.second
+      if (l.second == "hand" || r.second == "hand") avatarHandSeen = true
       avatarError = null
       l.first to r.first
     } catch (e: Throwable) {
@@ -312,7 +324,7 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
     }
   }
 
-  /** The hand (null unless hand tracking is this entity's active input) and what the entity is: `hand`, `controller`, `inactive`, … */
+  /** The entity's wrist (null for a controller) and what the SDK says it is: `hand`, `controller`, `inactive`, `unknown`, `other`. */
   private fun avatarHand(e: Entity?, pinchBits: Int): Pair<HandSample?, String> {
     if (e == null) return null to "none"
     val c = e.tryGetComponent<Controller>()
@@ -324,7 +336,9 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
           c.type == ControllerType.CONTROLLER -> "controller"
           else -> "other"
         }
-    if (kind != "hand" && kind != "unknown") return null to kind
+    if (kind == "controller" || kind == "other") return null to kind
+    // "inactive" is believed once the SDK has shown a tracked hand; until then its pose is used as before
+    if (kind == "inactive" && avatarHandSeen) return null to kind
     val p = e.tryGetComponent<Transform>()?.transform ?: return null to kind
     val w = p.toWorld().t
     if (w.length() < 1e-6f) return null to kind

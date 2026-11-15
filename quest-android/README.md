@@ -456,7 +456,19 @@ that answers each:
    (SpatialInput not ticking / `getViewerPose` failing: look for `error head_pose`), `head_stale`,
    `capture_outside_buffer` (clock mismatch: `lookup_minus_newest_ms`; the app falls back to `now − latency`, tune
    `unknown_ts_latency_ms`), `no_lens_pose`.
-3. `hands_source`: `skeleton` (fingertips, touch registration works) or `avatar_body` (wrists only).
+3. Hands (`vision/SpatialInput.kt`, `HandSetup.kt`, `Held.kt`, `HandsStatus.kt`; UNVERIFIED on the headset):
+   - `hands_setup` at start: `hand_permission`, `body_permission`, `asking_body_permission`.
+   - `hands_source`: `skeleton` with `fingertips: true` (finger joints from the body-tracking skeleton, the only
+     Kotlin API with them in SDK 0.15.0; needs the manifest features `com.oculus.software.body_tracking` and
+     `com.oculus.experimental.enabled`) or `avatar_body` (wrist only, the fallback).
+   - `hands_status` `state`: `joints_live`; `wrist_only` (with `skeleton_error`); `no_hands_tracked` (the hand API
+     answers but no hand was tracked in 12 s: hand tracking is probably off in Settings > Movement tracking, or no
+     hand was in view); `hands_out_of_view`; `controllers_active`; `api_failed`.
+   - `error` `where: hands`, `message: skeleton: …`, `attempt: 1..4`: the body session failed (retried after 3, 10
+     and 30 s, and once more when the body-tracking permission is granted).
+   - `held`: `holding`, `which`, `grip` each time a hand closes on something or lets go. The same state is
+     `vision.input.held` (`HeldState`: `holding`, `handWorldPos`, `which`, `sinceMs`) for the verdict badge;
+     `HandProjector.project(hand, frame.intrinsics, frame.worldFromCamera)` gives the hand's box in a camera frame.
 4. Frames: the step window and the fixed spot appear **in front** (not behind); the drawer ghost is not mirrored
    (left side panel on the left); labels and the window show their front. If panels show their back, negate the
    vector in `facingPose` (one place).
