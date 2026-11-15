@@ -76,6 +76,9 @@ import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.MeshCreationSystem
+import com.agj.android.world.PickMarkers
+import com.agj.android.world.WorldModule
+import com.meta.spatial.mruk.MRUKFeature
 import com.meta.spatial.toolkit.PanelRegistration
 import com.meta.spatial.toolkit.PanelRenderMode
 import com.meta.spatial.toolkit.PanelStyleOptions
@@ -124,6 +127,9 @@ class MainActivity : AppSystemActivity() {
   private var ghost: GhostRenderer = StubGhostRenderer()
   private var voice: Voice = StubVoice()
   private lateinit var vision: VisionModule
+  private var mruk: MRUKFeature? = null
+  private lateinit var world: WorldModule
+  private var pickMarkers: PickMarkers? = null
   private var socket: OkHttpPerceptionSocket? = null
   private var socketStarted = false
   private val follow = WindowRelocator()
@@ -170,7 +176,8 @@ class MainActivity : AppSystemActivity() {
         onStage(to)
       }
 
-  override fun registerFeatures(): List<SpatialFeature> = listOf(VRFeature(this), ComposeFeature())
+  override fun registerFeatures(): List<SpatialFeature> =
+      listOf(VRFeature(this), ComposeFeature(), MRUKFeature(this, systemManager).also { mruk = it })
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -184,6 +191,13 @@ class MainActivity : AppSystemActivity() {
     if (params.server.isNotEmpty()) {
       api = HttpServerApi(params.server, params.key).also { voice = ServerVoice(it, cacheDir) }
     }
+    // table from the room scan, parts in the pile in 3D (world/)
+    world = WorldModule(this, vision, mruk, { api }, params.lang)
+    pickMarkers =
+        PickMarkers { uri, make ->
+              systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
+            }
+            .also { it.reducedMotion = params.reducedMotion }
     // `--es ghost_material unlit` forces the SDK unlit fallback (default: our fresnel shader, see GhostMaterial.kt)
     if (intent?.getStringExtra("ghost_material") == "unlit") GhostMaterial.preferred = GhostMaterialKind.UNLIT
     ghost =
@@ -253,6 +267,7 @@ class MainActivity : AppSystemActivity() {
   private fun startCamera() {
     hud.state = hud.state.copy(cameraKind = vision.cameraKind)
     vision.start()
+    world.start()
   }
 
   /**
@@ -547,6 +562,7 @@ class MainActivity : AppSystemActivity() {
         )
     hud.state = hud.state.copy(step = step, action = action)
     ghost.setStep(step, action)
+    world.setAction(assembly?.jobId, step, action, act)
     loadDrawing(step, st.crop)
     showPartCard(act)
     val line =
@@ -818,13 +834,16 @@ class MainActivity : AppSystemActivity() {
           vision.cancelTouch()
           coach.registered()
         } else if (SystemClock.elapsedRealtime() - registerSince > 5000 && head != null) {
-          tableFallback = fixedTableSpot(head)
-          Agq.log.event("coach", mapOf("register" to "fixed_spot", "pos_m" to tableFallback!!.t))
+          val onTable = world.tablePose(head, assembly)
+          tableFallback = onTable ?: fixedTableSpot(head)
+          world.workSurfaceY = tableFallback!!.t.y
+          Agq.log.event("coach", mapOf("register" to (if (onTable != null) "table" else "fixed_spot"), "pos_m" to tableFallback!!.t))
           ghost.setTablePose(tableFallback)
           coach.registered()
         }
       }
       ghost.tick(dt)
+      pickMarkers?.update(if (coach.stage == CoachFlow.Stage.GUIDE && !finished) world.pickTargets else emptyList(), dt)
       vision.handTarget = ghost.currentTargetBoxWorld()?.let { (lo, hi) -> Aabb(lo, hi) }
     }
 
@@ -910,6 +929,10 @@ class MainActivity : AppSystemActivity() {
         val camFps = (vision.hud()["cam_fps"] as? Double) ?: 0.0
         val src = if (snap.worldFromAssembly == null && tableFallback != null) "fixed_spot" else snap.method
         hud.state = hud.state.copy(cameraFps = camFps, tracked = snap.tracked, trackSource = src, reprojPx = snap.reprojPx)
+        // the part the server found in the camera frame, drawn on the preview (box_2d = [ymin, xmin, ymax, xmax], 0-1000)
+        world.pickTargets.maxByOrNull { it.confidence }?.takeIf { it.box.size == 4 }
+            ?.let { t -> showCameraBox(PreviewBox((t.box[1] / 1000).toFloat(), (t.box[0] / 1000).toFloat(), (t.box[3] / 1000).toFloat(), (t.box[2] / 1000).toFloat(), t.label)) }
+            ?: showCameraBox(null)
         if (side.showCamera) side.caption = if (camFps > 0.5) s("cameraLive", "fps" to camFps.toInt()) else s("cameraOff")
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0
@@ -979,6 +1002,7 @@ class MainActivity : AppSystemActivity() {
   override fun onDestroy() {
     voiceCtl?.cancel()
     vision.stop()
+    world.stop()
     socket?.close()
     socket = null
     voice.stop()
