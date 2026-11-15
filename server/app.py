@@ -27,6 +27,7 @@ from server.routes import identify as identify_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
 from server.routes import tts as tts_routes
+from server.routes import voice as voice_routes
 from server.settings import ROOT, Settings
 
 log = logging.getLogger("agj")
@@ -146,6 +147,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ask_routes.router)               # questions during assembly (pipeline/ask.py)
     app.include_router(live_routes.router)
     app.include_router(tts_routes.router)
+    app.include_router(voice_routes.router)             # POST /api/voice/{id}: hands-free commands and questions
     app.include_router(identify_routes.router)          # POST /api/identify: which product the camera sees
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)

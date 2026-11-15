@@ -324,6 +324,32 @@ Two plain REST calls for the moment before guidance starts: which product is thi
 
 **Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, neither calls a model and both say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`.
 
+## Voice endpoint for the native headset apps [added Sun 15 Nov]
+
+**`POST /api/voice/{job_id}`** (`server/voice.py`, `server/routes/voice.py`): one utterance in, an intent and a short spoken reply out. It gives hands-free control and spoken questions with one call, so the Quest apps need no Live session. Demo key required.
+```json
+{"audio": "<base64 WAV, or headerless PCM16 16 kHz mono, or OGG/Opus>", "mime": "audio/wav|audio/ogg|audio/pcm",
+ "lang": "el|en", "step": 2, "action": 1, "speak": false,
+ "text": "<optional, instead of audio: a transcript (tests, simulate, typed input)>", "rate": 16000}
+```
+```json
+{"transcript": "επόμενο", "intent": "next|back|repeat|where_am_i|identify|ask|none",
+ "answer": "Πάρε το δεξί πλαϊνό και βάλε το στη θέση που φαίνεται.",
+ "target": {"step": 2, "action": 2}, "actions": [],
+ "tts": "<base64 WAV, only with speak:true>", "tts_ms": 2100,
+ "latency_ms": 2300, "model": "gemini-4-hydrogen|keywords|simulated", "simulated": false}
+```
+- `step` is the manifest step number, `action` the manifest action index (as the headset walks it). `step` defaults to the first step, `action` to 0. An unknown step is 422.
+- **One `gemini-4-hydrogen` call** (thinking `low`, JSON schema) hears the clip inline and returns the transcript, the intent and, for `ask`, a grounded answer. The model sees the same job facts as `POST /api/jobs/{id}/ask` (`pipeline.ask.facts`: parts, hardware codes and counts, every step, the current step's actions). Greek and English synonyms are in the prompt and in `server.voice.keywords` (επόμενο, πάμε, έγινε, next, done; πίσω, back; ξανά, επανάλαβε, repeat; πού είμαι, where am I; τι είναι αυτό, ποια βίδα είναι αυτή, what is this).
+- **Commands are answered here, not by the model.** `next` and `back` move to the next or previous guided action (`note` actions are skipped, as in `Guide.next()` on the headset). `answer` is that action's own text, prefixed "Πάμε στο βήμα N, σελίδα P." / "On to step N, page P." when the step changes. `target` is the `{step, action}` to show, or `null` at either end (then `answer` says it is the first or the last step). `repeat` reads the current action. `where_am_i` says the step, total and page, then the current action. `identify` asks the person to hold the thing up to the camera (`target: null`). The app follows up with a frame (`/api/identify` or the socket's `show_part`). `none` has `answer: ""`: say nothing.
+- **`ask`**: at most 2 sentences and 35 words, in `lang`. Any sentence that names a code (5 or more digits) the job does not have is dropped. If nothing is left, the answer becomes "Check the drawing for step N, page P." `actions` are the ask route's screen actions (`highlight_hardware`, `highlight_part`, `go_to_step`), kept only when they name the job's own codes, ids and steps.
+- **Logging for R7.** The app logs the step change as `step.by: "voice"` when it applies `target`.
+- **`text` instead of `audio`**: keywords decide. A command needs no model call (`model: "keywords"`). Only a question goes to the model, as typed text.
+- **`speak: true`**: `answer` is synthesized the same way as `POST /api/tts` (same model, voice, cache and 30-per-minute limit) and returned as base64 WAV in `tts`. If the synthesis fails, `tts` is `null` with `tts_error`, and the app speaks with its own voice.
+- **Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`: `text` is matched by keywords, a question is answered with the step's hardware from the manifest ("Step 2 uses 2 x wooden dowel 101345, page 5."), audio without text is `none`, no `tts`, and `simulated: true`.
+- **Errors.** 401 without the key, 404 for an unknown job, 409 when there is no manifest yet, 413 for audio over 1.5 MB decoded, 415 for another mime, 422 for bad base64, a non-Ogg body sent as `audio/ogg`, or neither `audio` nor `text`, 429 past 60 model calls a minute over all callers, 502 when the model fails.
+- **Measured** (real calls, Sun 15 Nov, from a laptop): 8 clips made with the `/api/tts` voice ("επόμενο", "πήγαινε πίσω", "ποια βίδα χρειάζομαι τώρα;", "next", "where am I?", "επανάλαβε, σε παρακαλώ", "τι είναι αυτό;", "which screw do I need for this step?") against `malm-drawer` at step 2. Intent was right on 8 of 8, and all 8 transcripts were exact. Both questions were answered with the dowel 101345 and highlighted it. The model took 2.0 to 4.6 s per call (median 2.9 s). In repeat runs the same call ranged from 1.7 to 10.8 s. The time is the API's: a 430-token prompt is no faster than the full 3200-token one. Through the route with `speak: true`, the synthesis added 1.9 to 2.3 s for a new sentence (cached sentences add none). A typed `text` command takes 0 ms of model time.
+
 ## Settings
 
 In `server/settings.py`, with commented lines in `.env.example`:

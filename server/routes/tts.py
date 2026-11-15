@@ -57,6 +57,29 @@ async def synthesize(text: str, key: str) -> bytes:
     return wav(raw, int(m.group(1)) if m else 24000)
 
 
+class RateLimited(RuntimeError):
+    """More than 30 new syntheses in the last minute."""
+
+
+async def speak(text: str, key: str) -> bytes:
+    """The WAV for `text`, from the cache or one new synthesis (shared by /api/tts and /api/voice).
+    RateLimited past 30 new syntheses a minute; RuntimeError or httpx.HTTPError when the synthesis fails."""
+    audio = _cache.get(text)
+    if audio is not None:
+        return audio
+    now = time.monotonic()
+    while _calls and now - _calls[0] > 60:
+        _calls.popleft()
+    if len(_calls) >= 30:
+        raise RateLimited("Voice rate limit, try again in a minute")
+    _calls.append(now)
+    audio = await synthesize(text, key)
+    _cache[text] = audio
+    while len(_cache) > 300:
+        _cache.popitem(last=False)
+    return audio
+
+
 @router.post("/api/tts")
 async def tts(body: Say, request: Request) -> Response:
     key = request.app.state.settings.gemini_api_key
@@ -65,19 +88,10 @@ async def tts(body: Say, request: Request) -> Response:
     text = body.text.strip()
     if not 1 <= len(text) <= 400:
         raise HTTPException(400, "text must be 1–400 characters")
-    audio = _cache.get(text)
-    if audio is None:
-        now = time.monotonic()
-        while _calls and now - _calls[0] > 60:
-            _calls.popleft()
-        if len(_calls) >= 30:
-            raise HTTPException(429, "Voice rate limit, try again in a minute")
-        _calls.append(now)
-        try:
-            audio = await synthesize(text, key)
-        except (RuntimeError, httpx.HTTPError) as e:
-            raise HTTPException(502, f"Speech synthesis failed: {str(e)[:120]}") from None
-        _cache[text] = audio
-        while len(_cache) > 300:
-            _cache.popitem(last=False)
+    try:
+        audio = await speak(text, key)
+    except RateLimited as e:
+        raise HTTPException(429, str(e)) from None
+    except (RuntimeError, httpx.HTTPError) as e:
+        raise HTTPException(502, f"Speech synthesis failed: {str(e)[:120]}") from None
     return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
