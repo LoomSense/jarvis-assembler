@@ -17,6 +17,8 @@ import {
 import { apiFetch, fileUrl } from '../api'
 import type { Lang, Manifest } from '../types'
 import { loadGltf } from '../viewer/model'
+import { choose, sendGuide, type Chosen } from '../build/intake'
+import { bw } from '../build/words'
 
 interface Item {
   product: string
@@ -30,7 +32,7 @@ interface Item {
 
 const WORDS = {
   el: {
-    title: 'Οδηγός συναρμολόγησης', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
+    title: 'Jarvis Assembler', pdf: 'Έχω τις οδηγίες σε PDF', sending: 'Στέλνω τον οδηγό', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
     findAria: 'Αναζήτηση', back: 'Πίσω', other: 'en', otherAria: 'English', go: 'Βρες',
     aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή φωτογράφισε το κουτί, ή γράψε το όνομα', looking: 'Ψάχνω', noCamera: 'Φωτογράφισε το κουτί, ή γράψε τον κωδικό ή το όνομα',
     photo: 'Φωτογράφισε το κουτί', unsure: 'Δεν αναγνώρισα το προϊόν. Δοκίμασε τον κωδικό ή το όνομα.',
@@ -41,7 +43,7 @@ const WORDS = {
     flags: (n: number) => (n === 1 ? '1 σημείο να ελέγξεις' : `${n} σημεία να ελέγξεις`), empty: 'Κανένας οδηγός ακόμα',
   },
   en: {
-    title: 'Assembly guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
+    title: 'Jarvis Assembler', pdf: 'I have the guide as a PDF', sending: 'Sending the guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
     findAria: 'Search', back: 'Back', other: 'ελ', otherAria: 'Ελληνικά', go: 'Find',
     aim: 'Point at the code on the box', type: 'or photograph the box, or type the name', looking: 'Looking', noCamera: 'Photograph the box, or type the code or the name',
     photo: 'Photograph the box', unsure: 'I could not tell which product this is. Try the code or the name.',
@@ -106,6 +108,8 @@ export function startHome(app: HTMLElement): void {
         <label class="sr" for="home-code"></label><input id="home-code" autocomplete="off" enterkeyhint="go" />
         <button class="round" type="submit">${svg(ICON.go)}</button></form>
       <input class="shotfile" type="file" accept="image/*" capture="environment" hidden />
+      <button class="quiet go-pdf" type="button"></button>
+      <input class="pdffile" type="file" accept="application/pdf,image/*" multiple hidden />
     </div>
     <div class="foot" data-for="ready" hidden>
       <p class="line readyname"></p>
@@ -382,6 +386,7 @@ export function startHome(app: HTMLElement): void {
     $<HTMLInputElement>('#home-code').placeholder = w().find
     $('.codefield button[type="submit"]').setAttribute('aria-label', w().go)
     $('.shot').setAttribute('aria-label', w().photo)
+    $('.go-pdf').textContent = w().pdf
     $('.r-steps span').textContent = w().steps
     $('.r-help span').textContent = w().help
     $('.r-quest span').textContent = w().quest
@@ -633,6 +638,21 @@ export function startHome(app: HTMLElement): void {
     void openByText($<HTMLInputElement>('#home-code').value.trim())
   })
   $('.go-upload').addEventListener('click', () => location.assign(link({ mode: 'build' })))
+  // the third way in, next to the camera and the code field: the guide itself, as a PDF or as photos of its pages.
+  // Like a scanned code it needs no approval tap: the build screen approves the plan and opens the guide by itself.
+  $('.go-pdf').addEventListener('click', () => $<HTMLInputElement>('.pdffile').click())
+  $<HTMLInputElement>('.pdffile').addEventListener('change', async (e) => {
+    const input = e.target as HTMLInputElement
+    const files = [...(input.files ?? [])]
+    input.value = ''
+    if (!files.length) return
+    const picked = choose(null, files)
+    if ('word' in picked) { $('.scanline').textContent = bw(lang, picked.word); return }
+    $('.scanline').textContent = w().sending
+    const out = await sendGuide(picked.chosen as Chosen, '', key)
+    if (out.ok) location.assign(link({ mode: 'build', job: out.job, auto: '1' }))
+    else $('.scanline').textContent = bw(lang, out.word)
+  })
 
   // ------------------------------------------------------------------ boxes on the canvas
   const ray = new Raycaster()
