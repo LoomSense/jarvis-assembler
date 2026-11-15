@@ -29,7 +29,7 @@ Code freeze: **Sunday 15 Nov 2026, 18:00 Athens time.** Submit by 17:30.
 
 | Person | Name | Role | Current task | Status | Updated |
 |---|---|---|---|---|---|
-| A | Evangelos | Backend and infra lead | INF-05, INF-06 | blocked | Sat 23:15 |
+| A | Evangelos | Backend and infra lead | INF-06 | blocked | Sun 03:12 |
 | B | | Agent and prompts | AGT-01 | todo | |
 | C | (covered by the data owner on Sat) | CAD and Blender | DEM-02 (waits for G3); CAD-01…09 done | todo | Sat 23:20 |
 | D | | Phone client and Quest XR | CLI-01 | todo | |
@@ -39,7 +39,7 @@ Code freeze: **Sunday 15 Nov 2026, 18:00 Athens time.** Submit by 17:30.
 
 | Gate | When | Pass condition | Owner | Result |
 |---|---|---|---|---|
-| G1 Hosting | Sat 21:00 | Headless Blender render works on the chosen host (§8.3) | A + C | Mac: pass (M4 Pro, Blender 5.3.0 headless, full pipeline through the server in 20 s, Sat 23:10). boxd: not tested, waits for SET-03 |
+| G1 Hosting | Sat 21:00 | Headless Blender render works on the chosen host (§8.3) | A + C | **Mac: pass, chosen** (boxd sign-ups closed). Full pipeline through the public URL in 48 s, Sun 03:10 |
 | G2 Quest camera | Sat 22:00 | Headset `getUserMedia` gives real frames during an XR session → option A; otherwise option B (phone camera) (§6.0, D12) | D + E | pending |
 | G3 Phase 1 | Sun 00:00 | Golden guide → walkthrough with ≥ 3 animated steps playing on a phone | B + C + D | pending |
 | G4 Phase 2 | Sun 11:00 | Replay accuracy ≥ 70%, 0 false alarms on the correct clip, event p50 ≤ 500 ms, Live speaks an injected event | E | pending |
@@ -59,7 +59,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 |---|---|---|---|---|---|---|---|
 | SET-01 | Link Gemini billing, confirm **Tier 1**, create `GEMINI_API_KEY` | A | todo | – | Tier 1 shown in AI Studio | Needs a person in AI Studio. No key on A's laptop yet | Sat 23:15 |
 | SET-02 | Smoke-call `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-decision-1` (`/v1beta/decisions`), and a Live session with an ephemeral token | A | doing | SET-01 | All four return without error | A key on the planning machine listed all four models (Sat 20:00). `eval/smoke_models.py` (`make models`) calls the four models and opens a Live session with a minted token; not run: no `GEMINI_API_KEY` on A's laptop | Sat 23:15 |
-| SET-03 | boxd login + payment method, create VM `agj`, run `uname -m` | A | blocked | – | Architecture recorded here | boxd CLI not installed or logged in on A's laptop: needs a browser sign-in and a payment method. `deploy/boxd.sh` is ready, written from the boxd docs, not run | Sat 23:15 |
+| SET-03 | boxd login + payment method, create VM `agj`, run `uname -m` | A | cut | – | Architecture recorded here | boxd sign-ups are closed ("We've reached capacity", Sun 03:00), and no team member has a boxd account. The Google Cloud temp account from the organisers was not received by A | Sun 03:12 |
 | SET-04 | Python 3.12 venv with cadquery, google-genai, fastapi, uvicorn, pymupdf, opencv-python-headless, numpy, pydantic-settings | all | todo | – | `python -c "import cadquery, fitz, cv2"` works on each laptop | | |
 | SET-05 | Install Blender 5.3 on the Macs (A, C) | C | todo | – | `blender -b --version` prints 5.3 | Blender 5.3.0 runs headless on the data owner's Mac (`brew install --cask blender`), where the C tasks were done. The team MacBook Air is still blocked by disk space (§5) | Sat 23:20 |
 | SET-06 | Node + `three@0.187.0`, cloudflared | D | todo | – | `npm create vite` app runs on a phone via tunnel | | |
@@ -76,7 +76,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | INF-02 | Job folder layout (§4.1), stage runner with `.done` markers and retry | A | done | INF-01 | A job restarts and skips finished stages | `9b22d55`: `server/orchestrator/runner.py`. `kill -9` during `steps`, then restart: only `steps` ran again and the job finished. Retry from `refs` reran only `refs` and `export` (`tests/test_server.py`) | Sat 23:15 |
 | INF-03 | `events.jsonl` writer + SSE `GET /api/jobs/{id}/events` with `Last-Event-ID` replay | A | done | INF-02 | Phone feed reconnects without losing events | `f3db491`: `eval/smoke.sh` reconnects mid-history with `Last-Event-ID` and gets every later event exactly once. Not tried with the phone client yet. A trycloudflare tunnel buffers SSE, so use `/events/poll` there (§6) | Sat 23:15 |
 | INF-04 | REST endpoints (§4.5): upload, status, plan, approve, retry, files | A | done | INF-02 | All return the documented shapes | `9b22d55`: all PLAN §4.5 routes; `tests/test_server.py` 11 of 11 pass; shapes listed in `README.md` | Sat 23:15 |
-| INF-05 | Hosting test G1 with C, then deploy | A | blocked | SET-03, SET-05 | G1 recorded in §2 | Mac half of G1 passes: the full pipeline through the server on an M4 Pro with headless Blender 5.3.0, 20 s. The boxd half waits for SET-03 | Sat 23:15 |
+| INF-05 | Hosting test G1 with C, then deploy | A | done | SET-03, SET-05 | G1 recorded in §2 | Host = A's Mac (M4 Pro): `deploy/mac_host.sh` (awake, auto-restart, cloudflared quick tunnel, health check every 60 s). `eval/smoke.sh <url>` PASS in 48.4 s through the public URL; the client page loads. The URL changes if the tunnel restarts: read `jobs/_host/url.txt` in `.demo-host/` | Sun 03:12 |
 | INF-06 | `POST /api/live/token` (single-use, 30 min, config locked) | A | doing | SET-02 | Phone and headset open a Live session with it | `9b22d55`: `server/live_token.py`, prompt in `prompts/live_voice.md`, tools from PLAN §6.4. Not tried against the API: no key on A's laptop | Sat 23:15 |
 | INF-07 | `eval/smoke.sh` end-to-end | A | done | INF-04 | Exit 0 on the golden guide | `f3db491`: `eval/smoke.sh` exits 0 on KNAGGLIG: 20.4 s on localhost, 50.6 s through an HTTPS tunnel. It uses the hand-checked plan until AGT-02 lands | Sat 23:15 |
 | INF-08 | Secrets scan, README, CREDITS | A | doing | – | No keys in git history; CREDITS complete | `make secrets` (gitleaks): no leaks in the history; `README.md` and `CREDITS.md` written; CREDITS lists 3 items to confirm before submission | Sat 23:15 |
@@ -194,7 +194,7 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 |---|---|---|---|---|
 | SET-04, SET-05, SET-06 on the team MacBook Air | Disk had about 1 GB free; Blender, the CadQuery venv (1.3 GB) and node_modules need at least 5 GB | Laptop owner (free space), or move the pipeline to boxd / another laptop | Sat 19:10 | |
 | SET-01, SET-02, INF-06 | No `GEMINI_API_KEY` on A's laptop, and Tier 1 is not confirmed | A (in person): link billing in AI Studio, put the key in `.env`, run `make models` | Sat 23:15 | |
-| SET-03, INF-05, G1 on boxd | boxd CLI is not installed or logged in on A's laptop | A (in person): install the CLI, `boxd auth login`, add a payment method, run `make deploy-box` | Sat 23:15 | |
+| SET-03, INF-05, G1 on boxd | boxd CLI is not installed or logged in on A's laptop | A (in person): install the CLI, `boxd auth login`, add a payment method, run `make deploy-box` | Sat 23:15 | Sun 03:12: boxd closed; hosting on A's Mac instead |
 
 ---
 
@@ -241,6 +241,7 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sun 02:15 · CLI-01, CLI-04, XR-02 (D's rows, not edited) · A rejected the first phone walkthrough as too busy. Three full-screen mockups were built and A chose "workshop at night" (`client/mockups/workshop/`: one 3D scene, two buttons, one short line of words, remaining parts hovering at the top with their counts). The real page is being rebuilt on it; not pushed yet. `client/public/xr-check.html` (headset check, posts its report to `POST /api/diag`, new route) is finished and has run under Quest 3 emulation only: no headset was available tonight, so G2 has no result
 - Sun 02:15 · for C · the client now decides each surface from the mesh's GLB material name (grain only on wood). The manifest carries no material per part, and `pipeline/blender/assemble.py` knows only `pine` and `steel`: any other `material` in a plan is drawn in pine's colour
 - Sun 02:55 · AGT-05 (B's row, not edited), for B and C · new guides beyond the repo: the build agent finished the IKEA MARKUS **office chair** (official PDF, 11 steps, casters, gas lift, tilt mechanism, 11 bolts) and the BEKVÄM step stool, first build passing both times ($2.24 and $2.84). The walkthrough put the seat on the base at step 4 because the pipeline had no sub-assemblies. Added them in `02d32cc`: plan `subassemblies`, adds with `into`, a joining add; the group is built beside, turned as the guide draws it, then set in place in one move (BRIEF.md and pipeline/README.md). Also new shape helpers in `pipeline/cad/lib.py` (cushion, turned, radial, curved_panel, bent_rod, tube, cylinder, rounded_box) and an `approximate_shape` flag. Re-run on MARKUS from the PDF alone: the agent wrote the seat unit as a sub-assembly by itself and the chair looks like a chair; 12 min, $2.94. KNAGGLIG and LACK placements unchanged; 33 tests pass. For D: manifest steps gain `subassembly`, `stagedPoses`, `joins`; a joining action is `place` with `nodes`
+- Sun 03:12 · INF-05, G1 · the demo is hosted on A's Mac: boxd sign-ups are closed. `deploy/mac_host.sh` runs from `.demo-host/` (a clean worktree of `main`, so local uncommitted work in the main checkout is not served). Smoke PASS through the public URL in 48 s. The phone and headset need the URL from `jobs/_host/url.txt` plus `?key=`. The Mac must stay plugged in and online until the pitch; the plan says to put it on a phone hotspot, not venue Wi-Fi. If someone gets a Google Cloud or boxd account, `deploy/remote_setup.sh` works on any Ubuntu x86_64 VM
 
 ### Log B
 -
