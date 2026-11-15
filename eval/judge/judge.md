@@ -155,3 +155,5 @@ Rules for fixes:
 - **Expected**: the rubric anchor's observable condition, in numbers.
 - **Verify**: one command or one device-script step, and the output that proves it.
 - Device evidence first: when a criterion is capped only for lack of a log, the fix is "produce the log", and it is usually the cheapest points on the board.
+
+**Weights v2:** use the vector in RUBRIC.md "Weights v2" (R1..R12 = 6,6,16,9,10,8,7,8,8,5,5,12) and score R12 with RUBRIC-R12.md.

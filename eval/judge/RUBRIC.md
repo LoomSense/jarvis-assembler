@@ -220,3 +220,7 @@ Count from app launch (headset on, app icon or URL already open) to the first gh
 - One number per criterion, whole points. Write the evidence level next to it (`3 · E3`).
 - Never raise a score for effort or code volume; raise it for measured behaviour.
 - A regression from the previous round is noted with the old score.
+
+## Weights v2 (with R12, from Sun 11:00)
+
+R12 *Visual & interaction quality (Apple-grade)* is added; anchors, evidence caps and checklist in `RUBRIC-R12.md` and `docs/design/XR_NATIVE_SPEC.md` §8. Weights now: R1 6 · R2 6 · R3 16 · R4 9 · R5 10 · R6 8 · R7 7 · R8 8 · R9 8 · R10 5 · R11 5 · R12 12 (sum 100). This supersedes the weights above.
