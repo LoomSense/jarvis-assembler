@@ -407,6 +407,53 @@ object PanelMath {
   }
 
   /**
+   * How much darker than the board the darkest line along the length of [c] is (grey levels of [bgr], the rectified
+   * picture, [n] × [n] × 3 bytes), looking only where a board at least [minBoardPx] wide fits on either side of the
+   * line; 0 when the rectangle is too narrow to be two boards. Each line is the mean over the middle 80 % of the
+   * length, so holes, screws and the carpet's grain do not count; a groove near one edge (the drawer front's) is
+   * outside the part that is looked at.
+   */
+  fun seamDip(bgr: ByteArray, n: Int, c: PanelCandidate, minBoardPx: Double): Double {
+    val e0 = sqrt((c.box[2] - c.box[0]) * (c.box[2] - c.box[0]) + (c.box[3] - c.box[1]) * (c.box[3] - c.box[1]))
+    val e1 = sqrt((c.box[4] - c.box[2]) * (c.box[4] - c.box[2]) + (c.box[5] - c.box[3]) * (c.box[5] - c.box[3]))
+    val halfL = max(e0, e1) / 2
+    val halfS = min(e0, e1) / 2
+    val inner = halfS - minBoardPx
+    if (inner < 2) return 0.0
+    fun line(w: Double): Double {
+      var sum = 0.0
+      var count = 0
+      var u = -0.8 * halfL
+      while (u <= 0.8 * halfL) {
+        val x = Math.round(c.ctr[0] + u * c.al[0] + w * c.asv[0]).toInt()
+        val y = Math.round(c.ctr[1] + u * c.al[1] + w * c.asv[1]).toInt()
+        if (x in 0 until n && y in 0 until n) {
+          val i = 3 * (y * n + x)
+          sum += ((bgr[i].toInt() and 0xff) + (bgr[i + 1].toInt() and 0xff) + (bgr[i + 2].toInt() and 0xff)) / 3.0
+          count++
+        }
+        u += 2.0
+      }
+      return if (count == 0) 0.0 else sum / count
+    }
+    val all = ArrayList<Double>()
+    var w = -halfS + 3
+    while (w <= halfS - 3) {
+      all += line(w)
+      w += 1.0
+    }
+    if (all.isEmpty()) return 0.0
+    val board = all.sorted()[all.size / 2]
+    var darkest = Double.MAX_VALUE
+    w = -inner
+    while (w <= inner) {
+      darkest = min(darkest, line(w))
+      w += 1.0
+    }
+    return max(0.0, board - darkest)
+  }
+
+  /**
    * One blob seen at several thresholds, and blobs inside blobs, down to one rectangle per real thing:
    *  1. the same blob at two thresholds ([RectGates.sameCentreM], [RectGates.sameSizeM]) → the cleaner rectangle;
    *  2. a rectangle with two or more others inside it is several parts read as one (a low threshold joined them
@@ -749,6 +796,7 @@ object PanelPose {
       val maxArea = 1.3 * g.maxLongM * g.maxShortM * pxPerM2
       val pad = p.ringOuterPx / 2 + 2
       val found = ArrayList<FoundRect>()
+      var birdBytes: ByteArray? = null
       for (thr in thresholds) {
         for (i in 0 until n * n) maskBytes[i] = if (white[i] > thr) 1 else 0
         mask.put(0, 0, maskBytes)
@@ -838,12 +886,56 @@ object PanelPose {
             if (contrast < p.minContrast) continue
             val minSide = p.minContrast * g.sideContrastShare
             if ((0 until 4).any { sideN[it] == 0 || meanIn - sideSum[it] / sideN[it] < minSide }) continue
-            val measured = p.copy(longM = lengthM, shortM = widthM)
-            val xyYaw = PanelMath.pose(c, v, null, measured) // anchored at the far corner, never smeared
+            // Measured again at the level half-way between the blob and its ring: the sweep's threshold may sit near
+            // the surface's level (the blob grows by the blur, about 15 mm) or near the board's (it shrinks); half-way
+            // is where the edge is. A blob that grows past its window at that level has joined something: dropped.
+            val mid = meanIn - contrast / 2
+            val subB = ByteArray(rw * rh)
+            for (j in 0 until rh) {
+              val row = (ry0 + j) * n + rx0
+              for (i in 0 until rw) subB[j * rw + i] = if (white[row + i] > mid) 1 else 0
+            }
+            val sub = Mat(rh, rw, CvType.CV_8UC1)
+            val subOpen = Mat()
+            val subCnts = ArrayList<MatOfPoint>()
+            try {
+              sub.put(0, 0, subB)
+              Imgproc.morphologyEx(sub, subOpen, Imgproc.MORPH_OPEN, kernel)
+              Imgproc.findContours(subOpen, subCnts, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+            } finally {
+              sub.release()
+              subOpen.release()
+            }
+            var fine: PanelCandidate? = null
+            val cxr = c.ctr[0] - rx0
+            val cyr = c.ctr[1] - ry0
+            for (sc in subCnts) {
+              val b2 = Imgproc.boundingRect(sc)
+              val a2 = Imgproc.contourArea(sc)
+              if (fine == null && a2 >= 0.5 * area && cxr >= b2.x && cxr <= b2.x + b2.width && cyr >= b2.y && cyr <= b2.y + b2.height &&
+                  b2.x > 0 && b2.y > 0 && b2.x + b2.width < rw && b2.y + b2.height < rh) {
+                val sc2 = MatOfPoint2f(*sc.toArray())
+                val rr = Imgproc.minAreaRect(sc2)
+                sc2.release()
+                val pp = arrayOfNulls<Point>(4)
+                rr.points(pp)
+                fine = PanelMath.candidate(DoubleArray(8) { if (it % 2 == 0) pp[it / 2]!!.x + rx0 else pp[it / 2]!!.y + ry0 }, a2, v, p)
+              }
+              sc.release()
+            }
+            val cf = fine ?: continue
+            val fineL = cf.errL + p.longM
+            val fineW = cf.errS + p.shortM
+            if (cf.rectness < p.minRectness || fineL < g.minLongM || fineL > g.maxLongM || fineW < g.minShortM || fineW > g.maxShortM) continue
+            // two boards lying side by side are not one board
+            val rectified = birdBytes ?: ByteArray(n * n * 3).also { bird.get(0, 0, it); birdBytes = it }
+            if (PanelMath.seamDip(rectified, n, cf, g.seamMinBoardM / v.s) >= g.seamShare * contrast) continue
+            val measured = p.copy(longM = fineL, shortM = fineW)
+            val xyYaw = PanelMath.pose(cf, v, null, measured) // anchored at the far corner, never smeared
             found +=
-                FoundRect(xyYaw[0], xyYaw[1], xyYaw[2], lengthM, widthM, c.rectness, contrast,
+                FoundRect(xyYaw[0], xyYaw[1], xyYaw[2], fineL, fineW, cf.rectness, contrast,
                     PanelMath.cornersPx(xyYaw[0], xyYaw[1], xyYaw[2], k.fx, k.fy, k.cx, k.cy, v, measured),
-                    PanelMath.rectCorners(xyYaw[0], xyYaw[1], xyYaw[2], lengthM, widthM), p.thickM)
+                    PanelMath.rectCorners(xyYaw[0], xyYaw[1], xyYaw[2], fineL, fineW), p.thickM)
           } finally {
             cnt.release()
           }
@@ -875,6 +967,14 @@ data class RectGates(
     val sideContrastShare: Double = 0.5,
     /** A blob this close to the edge of the rectified window is cut by the window: its size is not the part's. */
     val borderPx: Int = 2,
+    /**
+     * Two boards lying side by side read as one wide rectangle (two 450 × 100 sides against each other are about the
+     * 400 × 200 front). A dark line along the length, darker than the board by this share of the rectangle's
+     * contrast, with room for a board ([seamMinBoardM]) on either side of it, is the gap between two boards: no
+     * rectangle. 80 mm: a 100 mm board's own groove down its middle (the drawer sides have one) is not looked at.
+     */
+    val seamShare: Double = 0.15,
+    val seamMinBoardM: Double = 0.080,
     /** The same blob at two thresholds: centres this close and both sides this close. */
     val sameCentreM: Double = 0.030,
     val sameSizeM: Double = 0.040,
@@ -1113,8 +1213,13 @@ class PanelPoseTracker(
   @Volatile var rectsWanted: () -> Boolean = { false }
   @Volatile var onRects: ((RectsResult, Pose3?) -> Unit)? = null
 
-  /** The rectangles' rectification: the default [PanelParams] (top face 16 mm above the surface), whatever the step's target is. */
-  var rectParams: PanelParams = PanelParams()
+  /**
+   * The rectangles' pass uses this tracker's own [params] object (so the lightness-only setting and every other
+   * constant tuned on the device hold for both), with the default rectangle's top face, 16 mm above the surface,
+   * whatever the step's target is.
+   */
+  private val rectParams: PanelParams
+    get() = params
 
   /** Camera thread. Cheap unless a detection is due. */
   fun onFrame(frame: CameraFrame) {

@@ -57,7 +57,11 @@ class BoardKind(val boards: List<Board>) {
 }
 
 data class FlatPartsConfig(
-    /** A rectangle is a kind only within these of its sides (the device measured real boards up to 30 mm short and 12 mm wide). */
+    /**
+     * A rectangle is a kind only within these of its sides. On the headset's first recording (lightness only) the
+     * boards measured: front 408 × 201 (true 400 × 200), sides 446 × 97..108 (450 × 100), back 324 × 111 (350 × 100,
+     * always about 26 mm short), bottom 441 × 338 (450 × 350); spread ±10 mm.
+     */
     val tolLengthM: Double = 0.045,
     val tolWidthM: Double = 0.030,
     /** … and when the next best kind is at least this many times farther, in tolerances. */
@@ -96,13 +100,15 @@ object FlatMatch {
   }
 
   /**
-   * The kind a [lengthM] × [widthM] rectangle is, or null: (a) both sides within the tolerances of the nearest kind
-   * and (b) the next nearest kind at least [FlatPartsConfig.clearRatio] times farther.
+   * The kind a [lengthM] × [widthM] rectangle is, or null: (a) within the tolerances of the nearest kind, taken
+   * together ([distance] ≤ 1: 45 mm off in length alone, 30 mm in width alone, less of each when both are off:
+   * every real sighting on the headset is inside, a rectangle at both limits is not) and (b) the next nearest kind
+   * at least [FlatPartsConfig.clearRatio] times farther.
    */
   fun classify(lengthM: Double, widthM: Double, kinds: List<BoardKind>, cfg: FlatPartsConfig = FlatPartsConfig()): BoardKind? {
     val ds = kinds.map { it to distance(lengthM, widthM, it, cfg) }.sortedBy { it.second }
     val (best, d1) = ds.firstOrNull() ?: return null
-    if (abs(lengthM - best.lengthM) > cfg.tolLengthM || abs(widthM - best.widthM) > cfg.tolWidthM) return null
+    if (d1 > 1.0) return null
     val d2 = ds.getOrNull(1)?.second ?: return best
     return if (d2 >= cfg.clearRatio * d1) best else null
   }
@@ -354,6 +360,12 @@ class FlatParts(
             tracks.filter { it.key !in taken }.minByOrNull { flat(it.x - c.x, it.z - c.z) }?.takeIf { flat(it.x - c.x, it.z - c.z) <= cfg.sameM }
                 ?: Track(nextKey++).also { tracks += it }
         taken += t.key
+        if (nowMs - t.lastMs > cfg.liveMs && t.m.isNotEmpty()) {
+          // seen again after a while: another board may lie there now (the recording: the bottom, then the front):
+          // its size is measured afresh, not mixed with the old one
+          t.m.clear()
+          t.seen = 0
+        }
         t.m.addLast(meas)
         while (t.m.size > cfg.window) t.m.removeFirst()
         t.seen++

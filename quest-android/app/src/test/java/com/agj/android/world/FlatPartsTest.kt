@@ -85,6 +85,11 @@ class FlatPartsTest {
     assertEquals(1.0, FlatMatch.distance(0.445, 0.100, kinds[0]), 1e-9)
     assertEquals(1.0, FlatMatch.distance(0.400, 0.130, kinds[0]), 1e-9)
     assertNull(FlatMatch.classify(0.400, 0.100, emptyList()))
+    // the tolerances count together: 40 mm long and 28 mm wide of the only board there is, is not that board
+    val only = FlatMatch.kinds(listOf(Board("a", "part_a_1", 0.400, 0.100)))
+    assertEquals("a", FlatMatch.classify(0.440, 0.100, only)?.name)
+    assertEquals("a", FlatMatch.classify(0.400, 0.128, only)?.name)
+    assertNull(FlatMatch.classify(0.440, 0.128, only))
   }
 
   @Test
@@ -117,6 +122,28 @@ class FlatPartsTest {
     assertNotNull(rig.flat.lit(rig.t + 1400))
     assertTrue(rig.flat.lit(rig.t + 1800)!!.opacity < 0.5f)
     assertNull(rig.flat.lit(rig.t + 2001))
+  }
+
+  @Test
+  fun aPlaceSeenAgainAfterAWhileIsMeasuredAfresh() {
+    val rig = Rig(real)
+    rig.flat.setAction(0, 0, "part_drawer_front_1", "drawer_front")
+    // the bottom lies there (the headset's recording, frames 14..23) …
+    for (i in 0 until 5) {
+      rig.t = i * 333L
+      rig.flat.update(pass(rect(0.2, 0.6, 0.0, 0.441, 0.338)), floor, null, null, rig.t)
+    }
+    assertNull(rig.flat.lit(rig.t)) // the bottom is not the part to pick
+    // … it is taken away, and 5 s later the front is put in the same place (frames 38..52)
+    rig.t += 5000
+    rig.flat.update(pass(rect(0.21, 0.61, 3.0, 0.408, 0.201)), floor, null, null, rig.t)
+    assertNull(rig.flat.lit(rig.t)) // one sighting
+    rig.t += 333
+    rig.flat.update(pass(rect(0.21, 0.61, 3.0, 0.409, 0.203)), floor, null, null, rig.t)
+    val lit = rig.flat.lit(rig.t)!! // the second: lit, with the front's own size, not a mix with the bottom's
+    assertEquals("drawer_front", lit.partId)
+    assertEquals(0.4085, lit.lengthM, 1e-9)
+    assertEquals(0.202, lit.widthM, 1e-9)
   }
 
   @Test
