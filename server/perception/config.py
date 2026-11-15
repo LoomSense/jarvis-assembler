@@ -102,12 +102,10 @@ class Tuning:
     right_way_min: float = 0.8             # ...at this confidence. NOT proven: the one real frame of a side panel
     #                                        standing with its rail INWARDS scored `ok` 0.76 (README)
     right_way_window: NofM = NofM(3, 4)    # ...in 3 of the last 4 frames with the assembly in view
-    careful_look: bool = True              # one slower-model look (look.py) when a board has been near its place for
-    #                                        about a second; it raises only the mistakes the step file lists under
-    #                                        `wrong_way_look` (the drawer: `side_wrong_end`), as `flip_needed`
-    look_near: NofM = NofM(2, 4)           # ...near: the stream's `wrong_way` is not `cannot_tell` in 2 of 4 frames
-    #                                        (a panel held on the wrong end: 2 of the 4 real frames),
-    look_near_s: float = 1.0               # ......or the headset's hand summary has the hand at the target this long
+    careful_look: bool = True              # the stream suspects, one slower-model look confirms (look.py): only for
+    #                                        the mistakes a step file lists under `wrong_way_look` (the drawer:
+    #                                        `side_wrong_end`), and only when both name the same one: `flip_needed`
+    look_suspect: float = 0.3              # ...the stream's first choice is such a mistake with this confidence
     look_gap_s: float = 4.0                # ...at most one look in this many seconds, one at a time
     look_max: int = 6                      # ...and this many a step (each is one `gemini-4-hydrogen` call, 3 to 7 s)
     look_timeout_s: float = 20.0

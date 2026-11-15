@@ -432,10 +432,11 @@ def test_the_careful_look_asks_the_steps_own_question_and_takes_only_its_keys(mo
         raise AssertionError("an answer outside the options must not be taken")
 
 
-# ---- the careful look, wired: only the mistakes the step file lists, one look at a time ---------------
+# ---- the careful look, wired: the stream suspects a listed mistake, one look confirms it ---------------
 
-def _look_session(tmp_path, monkeypatch, answer: str, way: str = "ok", tuning: dict | None = None):
-    """A live session (the Decisions API faked) on a step whose file has `wrong_way` and `wrong_way_look`."""
+def _look_session(tmp_path, monkeypatch, answer: str, way: str = "wrong_end", tuning: dict | None = None):
+    """A live session (the Decisions API faked) on a step whose file has `wrong_way` and `wrong_way_look`.
+    `way`: the stream's first choice for `wrong_way` (at 0.6); `answer`: what the careful look says."""
     from server.perception import session as live
     from tests.test_perception import JOB, app_client, fake_api
     looks = []
@@ -471,39 +472,43 @@ def _look_session(tmp_path, monkeypatch, answer: str, way: str = "ok", tuning: d
     return client, looks
 
 
-def test_the_careful_look_raises_only_the_listed_mistake_once(tmp_path, monkeypatch):
+def _events(cam) -> list:
+    return [(m["event"], m.get("reason")) for m in cam.seen if m["type"] == "event"]
+
+
+def test_the_stream_suspects_the_listed_mistake_and_one_careful_look_confirms_it(tmp_path, monkeypatch):
     from tests.test_perception import Peer, url
     client, looks = _look_session(tmp_path, monkeypatch, "wrong_end")
     with client as c, c.websocket_connect(url("camera")) as ws:
         cam = Peer(ws)
         cam.send(type="start", step=2)
-        for seq in range(1, 4):                                       # near its place in 3 frames: one look
-            assert cam.frame_ack(seq, step=2)["dropped"] is None
-        event = cam.find("event")
+        assert cam.frame_ack(1, step=2)["dropped"] is None            # 0.6 is under the stream's own line: no event
+        event = cam.find("event")                                     # ...but enough to ask the slower model
         assert (event["event"], event["reason"], event["votes"]) == ("flip_needed", "wrong_end", "one careful look")
         assert event["say"] == {"en": "That is the wrong end.", "el": "Αυτή είναι η λάθος άκρη."} and event["evidence"] == {"look": 1.0}
-        for seq in range(4, 12):
+        for seq in range(2, 10):
             cam.frame_ack(seq, step=2)
-        assert len(looks) == 1 and [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed"]
+        time.sleep(0.1)
+        assert len(looks) == 1 and _events(cam) == [("flip_needed", "wrong_end")]    # not again in this action
 
 
-def test_the_careful_look_ignores_every_other_answer_and_keeps_its_distance(tmp_path, monkeypatch):
+def test_the_look_must_name_the_same_mistake_and_is_asked_sparingly(tmp_path, monkeypatch):
     from tests.test_perception import Peer, url
-    client, looks = _look_session(tmp_path, monkeypatch, "rail_in", tuning={"look_gap_s": 0.0, "look_max": 2})
-    with client as c, c.websocket_connect(url("camera")) as ws:
-        cam = Peer(ws)
-        cam.send(type="start", step=2)
-        for seq in range(1, 14):
-            cam.frame_ack(seq, step=2)
-        time.sleep(0.2)
-        assert len(looks) == 2                                        # look_max, however long the panel stays
-        assert not [m for m in cam.seen if m["type"] == "event" and m["event"] == "flip_needed"]   # not a listed mistake
-    for name, kw in (("off", {"tuning": {"careful_look": False}}), ("in the hands", {"way": "cannot_tell"})):
-        client, looks = _look_session(tmp_path / name.replace(" ", "_"), monkeypatch, "wrong_end", **kw)
+    for name, answer, way, tuning, asked in (
+            ("the look sees a panel in the air", "cannot_tell", "wrong_end", {"look_gap_s": 0.0, "look_max": 2}, 2),
+            ("the look sees another mistake", "rail_in", "wrong_end", {"look_gap_s": 0.0, "look_max": 2}, 2),
+            ("one look in four seconds", "ok", "wrong_end", None, 1),
+            ("the stream suspects a mistake that is not listed", "wrong_end", "rail_in", None, 0),
+            ("the stream sees nothing wrong", "wrong_end", "ok", None, 0),
+            ("the stream is not sure enough", "wrong_end", "wrong_end", {"look_suspect": 0.7}, 0),
+            ("switched off", "wrong_end", "wrong_end", {"careful_look": False}, 0)):
+        client, looks = _look_session(tmp_path / name.replace(" ", "_"), monkeypatch, answer, way, tuning)
         with client as c, c.websocket_connect(url("camera")) as ws:
             cam = Peer(ws)
             cam.send(type="start", step=2)
-            for seq in range(1, 8):
+            for seq in range(1, 9):
                 cam.frame_ack(seq, step=2)
-            time.sleep(0.1)
-            assert looks == [] and not [m for m in cam.seen if m["type"] == "event"], name
+                time.sleep(0.02)
+            time.sleep(0.15)
+            assert len(looks) == asked, name
+            assert ("flip_needed", "wrong_end") not in _events(cam), name

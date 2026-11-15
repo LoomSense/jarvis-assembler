@@ -5,9 +5,10 @@
 The stream's model (decider.py) answers in half a second and cannot see which way a board faces: a side panel
 of the drawer standing with its rail towards the middle of the front scored `ok` 0.76 on its `wrong_way` question
 (real frames, Sun 15 Nov). The slower model can: it named that mistake, the wrong end of the front, and a panel
-still in the hands on the same frames. So the session asks it once when the stream says a board has reached its
-place (session.py, `_maybe_look`), with the same question and options as the step's `wrong_way`, and turns the
-answer into `right_way` or `flip_needed` with the reason.
+still in the hands on the same frames. It is not steady on which way a face looks (the same standing panel was
+`ok` in one call and `side_rail_in` in the next), and it once called a panel carried over the front "on the
+wrong end". So the session uses it only to confirm what the stream already suspects, and only for the mistakes
+a step file lists under `wrong_way_look` (session.py, `_maybe_look`): then both models have named the same one.
 """
 from __future__ import annotations
 

@@ -188,7 +188,7 @@ class PerceptionSession:
         self.decision_ms: deque = deque(maxlen=50)
         self._packs: dict = {}                       # step -> StepPack, or the ValueError that says why there is none
         # the careful look (look.py): what it is looking at now, and what it has said
-        self._look = {"key": None, "near": deque(maxlen=4), "busy": False, "last": float("-inf"), "count": 0, "fired": False}
+        self._look = {"key": None, "busy": False, "last": float("-inf"), "count": 0, "fired": False}
         self._pack_lock = threading.Lock()
         self._told: set = set()                      # steps whose missing questions were reported
         self._ticker: asyncio.Task | None = None
@@ -740,15 +740,17 @@ class PerceptionSession:
     # ---- the careful look: one slower-model look when a board is at its place -------------------------
 
     def _maybe_look(self, frame: Frame, answers: dict, now: float) -> None:
-        """Start one careful look (look.py) when the board has been near its place for about a second. It only
-        ever raises the mistakes the step's question file lists under `wrong_way_look` (the drawer: the side panel
-        on the wrong end of the front): what that model answered right on every real frame. One look at a time,
-        `look_gap_s` apart, `look_max` a step, and none once it has fired for this action."""
+        """The stream suspects, one careful look confirms (look.py). When the stream's `wrong_way` answer has, as
+        its first choice, one of the mistakes the step's question file lists under `wrong_way_look` (the drawer:
+        the side panel on the wrong end of the front), that frame goes to the slower model once, and only the
+        SAME mistake from it becomes `flip_needed`. Neither model alone is safe: the stream's answer for the wrong
+        end stayed under its line (0.58, 0.61), and the look called a panel carried over the front "on the wrong
+        end" once in 16 real frames. One look at a time, `look_gap_s` apart, `look_max` a step, none once it
+        has fired for this action."""
         t, st = self.t, self._look
         key = (self.epoch, self.step, self.action)
         if st["key"] != key:
-            st.update(key=key, busy=st["busy"], last=float("-inf"), count=0, fired=False)
-            st["near"].clear()
+            st.update(key=key, last=float("-inf"), count=0, fired=False)
         if not t.careful_look or self.simulated or self.step is None:
             return
         got = self._packs.get(self.step)
@@ -756,39 +758,36 @@ class PerceptionSession:
         way = answers.get(careful.QUESTION)
         if not allowed or not isinstance(way, dict):
             return
-        probs = way.get("probabilities") or {}
+        suspect, conf = way.get("choice"), float(way.get("confidence") or 0.0)
         blocked = float((answers.get("view_blocked") or {}).get("noul") or 0.0) >= self.t.watcher_config().unusable
-        st["near"].append(not blocked and float(probs.get(careful.NOT_PLACED) or 0.0) < 0.5)
-        at_target = (self.hands.fresh(now) and self.hands.at_target and self.hands.target_reached_at is not None
-                     and now - self.hands.target_reached_at >= t.look_near_s)
-        near = sum(st["near"]) >= t.look_near.n or at_target
-        if (not near or st["busy"] or st["fired"] or st["count"] >= t.look_max or now - st["last"] < t.look_gap_s
-                or "flip_needed" in self.coach.muted):
+        if (suspect not in allowed or conf < t.look_suspect or blocked or st["busy"] or st["fired"]
+                or st["count"] >= t.look_max or now - st["last"] < t.look_gap_s or "flip_needed" in self.coach.muted):
             return
         st.update(busy=True, last=now, count=st["count"] + 1)
-        threading.Thread(target=self._look_worker, args=(key, frame, got.pack, list(allowed)), daemon=True).start()
+        threading.Thread(target=self._look_worker, args=(key, frame, got.pack, str(suspect)), daemon=True).start()
 
-    def _look_worker(self, key: tuple, frame: Frame, pack: dict, allowed: list) -> None:
+    def _look_worker(self, key: tuple, frame: Frame, pack: dict, suspect: str) -> None:
         try:
             result = careful.look(pack, bytes(frame), real_look_note(self.guide), timeout=self.t.look_timeout_s)
         except Exception as e:                                         # noqa: BLE001 - a look that fails says nothing
             log.warning("perception: the careful look for step %s failed (%s: %s)", key[1], type(e).__name__, e)
             result = None
-        self._post(self._on_look, key, frame, result, allowed)
+        self._post(self._on_look, key, frame, result, suspect)
 
-    def _on_look(self, key: tuple, frame: Frame, result: dict | None, allowed: list) -> None:
+    def _on_look(self, key: tuple, frame: Frame, result: dict | None, suspect: str) -> None:
         st = self._look
         st["busy"] = False
         if result is not None:
-            self.log.write("events", {"clip": self._clip_time(frame)[0], "t": self._clip_time(frame)[2], "event": "look",
-                                      "step": key[1], "answer": result["answer"], "why": result["why"],
+            clip, _, clip_t = self._clip_time(frame)
+            self.log.write("events", {"clip": clip, "t": clip_t, "event": "look", "step": key[1], "suspect": suspect,
+                                      "answer": result["answer"], "why": result["why"],
                                       "latency_ms": result["latency_ms"], "seq": frame.seq})
-        if (result is None or st["key"] != key or key != (self.epoch, self.step, self.action) or result["answer"] not in allowed
+        if (result is None or st["key"] != key or key != (self.epoch, self.step, self.action) or result["answer"] != suspect
                 or self.coach.watcher is None or "flip_needed" in self.coach.muted):
             return
         st["fired"] = True
-        self.coach.way_said.add(result["answer"])                      # the stream does not say it a second time
-        self._emit([self.coach._say("flip_needed", frame.ts, reason=result["answer"], evidence={"look": 1.0},
+        self.coach.way_said.add(suspect)                               # the stream does not say it a second time
+        self._emit([self.coach._say("flip_needed", frame.ts, reason=suspect, evidence={"look": 1.0},
                                     votes="one careful look")], frame)
 
     def _show_part_result(self, answers: dict, show: dict, codes: tuple = ()) -> Emitted:
