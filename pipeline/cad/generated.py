@@ -34,6 +34,7 @@ MODELS = {
     "meshy": ("fal-ai/meshy/v7.1/image-to-3d", lambda url: {"image_url": url, "should_texture": False, "target_polycount": 30000}),
 }
 ROOT = Path(__file__).resolve().parents[2]
+MAX_FACES = 20000
 
 
 def _fal_key() -> str:
@@ -74,6 +75,7 @@ def crop(im: Image.Image, box) -> Image.Image:
 
 
 def call_fal(png: Path, model: str) -> bytes:
+    os.environ.setdefault("FAL_KEY", _fal_key())             # fal_client reads only the environment
     import fal_client
     endpoint, args = MODELS[model]
     try:
@@ -85,9 +87,20 @@ def call_fal(png: Path, model: str) -> bytes:
         return r.read()
 
 
+def main_body(mesh: trimesh.Trimesh, keep=0.04) -> trimesh.Trimesh:
+    """Drop loose bits (a screw or a callout the model copied from the drawing): keep only pieces with at least
+    `keep` of the surface area, so they do not stretch the box the part is fitted into."""
+    parts = mesh.split(only_watertight=False)
+    if len(parts) < 2:
+        return mesh
+    total = sum(p.area for p in parts)
+    big = [p for p in parts if p.area >= keep * total] or [max(parts, key=lambda p: p.area)]
+    return trimesh.util.concatenate(big)
+
+
 def fit(mesh: trimesh.Trimesh, size, rotate_deg=None) -> trimesh.Trimesh:
     """glTF is Y-up: turn it Z-up, apply the plan's turn, then scale and move it into the fitted box."""
-    m = mesh.copy()
+    m = main_body(mesh)
     m.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
     if rotate_deg:
         for ang, ax in zip(rotate_deg, ([1, 0, 0], [0, 1, 0], [0, 0, 1])):
@@ -128,6 +141,11 @@ def build(plan_path: Path, plan: dict, item: dict, out: Path, kind: str = "part"
                 raise RuntimeError("FAL_KEY is not set")
             cached.write_bytes(call_fal(png, model))
         mesh = trimesh.load(cached, force="mesh")
+        if len(mesh.faces) > MAX_FACES:                       # the model returns ~500k faces; the GLB budget is 150k in all
+            try:
+                mesh = mesh.simplify_quadric_decimation(face_count=MAX_FACES)
+            except Exception:                                 # noqa: BLE001 - fast_simplification missing: keep it heavy
+                pass
         status = {"generated": True, "model": MODELS[model][0], "glb": cached.name, "crop": png.name}
     except Exception as e:                                    # noqa: BLE001 - never stop a build on a generated part
         status = {"generated": False, "reason": f"{type(e).__name__}: {e}"[:300]}
