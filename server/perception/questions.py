@@ -7,7 +7,12 @@ For a job with question files the input blocks come straight from `pipeline.perc
 step header, live frame, sheet note, reference sheet (JPEG), and that file's questions. Option keys of the
 choice questions are the labels on the sheet (part ids and hardware codes), so answers need no translation.
 
-Two things are added here:
+Three things are added here:
+- A question file written before the current `step_complete` wording (`pipeline.perception.questions.STEP_COMPLETE_V`)
+  gets that question and its sheet note in the current wording, in memory (`writer.current`): the job folder is
+  not touched and the log says so once per step. This is what makes a step whose hardware does not show on the
+  reference sheet (MALM drawer steps 3 and 7) answer about the hardware instead of about a picture that cannot
+  show it. Rebuilding the job, or `python -m pipeline.perception.questions <job> --no-model`, writes it to the file.
 - One question the files do not have, `right_hardware`: a yes/no about the hardware needed right now (the
   current action's code when the display reports it). It cross-checks the `hardware_in_hand` choice.
 - A job built before the refs stage wrote question files has none. Its questions are then made in memory
@@ -90,17 +95,45 @@ def fallback_pack(guide: Guide, n: int) -> dict:
     k = next(i for i, s in enumerate(manifest["steps"]) if s["n"] == n)
     s = manifest["steps"][k]
     sheet = guide.sheet(n)
-    questions = writer.template(manifest, sheet, k)
+    shown = writer.added_px(guide.dir, sheet)
+    questions = writer.template(manifest, sheet, k, shown)
     problems = writer.validate(questions)
     if problems:
         raise ValueError("; ".join(problems[:3]))
     image = guide.sheet_image(n)
-    orange = writer.ORANGE_NOTE.format(n=n) if sheet.get("added") else ""
-    return {"step": n, "written_by": "template", "header": writer.header(manifest, k),
-            "sheet_note": writer.SHEET_NOTE.format(n=n, orange=orange),
+    note = writer.detail_note(n, sheet, shown)
+    return {"step": n, "written_by": "template", "step_complete_v": writer.STEP_COMPLETE_V, "added_px": shown,
+            "detail": sheet.get("detail") if note else None, "detail_note": note,
+            "header": writer.header(manifest, k), "sheet_note": writer.sheet_note(n, sheet, shown),
             "sheet": str(image.relative_to(guide.dir.resolve())) if image else None,
             "expects": {"parts": s["pickParts"], "hardware": [h["code"] for h in s["hardware"]]},
             "questions": questions}
+
+
+_told: set = set()                     # (job folder, step) whose older question file was already logged
+
+
+def _current(guide: Guide, n: int, pack: dict) -> dict:
+    """The file's pack with `step_complete` in the current wording (see the module text). The file's own dict is
+    cached by `pipeline.perception.request` and is never changed."""
+    try:
+        k = next(i for i, s in enumerate(guide.manifest["steps"]) if s["n"] == n)
+        sheet = guide.sheet(n)
+        shown = pack["added_px"] if "added_px" in pack else writer.added_px(guide.dir, sheet)
+        new = writer.current(pack, guide.manifest, sheet, k, shown)
+        if new is pack or writer.validate(new["questions"]):
+            return pack
+    except Exception as e:                                           # noqa: BLE001 - an older or odd manifest: keep the file
+        log.warning("perception: step %s of %s keeps its older step_complete question (%s: %s)", n, guide.dir.name,
+                    type(e).__name__, e)
+        return pack
+    if (str(guide.dir), n) not in _told:
+        _told.add((str(guide.dir), n))
+        log.info("perception: %s step %s: step_complete brought to wording v%s in memory (the step's additions cover "
+                 "%s px of the reference%s)", guide.dir.name, n, writer.STEP_COMPLETE_V, shown,
+                 "" if not writer.hidden(shown) else ": hidden, so the question compares with the close-up "
+                 + new["detail"] if new.get("detail") else ": hidden and no close-up, run pipeline.perception.details")
+    return new
 
 
 def load_pack(guide: Guide, n: int) -> StepPack:
@@ -113,7 +146,7 @@ def load_pack(guide: Guide, n: int) -> StepPack:
         except (OSError, ValueError) as e:
             pack, problem = None, f"{type(e).__name__}: {e}"
         if problem is None:
-            return StepPack(n, "file", pack)
+            return StepPack(n, "file", _current(guide, n, pack))
         log.error("perception: %s cannot be used (%s); questions for step %s are made from the template instead",
                   path, problem, n)
     try:
@@ -146,13 +179,13 @@ def right_hardware_question(guide: Guide, sp: StepPack, codes) -> dict | None:
 def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str = "medium",
               only: tuple | None = None, extra: bool = True) -> Ask:
     """The request for one frame. `only` keeps a subset of the questions (a `show_part` look)."""
-    if sp.origin == "file":
-        inputs, questions = bench.build(guide.dir, sp.step, jpeg)    # exactly the benchmarked request
-    else:                                                            # the same four blocks, from the pack in memory
-        pack = sp.pack
-        inputs, questions = [pack["header"], ("image/jpeg", jpeg)], pack["questions"]
-        if pack.get("sheet"):
-            inputs += [pack["sheet_note"], ("image/jpeg", bench.sheet_jpeg(str(guide.dir), pack["sheet"]))]
+    # the four blocks of `pipeline.perception.request.build`, from the pack in memory (a file's pack may carry a
+    # newer step_complete question than the file: `_current`)
+    pack = sp.pack
+    inputs, questions = [pack["header"], ("image/jpeg", jpeg)], pack["questions"]
+    if pack.get("sheet"):
+        inputs += [pack["sheet_note"], ("image/jpeg", bench.sheet_jpeg(str(guide.dir), pack["sheet"]))]
+        inputs += bench.detail_blocks(guide.dir, pack)               # Image 3: the close-up of hidden hardware, if any
     questions = dict(questions)
     if only is not None:
         questions = {k: v for k, v in questions.items() if k in only}
