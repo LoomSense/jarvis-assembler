@@ -115,6 +115,12 @@ class LocateBody(BaseModel):
 LOCATE_STATUS = {"auth": 503, "billing": 503, "rate_limit": 429, "timeout": 504}
 
 
+class VerifyBody(BaseModel):
+    image: str = Field(min_length=4, max_length=MAX_IMAGE_BYTES * 4 // 3 + 64)   # base64 JPEG, no data: prefix
+    step: int = Field(ge=1)
+    lang: Literal["en", "el"] = "en"
+
+
 class PartsBody(BaseModel):
     image: str = Field(min_length=4, max_length=MAX_IMAGE_BYTES * 4 // 3 + 64)   # base64 JPEG, no data: prefix
     want: list[str | int] | None = Field(default=None, max_length=pile.MAX_WANT)  # part ids and hardware codes
@@ -170,6 +176,29 @@ async def parts(job_id: str, body: PartsBody, request: Request) -> dict:
         text = str(e)
         status = 429 if " 429:" in text else 503 if any(f" {c}:" in text for c in (401, 403)) else 502
         raise HTTPException(status, f"The vision model did not answer: {text[:200]}") from None
+
+
+@router.post("/api/perception/{job_id}/verify", dependencies=[Depends(require_key)])
+async def verify_step(job_id: str, body: VerifyBody, request: Request) -> dict:
+    """Is this step finished, from one photo: `{step, done, visible, confidence, have, missing: [...], say: {en, el},
+    message, latency_ms, model}`. One careful vision call (server/perception/verify.py), about 5 s: asked when the
+    person or the voice coach thinks the step is done. 404 unknown job, 409 no manifest or no reference render yet,
+    422 bad image or step, 502 when the vision model does not answer."""
+    from server.perception import verify
+
+    job = request.app.state.store.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job")
+    if not job.manifest.is_file():
+        raise HTTPException(409, "This job has no guide yet")
+    jpeg = read_image(body.image)
+    os.environ.setdefault("GEMINI_API_KEY", request.app.state.settings.gemini_api_key)   # pipeline.check reads it there
+    try:
+        return await run_in_threadpool(verify.verify, job.dir, body.step, jpeg, body.lang)
+    except ValueError as e:
+        raise HTTPException(422 if "no step" in str(e) else 409, str(e)) from None
+    except RuntimeError as e:
+        raise HTTPException(502, f"The vision model did not answer: {str(e)[:200]}") from None
 
 
 @router.post("/api/perception/{job_id}/locate", dependencies=[Depends(require_key)])

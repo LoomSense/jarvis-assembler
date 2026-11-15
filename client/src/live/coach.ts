@@ -95,13 +95,16 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
   }
   const speaking = () => performance.now() < lastSound + 400
 
-  // ---- a `[LOOK]` turn is held back until its words show it is more than "ok"
-  let looking = false
+  // ---- every turn is held back until its first words show it is something to say: not "ok", not a stray
+  // note of the model to itself. That costs a fraction of a second and keeps noise out of the person's ear.
+  let looking = true
+  /** when the last line was sent that has not been answered yet (0: none): no `[LOOK]` on top of an open turn */
+  let asked = 0
   let held: Int16Array[] = []
   let words = ''
   const meaningful = (t: string) => {
     const s = t.toLowerCase().replace(/[^a-zα-ωάέήίόύώ ]/g, '').trim()
-    return s.length >= 4 && !/^(ok|okay|οκ|εντάξει)$/.test(s)
+    return s.length >= 4 && !/^(ok|okay|οκ|εντάξει)$/.test(s) && !/^\s*[<\[(]/.test(t) && !/no response/i.test(t)
   }
 
   const send = (msg: unknown) => {
@@ -125,7 +128,7 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
     }
     const sc = m.serverContent
     if (!sc) return
-    if (sc.interrupted) { hush(); held = [] }
+    if (sc.interrupted) { hush(); held = []; looking = true; words = '' }
     for (const part of sc.modelTurn?.parts ?? []) {
       const data = part.inlineData?.data
       if (!data) continue
@@ -148,7 +151,8 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
     }
     if (sc.turnComplete) {
       if (!looking && words.trim()) o.onWords(words.trim(), true)
-      looking = false
+      asked = 0
+      looking = true
       held = []
       words = ''
     }
@@ -175,7 +179,9 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
     send({ realtimeInput: { video: { mimeType: 'image/jpeg', data } } })
   }
   const look = () => {
-    if (speaking() || looking || performance.now() - lastTold < LOOK_MS - 500 || document.hidden) return
+    const open = asked && performance.now() - asked < 12000
+    if (speaking() || open || performance.now() - lastTold < LOOK_MS - 500 || document.hidden) return
+    asked = performance.now()
     looking = true
     held = []
     words = ''
@@ -210,8 +216,8 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
   return {
     tell(text) {
       lastTold = performance.now()
-      // a finding the coach may disagree with is held like a look: an "ok" in answer is not played
-      looking = text.startsWith('[CHECK]')
+      asked = lastTold
+      looking = true
       held = []
       words = ''
       send({ realtimeInput: { text } })
