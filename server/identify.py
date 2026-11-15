@@ -81,12 +81,14 @@ MESSAGES = {
     "en": {"ready": "This looks like the {product}. Its guide is ready.",
            "building": "This looks like the {product}. Its guide is still being built.",
            "fetch": "I read {what}. I can fetch its guide from IKEA.",
+           "search": "I read {what}. I can look for its guide on the maker's site.",
            "unknown": "I can't tell which product this is. Point the camera at the label on the box.",
            "simulated": "Simulated: no vision model on this server, so the first guide on it is shown.",
            "simulated_none": "Simulated: no vision model on this server, and no guide is built on it yet."},
     "el": {"ready": "Μοιάζει με {product}. Ο οδηγός είναι έτοιμος.",
            "building": "Μοιάζει με {product}. Ο οδηγός ετοιμάζεται ακόμα.",
            "fetch": "Διάβασα {what}. Μπορώ να φέρω τον οδηγό από την IKEA.",
+           "search": "Διάβασα {what}. Μπορώ να ψάξω τον οδηγό στη σελίδα του κατασκευαστή.",
            "unknown": "Δεν καταλαβαίνω ποιο προϊόν είναι. Δείξε στην κάμερα την ετικέτα στο κουτί.",
            "simulated": "Προσομοίωση: ο server δεν έχει μοντέλο όρασης, οπότε δείχνει τον πρώτο οδηγό του.",
            "simulated_none": "Προσομοίωση: ο server δεν έχει μοντέλο όρασης ούτε έτοιμο οδηγό."},
@@ -271,14 +273,18 @@ def answer(cands: list[dict], raw: dict, pictured: list[dict], lang: str) -> dic
     found = _public(hit)
     # what to give POST /api/catalog/open: what was read, else the guide that matched but is not built here
     name = " ".join(filter(None, (seen["name"], seen["type"]))) or None
-    query = seen["article"] or (name if seen["name"] else None) or doc
+    # Another maker's box: the name alone ("Teknik bookcase") is too little to find its guide on the web, and the
+    # model number is in the printed text. So the search gets the text as it was read.
+    ikea = bool(seen["article"] or doc or re.search(r"\bikea\b", text, re.I))
+    printed = _clean(text, 90) if not ikea and len(text.split()) >= 2 else None
+    query = seen["article"] or printed or (name if seen["name"] else None) or doc
     if query is None and hit is not None:
         query = hit.get("article") or hit.get("guide_id") or hit.get("product")
     if found:
         message = _message(lang, "ready" if found["ready"] else "building", product=found["product"])
     elif query:
         what = seen["article"] or seen["name"] or doc or query
-        message = _message(lang, "fetch", what=what)
+        message = _message(lang, "fetch" if ikea else "search", what=what)
     else:
         message = _message(lang, "unknown")
     return {"seen": seen, "match": found, "query": query, "confidence": round(conf, 2), "message": message,

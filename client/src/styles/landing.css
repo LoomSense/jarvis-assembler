@@ -170,3 +170,112 @@
   #landing .navlink svg { display: block; }
   #landing .navlink span { display: none; }
 }
+
+/* ---- Phone first (Sun 15 Nov): the page behaves like an installed app on iOS and Android. ----
+   No grey flash or text selection on a tap, no pull-to-refresh bounce, a tab bar within thumb reach above the
+   home indicator, the top bar under the status bar, press states instead of hover lifts. */
+html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+#landing { -webkit-tap-highlight-color: transparent; }
+#landing :is(a, button) { touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+#landing .bar { padding-top: env(safe-area-inset-top); height: calc(80px + env(safe-area-inset-top)); }
+#landing a.primary { text-decoration: none; }
+#landing .textlink { margin-top: 18px; min-height: 44px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; border-radius: var(--ag-radius-pill); color: var(--ag-text-meta); font-size: var(--ag-text-small); }
+#landing .textlink svg { width: 17px; height: 17px; }
+#landing .textlink:hover { color: var(--ag-text-strong); }
+#landing .hint { margin-top: 6px; }
+#landing .tabs { display: none; }
+
+/* the hero's boxes: three cardboard boxes that drop onto each other, then breathe. Each opens a guide. */
+#landing .boxes { position: relative; width: 264px; height: 214px; margin: 30px auto 6px; }
+#landing .bx { --d: 16px; position: absolute; display: block; rotate: var(--r); cursor: pointer; transition: scale 250ms var(--ag-ease), rotate 250ms var(--ag-ease);
+  animation: bx-drop 900ms var(--ag-ease) both, bx-idle 5.2s ease-in-out infinite; animation-delay: calc(var(--i) * 150ms), calc(1100ms + var(--i) * 420ms); }
+#landing .bx.b1 { --r: 0deg; left: 16px; bottom: 16px; width: 216px; height: 62px; }
+#landing .bx.b2 { --r: -2.5deg; left: 30px; bottom: 87px; width: 172px; height: 54px; }
+#landing .bx.b3 { --r: 3deg; left: 62px; bottom: 150px; width: 124px; height: 44px; }
+#landing .bx .face { position: absolute; inset: 0; overflow: hidden; border-radius: 3px; background: linear-gradient(180deg, #d6ad76, #c0935a); box-shadow: inset 0 0 0 1px rgba(60, 38, 12, 0.22); }
+#landing .bx .lid { position: absolute; left: 0; right: 0; top: calc(-1 * var(--d)); height: var(--d); background: linear-gradient(180deg, #ecc998, #dfb884); transform: skewX(-45deg); transform-origin: bottom left; border-radius: 2px 2px 0 0; }
+#landing .bx .side { position: absolute; top: 0; bottom: 0; left: 100%; width: var(--d); background: linear-gradient(90deg, #a47b48, #8f6a3c); transform: skewY(-45deg); transform-origin: top left; border-radius: 0 2px 2px 0; }
+#landing .bx .tape { position: absolute; top: 0; bottom: 0; left: 64%; width: 20px; background: rgba(255, 244, 222, 0.28); }
+#landing .bx .tag { position: absolute; left: 12px; top: 50%; translate: 0 -50%; padding: 4px 9px 5px; display: grid; gap: 1px; border-radius: 3px; background: #fffdf8; color: #17130d; text-align: left; line-height: 1.05; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12); }
+#landing .bx .tag b { font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; color: #5b5346; }
+#landing .bx .tag em { font-style: normal; font-size: 13px; font-weight: 600; letter-spacing: 0.03em; }
+#landing .bx.b3 .tag { left: 9px; padding: 3px 7px 4px; }
+#landing .bx.b3 .tag em { font-size: 11.5px; }
+#landing .bx:hover, #landing .bx:focus-visible { scale: 1.05; rotate: calc(var(--r) * -1.4 + 1deg); z-index: 2; }
+#landing .bx:active { scale: 0.96; }
+#landing .boxes .floor { position: absolute; left: 6px; right: -10px; bottom: 0; height: 26px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent); filter: blur(4px); z-index: -1; }
+:root[data-theme="light"] #landing .boxes .floor { background: radial-gradient(closest-side, rgba(40, 28, 10, 0.28), transparent); }
+@keyframes bx-drop { 0% { transform: translateY(-170px); opacity: 0; } 55% { opacity: 1; } 72% { transform: translateY(5px); } 100% { transform: none; opacity: 1; } }
+@keyframes bx-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+
+/* how it works: three pictures joined by arrows whose dashes run forward; no numbers, no small print */
+#landing .how .flow { margin-top: 28px; display: flex; gap: 0; grid-template-columns: none; }
+#landing .how .flow li { position: relative; flex: 1 1 0; min-width: 0; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 14px; border: 0; background: none; box-shadow: none; text-align: center; }
+#landing .how .flow .ico { width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid var(--ag-border-strong); border-radius: 24px; background: var(--ag-card-fill); color: var(--ag-accent); box-shadow: inset 0 1px 0 var(--ag-border);
+  animation: flow-glow 4.5s ease-in-out infinite; }
+#landing .how .flow li:nth-child(2) .ico { animation-delay: 1.5s; }
+#landing .how .flow li:nth-child(3) .ico { animation-delay: 3s; }
+#landing .how .flow .ico svg { width: 32px; height: 32px; stroke-width: 1.6; }
+#landing .how .flow h3 { max-width: 13ch; font-size: clamp(15px, 2.2vw, 20px); font-weight: 500; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
+#landing .how .flow .arr { position: absolute; top: 22px; left: 0; width: min(46%, 150px); height: 28px; translate: -50% 0; color: var(--ag-accent); stroke-width: 1.7; overflow: visible; }
+#landing .how .flow .arr .dash { stroke-dasharray: 3 6; animation: flow-dash 900ms linear infinite; }
+@keyframes flow-dash { from { stroke-dashoffset: 18; } to { stroke-dashoffset: 0; } }
+@keyframes flow-glow { 0%, 22%, 100% { border-color: var(--ag-border-strong); box-shadow: inset 0 1px 0 var(--ag-border), 0 0 0 0 transparent; } 8% { border-color: var(--ag-accent); box-shadow: inset 0 1px 0 var(--ag-border), 0 0 30px -4px var(--ag-accent-glow); } }
+
+@media (max-width: 640px) {
+  #landing .bar { height: calc(56px + env(safe-area-inset-top)); }
+  #landing .bar .navlink, #landing .bar .navadd { display: none; }
+  #landing .brand svg { width: 28px; height: 28px; }
+  #landing main { padding-bottom: calc(124px + env(safe-area-inset-bottom)); }
+  #landing .hero { padding: 34px 0 44px; }
+  #landing .eyebrow { margin-bottom: 16px; }
+  #landing h1 { font-size: clamp(34px, 9.6vw, 44px); }
+  #landing .boxes { margin-top: 26px; scale: 0.94; }
+  #landing .lead { margin-top: 18px; font-size: 16.5px; line-height: 1.55; }
+  #landing .actions { margin-top: 26px; gap: 10px; }
+  #landing .primary, #landing .ghost { min-height: 56px; font-size: 17px; }
+  #landing .how { padding-top: 28px; }
+  #landing .how .flow .ico { width: 64px; height: 64px; border-radius: 21px; }
+  #landing .how .flow .arr { top: 18px; }
+  #landing .guides { margin-top: 48px; scroll-margin-top: 72px; }
+  #landing .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  #landing .meta { padding: 12px; }
+  #landing .meta h3 { font-size: 15px; }
+  #landing .meta p { margin-top: 8px; }
+  #landing .go { display: none; }
+
+  /* the tab bar: a glass pill above the home indicator, the scanner raised in its middle */
+  #landing .tabs { position: fixed; z-index: 10; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); height: 64px; padding: 0 6px; display: flex; align-items: center;
+    border: 1px solid var(--ag-border-strong); border-radius: 24px; background: var(--ag-surface-glass); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.75); }
+  #landing .tab { flex: 1 1 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ag-text-meta); font-size: 11.5px; font-weight: 500; transition: color 200ms, opacity 200ms; }
+  #landing .tab svg { width: 23px; height: 23px; }
+  #landing .tab.on { color: var(--ag-text-strong); }
+  #landing .tab:active { opacity: 0.55; }
+  #landing .tab.scan { flex: 0 0 76px; }
+  #landing .tab.scan i { width: 60px; height: 60px; margin-top: -26px; display: grid; place-items: center; border-radius: 50%; background: var(--ag-primary); color: var(--ag-text-on-primary); box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.8), 0 0 0 5px var(--ag-bg); transition: transform 200ms var(--ag-ease); }
+  #landing .tab.scan i svg { width: 27px; height: 27px; }
+  #landing .tab.scan:active { opacity: 1; }
+  #landing .tab.scan:active i { transform: scale(0.92); }
+}
+/* a finger, not a mouse: nothing to drop a file from, no hover lifts, a press shows instead */
+@media (hover: none) {
+  #landing .hint:not(.bad):not(.busy) { display: none; }
+  #landing .primary:hover, #landing .ghost:hover, #landing .card:hover { transform: none; }
+  #landing .card:active { transform: scale(0.98); border-color: var(--ag-border-strong); }
+  #landing .primary:active, #landing .ghost:active { transform: scale(0.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #landing .bx { animation: none; transition: none; }
+  #landing .how .flow .ico, #landing .how .flow .arr .dash { animation: none; }
+  html:has(#landing) { scroll-behavior: auto; }
+}
+
+/* No status pills and no dots (Sun 15 Nov): a guide's state is a plain word in its status colour, a guide being
+   built shows the cube mark, and the hero has no star field. */
+#landing .state { font-size: var(--ag-text-small); font-weight: 500; }
+#landing .state.ok { color: var(--ag-success); }
+#landing .state.run { color: var(--ag-info); }
+#landing .state.ask { color: var(--ag-unsure); }
+#landing .state.bad { color: var(--ag-error); }
+#landing .wait { color: var(--ag-text-meta); opacity: 0.55; }
+#landing .wait svg { width: 44px; height: 44px; stroke-width: 1.3; }
