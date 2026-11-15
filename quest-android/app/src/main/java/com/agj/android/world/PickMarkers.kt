@@ -46,6 +46,33 @@ object PickCue {
     return Pose3(t.worldPos + Vec3(0f, ABOVE_M + bob, 0f), Quat.axisAngle(Vec3(1f, 0f, 0f), PI.toFloat()))
   }
 
+  /**
+   * Which target each marker slot draws: a slot keeps the target whose [PickTarget.key] it drew last frame
+   * ([slotKeys], 0 = free), new targets take the free slots in order. Returns, per slot, the index into [keys] or
+   * null. Targets without a key (0) are simply dealt out in order.
+   */
+  fun assign(keys: List<Int>, slotKeys: IntArray): Array<Int?> {
+    val out = arrayOfNulls<Int>(slotKeys.size)
+    val placed = BooleanArray(keys.size)
+    for (s in slotKeys.indices) {
+      val k = slotKeys[s]
+      if (k == 0) continue
+      val i = keys.indexOf(k)
+      if (i >= 0 && !placed[i]) {
+        out[s] = i
+        placed[i] = true
+      }
+    }
+    var s = 0
+    for (i in keys.indices) {
+      if (placed[i]) continue
+      while (s < out.size && out[s] != null) s++
+      if (s >= out.size) break
+      out[s] = i
+    }
+    return out
+  }
+
   fun opacity(t: PickTarget, maxAgeMs: Long = MAX_AGE_MS): Float =
       when {
         t.ageMs >= maxAgeMs -> 0f
@@ -72,6 +99,7 @@ class PickMarkers(private val registerMesh: (String, () -> SceneMesh) -> Unit) {
   private val markers = ArrayList<Marker>()
   private var timeS = 0f
   private var lastIds: List<String> = emptyList()
+  private val slotKeys = IntArray(MAX)
   private var failed = false
 
   fun update(targets: List<PickTarget>, dtS: Float) {
@@ -79,9 +107,12 @@ class PickMarkers(private val registerMesh: (String, () -> SceneMesh) -> Unit) {
     try {
       if (markers.isEmpty()) create()
       timeS += dtS
-      val live = targets.filter { PickCue.opacity(it) > 0f }.sortedByDescending { it.confidence }.take(MAX)
+      // the action's own items first; a target keeps its marker while its track lives (no hopping between parts)
+      val live = targets.filter { PickCue.opacity(it) > 0f }.sortedWith(compareBy({ !it.current }, { -it.confidence })).take(MAX)
+      val slots = PickCue.assign(live.map { it.key }, slotKeys)
       for ((i, m) in markers.withIndex()) {
-        val t = live.getOrNull(i)
+        val t = slots[i]?.let { live[it] }
+        slotKeys[i] = t?.key ?: 0
         if (t == null) {
           if (m.shown) {
             m.ring.setComponent(Visible(false))
@@ -102,11 +133,12 @@ class PickMarkers(private val registerMesh: (String, () -> SceneMesh) -> Unit) {
           m.shown = true
         }
       }
-      val ids = live.map { it.id }
+      val ids = live.map { if (it.instance == 0) it.id else "${it.id}#${it.instance}" }
       if (ids != lastIds) {
         lastIds = ids
         Agq.log.event("pick_markers", mapOf("ids" to ids, "pos_m" to live.map { it.worldPos },
-            "method" to live.map { it.method }))
+            "method" to live.map { it.method }, "tracked" to live.map { it.tracked },
+            "count" to live.firstOrNull()?.countText?.get("en")))
       }
     } catch (e: Throwable) {
       failed = true
@@ -137,6 +169,7 @@ class PickMarkers(private val registerMesh: (String, () -> SceneMesh) -> Unit) {
   }
 
   companion object {
-    const val MAX = 4
+    /** Every instance of the step's items (four screws + two panels). */
+    const val MAX = 8
   }
 }

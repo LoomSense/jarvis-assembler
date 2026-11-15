@@ -58,10 +58,35 @@ data class PartsFound(
     val label: String = "",
 )
 
+/**
+ * One item the step needs, seen or not (`mode: "step"`, server/perception/README.md): every instance's box in
+ * [boxes] (`box_2d` first, at most 12), both names, and the count ("3 of 4 in view" / «φαίνονται 3 από 4»).
+ */
+@Serializable
+data class PartsItem(
+    val id: String,
+    val code: String? = null,
+    /** "panel" or "hardware" */
+    val kind: String = "",
+    val name: Map<String, String?> = emptyMap(),
+    val label: String = "",
+    val visible: Boolean = false,
+    val box_2d: List<Double>? = null,
+    val boxes: List<List<Double>> = emptyList(),
+    val confidence: Double = 0.0,
+    val count_seen: Int? = null,
+    val count_needed: Int? = null,
+    val count_text: Map<String, String?>? = null,
+)
+
 /** `POST /api/perception/{job}/parts` answer. */
 @Serializable
 data class PartsResult(
     val found: List<PartsFound> = emptyList(),
+    /** Only with `mode: "step"`. */
+    val items: List<PartsItem> = emptyList(),
+    val all_in_view: Boolean? = null,
+    val mode: String? = null,
     val missing: List<String> = emptyList(),
     val message: String? = null,
     val step: Int? = null,
@@ -99,7 +124,7 @@ interface ServerApi {
    * `POST /api/perception/{job}/parts`: where the [want]ed part ids / hardware codes lie in [jpeg] (send the long
    * edge at 1280 px for small hardware). Default: unsupported (test fakes).
    */
-  suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String): PartsResult =
+  suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String, mode: String? = null): PartsResult =
       throw UnsupportedOperationException("parts")
 }
 
@@ -160,12 +185,13 @@ class HttpServerApi(
     return GuideJson.decodeFromString(LocateResult.serializer(), raw)
   }
 
-  override suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String): PartsResult {
+  override suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String, mode: String?): PartsResult {
     val body = buildJsonObject {
       put("image", b64(jpeg))
       if (want.isNotEmpty()) put("want", JsonArray(want.take(12).map { JsonPrimitive(it) }))
       if (step != null) put("step", step)
       put("lang", if (lang == "el") "el" else "en")
+      if (mode != null) put("mode", mode) // "step": every item the step needs, every instance, counts
     }
     val raw = postJson("/api/perception/$jobId/parts", body).decodeToString()
     return GuideJson.decodeFromString(PartsResult.serializer(), raw)
