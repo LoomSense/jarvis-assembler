@@ -198,7 +198,7 @@ def test_flip_needed_carries_the_reason_and_the_step_files_own_sentence(tmp_path
             cam.until("sim")
             for seq in range(5, 12):
                 cam.frame_ack(seq, step=2)
-            assert [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed"]     # said once
+            assert [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed", "right_way"]   # each once
         guide = Guide(tmp_path / "jobs" / JOB)
         assert "wrong_way" in load_pack(guide, 2).pack["questions"]
         assert "wrong_way" not in load_pack(guide, 2, wrong_way=False).pack["questions"]          # switched off: not asked
@@ -343,3 +343,58 @@ def test_the_colour_question_comes_first_and_only_when_colours_differ(tmp_path):
     (job / "manifest.json").write_text(json.dumps(manifest))
     same = Guide(job)
     assert build_ask(same, load_pack(same, n), jpeg(), colour=True).questions == build_ask(same, load_pack(same, n), jpeg()).questions
+
+
+# ---- `right_way`: the same question says the part stands at its place the right way round -----------
+
+def praised(c, frames, **kw) -> list:
+    said, events = feed(c, frames, **kw)
+    return [(t, e.reason, e.p) for (t, name), e in zip(said, events) if name == "right_way"]
+
+
+def test_right_way_is_said_once_when_the_question_is_sure_and_again_after_a_correction():
+    c = coach(LEFT)
+    assert praised(c, [way("ok", 0.76)] * 20) == []                                  # under right_way_min (0.8)
+    assert praised(c, [way("cannot_tell", 0.95)] * 20, t0=5.0) == []                 # still in the hands
+    assert praised(c, [way("ok", 0.85)] * 20, t0=10.0) == [(10.5, "ok", 0.85)]       # 3 of 4, once
+    said, events = feed(c, [way("side_rail_in", 0.9)] * 5 + [way("ok", 0.9)] * 6, t0=40.0)
+    assert [name for _, name in said] == ["flip_needed", "right_way"]                # put right: said again
+    assert events[1].evidence == {"wrong_way.ok": 0.9} and events[1].votes == "3 of last 4 frames"
+    assert praised(coach(LEFT, right_way=False), [way("ok", 0.95)] * 20) == []
+    assert praised(coach(LEFT), [way("ok", 0.95, view_blocked=0.5)] * 20, source="headset") == []
+
+
+def test_right_way_is_not_held_back_by_an_utterance_just_before_and_comes_again_on_a_new_action():
+    step = lambda k: Expect(step=3, page=4, parts=frozenset({"drawer_side_left"}), action=k, action_kind="place",     # noqa: E731
+                            action_id="drawer_side_left", last_action=False)
+    c = coach(step(0))
+    side = frame("drawer_side_left", right_part=0.95)
+    side["wrong_way"] = way("ok", 0.9)["wrong_way"]
+    said, _ = feed(c, [side] * 4)
+    assert sorted(name for _, name in said) == ["right_part", "right_way"] and said[-1][0] - said[0][0] <= 0.25   # not 6 s apart
+    assert praised(c, [way("ok", 0.9)] * 12, t0=2.0) == []
+    c.set_action(step(1))
+    assert [t for t, _, _ in praised(c, [way("ok", 0.9)] * 4, t0=6.0)] == [6.5]
+
+
+def test_right_way_says_the_step_files_sentence_for_ok(tmp_path):
+    from tests.test_perception import JOB, Peer, app_client, url
+    with app_client(tmp_path) as c:
+        path = tmp_path / "jobs" / JOB / "refs" / "step-02-questions.json"
+        pack = json.loads(path.read_text())
+        pack["questions"]["wrong_way"] = {"type": "choice", "instructions": "Which of these describes the base?", "criteria": {
+            "base_face_down": "The base lies with its plain face up", "ok": "The base lies with its holes up",
+            "cannot_tell": "The base is not in view"}}
+        pack["wrong_way_text"] = {"ok": {"en": "Right: the holes are up.", "el": "Σωστά: οι τρύπες είναι από πάνω."}}
+        path.write_text(json.dumps(pack, ensure_ascii=False))
+        with c.websocket_connect(url("camera")) as ws:
+            cam = Peer(ws)
+            cam.send(type="start", step=2)
+            cam.send(type="sim", orientation_ok=True)                 # the simulated model answers `ok`
+            cam.until("sim")
+            for seq in range(1, 5):
+                cam.frame_ack(seq, step=2)
+            event = cam.find("event")
+            assert (event["event"], event["reason"], event["step"]) == ("right_way", "ok", 2)
+            assert event["say"] == {"en": "Right: the holes are up.", "el": "Σωστά: οι τρύπες είναι από πάνω."}
+            assert event["speak"] and event["evidence"] == {"wrong_way.ok": 0.93} and event["observed_id"] is None

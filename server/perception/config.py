@@ -97,6 +97,11 @@ class Tuning:
     wrong_way_choice: float = 0.7          # ...named with this confidence. The front lying on its face (a phone
     #                                        photo): 0.74-0.76; lying right (16 real headset frames): 0.58 at most
     wrong_way_window: NofM = NofM(4, 5)    # ...in 4 of the last 5 frames in which the assembly is in view
+    right_way: bool = True                 # the same question's `ok` (the part is at its place, the right way round)
+    #                                        becomes the event `right_way`, once per step or action
+    right_way_min: float = 0.8             # ...at this confidence. NOT proven: the one real frame of a side panel
+    #                                        standing with its rail INWARDS scored `ok` 0.76 (README)
+    right_way_window: NofM = NofM(3, 4)    # ...in 3 of the last 4 frames with the assembly in view
     all_choices: bool = True               # "which part / which hardware is held" also offers the parts of later
     #                                        steps and every hardware code of the guide (questions.complete_choices).
     #                                        A question file lists only its own step's and the next one's, so any

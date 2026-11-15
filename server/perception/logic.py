@@ -39,7 +39,7 @@ NOTHING = "none"                       # latch value: confidently nothing held
 PLAN_EVENTS = ("wrong_part", "flip_needed", "wrong_hardware", "out_of_order", "step_complete",
                "unsure_show_part", "vision_paused")
 ADDED_EVENTS = ("right_part", "right_hardware", "more_light", "realign_camera", "vision_resumed",
-                "show_part_result")
+                "show_part_result", "right_way")
 WARNINGS = ("wrong_hardware", "wrong_part", "flip_needed", "out_of_order")
 NEVER_SUPPRESSED = ("step_complete", "vision_paused", "vision_resumed", "show_part_result")
 SILENT = ("vision_paused", "vision_resumed")     # a badge on the screen (§6.5), not speech
@@ -347,6 +347,8 @@ class Coach:
         self.again: set[tuple[str, str]] = set()    # re-armed for the next one of the same item
         self.way = Window()                         # `wrong_way` answers: the mistake named, or None
         self.way_said: set[str] = set()             # mistakes already said and not yet seen put right
+        self.way_ok = Window()                      # `wrong_way` answers: "ok" when it is sure, or None
+        self.way_praised = False                    # `right_way` was said for this step (or action)
         self.muted: set[str] = set()
         self.said: Counter = Counter()
         self.last_warning: str | None = None
@@ -374,6 +376,9 @@ class Coach:
         """Another action of the same step: what is right to hold may have changed."""
         before = self.expect
         self.expect = expect
+        if before is not None and expect.action != before.action:
+            self.way_praised = False                     # the next action's part may be praised too
+            self.way_ok.clear()
         if self.t.reconfirm and before is not None and expect.action is not None and expect.action != before.action:
             for key in [k for k in self.confirmed if k[1] == expect.action_id]:
                 self._again(key)                         # the display moved on to the next bolt: confirm that one too
@@ -532,6 +537,17 @@ class Coach:
             return None                                          # the assembly is not in view: not a vote either way
         named = choice not in WAY_FINE and choice not in SPECIAL and conf >= self.t.wrong_way_choice
         self.way.push(ts, choice if named else None)
+        self.way_ok.push(ts, "ok" if choice == "ok" and conf >= self.t.right_way_min else None)
+        if (self.t.right_way and not self.way_praised and choice == "ok" and conf >= self.t.right_way_min
+                and "right_way" not in self.muted
+                and self.way_ok.agreed(self.t.right_way_window, ts, self.t.window_max_age_s) == "ok"):
+            # The positive answer of the same question: the part is at its place the right way round. Said once per
+            # step (again after a flip_needed, or on a new action index); never held back by the gap between
+            # utterances, because the headset ends "put it here" on it.
+            self.way_praised = True
+            sure = [p for _, p in list(self.way_ok.votes)[-self.t.right_way_window.m:]]
+            return self._emit("right_way", reason="ok", p=conf, evidence={f"{WRONG_WAY}.ok": conf},
+                              votes=f"{sure.count('ok')} of last {len(sure)} frames")
         if choice == "ok" and conf >= self.t.wrong_way_choice:
             fine = [p for _, p in list(self.way.votes)[-self.t.wrong_way_window.m:]]
             if all(p is None for p in fine):
@@ -542,6 +558,8 @@ class Coach:
         if self.way.agreed(need, ts, self.t.window_max_age_s) != choice or not self._free("flip_needed", ts):
             return None
         self.way_said.add(choice)
+        self.way_praised = False                             # once it is put right, that is said
+        self.way_ok.clear()
         recent = [p for _, p in list(self.way.votes)[-need.m:]]
         return self._say("flip_needed", ts, reason=choice, p=conf,
                          evidence={f"{WRONG_WAY}.{choice}": conf, "orientation_ok": yes_p(raw, "orientation_ok")},

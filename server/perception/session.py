@@ -366,12 +366,12 @@ class PerceptionSession:
 
     def _way_text(self, e: Emitted) -> dict | None:
         """The sentence the step's question file gives for this `flip_needed` reason (`wrong_way_text`), if any."""
-        if e.event != "flip_needed" or not e.reason or e.step is None:
+        if e.event not in ("flip_needed", "right_way") or not e.reason or e.step is None:
             return None
         got = self._packs.get(e.step)
         text = (got.pack.get("wrong_way_text") or {}).get(e.reason) if isinstance(got, StepPack) else None
         if not isinstance(text, dict) or not text.get("en"):
-            return None
+            return {"en": "Right way round.", "el": "Σωστά, έτσι μπαίνει."} if e.event == "right_way" else None
         return {"en": str(text["en"]), "el": str(text.get("el") or text["en"])}
 
     def _event_message(self, e: Emitted, frame: Frame | None = None, extra: dict | None = None) -> dict:
