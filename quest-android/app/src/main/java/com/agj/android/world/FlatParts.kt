@@ -449,6 +449,15 @@ class FlatParts(
   }
 
   /**
+   * Every live labelled rectangle, the needed board and the others: what "which board did the hand lift"
+   * (ui/GrabJudge.kt) looks at. [LitPart.partId] is the kind's name here ("a+b" for boards of one size).
+   */
+  @Synchronized
+  fun live(nowMs: Long = clockMs()): List<LitPart> =
+      tracks.filter { it.kind != null && it.seen >= cfg.minSeen && nowMs - it.lastMs <= cfg.liveMs }
+          .map { LitPart(it.key, it.kind!!.name, it.index, it.center(), it.corners(), it.l, it.w, nowMs - it.lastMs, 1f) }
+
+  /**
    * The pick targets with the lit rectangle in: while it is live, one target stands first, at the rectangle's centre
    * (method [METHOD]; the label and the hand arc take it), and the server's boxes for that part stay in the list
    * marked [PickTarget.shadowed] (not drawn; the action coach, which follows the server's boxes over time, sees none

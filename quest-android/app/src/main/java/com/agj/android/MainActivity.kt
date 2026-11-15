@@ -1184,10 +1184,9 @@ class MainActivity : AppSystemActivity() {
         act?.takeIf { it.kind == ActionKind.PLACE && actionCoach.phase == com.agj.android.ui.CoachPhase.PICK && !advancing && now - liveActionAtMs >= 700 }?.partId
     if (now - liveRectsMs >= 100) {
       liveRectsMs = now
-      // world/FlatParts.kt exposes only the lit rectangle today (the needed board): the right board is seen being
-      // lifted, a wrong one is not, until it has an accessor for every live labelled rectangle (then: `world.flat.live()`)
+      // every live labelled rectangle (world/FlatParts.kt `live`): the right board is seen being lifted, and a wrong one too
       liveRects =
-          listOfNotNull(world.flat.lit()).map { l -> com.agj.android.ui.GrabRect(l.key, liveKinds.firstOrNull { l.partId in it } ?: l.partId.split('+'), l.corners) }
+          world.flat.live().map { l -> com.agj.android.ui.GrabRect(l.key, liveKinds.firstOrNull { l.partId in it } ?: l.partId.split('+'), l.corners) }
     }
     val frame = vision.input.hands?.takeIf { SystemClock.elapsedRealtimeNanos() - it.tNs < 500_000_000L }
     val hands = ArrayList<com.agj.android.ui.GrabHand>(2)
