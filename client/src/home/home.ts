@@ -32,9 +32,10 @@ interface Item {
 
 const WORDS = {
   el: {
-    title: 'Jarvis Assembler', pdf: 'Έχω τις οδηγίες σε PDF', sending: 'Στέλνω τον οδηγό', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
+    title: 'Jarvis Assembler', pdf: 'Διάλεξε το PDF των οδηγιών', sending: 'Στέλνω τον οδηγό', wCam: 'Κάμερα', wCode: 'Κωδικός', wPdf: 'PDF', ways: 'Τρόπος εύρεσης',
+    codeHint: 'Ο κωδικός είναι τυπωμένος στην ετικέτα του κουτιού', pdfHint: 'Ένα PDF ή φωτογραφίες των σελίδων', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
     findAria: 'Αναζήτηση', back: 'Πίσω', other: 'en', otherAria: 'English', go: 'Βρες',
-    aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή φωτογράφισε το κουτί, ή γράψε το όνομα', looking: 'Ψάχνω', noCamera: 'Φωτογράφισε το κουτί, ή γράψε τον κωδικό ή το όνομα',
+    aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'Δεν έχει κωδικό; Φωτογράφισε το κουτί', looking: 'Ψάχνω', noCamera: 'Φωτογράφισε το κουτί',
     photo: 'Φωτογράφισε το κουτί', unsure: 'Δεν αναγνώρισα το προϊόν. Δοκίμασε τον κωδικό ή το όνομα.',
     noKey: 'Λείπει ο κωδικός πρόσβασης από τη διεύθυνση (?key=).', fromIkea: 'Από την IKEA',
     notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', several: 'Ταιριάζουν πολλά. Γράψε πιο συγκεκριμένα.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
@@ -43,9 +44,10 @@ const WORDS = {
     flags: (n: number) => (n === 1 ? '1 σημείο να ελέγξεις' : `${n} σημεία να ελέγξεις`), empty: 'Κανένας οδηγός ακόμα',
   },
   en: {
-    title: 'Jarvis Assembler', pdf: 'I have the guide as a PDF', sending: 'Sending the guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
+    title: 'Jarvis Assembler', pdf: 'Choose the guide PDF', sending: 'Sending the guide', wCam: 'Camera', wCode: 'Code', wPdf: 'PDF', ways: 'How to find it',
+    codeHint: 'The code is printed on the label of the box', pdfHint: 'A PDF, or photos of the pages', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
     findAria: 'Search', back: 'Back', other: 'ελ', otherAria: 'Ελληνικά', go: 'Find',
-    aim: 'Point at the code on the box', type: 'or photograph the box, or type the name', looking: 'Looking', noCamera: 'Photograph the box, or type the code or the name',
+    aim: 'Point at the code on the box', type: 'No code on it? Photograph the box', looking: 'Looking', noCamera: 'Photograph the box',
     photo: 'Photograph the box', unsure: 'I could not tell which product this is. Try the code or the name.',
     noKey: 'The access key is missing from the address (?key=).', fromIkea: 'From IKEA',
     notFound: 'I could not find that guide. Upload it.', several: 'Several match. Be more specific.', offline: 'The server does not answer. Try again.',
@@ -64,6 +66,7 @@ const ICON = {
   phone: '<rect x="7" y="2.5" width="10" height="15" rx="2"/><path d="M10 21.5h4M12 17.5v4"/>',
   quest: '<path d="M3.5 9.5c0-1.7 1.3-3 3-3h11c1.7 0 3 1.3 3 3v4.5c0 1.7-1.3 3-3 3h-2.6c-.8 0-1.4-.4-1.8-1.1l-.4-.8c-.4-.8-1.2-.8-1.6 0l-.4.8c-.4.7-1 1.1-1.8 1.1H6.5c-1.7 0-3-1.3-3-3z"/>',
   go: '<path d="M5 12h13M13 6.5 18.5 12 13 17.5"/>',
+  pdf: '<path d="M6 3h8l4 4v14H6zM14 3v4h4"/>',
   shot: '<path d="M4 8.5h3.2l1.4-2h6.8l1.4 2H20v10H4z"/><circle cx="12" cy="13.2" r="3.2"/>',
   warn: '<path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4.5M12 17.2v.1"/>',
 }
@@ -101,15 +104,20 @@ export function startHome(app: HTMLElement): void {
       <button class="pill go-scan" type="button">${svg(ICON.scan)}<span></span></button>
       <button class="quiet go-upload" type="button"></button>
     </div>
-    <div class="foot" data-for="scan" hidden>
+    <div class="foot" data-for="scan" data-way="cam" hidden>
       <p class="line scanline" aria-live="polite"></p>
       <p class="meta scanhint"></p>
-      <form class="codefield"><button class="round shot" type="button">${svg(ICON.shot)}</button>
-        <label class="sr" for="home-code"></label><input id="home-code" autocomplete="off" enterkeyhint="go" />
+      <button class="round shot" type="button">${svg(ICON.shot)}</button>
+      <form class="codefield"><label class="sr" for="home-code"></label><input id="home-code" autocomplete="off" enterkeyhint="go" />
         <button class="round" type="submit">${svg(ICON.go)}</button></form>
+      <button class="pill go-pdf" type="button">${svg(ICON.pdf)}<span></span></button>
       <input class="shotfile" type="file" accept="image/*" capture="environment" hidden />
-      <button class="quiet go-pdf" type="button"></button>
       <input class="pdffile" type="file" accept="application/pdf,image/*" multiple hidden />
+      <div class="seg" role="group">
+        <button type="button" data-way="cam" aria-pressed="true">${svg(ICON.scan)}<span></span></button>
+        <button type="button" data-way="code" aria-pressed="false">${svg(ICON.find)}<span></span></button>
+        <button type="button" data-way="pdf" aria-pressed="false">${svg(ICON.pdf)}<span></span></button>
+      </div>
     </div>
     <div class="foot" data-for="ready" hidden>
       <p class="line readyname"></p>
@@ -349,6 +357,7 @@ export function startHome(app: HTMLElement): void {
 
   // ------------------------------------------------------------------ screens
   let screen: 'home' | 'scan' | 'ready' = 'home'
+  let way: 'cam' | 'code' | 'pdf' = 'cam' // the scan screen shows one way in at a time: the camera, a typed code, or the guide's PDF
   let run = 0 // a newer action cancels the one still running
   const setScreen = (s: typeof screen) => {
     screen = s
@@ -380,13 +389,17 @@ export function startHome(app: HTMLElement): void {
     $('.go-scan span').textContent = w().scan
     $('.go-upload').textContent = w().upload
     $('.empty').textContent = w().empty
-    $('.scanhint').textContent = cameraOn ? w().type : w().noCamera
-    $('.scanline').textContent = cameraOn ? w().aim : ''
+    $('.scanhint').textContent = way === 'code' ? w().codeHint : way === 'pdf' ? w().pdfHint : cameraOn ? w().type : w().noCamera
+    $('.scanline').textContent = way === 'cam' && cameraOn ? w().aim : ''
+    $('.seg').setAttribute('aria-label', w().ways)
+    $('.seg [data-way="cam"] span').textContent = w().wCam
+    $('.seg [data-way="code"] span').textContent = w().wCode
+    $('.seg [data-way="pdf"] span').textContent = w().wPdf
     $('.codefield label').textContent = w().find
     $<HTMLInputElement>('#home-code').placeholder = w().find
     $('.codefield button[type="submit"]').setAttribute('aria-label', w().go)
     $('.shot').setAttribute('aria-label', w().photo)
-    $('.go-pdf').textContent = w().pdf
+    $('.go-pdf span').textContent = w().pdf
     $('.r-steps span').textContent = w().steps
     $('.r-help span').textContent = w().help
     $('.r-quest span').textContent = w().quest
@@ -638,6 +651,16 @@ export function startHome(app: HTMLElement): void {
     void openByText($<HTMLInputElement>('#home-code').value.trim())
   })
   $('.go-upload').addEventListener('click', () => location.assign(link({ mode: 'build' })))
+  for (const b of root.querySelectorAll<HTMLButtonElement>('.seg button')) {
+    b.addEventListener('click', () => {
+      way = b.dataset.way as typeof way
+      root.dataset.way = way
+      $<HTMLElement>('.foot[data-for="scan"]').dataset.way = way
+      for (const o of root.querySelectorAll('.seg button')) o.setAttribute('aria-pressed', String(o === b))
+      words()
+      if (way === 'code') $<HTMLInputElement>('#home-code').focus()
+    })
+  }
   // the third way in, next to the camera and the code field: the guide itself, as a PDF or as photos of its pages.
   // Like a scanned code it needs no approval tap: the build screen approves the plan and opens the guide by itself.
   $('.go-pdf').addEventListener('click', () => $<HTMLInputElement>('.pdffile').click())
