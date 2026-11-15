@@ -2,6 +2,7 @@ package com.agj.android.world
 
 import com.agj.android.core.AgqLog
 import com.agj.android.core.Vec3
+import com.agj.android.net.PartsFound
 import com.agj.android.net.PartsResult
 import com.agj.android.vision.FrameGrab
 
@@ -36,10 +37,14 @@ fun interface DepthRaycaster {
 }
 
 /**
- * Finds the current action's part in the pile every [periodMs] while a `place`/`fasten` action is shown: grabs a
- * camera frame (JPEG + intrinsics + camera pose), sends it to `POST /api/perception/{job}/parts` with `want` = the
- * action's part id / hardware code, casts a ray from the camera through each found box centre and puts it in WORLD
- * ([locate]: depth raycast first, then the table rectangle, the floor, the work-surface plane). Logs AGQ `parts`.
+ * The `/parts` loop. Every [periodMs] at most, it grabs a camera frame (JPEG + intrinsics + camera pose) and asks
+ * `POST /api/perception/{job}/parts` for
+ *  - the current action's part id / hardware code while a `place`/`fasten` action is shown ([setAction]): each
+ *    found box centre becomes a WORLD point ([locate]: depth raycast first, then the table rectangle, the floor,
+ *    the work-surface plane) → [pickTargets];
+ *  - the base part ([setBase]) whenever [baseDue] says so, in the same request → [onBase] (coarse placement of the
+ *    assembly anchor, world/AssemblyAnchor.kt).
+ * Logs AGQ `parts`.
  *
  * Threading: [tick] and the server call run on one worker (the caller's executor; [submit] queues onto it);
  * [grab] answers on the camera thread; [pickTargets] from any thread. Pure apart from the injected functions, so
@@ -62,6 +67,12 @@ class PartsFinder(
 ) {
   private class Action(val job: String, val step: Int, val action: Int, val want: List<String>)
 
+  /** One request: the action's wanted items (may be none) plus the base part (may be none). */
+  private class Request(val job: String, val a: Action?, val gen: Int, val baseId: String?) {
+    val want: List<String>
+      get() = ((a?.want ?: emptyList()) + listOfNotNull(baseId)).distinct()
+  }
+
   private class Stored(val t: PickTarget, val tMs: Long)
 
   @Volatile private var current: Action? = null
@@ -69,14 +80,34 @@ class PartsFinder(
   @Volatile private var inFlightSince: Long? = null
   @Volatile private var lastStart = Long.MIN_VALUE / 2
   @Volatile private var stored: List<Stored> = emptyList()
+  @Volatile private var base: Pair<String, String>? = null // job, part id
+  @Volatile private var lastBaseAnswer = Long.MIN_VALUE / 2
   @Volatile var requests = 0
     private set
+
+  /**
+   * Should the base part be looked for now? Argument: ms since the last answer about it (huge before the first).
+   * Called on the worker.
+   */
+  @Volatile var baseDue: (Long) -> Boolean = { false }
+
+  /** The server's item for the base part and the frame it was found in; null item = reported missing. Worker. */
+  @Volatile var onBase: (PartsFound?, PartsResult, FrameGrab) -> Unit = { _, _, _ -> }
+
+  /** Pick targets for the base part are hidden while this says so (it already lies where the ghost is). */
+  @Volatile var hideBaseTarget: () -> Boolean = { false }
+
+  fun setBase(job: String?, partId: String?) {
+    base = if (job != null && !partId.isNullOrBlank()) job to partId else null
+    lastBaseAnswer = Long.MIN_VALUE / 2
+  }
 
   /** The latest targets with their age now; empty when no `place`/`fasten` action is shown. */
   val pickTargets: List<PickTarget>
     get() {
       val now = clockMs()
-      return stored.map { it.t.copy(ageMs = now - it.tMs) }
+      val hide = if (hideBaseTarget()) base?.second else null
+      return stored.filter { it.t.id != hide }.map { it.t.copy(ageMs = now - it.tMs) }
     }
 
   /**
@@ -103,8 +134,10 @@ class PartsFinder(
 
   /** Call every ~250 ms on the worker: starts a request when one is due. Returns true when it started one. */
   fun tick(): Boolean {
-    val a = current ?: return false
     val now = clockMs()
+    val a = current
+    val b = base?.takeIf { baseDue(now - lastBaseAnswer) }
+    if (a == null && b == null) return false
     val since = inFlightSince
     if (since != null) {
       if (now - since < stuckMs) return false
@@ -113,30 +146,42 @@ class PartsFinder(
     if (now - lastStart < periodMs) return false
     lastStart = now
     inFlightSince = now
-    val gen = generation
-    grab { g -> submit { run(a, gen, g) } }
+    val job = a?.job ?: b!!.first
+    val req = Request(job, a, generation, b?.takeIf { it.first == job }?.second)
+    grab { g -> submit { run(req, g) } }
     return true
   }
 
-  private fun run(a: Action, gen: Int, g: FrameGrab) {
+  private fun run(q: Request, g: FrameGrab) {
     val t0 = clockMs()
     val r =
         try {
           requests++
-          query(a.job, g.jpeg, a.want, a.step)
+          query(q.job, g.jpeg, q.want, q.a?.step)
         } catch (e: Exception) {
-          log.event("parts", mapOf("ok" to false, "ms" to clockMs() - t0, "want" to a.want, "step" to a.step,
+          log.event("parts", mapOf("ok" to false, "ms" to clockMs() - t0, "want" to q.want, "step" to q.a?.step,
               "error" to (e.message ?: e.javaClass.simpleName)))
           inFlightSince = null
           return
         }
     val ms = clockMs() - t0
-    if (gen != generation) { // the action changed while asking
+    // the base part's answer holds whatever action is shown now
+    q.baseId?.let { id ->
+      lastBaseAnswer = clockMs()
+      try {
+        onBase(r.found.firstOrNull { it.id == id }, r, g)
+      } catch (e: Exception) {
+        log.error("parts_base", e.message)
+      }
+    }
+    val a = q.a
+    if (a == null || q.gen != generation) { // base only, or the action changed while asking
       inFlightSince = null
+      if (q.baseId != null) logAnswer(q, g, r, emptyList(), 0, ms)
       return
     }
     val rays = r.found.map { f -> g.worldFromCamera?.let { PickRays.boxRay(it, f.box_2d, g.intrinsics, useDistortion) } }
-    val finish = { hits: List<Vec3?> -> complete(a, gen, g, r, rays, hits, ms) }
+    val finish = { hits: List<Vec3?> -> complete(q, a, g, r, rays, hits, ms) }
     val d = depth
     val castable = rays.filterNotNull()
     if (d != null && castable.isNotEmpty()) {
@@ -149,9 +194,9 @@ class PartsFinder(
     }
   }
 
-  private fun complete(a: Action, gen: Int, g: FrameGrab, r: PartsResult, rays: List<Ray?>, hits: List<Vec3?>, ms: Long) {
+  private fun complete(q: Request, a: Action, g: FrameGrab, r: PartsResult, rays: List<Ray?>, hits: List<Vec3?>, ms: Long) {
     inFlightSince = null
-    if (gen != generation) return
+    if (q.gen != generation) return
     val s = surfaces()
     val logFound = ArrayList<Map<String, Any?>>()
     val fresh = ArrayList<Stored>()
@@ -161,7 +206,7 @@ class PartsFinder(
       logFound +=
           mapOf("id" to f.id, "confidence" to f.confidence, "box_2d" to f.box_2d, "method" to (loc?.second ?: "none"),
               "pos_m" to loc?.first)
-      if (loc != null) {
+      if (loc != null && f.id in a.want && !r.simulated) { // a simulated box is a placeholder: never invent a position
         val radius = footprintRadius(f.box_2d, g, loc.first)
         fresh +=
             Stored(PickTarget(f.id, f.label.ifEmpty { f.id }, loc.first, f.confidence, 0, f.kind, loc.second, radius,
@@ -171,18 +216,24 @@ class PartsFinder(
     // keep older targets the server did not answer for (neither found nor missing) this time
     val answered = r.found.map { it.id }.toSet() + r.missing.toSet()
     stored = fresh + stored.filter { it.t.id !in answered }
+    logAnswer(q, g, r, logFound, fresh.size, ms)
+  }
+
+  private fun logAnswer(q: Request, g: FrameGrab, r: PartsResult, found: List<Map<String, Any?>>, targets: Int, ms: Long) {
     log.event(
         "parts",
         mapOf(
             "ok" to true,
             "ms" to ms,
             "server_ms" to r.latency_ms,
-            "step" to a.step,
-            "action" to a.action,
-            "want" to a.want,
-            "found" to logFound,
+            "step" to q.a?.step,
+            "action" to q.a?.action,
+            "want" to q.want,
+            "base" to q.baseId,
+            "found" to
+                found.ifEmpty { r.found.map { mapOf("id" to it.id, "confidence" to it.confidence, "box_2d" to it.box_2d) } },
             "missing" to r.missing,
-            "targets" to fresh.size,
+            "targets" to targets,
             "cam_pose" to (g.worldFromCamera != null),
             "frame" to listOf(g.width, g.height),
             "jpeg_bytes" to g.jpeg.size,

@@ -106,6 +106,24 @@ class TrackingCore(
     return snap
   }
 
+  /**
+   * A pose from outside the marker pipeline (world/: the table placement, the server's box for the base part, a
+   * manual nudge, the markerless panel pose): WORLD ← ASSEMBLY, held like a touch pose until the next one. [method]
+   * is what `track.source` / `track.method` then say (`table`, `fixed_spot`, `server_box`, `manual`, `markerless`).
+   * The state is `tracked` on this call and `held` on the following frames (a placed anchor is not tracking); a
+   * marker, when seen, overrides it.
+   */
+  @Synchronized
+  fun onExternal(worldFromAssembly: Pose3, tNs: Long, method: String): TrackSnapshot {
+    filter.reset()
+    val wm = worldFromAssembly * config.assemblyFromMarker
+    filter.update(wm, tNs)
+    this.method = method
+    snap = TrackSnapshot(TrackState.TRACKED, method, worldFromAssembly, wm, null, null, tNs)
+    maybeLog(tNs, null, null, force = true)
+    return snap
+  }
+
   /** Call about once a second without frames (camera failed or not started) so the log keeps a heartbeat. */
   @Synchronized
   fun tick(nowNs: Long) {

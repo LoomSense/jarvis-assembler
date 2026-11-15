@@ -10,7 +10,7 @@ Round 2 (vision/net/world, JVM-tested, not yet on a headset): camera-pose diagno
 placement without a marker, parts in the pile in 3D (`/parts` → rays → depth/table). See "World" below; the
 MainActivity wiring is in `world/WorldModule.kt`'s KDoc.
 
-One APK with guide/UI and vision/net wired together. Builds, 87 JVM unit tests pass (0 skipped once the synthetic
+One APK with guide/UI and vision/net wired together. Builds, 98 JVM unit tests pass (0 skipped once the synthetic
 replay set is generated). **Never run on a headset** yet: everything that touches the SDK at runtime is UNVERIFIED
 (see "First device run").
 
@@ -255,10 +255,44 @@ size and distance, chevron 6 cm above, bobbing ±1 cm at 0.5 Hz, fading out over
 `pick_markers`. Not yet: the "Πάρε / Pick up" label pill on the pile part, and moving the cue to the insertion path
 when the part is lifted.
 
-**Not wired in MainActivity yet** (owned by the UI agent): `MRUKFeature` in `registerFeatures`, `WorldModule` +
-`PickMarkers` construction, `world.start()`, `world.setAction` in `showStep`, the REGISTER fallback through
-`world.tablePose`, `pickMarkers.update` in `frameTick`, `showCameraBox` for the found box. The exact lines are in
-`world/WorldModule.kt`'s KDoc.
+Wired in MainActivity (0733538): `MRUKFeature`, `WorldModule`, `PickMarkers`, `world.start/stop`, `setAction`,
+`tablePose` in the REGISTER fallback, the found box on the camera preview.
+
+## Registration without a marker (the demo path)
+
+The printed strip is not used in the demo, so the assembly is placed, not tracked. `WorldModule` owns one anchor
+(`world/AssemblyAnchor.kt`, WORLD ← TABLE) and hands it to the tracker with `VisionModule.placeAssembly(pose,
+source)`: `vision.worldFromAssembly()` is then non-null (state `held`), so MainActivity's REGISTER → GUIDE flow and
+`ghost.setAssemblyPose` work as with a marker, and `track.source` says what placed it. The marker code is kept and
+still wins when a strip is seen.
+
+| Source (`track.source`, `place.source`) | When |
+|---|---|
+| `table` | at once when the guide is loaded and the scene has a table: the base part centred in front of the user on the MRUK table, front facing the user (`TableFinder.place`) |
+| `fixed_spot` | no scene table 2.5 s after the guide loaded: 0.55 m ahead, 0.45 m below the head; replaced by `table` if one turns up |
+| `server_box` | the server's box for the **base part** (the first part the guide places: the drawer front on malm-drawer) in a camera frame, ray-cast onto the anchor's plane (`BasePlacement.fromBox`) |
+| `manual` | `world.nudge(rightM, forwardM, yawDeg)`; the camera does not move it again until `world.realign()` |
+| `markerless` | `world.onObjectPose(worldFromAssembly, confidence, source = "markerless")`, the plug for `vision/PanelPose.kt` |
+
+- **No jitter.** A server box moves the anchor once (`reason: first`). After that only `world.realign()`
+  (`realign`), or answers more than 10 cm from the anchor that agree with each other within 6 cm for at least 4 s
+  (`disagree`). The automatic check runs every 10 s and only while the base part's own step is on. Plugged-in
+  poses need confidence ≥ 0.5 and a change of more than 1.5 cm or 2°. A simulated server answer is never used.
+- **Yaw from the box** only when the box is clearly elongated: measured on the table in metres, its aspect is at
+  least 0.75 × the part's own (a 380 × 130 mm front: within about 8° of the picture axes) and its length 0.6–1.5 ×
+  the part's; of the two headings 180° apart, the one nearer the current yaw. Otherwise the yaw is kept.
+- **Outline + coach line.** `PlaceOutline` draws the base part's rectangle (grown 1 cm, 2.5 mm azure tubes) on the
+  table while the anchor is a placed one and the base part's step is on; `world.coachLine(lang)` gives "Place the
+  drawer front inside the blue outline." / «Βάλε το κομμάτι «Πρόσοψη συρταριού» μέσα στο μπλε περίγραμμα.»
+  (`WorldStrings`), null when there is nothing to say. Putting the real part into the outline is a valid way to register.
+- **Logs.** `place_base` (base part, footprint), `place` (`source`, `reason`, `pos_m`, `yaw_deg`, `moved_m`,
+  `prev`), `place_candidate` (every server answer for the base part: `center_m`, `length_m`, `yaw_from_box`,
+  `dist_m`, `on_table`, `applied`), `track` with `source` = the placing source and `state: held`.
+- **Not done:** pinch-drag of the ghost on the table (only the `nudge` API), the outline needs the mesh hook passed
+  to `WorldModule` (see its KDoc for the three MainActivity lines: constructor hook, `world.setAssembly(a)`,
+  `world.tick(dt)`).
+- **UNVERIFIED on device:** all of it. In particular the anchor height without a scene table (the fixed spot is a
+  guess, so a server box lands with parallax error), and the box quality on real photos.
 
 ## Logs (shared with the Unity app)
 
@@ -269,7 +303,8 @@ monotonic clock). Events: `start` (version, params; key only as `key_set`), `job
 `vision` (config), `camera` (all Camera2 values), `camera_frame` (first frame: capture age, head-pose availability),
 `hands_source`, `head_pose`, `camera_pose`, `error` `camera_pose_missing`, `track`, `touch_start`, `touch`; round 2:
 `ghost_material`, `mic`, `voice_cmd`, `voice_apply`, `drawing` (guide crop loaded: step, path, bytes), `window`
-(fade-relocations); from world: `scene`, `table_found`, `table_missing`, `depth_raycaster`, `parts`, `pick_markers`;
+(fade-relocations); from world: `scene`, `table_found`, `table_missing`, `depth_raycaster`, `parts`, `pick_markers`, `place_base`,
+`place`, `place_candidate`;
 from the socket: `perception` (hello, events with latency,
 closed/failure), `perception_stats`.
 
@@ -311,6 +346,8 @@ Each module sits behind an interface; `MainActivity.kt` only wires them.
 | | `Table.kt` | `TableFinder`: scene corners → level rectangle, choice, footprint placement (pure, tested) |
 | | `SceneTable.kt` | MRUK scene load → WORLD surfaces → table; `MrukDepthRaycaster` (environment raycast) |
 | | `PickRays.kt` | box → pixel, pixel → WORLD ray, undistortion, ray-plane (pure, tested) |
+| | `AssemblyAnchor.kt` | the no-marker anchor: source policy (`table` < `server_box` < `markerless`, `manual`), `BasePlacement` (box → pose), `Footprint` (pure, tested) |
+| | `PlaceOutline.kt` | the blue outline of the base part on the table (`OutlineLayout` pure, tested) |
 | | `PickMarkers.kt` | the §4.6 pick-up cue: ring under the real part + chevron bobbing ±1 cm at 0.5 Hz, fades with age (`PickCue` pure, tested) |
 | | `PartsFinder.kt` | the `/parts` loop every 5 s, ray → depth / table / floor / plane, `PickTarget`, `parts` log (tested with fakes) |
 | `ui/` | `CoachFlow.kt` | look → identify → build → locate → register → guide (pure, tested) |
