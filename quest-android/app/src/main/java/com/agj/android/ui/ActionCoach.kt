@@ -62,6 +62,8 @@ data class PickSight(
      * panels and their cam locks: the hand never goes "away" between them).
      */
     val dwellEnds: Boolean = false,
+    /** PLACE with [dwellEnds]: the item is a board held at its place (it waits [ActionCoach.Config.dwellEndsBoardMs]: the server may still say "the wrong way round"). */
+    val board: Boolean = false,
 )
 
 /**
@@ -94,6 +96,8 @@ class ActionCoach(private val cfg: Config = Config()) {
       val dwellMs: Long = 1_200,
       /** …and, where [PickSight.dwellEnds] is set, this long at the target ends the action by itself. */
       val dwellEndsMs: Long = 4_500,
+      /** …a board held at its place waits this long instead: the server's "wrong way round" needs about 3 s of frames. */
+      val dwellEndsBoardMs: Long = 7_000,
       /** …and then every tracked hand away from it this long (the step's last action waits [awayLastMs]). */
       val awayMs: Long = 2_000,
       /** On the step's last action the server's `step_complete` gets this long to say it first. */
@@ -140,6 +144,14 @@ class ActionCoach(private val cfg: Config = Config()) {
   private var wanted: Set<String> = emptySet()
   private var sinceMs = FAR_PAST
   private var wrongAtMs = FAR_PAST
+  /** A wrong verdict (wrong part, wrong way round) came while "put it here" was shown: a hand that stays at the target no longer ends this action by itself. */
+  private var wrongWhilePlacing = false
+  /**
+   * The grip (its `holdingSinceMs`) that ended the last action by closing on the next part. In "take", a grip counts
+   * as "closed at the part and carried it off" only when it began in this "take" or is this one: a grip left over
+   * from screwing the last bolt in, begun within reach of the pile, moved the third bolt on in its first second.
+   */
+  private var carriedGripMs = FAR_PAST
   private val rest = LinkedHashMap<Int, Vec3>() // where each instance lay when it was first seen
   private var leftSinceMs: Long? = null
   private var handSeen = false // a hand was tracked at some time during this action
@@ -171,6 +183,7 @@ class ActionCoach(private val cfg: Config = Config()) {
     phase = if (hasPick) CoachPhase.PICK else CoachPhase.PLACE
     sinceMs = nowMs
     wrongAtMs = FAR_PAST
+    wrongWhilePlacing = false
     rest.clear()
     leftSinceMs = null
     dwellMs = 0
@@ -196,6 +209,7 @@ class ActionCoach(private val cfg: Config = Config()) {
   /** The server saw a wrong part in the hand: the phase stays, and `part_moved` / `timer` wait [Config.wrongMs]. */
   fun wrongPart(nowMs: Long) {
     if (phase != CoachPhase.DONE) wrongAtMs = nowMs
+    if (phase == CoachPhase.PLACE) wrongWhilePlacing = true
   }
 
   /** A wrong part was reported less than [Config.wrongMs] ago (the right part's marker stays up meanwhile). */
@@ -247,7 +261,8 @@ class ActionCoach(private val cfg: Config = Config()) {
     val hand = sight.hand
     // the hand closed where the part lay and has carried it off: nothing more to wait for
     val grip = sight.gripStart
-    if (sight.holding && hand != null && grip != null && (hand - grip).length() > cfg.carryM &&
+    if (sight.holding && (sight.holdingSinceMs >= sinceMs || sight.holdingSinceMs == carriedGripMs) && hand != null && grip != null &&
+        (hand - grip).length() > cfg.carryM &&
         rest.values.any { (grip - it).length() < cfg.nearM } && settled(nowMs) && !wrongFresh(nowMs))
         return move(CoachPhase.PLACE, "part_moved", nowMs, "grab")
     var left = false
@@ -288,13 +303,16 @@ class ActionCoach(private val cfg: Config = Config()) {
       awayMs += dt
       if (leftAtMs == null) leftAtMs = nowMs
     }
-    if (sight.dwellEnds && dwellMs >= cfg.dwellEndsMs && !wrongFresh(nowMs)) return move(CoachPhase.DONE, "placed", nowMs, "dwell")
+    if (sight.dwellEnds && !wrongWhilePlacing && dwellMs >= (if (sight.board) cfg.dwellEndsBoardMs else cfg.dwellEndsMs) && !wrongFresh(nowMs))
+        return move(CoachPhase.DONE, "placed", nowMs, "dwell")
     val leftAt = leftAtMs
     if (dwellMs < cfg.dwellMs || leftAt == null || wrongFresh(nowMs)) return null
     if (awayMs >= (if (lastOfStep) cfg.awayLastMs else cfg.awayMs)) return move(CoachPhase.DONE, "placed", nowMs, "away")
     val hand = sight.hand
-    if (sight.holding && sight.holdingSinceMs > leftAt && hand != null && sight.nextSpots.any { (hand - it).length() < cfg.nearM })
-        return move(CoachPhase.DONE, "placed", nowMs, "next_pick")
+    if (sight.holding && sight.holdingSinceMs > leftAt && hand != null && sight.nextSpots.any { (hand - it).length() < cfg.nearM }) {
+      carriedGripMs = sight.holdingSinceMs // this grip is the next action's part being taken
+      return move(CoachPhase.DONE, "placed", nowMs, "next_pick")
+    }
     return null
   }
 

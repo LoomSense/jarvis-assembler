@@ -1063,6 +1063,7 @@ class MainActivity : AppSystemActivity() {
               nextSpots = if (phase == com.agj.android.ui.CoachPhase.PLACE) all.filter { it.id in coachNextIds }.map { it.worldPos } else emptyList(),
               // a tool-turned fastener, or a board that is followed by more work in the same step: the hand stays
               dwellEnds = toolKind || (coachAct()?.kind == ActionKind.PLACE && !actionCoach.lastOfStep),
+              board = !toolKind,
           )
       coachApply(actionCoach.tick(now, sight), source = "hands")
       liveWork(now, hands, box) // LIVE-COACH: one quiet "keep going" while the hand works at the target
