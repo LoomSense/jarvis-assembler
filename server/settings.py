@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     fal_key: str = ""
+    public_demo: bool = False              # explicit keyless demo mode; provider keys stay server-side
     demo_key: str = ""                      # required on every /api, /files and /ws route
     jobs_dir: Path = ROOT / "jobs"
     client_dist: Path = ROOT / "client" / "dist"

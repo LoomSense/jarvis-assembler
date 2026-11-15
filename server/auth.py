@@ -47,7 +47,7 @@ def has_key(request: Request) -> bool:
 
 
 def require_key(request: Request) -> None:
-    if not has_key(request):
+    if not request.app.state.settings.public_demo and not has_key(request):
         raise HTTPException(status_code=401, detail="Missing or wrong demo key")
 
 
@@ -57,8 +57,9 @@ class KeyGate:
 
     PROTECTED = ("/api/", "/files/", "/ws/")
 
-    def __init__(self, app, demo_key: str, max_body_bytes: int):
+    def __init__(self, app, demo_key: str, max_body_bytes: int, public_demo: bool = False):
         self.app, self.demo_key, self.max_body = app, demo_key, max_body_bytes
+        self.public_demo = public_demo
 
     async def __call__(self, scope, receive, send):
         if scope["type"] not in ("http", "websocket") or not scope["path"].startswith(self.PROTECTED) \
@@ -66,7 +67,7 @@ class KeyGate:
             return await self.app(scope, receive, send)
         headers = dict(scope["headers"])
         query = parse_qs(scope["query_string"].decode("latin-1"))
-        if not (_matches(headers.get(b"x-demo-key", b"").decode("latin-1"), self.demo_key)
+        if not self.public_demo and not (_matches(headers.get(b"x-demo-key", b"").decode("latin-1"), self.demo_key)
                 or _matches((query.get("key") or [""])[0], self.demo_key)):
             if scope["type"] == "websocket":
                 await receive()
@@ -100,5 +101,7 @@ class KeyGate:
 
 def ws_has_key(ws: WebSocket) -> bool:
     """For WebSocket routes: close with code 4401 when this returns False."""
+    if ws.app.state.settings.public_demo:
+        return True
     expected = ws.app.state.settings.demo_key
     return _matches(ws.query_params.get("key"), expected) or _matches(ws.headers.get("x-demo-key"), expected)

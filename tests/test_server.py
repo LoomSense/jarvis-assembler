@@ -245,3 +245,33 @@ def test_golden_guide_end_to_end_then_retry_skips_finished_stages(client, tmp_pa
 def test_tts_needs_the_key_and_a_gemini_key(client):
     assert client.post("/api/tts", json={"text": "Γεια"}, headers={"X-Demo-Key": "wrong"}).status_code == 401
     assert client.post("/api/tts", json={"text": "Γεια"}).status_code == 503        # the test app has no Gemini key
+
+
+def test_public_demo_works_without_keys_and_keeps_upload_limit(tmp_path):
+    settings = Settings(_env_file=None, public_demo=True, demo_key="", jobs_dir=tmp_path / "jobs",
+                        gemini_api_key="", max_upload_mb=1)
+    app = create_app(settings)
+    with TestClient(app) as c:
+        assert c.get("/api/jobs").status_code == 200
+        assert c.get("/api/catalog").status_code == 200
+        assert c.get("/files/missing/manifest.json").status_code == 404
+        assert c.post("/api/jobs", content=b"", headers={"Content-Length": str(3 * 1024 * 1024)}).status_code == 413
+        assert c.get("/healthz").json() == {"ok": True}
+
+
+def test_public_demo_websocket_needs_no_key(tmp_path):
+    from server.auth import KeyGate, ws_has_key
+    app = FastAPI()
+    app.state.settings = Settings(_env_file=None, public_demo=True, demo_key="", jobs_dir=tmp_path)
+    app.add_middleware(KeyGate, demo_key="", max_body_bytes=1024, public_demo=True)
+
+    @app.websocket("/ws/check")
+    async def check(ws: WebSocket):
+        assert ws_has_key(ws)
+        await ws.accept()
+        await ws.send_text("ready")
+        await ws.close()
+
+    with TestClient(app) as c:
+        with c.websocket_connect("/ws/check") as ws:
+            assert ws.receive_text() == "ready"

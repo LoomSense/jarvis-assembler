@@ -98,7 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         export_env_file()
     settings = settings or Settings()
-    if not settings.demo_key:
+    if not settings.demo_key and not settings.public_demo:
         raise RuntimeError("DEMO_KEY is not set. Run `make env`, or add DEMO_KEY to .env (see .env.example).")
     hide_key_in_logs()                                 # `?key=` must not end up in the request log
     if settings.agj_build_agent:                       # the agent hooks read the environment (orchestrator/stages.py)
@@ -122,7 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.health = {"blender_version": None, "cadquery_ok": None}   # None: not probed yet
     app.state.probed_at = 0.0
 
-    app.add_middleware(KeyGate, demo_key=settings.demo_key,
+    app.add_middleware(KeyGate, demo_key=settings.demo_key, public_demo=settings.public_demo,
                        max_body_bytes=(settings.max_upload_mb + 1) * 1024 * 1024)
     if settings.cors:                                  # added last, so it wraps the gate and its 401s get CORS headers
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors, allow_methods=["*"],
