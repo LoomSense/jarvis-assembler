@@ -12,11 +12,14 @@ from pipeline.check.decisions import MIME, api_key
 
 def generate(model: str, parts: list, json_out: bool = False, timeout: float = 300, thinking_budget: int | str | None = None,
              schema: dict | None = None) -> str:
-    """parts: strings and image paths, in order. Returns the model's text.
-    `schema`: a JSON Schema the answer must follow (structured output; implies `json_out`)."""
+    """parts: strings, image paths, or (mime_type, bytes) pairs for images already in memory, in order.
+    `schema` (implies JSON output): a JSON Schema, or an OpenAPI-style one with upper-case types ("OBJECT").
+    Returns the model's text."""
     body_parts = []
     for p in parts:
-        if isinstance(p, Path) or (isinstance(p, str) and Path(p).suffix.lower() in MIME and Path(p).exists()):
+        if isinstance(p, tuple):
+            body_parts.append({"inline_data": {"mime_type": p[0], "data": base64.b64encode(p[1]).decode()}})
+        elif isinstance(p, Path) or (isinstance(p, str) and Path(p).suffix.lower() in MIME and Path(p).exists()):
             p = Path(p)
             body_parts.append({"inline_data": {"mime_type": MIME[p.suffix.lower()],
                                                "data": base64.b64encode(p.read_bytes()).decode()}})
@@ -30,7 +33,8 @@ def generate(model: str, parts: list, json_out: bool = False, timeout: float = 3
     if json_out or schema:
         body["generationConfig"]["responseMimeType"] = "application/json"
     if schema:
-        body["generationConfig"]["responseJsonSchema"] = schema
+        openapi = str(schema.get("type", "")).isupper()       # "OBJECT" → responseSchema, "object" → responseJsonSchema
+        body["generationConfig"]["responseSchema" if openapi else "responseJsonSchema"] = schema
     req = urllib.request.Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=json.dumps(body).encode(), headers={"x-goog-api-key": api_key(), "Content-Type": "application/json"})
