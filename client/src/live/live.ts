@@ -126,6 +126,23 @@ export async function startLive(app: HTMLElement): Promise<void> {
     }
   })).then(() => paint())
 
+  // The plan writes the product name and the step titles in English only. In Greek the page asks the server for
+  // them (translated once per guide and kept) and shows the English ones until they arrive, or if they do not.
+  const greek: { title?: string; steps: Record<string, string> } = { steps: {} }
+  const titleOf = (s: Step) => (lang === 'el' && greek.steps[String(s.n)]) || s.title
+  if (lang === 'el') {
+    void apiFetch(`/api/perception/${encodeURIComponent(job)}/titles`, key)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((t: { title?: string; steps?: Record<string, string> } | null) => {
+        if (!t) return
+        greek.title = t.title
+        greek.steps = t.steps ?? {}
+        if (t.title) $('.gate h1').textContent = t.title
+        paint()
+      })
+      .catch(() => {})
+  }
+
   let at = Math.max(0, Math.min(steps.length - 1, Number(q.get('step') || 1) - 1))
   let finished = false
   let coach: Coach | null = null
@@ -148,7 +165,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
     $('.where b').textContent = finished ? w.built : `${w.step} ${at + 1} ${w.of} ${steps.length}`
     $<HTMLAnchorElement>('.steps').href = appLink({ job, step: String(current().n) }) // the same step, as the 3D walk
     $('.bar').innerHTML = steps.map((_, i) => `<li class="${i < at || finished ? 'done' : i === at ? 'now' : ''}"></li>`).join('')
-    $('.card strong').textContent = finished ? w.built : s.title
+    $('.card strong').textContent = finished ? w.built : titleOf(s)
     $('.card small').textContent = finished ? '' : needs(s)
     const crop = $<HTMLImageElement>('.crop')
     // the picture of the piece this step adds (its first part, else its hardware): which one to pick up

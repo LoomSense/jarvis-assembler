@@ -53,6 +53,8 @@ Check two things.
    A piece can have two different slots: for example a wide runner channel on its outer face and a narrow groove near the lower edge of its inner face. A slot seen on a face proves nothing until you know which slot it is: tell them apart by their width, by where they run, and by what is beside them (locks, holes, the edge). Call a check "wrong" only when you have identified the feature and it is plainly in the wrong place. If you cannot tell which slot or which face you are looking at, the result is "cannot_see", not "wrong".
    If the photo shows such a feature in the wrong place, the step is not done, however complete it looks. If the feature that decides it cannot be seen in the photo at all, do not guess: say which side to show.
 
+Write "what", "have", "wrong" and "missing" in {language}, in plain words a person at home would use (in Greek: informal, no English terms; "αυλάκι", "πλαϊνό", "πάτος", "πλάτη", "βίδα").
+
 Reply with one JSON object:
 {{"visible": true or false (false only if the photo does not show this part of the assembly, or is too dark or blurred),
  "checks": [{{"what": "one thing you checked, at most 12 words, e.g. left side panel: groove faces inwards", "result": "ok" or "wrong" or "cannot_see"}}],
@@ -116,6 +118,40 @@ def pieces_text(job_dir: Path, manifest: dict) -> str:
     rows = [(p["id"], p.get("name", p["id"]), p.get("count", 1)) for p in manifest.get("parts", [])]
     rows += [(h["code"], h.get("name", h["code"]), h.get("count", 1)) for h in manifest.get("hardware", [])]
     return "\n".join(f"- {name} (x{count}): {sizes.get(pid, 'size unknown')}" for pid, name, count in rows)
+
+
+TITLES_PROMPT = """These are the product name and the step titles of a furniture assembly guide, in English.
+Translate them into Greek as a person would say them to a friend who is building it: informal singular, imperative,
+short, plain words, no English terms left in (keep product names and code numbers as they are).
+Reply with one JSON object: {{"title": "...", "steps": {{"1": "...", "2": "..."}}}}
+
+Product: {title}
+{steps}"""
+
+
+def greek_titles(job_dir: Path) -> dict:
+    """The product name and every step title in Greek: `{"title": ..., "steps": {"1": ...}}`. The plan has them in
+    English only. One model call the first time a guide is asked for; kept in refs/titles.el.json after that."""
+    job_dir = Path(job_dir)
+    cache = job_dir / "refs" / "titles.el.json"
+    if cache.is_file():
+        try:
+            return json.loads(cache.read_text())
+        except json.JSONDecodeError:
+            pass
+    manifest = json.loads((job_dir / "manifest.json").read_text())
+    steps = "\n".join(f"{s['n']}. {s.get('title', '')}" for s in manifest.get("steps", []))
+    text = gemini.generate(MODEL, [TITLES_PROMPT.format(title=manifest.get("title", ""), steps=steps)], json_out=True,
+                           timeout=40, thinking_budget=THINKING)
+    out = json.loads(text)
+    result = {"title": str(out.get("title") or manifest.get("title", "")),
+              "steps": {str(k): str(v) for k, v in (out.get("steps") or {}).items()}}
+    try:
+        cache.parent.mkdir(exist_ok=True)
+        cache.write_text(json.dumps(result, ensure_ascii=False, indent=1))
+    except OSError:
+        pass
+    return result
 
 
 def _step(manifest: dict, n: int) -> dict:
@@ -195,7 +231,7 @@ def look(job_dir: Path, n: int, jpeg: bytes, lang: str = "en") -> dict:
     adds += [f"{h.get('qty', '?')} x {names.get(h.get('code'), h.get('code'))}" for h in step.get("hardware", [])]
     prompt = PROMPT.format(
         n=n, total=len(manifest.get("steps", [])), product=manifest.get("title", "furniture"), title=step.get("title", ""),
-        pieces=pieces_text(job_dir, manifest),
+        pieces=pieces_text(job_dir, manifest), language="Greek" if lang == "el" else "English",
         made=how_made(job_dir, list(step.get("pickParts", [])) + [h.get("code") for h in step.get("hardware", [])]),
         before="\nImage 3 is a render of the assembly before this step." if before.is_file() else "",
         actions="\n".join(f"- {t}" for t in actions if t) or "- (see the title)", adds=", ".join(adds) or "nothing new")

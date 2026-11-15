@@ -185,6 +185,24 @@ async def parts(job_id: str, body: PartsBody, request: Request) -> dict:
         raise HTTPException(status, f"The vision model did not answer: {text[:200]}") from None
 
 
+@router.get("/api/perception/{job_id}/titles", dependencies=[Depends(require_key)])
+async def titles(job_id: str, request: Request) -> dict:
+    """The product name and the step titles in Greek: `{title, steps: {"1": ...}}`. The plan writes them in English
+    only; this is translated once per guide and kept. 404 unknown job, 409 no manifest yet, 502 if the model fails."""
+    from server.perception import verify
+
+    job = request.app.state.store.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job")
+    if not job.manifest.is_file():
+        raise HTTPException(409, "This job has no guide yet")
+    os.environ.setdefault("GEMINI_API_KEY", request.app.state.settings.gemini_api_key)
+    try:
+        return await run_in_threadpool(verify.greek_titles, job.dir)
+    except Exception as e:                             # noqa: BLE001 - the page falls back to the English titles
+        raise HTTPException(502, f"The titles could not be translated: {str(e)[:160]}") from None
+
+
 @router.post("/api/perception/{job_id}/verify", dependencies=[Depends(require_key)])
 async def verify_step(job_id: str, body: VerifyBody, request: Request) -> dict:
     """Is this step finished, from one photo: `{step, done, visible, confidence, have, missing: [...], say: {en, el},
