@@ -29,6 +29,9 @@ interface Voice {
   /** Fetch [text] ahead of time so the next [say] starts without the TTS round trip. */
   fun prefetch(text: String, lang: String) {}
 
+  /** Play a WAV the server already synthesized (e.g. `/api/voice` with speak: true); default: synthesize [text]. */
+  fun play(wav: ByteArray, text: String, lang: String) = say(text, lang)
+
   fun stop()
 
   /** True while a sentence plays (for the HUD, and to avoid talking over a perception event). */
@@ -89,6 +92,18 @@ class ServerVoice(private val api: ServerApi, private val cacheDir: File) : Voic
 
   override fun prefetch(text: String, lang: String) {
     if (text.isNotBlank()) fetch(text, lang)
+  }
+
+  override fun play(wav: ByteArray, text: String, lang: String) {
+    if (wav.size <= 44) return say(text, lang)
+    // the reply's WAV becomes the cached line, so a later Repeat of the same text is instant
+    val f = File(cacheDir, "tts/${key(text, lang)}.wav")
+    runCatching {
+      f.parentFile?.mkdirs()
+      f.writeBytes(wav)
+    }
+    pending.remove(key(text, lang))
+    say(text, lang)
   }
 
   override fun say(text: String, lang: String, interrupt: Boolean) {

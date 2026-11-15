@@ -22,6 +22,9 @@ import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sin
 
+/** A hole lip ring: centre, outward normal, radius (m), ASSEMBLY frame. */
+data class Hole(val center: Vec3, val normal: Vec3, val radius: Float)
+
 /** What the label pill shows (the ui/ layer draws it in a mesh-mode Compose panel). */
 data class LabelInfo(val label: PartLabel, val state: GhostState, val lost: Boolean)
 
@@ -92,13 +95,29 @@ class SpatialGhostRenderer(
   private var anchorDot: Entity? = null
   private var labelE: Entity? = null
 
-  private lateinit var ghostMat: SceneMaterial
-  private lateinit var placedMat: SceneMaterial
-  private lateinit var moverMat: SceneMaterial
-  private lateinit var dotMat: SceneMaterial
-  private lateinit var dashMat: SceneMaterial
-  private lateinit var arrowMat: SceneMaterial
-  private lateinit var leaderMat: SceneMaterial
+  private lateinit var ghostMat: GhostMat
+  private lateinit var placedMat: GhostMat
+  private lateinit var moverMat: GhostMat
+  private lateinit var dotMat: GhostMat
+  private lateinit var dashMat: GhostMat
+  private lateinit var arrowMat: GhostMat
+  private lateinit var leaderMat: GhostMat
+  /** Hard edges of the current ghost (solid) and its dashed outline (wrong, lost), spec §4.1 / §4.8 / §4.12. */
+  private lateinit var edgeMat: GhostMat
+  private lateinit var outlineMat: GhostMat
+  /** Hole highlight (spec §4.4): constant ring, two ripples, dim static rings on the step's other holes. */
+  private lateinit var ringMat: GhostMat
+  private lateinit var rippleMat: GhostMat
+  private lateinit var staticRingMat: GhostMat
+  private val edgeE = HashMap<String, Entity>()
+  private val outlineE = HashMap<String, Entity>()
+  private var ringE: Entity? = null
+  private val rippleE = ArrayList<Entity>()
+  private val staticRingE = ArrayList<Entity>()
+  private var hole: Hole? = null
+  private var materialLogged = false
+  private var jobKey = "job"
+  private var makeEntity: ((String, MeshData, GhostMat, Entity?) -> Entity)? = null
 
   private var step = 0
   private var action = 0
@@ -133,13 +152,18 @@ class SpatialGhostRenderer(
     }
     guide = g
     val t0 = System.nanoTime()
-    ghostMat = GhostMaterial.create()
-    placedMat = GhostMaterial.create(GhostMaterial.Tint.WHITE, body = 0.035f, rim = 0.22f, rimPower = 3f)
-    moverMat = GhostMaterial.create(body = 0.10f, rim = 0.45f)
-    dotMat = GhostMaterial.create(body = 0.55f, rim = 0.3f, rimPower = 1.5f)
-    dashMat = GhostMaterial.create(body = 0.95f, rim = 0.2f, rimPower = 1.5f)
-    arrowMat = GhostMaterial.create(body = 0.9f, rim = 0.1f, rimPower = 1.5f)
-    leaderMat = GhostMaterial.create(GhostMaterial.Tint.WHITE, body = 0.7f, rim = 0f)
+    ghostMat = GhostMat.create()
+    placedMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.035f, rim = 0.22f, rimPower = 3f)
+    moverMat = GhostMat.create(body = 0.10f, rim = 0.45f)
+    dotMat = GhostMat.create(body = 0.55f, rim = 0.3f, rimPower = 1.5f)
+    dashMat = GhostMat.create(body = 0.95f, rim = 0.2f, rimPower = 1.5f)
+    arrowMat = GhostMat.create(body = 0.9f, rim = 0.1f, rimPower = 1.5f)
+    leaderMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.7f, rim = 0f)
+    edgeMat = GhostMat.create(GhostMaterial.Tint.EDGE, body = 0.85f, rim = 0f)
+    outlineMat = GhostMat.create(GhostMaterial.Tint.ERROR, body = 1f, rim = 0f)
+    ringMat = GhostMat.create(body = 0.9f, rim = 0f)
+    rippleMat = GhostMat.create(body = 0.6f, rim = 0f)
+    staticRingMat = GhostMat.create(body = 0.35f, rim = 0f)
 
     val job = assembly.jobId.replace(Regex("[^A-Za-z0-9_-]"), "_")
     val r = Entity.create(listOf(Transform(Pose())))
@@ -147,12 +171,14 @@ class SpatialGhostRenderer(
     root = r
     posed = p
 
-    fun meshEntity(uri: String, data: MeshData, mat: SceneMaterial, parent: Entity?): Entity {
-      registerMesh(uri) { toSceneMesh(data, mat) }
+    jobKey = job
+    fun meshEntity(uri: String, data: MeshData, mat: GhostMat, parent: Entity?): Entity {
+      registerMesh(uri) { toSceneMesh(data, mat.material) }
       val comps = mutableListOf(Mesh(Uri.parse(uri)), Transform(Pose()), Visible(false))
       if (parent != null) comps += TransformParent(parent)
       return Entity.create(comps).also { visible[it] = false }
     }
+    makeEntity = ::meshEntity
 
     for ((node, geo) in g.parts) {
       val data = MeshData(geo.positions, geo.normals, geo.indices)
@@ -174,6 +200,10 @@ class SpatialGhostRenderer(
     arrowHead = meshEntity("mesh://agj/$job/arrowhead", Shapes.cone(0.005f, 0.014f), arrowMat, p)
     leader = meshEntity("mesh://agj/$job/leader", Shapes.cylinder(0.0006f, 1f), leaderMat, null)
     anchorDot = meshEntity("mesh://agj/$job/anchor", Shapes.sphere(0.0015f), leaderMat, null)
+    // Unit rings, scaled to the hole radius: stroke 0.2 × r for the lip ring (≈ 1.2 mm at 6 mm), 0.12 × r ripples.
+    ringE = meshEntity("mesh://agj/$job/ring", Shapes.ring(1f, 0.2f), ringMat, p)
+    repeat(2) { i -> rippleE += meshEntity("mesh://agj/$job/ripple/$i", Shapes.ring(1f, 0.12f), rippleMat, p) }
+    repeat(MAX_STATIC_RINGS) { i -> staticRingE += meshEntity("mesh://agj/$job/sring/$i", Shapes.ring(1f, 0.2f), staticRingMat, p) }
     labelE =
         labelPanelId?.let { id ->
           Entity.createPanelEntity(id, Transform(Pose(Vector3(0f, -10f, 0f)))).also {
@@ -183,7 +213,12 @@ class SpatialGhostRenderer(
         }
     Agq.log.event(
         "ghost_load",
-        mapOf("parts" to g.parts.size, "turn_arrows" to turnE.size, "ms" to (System.nanoTime() - t0) / 1_000_000),
+        mapOf(
+            "parts" to g.parts.size,
+            "turn_arrows" to turnE.size,
+            "material" to ghostMat.kind.wire,
+            "ms" to (System.nanoTime() - t0) / 1_000_000,
+        ),
     )
   }
 
@@ -227,6 +262,10 @@ class SpatialGhostRenderer(
       show(moverE[node]!!, false)
     }
     for ((node, e) in turnE) show(e, node == a?.node)
+    for (e in edgeE.values) show(e, false)
+    for (e in outlineE.values) show(e, false)
+    a?.node?.let { edgesFor(it) }
+    placeHoles(s, a)
 
     // Insertion path + mover
     path = emptyList()
@@ -258,6 +297,21 @@ class SpatialGhostRenderer(
     }
     actionSince = clock
     setState(GhostState.NEXT)
+    if (!materialLogged) {
+      materialLogged = true
+      Agq.log.event(
+          "ghost_material",
+          mapOf(
+              "kind" to ghostMat.kind.wire,
+              "shader" to if (ghostMat.kind == GhostMaterialKind.CUSTOM) GhostMaterial.SHADER else "data/shaders/unlit/unlit",
+              "alpha_mode" to "translucent",
+              "attributes" to if (ghostMat.kind == GhostMaterialKind.CUSTOM) GhostMaterial.ATTRIBUTES else emptyList(),
+              "preferred" to GhostMaterial.preferred.wire,
+              "step" to step,
+              "action" to action,
+          ),
+      )
+    }
     Agq.log.event(
         "ghost_show",
         mapOf("step" to step, "action" to action, "kind" to (a?.kind?.name?.lowercase()), "node" to a?.node, "path_dots" to path.size),
@@ -275,7 +329,72 @@ class SpatialGhostRenderer(
     for (e in dash) show(e, guides && path.size > DASH && !reducedMotion)
     arrowHead?.let { show(it, guides && path.size >= 2) }
     a?.node?.let { n -> turnE[n]?.let { show(it, guides) } }
+    updateEdges()
     pushLabel()
+  }
+
+  /** Lazily builds the solid edges and the dashed outline of [node] (feature edges, spec §4.1 / §4.8). */
+  private fun edgesFor(node: String) {
+    if (edgeE.containsKey(node)) return
+    val geo = guide?.parts?.get(node) ?: return
+    val mk = makeEntity ?: return
+    val segs = Edges.featureEdges(geo.positions, geo.indices)
+    if (segs.isEmpty()) return
+    edgeE[node] = mk("mesh://agj/$jobKey/edges/$node", Edges.tubes(segs, 0.0015f), edgeMat, posed)
+    outlineE[node] =
+        mk("mesh://agj/$jobKey/outline/$node", Edges.tubes(Edges.dashed(segs, 0.008f, 0.005f), 0.002f), outlineMat, posed)
+  }
+
+  /** Solid edges in NEXT / GOOD / UNSURE / CORRECT; dashed outline when WRONG or lost (spec §4.8, §4.12). */
+  private fun updateEdges() {
+    val node = cur?.node ?: return
+    val dashed = state == GhostState.WRONG || lost
+    edgeE[node]?.let { show(it, !dashed) }
+    outlineE[node]?.let { show(it, dashed) }
+  }
+
+  /** The hole of the current screw-like action and the step's other holes of the same code (spec §4.4). */
+  private fun placeHoles(s: GuideStep, a: GuideAction?) {
+    hole = a?.let { holeOf(it) }
+    val h = hole
+    ringE?.let { e ->
+      if (h != null) {
+        e.setComponent(Transform(Pose3(h.center, Shapes.fromTo(Vec3(0f, 1f, 0f), h.normal)).toSdk()))
+        e.setComponent(Scale(Vector3(h.radius)))
+      }
+      show(e, h != null)
+    }
+    rippleE.forEach { show(it, h != null && !reducedMotion) }
+    val later =
+        if (a == null) emptyList()
+        else s.guided.filter { it.index > a.index && it.code != null && it.code == a.code }.mapNotNull { holeOf(it) }
+    staticRingE.forEachIndexed { i, e ->
+      val o = later.getOrNull(i)
+      if (o != null) {
+        e.setComponent(Transform(Pose3(o.center, Shapes.fromTo(Vec3(0f, 1f, 0f), o.normal)).toSdk()))
+        e.setComponent(Scale(Vector3(o.radius)))
+      }
+      show(e, o != null)
+    }
+  }
+
+  /** Two ripples, a new pair every 2.0 s: each grows 1.0 → 2.2 × r and fades 0.6 → 0 in 1.2 s (ease-out). */
+  private fun updateRings(tAction: Float, lostK: Float) {
+    val h = hole ?: return
+    ringMat.set(GhostMaterial.Tint.ACCENT, 0.9f, 0f, opacity = lostK)
+    staticRingMat.set(GhostMaterial.Tint.ACCENT, 0.35f, 0f, opacity = lostK)
+    if (reducedMotion) return
+    val c = tAction % 2.0f
+    rippleE.forEachIndexed { i, e ->
+      val k = (c - i * 0.3f) / 1.2f
+      val on = k in 0f..1f
+      if (on) {
+        e.setComponent(Transform(Pose3(h.center, Shapes.fromTo(Vec3(0f, 1f, 0f), h.normal)).toSdk()))
+        e.setComponent(Scale(Vector3(h.radius * (1f + 1.2f * easeOutCubic(k)))))
+      }
+      show(e, on)
+    }
+    rippleMat.set(GhostMaterial.Tint.ACCENT, 0.6f * (1f - easeOutCubic((c / 1.5f).coerceIn(0f, 1f))), 0f, opacity = lostK)
   }
 
   private fun pushLabel() {
@@ -310,6 +429,7 @@ class SpatialGhostRenderer(
     if (l && !lost) lostSince = clock
     if (l != lost) {
       lost = l
+      updateEdges()
       pushLabel()
     }
   }
@@ -342,21 +462,21 @@ class SpatialGhostRenderer(
     when (state) {
       GhostState.NEXT -> {
         val breathe = if (reducedMotion) 0f else 0.05f * sin(2f * PI.toFloat() * 0.42f * t)
-        GhostMaterial.set(ghostMat, GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = lostK)
+        ghostMat.set(GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = lostK)
       }
-      GhostState.GOOD -> GhostMaterial.set(ghostMat, GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = lostK)
+      GhostState.GOOD -> ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = lostK)
       GhostState.CORRECT -> {
         val k = 1f - (t / 0.6f).coerceIn(0f, 1f)
         val e = 1f - (1f - k).pow(3)
-        GhostMaterial.set(ghostMat, GhostMaterial.Tint.SUCCESS, 0.14f * k, 1.0f * e, opacity = lostK)
+        ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.14f * k, 1.0f * e, opacity = lostK)
       }
       GhostState.WRONG -> {
         val pulse = if (t < 3f / 0.83f) 0.8f + 0.2f * sin(2f * PI.toFloat() * 0.83f * t) else 1f
-        GhostMaterial.set(ghostMat, GhostMaterial.Tint.ERROR, 0.06f, 0.65f, opacity = pulse * lostK)
+        ghostMat.set(GhostMaterial.Tint.ERROR, 0.06f, 0.65f, opacity = pulse * lostK)
       }
-      GhostState.UNSURE -> GhostMaterial.set(ghostMat, GhostMaterial.Tint.UNSURE, 0.14f, 0.65f, opacity = lostK)
+      GhostState.UNSURE -> ghostMat.set(GhostMaterial.Tint.UNSURE, 0.14f, 0.65f, opacity = lostK)
     }
-    GhostMaterial.set(placedMat, GhostMaterial.Tint.WHITE, 0.035f, 0.22f, 3f, opacity = lostK)
+    placedMat.set(GhostMaterial.Tint.WHITE, 0.035f, 0.22f, 3f, opacity = lostK)
 
     // Insertion loop: the mover slides in along from_dir in 1.5 s and fades at both ends.
     val geo = a?.geometry
@@ -367,7 +487,7 @@ class SpatialGhostRenderer(
       val d = if (a.kind.twists) 0.09f else 0.12f
       moverE[a.node]!!.setComponent(Transform(Pose((dir * (d * (1f - travel))).toSdk())))
       val fade = (k / 0.12f).coerceIn(0f, 1f) * (1f - ((k - 0.85f) / 0.15f).coerceIn(0f, 1f))
-      GhostMaterial.set(moverMat, GhostMaterial.Tint.ACCENT, 0.10f, 0.45f, opacity = fade * lostK)
+      moverMat.set(GhostMaterial.Tint.ACCENT, 0.10f, 0.45f, opacity = fade * lostK)
     }
 
     // Travelling dash: 4 bright dots run start → end in 1.6 s, 0.6 s pause (0.45 Hz).
@@ -379,11 +499,29 @@ class SpatialGhostRenderer(
         val idx = (head - i).coerceIn(0, path.size - 1)
         e.setComponent(Transform(Pose(path[idx].toSdk())))
       }
-      GhostMaterial.set(dashMat, GhostMaterial.Tint.ACCENT, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, lostK)
+      dashMat.set(GhostMaterial.Tint.ACCENT, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, lostK)
     }
-    GhostMaterial.set(dotMat, GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, lostK)
+    dotMat.set(GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, lostK)
     // Turning arrow: static arc, brightness sweep at 0.8 Hz.
-    GhostMaterial.set(arrowMat, GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, lostK)
+    arrowMat.set(GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, lostK)
+
+    // Edges: constant (no breathing); the dashed outline pulses 0.6 ↔ 1.0 at 0.83 Hz for 3 cycles when wrong (§4.8).
+    val edgeTint =
+        when (state) {
+          GhostState.GOOD, GhostState.CORRECT -> GhostMaterial.Tint.SUCCESS
+          GhostState.UNSURE -> GhostMaterial.Tint.UNSURE
+          else -> GhostMaterial.Tint.EDGE
+        }
+    val edgeK = if (state == GhostState.CORRECT) 1f - (t / 0.6f).coerceIn(0f, 1f) else 1f
+    edgeMat.set(edgeTint, 0.85f * edgeK, 0f, opacity = lostK)
+    if (state == GhostState.WRONG) {
+      val pulse = if (t < 3f / 0.83f && !reducedMotion) 0.8f + 0.2f * sin(2f * PI.toFloat() * 0.83f * t) else 1f
+      outlineMat.set(GhostMaterial.Tint.ERROR, 1f, 0f, opacity = pulse)
+    } else {
+      // lost: azure dashed edges at 30 %, like the ghost (§4.12)
+      outlineMat.set(GhostMaterial.Tint.EDGE, 0.85f, 0f, opacity = lostK)
+    }
+    updateRings(tAction, lostK)
 
     placeLabel(wft)
   }
@@ -463,10 +601,11 @@ class SpatialGhostRenderer(
   }
 
   override fun clear() {
-    val all = placedE.values + ghostE.values + moverE.values + turnE.values + dots + dash +
-        listOfNotNull(arrowHead, leader, anchorDot, labelE, posed, root)
+    val all = placedE.values + ghostE.values + moverE.values + turnE.values + edgeE.values + outlineE.values + dots +
+        dash + rippleE + staticRingE + listOfNotNull(arrowHead, leader, anchorDot, labelE, ringE, posed, root)
     for (e in all) runCatching { e.destroy() }
     placedE.clear(); ghostE.clear(); moverE.clear(); turnE.clear(); dots.clear(); dash.clear(); visible.clear()
+    edgeE.clear(); outlineE.clear(); rippleE.clear(); staticRingE.clear(); ringE = null; hole = null; makeEntity = null
     arrowHead = null; leader = null; anchorDot = null; labelE = null; posed = null; root = null
     guide = null
     cur = null
@@ -476,6 +615,20 @@ class SpatialGhostRenderer(
   companion object {
     private const val MAX_DOTS = 48
     private const val DASH = 4
+    private const val MAX_STATIC_RINGS = 6
+
+    /**
+     * The hole of a screw-like action (spec §4.4), ASSEMBLY frame: on the part's outer end along `from_dir`, 0.5 mm
+     * out, radius = half the part's width across the axis + 2 mm. Null for other kinds or without geometry.
+     */
+    fun holeOf(a: GuideAction): Hole? {
+      if (!a.kind.twists && a.kind != ActionKind.PRESS) return null
+      val geo = a.geometry ?: return null
+      val dir = Shapes.norm(a.fromDir ?: return null)
+      val c = geo.center + dir * (geo.extentAlong(dir) / 2f + 0.0005f)
+      val r = (geo.widthAcross(dir) / 2f + 0.002f).coerceIn(0.004f, 0.03f)
+      return Hole(c, dir, r)
+    }
     /** Half the label panel's height (m), so the pill's bottom edge sits on the leader line. */
     const val PILL_HALF_H = 0.02f
 

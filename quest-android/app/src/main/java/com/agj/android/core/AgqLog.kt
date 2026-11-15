@@ -129,4 +129,5 @@ enum class TrackSource(val wire: String) {
 enum class StepBy(val wire: String) {
   AUTO("auto"),
   BUTTON("button"),
+  VOICE("voice"),
 }
