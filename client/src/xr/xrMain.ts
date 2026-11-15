@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { apiFetch } from '../api';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { PRODUCTS, type DemoProduct } from './demoAssembly';
@@ -1339,10 +1340,23 @@ export async function startXR(root: HTMLElement): Promise<void> {
       missing: LANG === 'el' ? 'Δεν βρέθηκε κάμερα' : 'No camera found',
       unavailable: LANG === 'el' ? 'Χωρίς κάμερα' : 'No camera',
     };
-    if (m.asked) statusEl.textContent = said[m.camera] ?? statusEl.textContent;
+    if (m.asked) {
+      const why = m.camera === 'missing' || m.camera === 'denied' ? ` (${m.cameraError || '?'} · ${m.videoInputs} ${LANG === 'el' ? 'κάμερες' : 'cameras'})` : '';
+      statusEl.textContent = (said[m.camera] ?? statusEl.textContent) + why;
+      reportCamera(m);
+    }
     cameraBtn.disabled = m.camera === 'headset' || m.camera === 'generic';
     stepButtons();
   });
+  // One camera report per try to the host (`jobs/_diag/`), so a failure on the headset can be read without a cable.
+  let reportedCamera = '';
+  function reportCamera(m: typeof media.status): void {
+    const sig = `${m.camera}|${m.cameraError}|${m.videoInputs}`;
+    if (sig === reportedCamera) return;
+    reportedCamera = sig;
+    const body = JSON.stringify({ kind: 'camera', camera: m.camera, error: m.cameraError, videoInputs: m.videoInputs, label: m.cameraLabel, cameras: m.cameras, secure: window.isSecureContext });
+    void apiFetch('/api/diag', params.get('key'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => {});
+  }
   // Two steps in order, so the camera is never forgotten: ① Camera is the main button until it is granted (a prompt
   // inside the session can end it), then ② Enter AR is. Enter AR still works without the camera.
   const ENTER_LABEL = LANG === 'el' ? 'Μπες στο AR' : 'Enter AR';

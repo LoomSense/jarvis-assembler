@@ -20,6 +20,10 @@ export interface MediaStatus {
   cameraLabel: string
   /** labels of every camera the page can see, for the pre-flight list */
   cameras: string[]
+  /** why the camera could not be opened: the getUserMedia error names, e.g. "NotFoundError/NotReadableError" */
+  cameraError: string
+  /** how many video inputs enumerateDevices lists (-1: not asked); 0 means the browser exposes no camera at all */
+  videoInputs: number
 }
 
 const BACK = /facing back/i
@@ -31,7 +35,7 @@ const stop = (stream: MediaStream | null) => stream?.getTracks().forEach((t) => 
 export class Media {
   micStream: MediaStream | null = null
   cameraStream: MediaStream | null = null
-  status: MediaStatus = { asking: false, asked: false, mic: 'idle', micLabel: '', camera: 'idle', cameraLabel: '', cameras: [] }
+  status: MediaStatus = { asking: false, asked: false, mic: 'idle', micLabel: '', camera: 'idle', cameraLabel: '', cameras: [], cameraError: '', videoInputs: -1 }
 
   /**
    * @param headset true on a Quest: only a `facing back` camera is acceptable there
@@ -71,10 +75,12 @@ export class Media {
     const size = { width: { ideal: 1280 }, height: { ideal: 960 } } // the passthrough cameras' best 4:3 mode
     let stream: MediaStream | null = null
     let refused = false
+    const errors: string[] = []
     try {
       stream = await md.getUserMedia({ video: { facingMode: { exact: 'environment' }, ...size } })
     } catch (err) {
       refused = denied(err)
+      errors.push(errorName(err) || 'Error')
     }
     if (!stream && !refused) {
       // No environment camera was offered. Open any camera once: device labels are empty until a camera
@@ -83,10 +89,18 @@ export class Media {
         stream = await md.getUserMedia({ video: size })
       } catch (err) {
         refused = denied(err)
+        errors.push(errorName(err) || 'Error')
       }
     }
     if (!stream) {
-      this.set({ camera: refused ? 'denied' : 'missing' })
+      let videoInputs = -1
+      try {
+        videoInputs = (await md.enumerateDevices()).filter((d) => d.kind === 'videoinput').length
+      } catch {
+        // unknown
+      }
+      console.warn('[media] no camera:', errors.join('/'), 'video inputs:', videoInputs)
+      this.set({ camera: refused ? 'denied' : 'missing', cameraError: errors.join('/'), videoInputs })
       return
     }
 
