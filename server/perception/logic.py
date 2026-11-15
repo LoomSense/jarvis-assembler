@@ -416,6 +416,11 @@ class Coach:
             check = "right_part" if kind == "part" else RIGHT_HARDWARE
             kw.update(expected_id=e.needed(kind), observed_id=observed, p=conf,
                       evidence={f"{kind}_in_hand.{observed}": conf, check: yes_p(raw, check)})
+            probs = answer.get("probabilities")
+            if kind == "part" and self.t.wrong_part_sum and isinstance(probs, dict):
+                kw["evidence"]["part_in_hand.other_steps"] = round(min(1.0, sum(     # what `_wrong_part_sum` compared
+                    float(v) for k, v in probs.items() if k not in SPECIAL and k not in e.parts
+                    and isinstance(v, (int, float)))), 3)
             self.confirmed = {c for c in self.confirmed if c[0] != kind}     # the next right pick is confirmed again
         elif name == "flip_needed":
             o = yes_p(raw, "orientation_ok")
@@ -473,7 +478,34 @@ class Coach:
                 # reaching the threshold (seen with a short screw in hand: right_hardware 0.05, 108560 at 0.51).
                 # Let that code count as seen, so the measured N-of-M window decides the warning.
                 raw = {**raw, "hardware_in_hand": {**raw["hardware_in_hand"], "confidence": w.cfg.choice}}
+        if t.wrong_part_sum:
+            raw = self._wrong_part_sum(raw, w)
         return {k: v for k, v in raw.items() if k not in drop} if drop else raw
+
+    def _wrong_part_sum(self, raw: dict, w: Watcher) -> dict:
+        """A part this step does not use, read from the whole answer instead of its first choice alone.
+
+        The model cannot tell mirror twins apart from a distance: a side panel held up during step 1 scored
+        left 0.47-0.54 and right 0.36-0.43 on real frames, so neither reached the 0.75 line while "a part of
+        another step" stood at 0.86-0.95. When the first choice is such a part, the probabilities of all such
+        parts are added up; at the line, the frame counts as a confident wrong pick for the Watcher's window.
+        `right_part` is the cross-check, with its own line (`wrong_part_no`): holding the wrong board on the
+        spot where the right one goes it scored 0.08-0.27 (real frames), the right part 0.32 at the least."""
+        answer = raw.get("part_in_hand") or {}
+        probs, choice = answer.get("probabilities"), answer.get("choice")
+        if not isinstance(probs, dict) or choice in SPECIAL or choice in w.parts or choice not in probs:
+            return raw
+        if (yes_p(raw, "hands_present") or 0) < w.cfg.hands:
+            return raw
+        total = min(1.0, sum(float(v) for k, v in probs.items()
+                             if k not in SPECIAL and k not in w.parts and isinstance(v, (int, float))))
+        right = yes_p(raw, "right_part")
+        if total < w.cfg.choice or (right is not None and right > self.t.wrong_part_no):
+            return raw
+        out = {**raw, "part_in_hand": {**answer, "confidence": max(total, float(answer.get("confidence") or 0.0))}}
+        if right is not None and right > w.cfg.no:
+            out["right_part"] = {**raw["right_part"], "noul": w.cfg.no}     # a "no" by `wrong_part_no`
+        return out
 
     def _camera_moved(self, raw: dict, ts: float, cfg, out: list) -> bool:
         """With `check_setup`: warnings pause while a fixed camera no longer shows the setup (§6.5)."""

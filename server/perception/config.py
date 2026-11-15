@@ -68,6 +68,18 @@ class Tuning:
     hardware_veto: bool = True             # ...whose clear answer overrules a contradicting choice answer
     hardware_no_floor: float = 0.4         # a clear "not the right one" lets a different code count from this confidence
     step_complete_only_on_last_action: bool = True   # when the display reports actions, wait for the last one
+    wrong_part_sum: bool = True            # wrong_part: when the first choice is a part this step does not use, the
+    #                                        probabilities of all such parts are added up and compared with the
+    #                                        Watcher's `choice` line (0.75). Mirror twins share one answer: a side
+    #                                        panel shown during step 1 scored left 0.47-0.54, right 0.36-0.43
+    wrong_part_no: float = 0.3             # ...and `right_part` at or below this is its "not the right part" (the
+    #                                        Watcher's own `no`, 0.15, when the sum is off). Real frames: a wrong
+    #                                        board held where the right one goes 0.08-0.27; the right part, named
+    #                                        with confidence, 0.32 at the least (21 logged frames), 0.90-0.93 held up
+    all_choices: bool = True               # "which part / which hardware is held" also offers the parts of later
+    #                                        steps and every hardware code of the guide (questions.complete_choices).
+    #                                        A question file lists only its own step's and the next one's, so any
+    #                                        other wrong pick could only be answered `other`: never a wrong_part
     hold_enter: NofM = NofM(3, 4)          # status: believe "holding X" after 3 of 4 frames name X
     hold_release: NofM = NofM(6, 8)        # status: believe "put down" only after 6 of 8 frames say so
     window_max_age_s: float = 15.0         # for the two windows above and `confirm`: older answers do not count

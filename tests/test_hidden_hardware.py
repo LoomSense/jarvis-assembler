@@ -93,7 +93,7 @@ def test_hidden_hardware_with_a_close_up_gets_a_third_image_in_both_request_buil
     inputs, questions = bench.build(d, 2, shot)
     assert [type(b) for b in inputs] == [str, tuple, str, tuple, str, tuple] and inputs[4] == pack["detail_note"]
     guide = Guide(d)
-    ask = build_ask(guide, load_pack(guide, 2), shot, extra=False)
+    ask = build_ask(guide, load_pack(guide, 2, complete=False), shot, extra=False)
     assert ask.inputs == inputs and ask.questions == questions
     body = body_of(ask)
     assert [b["type"] for b in body["input"]] == ["text", "image", "text", "image", "text", "image"]
@@ -118,7 +118,7 @@ def test_an_older_question_file_is_brought_up_to_date_in_memory_only(tmp_path, c
     on_disk = (d / "refs" / "step-02-questions.json").read_text()
     guide = Guide(d)
     with caplog.at_level("INFO", logger="agj.perception"):
-        sp = load_pack(guide, 2)
+        sp = load_pack(guide, 2, complete=False)
     assert sp.origin == "file" and sp.pack["step_complete_v"] == writer.STEP_COMPLETE_V
     assert "use Image 3" in sp.pack["questions"]["step_complete"]["instructions"]
     assert "ORANGE" not in sp.pack["sheet_note"] and sp.pack["detail"] == "refs/step-02-detail.png"
@@ -128,10 +128,10 @@ def test_an_older_question_file_is_brought_up_to_date_in_memory_only(tmp_path, c
     other = {k: v for k, v in sp.pack["questions"].items() if k != "step_complete"}
     assert other == {k: v for k, v in json.loads(on_disk)["questions"].items() if k != "step_complete"}
     assert len(build_ask(guide, sp, jpeg(), extra=False).inputs) == 6
-    visible = load_pack(guide, 1).pack                                           # a step whose additions show
+    visible = load_pack(guide, 1, complete=False).pack                                           # a step whose additions show
     assert "drawn in ORANGE" in visible["questions"]["step_complete"]["instructions"]
     assert writer.LATER_NOTE.format(n=1) in visible["questions"]["step_complete"]["instructions"]
-    assert load_pack(guide, 2).pack == sp.pack                                   # and it is stable
+    assert load_pack(guide, 2, complete=False).pack == sp.pack                                   # and it is stable
 
 
 def test_criteria_written_by_the_model_are_kept_unless_the_additions_are_hidden(tmp_path):

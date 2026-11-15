@@ -27,6 +27,7 @@ import logging
 from dataclasses import dataclass, field
 
 from pipeline.perception import questions as writer
+from pipeline.perception.logic import SPECIAL
 from pipeline.perception import request as bench
 from server.perception.guide import Guide
 
@@ -136,8 +137,68 @@ def _current(guide: Guide, n: int, pack: dict) -> dict:
     return new
 
 
-def load_pack(guide: Guide, n: int) -> StepPack:
-    """The step's questions. Raises ValueError when there are none and none can be made."""
+NOT_PICTURED = "not pictured on the reference sheet"
+MORE_CHOICES = {
+    "part_in_hand": " Some choices are parts of LATER steps, described in words only (their text says so): choose one of "
+                    "them when the held part fits its description, and `other` only when it fits none of the choices.",
+    "hardware_in_hand": " Some choices are hardware of OTHER steps, described in words only (their text says so): choose "
+                        "one of them when the held item fits its description, and `other` only when it fits none.",
+}
+
+
+def _descriptions(guide: Guide) -> dict:
+    """id -> how the job's own question files describe that part or hardware code (the first step that has it)."""
+    out: dict = {}
+    for m in guide.order:
+        try:
+            pack = bench.step_pack(str(guide.dir), m)
+        except (OSError, ValueError):
+            continue
+        for key in ("part_in_hand", "hardware_in_hand"):
+            criteria = ((pack.get("questions") or {}).get(key) or {}).get("criteria")
+            for k, v in (criteria.items() if isinstance(criteria, dict) else ()):
+                if k not in SPECIAL and isinstance(v, str) and v.strip():
+                    out.setdefault(k, v.strip())
+    return out
+
+
+def complete_choices(guide: Guide, n: int, pack: dict) -> dict:
+    """The pack with the choices a wrong pick needs, in memory (the file's own dict is never changed).
+
+    A question file lists the step's own parts and the next step's: what its reference sheet pictures. A part
+    of any other step can then only be answered `other`, which is never a `wrong_part` (real frames, Sun 15 Nov:
+    the drawer bottom held up during step 3 scored `other` 0.55-0.77 and nothing was said; a side panel during
+    step 1 `other` 0.64-0.88). So `part_in_hand` gains every part of a LATER step (the ones still in the pile;
+    a part already built in is touched all the time and stays out) and `hardware_in_hand` every hardware code of
+    the guide, each with the description its own step's file gives it."""
+    questions = pack.get("questions") or {}
+    later = [p for m in guide.order if m > n for p in guide.parts(m)]
+    codes = [c for m in guide.order for c, _ in guide.hardware(m)]
+    add = {}
+    for key, ids in (("part_in_hand", later), ("hardware_in_hand", codes)):
+        criteria = (questions.get(key) or {}).get("criteria")
+        new = [i for i in dict.fromkeys(ids) if i not in criteria] if isinstance(criteria, dict) else []
+        if new:
+            add[key] = new
+    if not add:
+        return pack
+    known, out = _descriptions(guide), dict(questions)
+    for key, new in add.items():
+        q = dict(out[key])
+        criteria = q["criteria"]
+        q["criteria"] = {**{k: v for k, v in criteria.items() if k not in SPECIAL},
+                         **{i: f"{known.get(i) or guide.name(i)} ({NOT_PICTURED})" for i in new},
+                         **{k: v for k, v in criteria.items() if k in SPECIAL}}
+        q["instructions"] = str(q.get("instructions") or "") + MORE_CHOICES[key]
+        out[key] = q
+    if writer.validate(out):
+        return pack
+    return {**pack, "questions": out}
+
+
+def load_pack(guide: Guide, n: int, complete: bool = True) -> StepPack:
+    """The step's questions. Raises ValueError when there are none and none can be made. `complete`: a file's
+    choice questions also offer the parts of later steps and all the guide's hardware (`complete_choices`)."""
     path = guide.dir / "refs" / f"step-{n:02d}-questions.json"       # where pipeline.perception.request reads it
     if path.is_file():
         try:
@@ -146,7 +207,8 @@ def load_pack(guide: Guide, n: int) -> StepPack:
         except (OSError, ValueError) as e:
             pack, problem = None, f"{type(e).__name__}: {e}"
         if problem is None:
-            return StepPack(n, "file", _current(guide, n, pack))
+            pack = _current(guide, n, pack)
+            return StepPack(n, "file", complete_choices(guide, n, pack) if complete else pack)
         log.error("perception: %s cannot be used (%s); questions for step %s are made from the template instead",
                   path, problem, n)
     try:
