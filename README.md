@@ -2,7 +2,7 @@
 
 Upload a flat-pack furniture guide (PDF). An agent reads it, builds every part in 3D, assembles them step by step in the guide's own order, and checks its work against the guide's drawings. A browser page (`client/`) plays the result as a 3D walkthrough, one action at a time. On a Meta Quest 3, a native app loads the same guide, asks the server which step the real assembly is at from a camera frame, and shows and speaks the next action in Greek or English.
 
-Status on Sun 15 Nov: the demo runs on the native Android app, `quest-android/` (Kotlin, Meta Spatial SDK); `quest-unity/` (Unity 6.3, Meta XR SDK) is the backup. On a Quest 3 the Android app loads the guide, reaches the server, gets the step located in 1.2 to 1.6 s and speaks the instruction in Greek. Nothing is printed or stuck on the furniture: the guide is placed on the work surface, and the server's camera answer moves it onto the real part (logged twice on the headset). `TODO(tracking: confirm on headset)` Following the part when it moves, with an on-device detector of the white drawer front, is measured on renders only (position error p50 4.6 mm) and has not been seen working on the headset. The WebXR page (`?mode=xr`) is a desktop preview, not the demo path. What is measured and what is not: [docs/SUBMISSION.md](docs/SUBMISSION.md).
+Status on Sun 15 Nov, 14:55: the demo runs on the native Android app, `quest-android/` (Kotlin, Meta Spatial SDK); `quest-unity/` (Unity 6.3, Meta XR SDK) is the backup. The demo guide is `drawer`, built today for the team's own drawer from tape measurements and phone photos (6 steps, 17 actions). Nothing is printed or stuck on the furniture. On a Quest 3 the app finds each board on the floor by its measured size, locks the guide onto the real drawer front with an on-device detector (median size error 5 to 6 mm on trusted frames), reads which way round the front lies from its groove, and moved through four cam bolts and a side panel without a button press. Not proven on real frames: a part the wrong way round, a wrong small part; steps 4 to 6 of the guide have not run on the headset. The WebXR page (`?mode=xr`) is a desktop preview, not the demo path. What is logged and what is not: [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
 Built at the Gen AI Summit Hackathon, Athens, 14–15 Nov 2026.
 
@@ -32,7 +32,8 @@ Headset (Quest 3 in developer mode, USB debugging allowed; builds are described 
 ```sh
 tools/quest/doctor.sh                                     # adb, headset, server, key, APKs
 tools/quest/install.sh android                            # the demo app; unity is the backup
-tools/quest/run.sh android --job malm-drawer --lang el    # launches the app and logs to tools/quest/runs/
+tools/quest/run.sh android --job drawer --lang el         # launches the app and logs to tools/quest/runs/ (malm-drawer is the fallback guide)
+tools/quest/pull_recordings.sh                            # lists today's headset recordings; pull and map them for the video
 ```
 
 The tools read the server URL from `jobs/_host/url.txt` and the demo key from `.env`.

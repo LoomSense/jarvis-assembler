@@ -1,81 +1,49 @@
 # Assembly Guide Agent
 
-Gen AI Summit Hackathon, Athens, 14–15 Nov 2026. Status as of Sun 15 Nov, 12:50 Athens. Demo video script: [DEMO_VIDEO.md](DEMO_VIDEO.md).
+Gen AI Summit Hackathon, Athens, 14–15 Nov 2026. Status as of Sun 15 Nov, 14:55 Athens. Demo video script: [DEMO_VIDEO.md](DEMO_VIDEO.md).
 
-**What it is.** Give it a flat-pack furniture guide (PDF): an agent rebuilds the guide as an animated 3D model, one action at a time, and checks its own work against the guide's drawings. On a Meta Quest 3 a native app then loads that model, asks the server which step the real assembly is at from a camera frame, and shows and speaks the next action in Greek or English. Nothing is printed or stuck on the furniture: the guide is placed on the work surface and the server's camera answer moves it onto the real part.
+**What it does.** It turns a furniture guide into an animated 3D model, one action at a time, and then guides the real assembly through a Meta Quest 3. The headset app (`quest-android/`, native Kotlin) needs nothing printed or stuck on the furniture: it finds each board on the floor by its measured size, lights up the one to take, puts a ghost of the next part on the real drawer front, checks the part in your hand, and moves to the next action by itself. It speaks and writes Greek or English.
 
-**Demoed headset app:** `quest-android/` (Kotlin, Meta Spatial SDK). `quest-unity/` (Unity 6.3, Meta XR SDK) is the backup: it ran on the headset this morning and is not shown in the video.
+**The problem.** Paper guides are drawings without words. They cannot tell you which of two look-alike boards you are holding, which way round it goes, or where you are after a break.
 
-**The problem.** Paper assembly guides are drawings without words. They are precise, but they cannot tell you which of two look-alike screws you are holding, or where you are after a break. People lose time and make mistakes that mean taking the piece apart again.
+**Today's demo.** The team's own drawer, which came with no guide. We measured it with a tape, took 15 phone photos of the parts, and built a guide for it today: job `drawer`, 6 steps, 17 actions, 5 boards, 4 cam bolts, 4 cam locks already seated in the sides, 4 white pegs (`jobs/drawer-src/`, rebuilt in about 20 s).
 
-## What works today, with evidence
+## What the headset showed today
 
-Nothing below is claimed without a measurement, a file or a commit. Run folders in `tools/quest/runs/` are git-ignored and stay on the team's machine.
+Every row is from the app's own event log on the Quest 3 (`agq.jsonl` in `tools/quest/runs/<run>/`; the folders are git-ignored and stay on the team's machine). Runs on the custom guide: `20261115-140717-android`, `-141058-`, `-142733-`, `-143616-`. Times are Athens.
 
-| What | Evidence |
-|---|---|
-| PDF → plan → CadQuery parts → fit checks → animated GLB and manifest, one action at a time | KNAGGLIG box: 37 parts, 41 actions. MALM desk drawer: 19 parts, 26 actions. All fit checks 0.0 mm (`docs/HANDOFF.md` §1, `pipeline/`) |
-| The build agent does this from the PDF alone | KNAGGLIG: 438 s, $2.12, first build passes, plan scorer 1.00 / 1.00 / 1.00. LACK side table: 121 s, $1.03. MALM drawer: first try, about 10 min. MARKUS office chair: 12 min, $2.94 (`docs/PROGRESS.md` §4 and §7; one run each) |
-| Server: jobs, build feed, catalog, voice, perception socket | 225 tests pass (`docs/HANDOFF.md` §1) |
-| Identify the product from one frame | MALM guide page → "MALM desk", 0.99, 3–4 s; a KNAGGLIG render with no text is matched by picture (`server/identify.py`) |
-| Locate the step from one frame | MALM renders: after step 1 → next 2, after step 5 → next 6, finished → done; about 1 s (`server/perception/locate.py`) |
-| Live checks over a socket | Real key: p50 447 ms, p95 822 ms per frame; `step_complete` 2.5 s after the first frame (`server/perception/`) |
-| Step-complete accuracy | **50 of 55 correct, 0 false "done"** at threshold 0.45, up from 46 of 55 and 1 false "done" this morning (on the 49-pair step-by-frame grid inside those calls: 83.7 % → 89.8 %). The same 55 MALM drawer pairs, **renders only**: no hands, no real camera frames (`server/perception/README.md`, commit `9425350`; first run in `jobs/_verify/`). What changed: hardware that the reference picture hides gets a close-up as a third image. **Step 3** (cam locks) is still marginal: 0.46 when done against the 0.45 line, 0.42 on the frame before it. Step 7 (runner screws) no longer fires on its "before" frame (0.34; 0.60 when done) |
-| The parts a step needs, from one frame | `POST /api/perception/{job}/parts` with `mode: "step"`: every item of the step with a box per instance and counts ("3 of 4 in view"). 6 real calls on MALM renders pasted on a plain background, **not photos**: 4.5 to 6.6 s, median 5.1 s, counts right in 6 of 6; one wrong answer, a side panel boxed as the back panel of the same outline (`server/perception/README.md`, commit `bf86cb5`) |
-| The drawer front on the table without a marker, offline | x, y and yaw of the white 380 × 130 mm panel from one frame (`server/perception/panel.py`; Kotlin port `quest-android/app/src/main/java/com/agj/android/vision/PanelPose.kt`). **Renders only**, degraded on purpose: 71 of 90 panel-alone frames trusted (79 %), position error p50 4.6 mm (p90 10.8, max 17.0); 0 of 270 later-assembly frames and 0 of 12 hand-over-panel frames trusted, so no grossly wrong pose was trusted (`tools/markerless/FRONT_PANEL.md`) |
-| Both native apps build, and place every part within 1 mm of the manifest target on MALM and KNAGGLIG | Android: 57 JVM tests, max error 0.0 mm (`4882a92`, `quest-android/README.md`). Unity: EditMode 15/15, max error 0.0000 mm (`7c62ad2`, `quest-unity/README.md`) |
-| Printed-marker tracker (in both apps, **not used in the demo**: there is no printed strip) | Offline only. Synthetic 300-frame replay, 300/300 tracked: Android median error 1.37 mm (`eval/judge/round-1/android-track.txt`), Unity median 0.83 mm (`quest-unity/README.md`, EditMode test) |
-
-**On the Quest 3 today, the demo app** (`quest-android`, job `malm-drawer`, Greek). Five launches from 12:10 to 12:37: runs `20261115-121052-android`, `-121244-`, `-121737-`, `-122616-` (continued in `-123054-`) and `-123728-`; the last two ran for about ten minutes each. Events are in each run's `agq.jsonl`. The headset's battery ran out at about 12:45 (the last logged event is at 12:46) and it is charging until about 13:30, so there is no device evidence after that yet.
-
-| | Logged |
-|---|---|
-| Camera | live, 1280×960, with the camera pose on the frames sent to the server (`camera_frame`, `parts … cam_pose: true`) |
-| Guide loaded | 1.8 to 2.3 s from the server, 7 steps, 19 parts, max error 0.0 mm (`job_loaded`) |
-| Locate answered | 1.15 to 1.58 s → step 1, on all five launches (`locate`) |
-| First part of the guide shown | 4.9 to 5.6 s after the app starts (`ghost_show`) |
-| Perception socket | connected, vision live. Ack round trip: median 110 to 124 ms over the two long runs (one-second windows from 56 to 545 ms; up to 730 ms just after connecting). The only event received so far is `more_light` (24 times, 0.46 to 0.92 s) |
-| Voice | the Greek instruction is spoken on every launch (0.14 to 0.22 s, cached), and the cam bolt line after a press on Next (run `-121244-`) |
-| Frame rate | p50 75 to 88 fps. p5 83 to 85 fps over the two long runs; 37 to 50 fps over the first minute after a launch (four runs) |
-| Work surface | no room scan on this headset (`scene: error_no_rooms_found`), so the guide starts at a fixed spot in front of the wearer and takes its height from the depth raycast. The first height came 9 and 10 minutes after launch in the two long runs, and it moved between −0.03 and 0.56 m within 30 s in run `-123054-` |
-| The server moves the guide onto the real part | logged twice: the server's box for the drawer front (confidence 0.96, run `-121244-`; 0.98, run `-123054-`) moved the guide 0.33 m and 0.54 m to where that box meets the work surface (`place … source: server_box`); the wearer saw it land on the part the first time. The call takes 2.9 to 11.0 s on the headset (median 4.2 s, 194 calls) and reported the drawer front in 10 of them; the logs do not say in how many frames it was in view |
-| The guide follows the part when it moves | **not yet**: see the first honest limit |
-| Hand tracking | failed to start on every launch (`hands_source … joints: -1`); being fixed. The Next button was pressed once (run `-121244-`, `step … by: button`) |
-
-The backup app (`quest-unity`) ran this morning (run `20261115-114020-unity`): guide loaded, locate answered in 1.51 s → step 1 at confidence 0.84, first part shown 16.3 s after launch, 69 to 72 fps over 25 s.
-
-## How the Gemini models are used
-
-| Model ID | Use | Where |
+| Shown | Log event and run | Numbers |
 |---|---|---|
-| `gemini-decision-1` | Live frame checks (step complete, wrong hardware, wrong orientation), locating the step, and scoring each built step against the guide's drawing | `server/perception/decider.py`, `locate.py`, `pipeline/check/step_check.py` |
-| `gemini-4-hydrogen` | Identifying the product, writing the per-step questions, answering questions during assembly, parts inventory, finding a part (or every part of a step) in the camera frame, voice commands | `server/identify.py`, `pipeline/perception/questions.py`, `pipeline/ask.py`, `pipeline/inventory.py`, `server/perception/pile.py`, `server/voice.py` |
-| `gemini-3.8-flash-lite-tts` | The spoken instructions (`POST /api/tts`) | `server/routes/tts.py` |
-| `gemini-3.8-live` | Voice session token (`POST /api/live/token`); a session opened from Python, not used by the headset apps | `server/live_token.py` |
-| `gemini-4-carbon` | Called once in the model smoke test; not in the running pipeline | `eval/smoke_models.py` |
+| Every board found by its size, the one to take lit | `flat_parts`, run `-141058-`, 14:11:31–14:14:04 | Front read as 405 × 201 mm (guide 400 × 200), sides 431–435 × 109–110 (450 × 110), back 337 × 94–96 (334 long), bottom 446 × 341 (450 × 350). 25 passes with four or more boards labelled. `lit` named the front at step 1 and the left side panel at step 3. 24 of 256 passes had a rectangle it could not label, and a few list a board twice |
+| The guide locked on the real front, no marker | `panel … trusted: true`, `place … source: markerless` | 71 trusted frames in run `-141058-`, 40 in `-142733-`. Placed by the on-device detector at 14:11:49, 14:28:06 and 14:36:27; in the two later runs 12 s and 10 s after the first step appeared, without the server's box placing it first. Measured size against the guide's 400 × 200 mm: median error 5.8 mm and 4.9 mm (p90 20.0 and 8.7, max 25.4) |
+| The same, seen | `jobs/_media/stills/08-headset-capture-1350.jpg` | Headset capture at 13:50: the left side panel's ghost standing on the real front. That run (`-134623-`) used the earlier guide rebuilt with the same tape measurements |
+| Which way round the front lies, from its groove | `panel.cue` | Decided on every trusted frame (71 of 71, 40 of 40): score 13–38 for the chosen way round against under 5 for the other. One 180° turn applied, at 14:28:06 |
+| "Take" → "put it here" → next action, no button | `coach_phase`, run `-141058-`, 14:12:09–14:14:39 | Four cam bolts and the left side panel: by `right_part`, `part_moved`, `placed` (hands away) and `step_complete`. The step before them was a press on Next in that run and `step_complete` in run `-142733-` |
+| The right part in the hand | `held_verdict right`, 13:21–14:29 | Nine verdicts from the server: front 0.86–0.92, cam bolt 0.76–0.86, side panel 0.88–0.89 (four of the nine on the custom guide) |
+| Camera, speech, frame rate, hands | `track`, `voice`, `held` | 1280 × 960 frames with a pose each, Greek instructions spoken, 81–86 fps median (5th percentile 38–64), finger joints (`source: skeleton`), pinch detected |
 
-The plan and the part scripts are written by a build agent on the Claude Agent SDK (`docs/PLAN.md` D20; the demo runs it on `claude-fable-5-2` through `AGJ_AGENT_MODEL`, the code default and the timed builds above are `claude-opus-5-5`); Gemini checks its output and does everything live.
-
-## Architecture
+## How it works
 
 ```
-guide.pdf ─► build agent ─► plan.json + CadQuery parts ─► fit checks ─► Blender ─► walkthrough.glb + manifest.json
-                 ▲ fixes until checks pass      ▲ gemini-decision-1 scores each step against the guide's drawing
-FastAPI server: jobs, feed (SSE), catalog, /api/identify, /locate, /parts, WS /ws/perception, /api/tts
-        ▲ camera frames (768 px JPEG, up to 4 Hz), hand summaries        ▼ GLB, manifest, events, speech
-Quest 3 native app (quest-android; quest-unity is the backup): passthrough, ghost, step window, voice.
-  No marker: placed on the work surface, moved onto the part by the server's box, drawer-front detector on the device
-Browser: three.js walkthrough (client/), checked in desktop Chrome and an emulated iPhone, not on a real phone
+guide PDF, or tape measurements and photos ─► plan.json ─► CadQuery parts ─► fit checks ─► Blender ─► walkthrough.glb + manifest.json
+FastAPI server: jobs, catalog, /api/identify, /locate, /parts, WS /ws/perception, /api/tts        ▲ camera frames ▼ verdicts, boxes, speech
+Quest 3 app: passthrough, ghost, step window, voice; on-device detectors at 3 Hz for the base board, every flat board, the groove
 ```
+
+- **Build.** From a PDF, a build agent (Claude Agent SDK) writes the plan and the CadQuery script of every part, and fixes them until the fit checks pass: KNAGGLIG box, 37 parts and 41 actions, 438 s and $2.12 from the PDF alone; MALM desk drawer, 19 parts and 26 actions, every fit check 0.0 mm. For the custom drawer the plan came from our measurements (`make_plan.py`); the rest is the same pipeline.
+- **Server perception (Gemini).** `gemini-decision-1`: live frame checks over a socket (step complete, right or wrong part, wrong way round), locating the step, scoring each built step against the guide's drawing. `gemini-4-hydrogen`: boxes for the parts a step needs (`/parts`), product identification, the per-step questions, voice commands. `gemini-3.8-flash-lite-tts`: the spoken instructions. `gemini-3.8-live`: a voice session token, not used by the headset app. `gemini-4-carbon`: only in the model smoke test.
+- **On the headset, no model call.** `vision/PanelPose.kt` finds the step's base board (x, y, yaw) from the guide's own mesh sizes, `vision/RecessCue.kt` reads which way round it lies, `world/FlatParts.kt` labels every board on the floor, hand joints come from the body-tracking API. The server's slower answers (5–20 s for `/parts`) fill in the loose hardware.
+- The build agent is not a Gemini model: `claude-fable-5-2` for the demo (`AGJ_AGENT_MODEL` in `.env`), code default `claude-opus-5-5`. Gemini checks its output and does everything live.
 
 ## Honest limits
 
-- `TODO(tracking: confirm on headset)` **The guide does not yet follow the real part on the headset.** It is placed on the work surface, and the server's camera answer moves it onto the drawer front (logged twice, table above). The on-device detector that should then follow the part at 3 Hz is measured on renders only; in today's runs it trusted no frame (954 samples: 886 had no work-surface height yet, 40 looked at a picture and rejected it, the rest were not looking down or had no camera pose). *If a headset run shows it working, this line becomes:* "On the headset the guide follows the drawer front when it is slid or turned (on-device detector, 3 Hz; run and numbers)."
-- No `step_complete`, wrong-part warning or identify has been logged on the headset. The accuracy numbers are from renders; a real camera, hands and room light are not measured.
-- Step 3 of the MALM drawer is marginal (above), so the person always keeps Next and Back.
-- The app's hand tracking did not start in today's runs, so nothing that needs fingertips (hand summaries for the live checks, touching a corner) has run on the headset.
-- The WebXR client (`client/src/xr/`) exists but is not the demo path: Quest Browser on our headset exposed no camera (`eval/judge/round-0/quest-camera-diag.json`), and WebXR gives no camera pose. It runs as a desktop preview.
-- Device numbers are from five launches of one app on one afternoon. Guides are IKEA's; PDFs and crops stay out of git except the test guides.
+- **Wrong way round and a wrong small part are unproven on real frames.** Both come from the server only. No `flip_needed` was logged on the headset. A `wrong_part` verdict was spoken twice (14:09:44 and 14:10:17, a side panel where a cam bolt was expected, 0.84 and 0.85), but the log does not say what was in the hand, so we do not claim it. A wrong board picked up is not caught on the device yet.
+- **Steps 4 to 6 of the custom guide have not run on the headset** (right side, bottom, back and pegs), nor the finish. The furthest logged point is step 3, action 1 (the first cam lock, shown at 14:14:39, not done). The two runs after the 14:19 build stop at steps 2 and 1.
+- **One drawer, one room, one afternoon.** Boards need a 3 cm gap and a floor darker than they are; two touching boards read as one. The numbers above are the detector's size error, not a measured position error of the ghost: for that there is the capture and the wearer's eyes.
+- Trusted frames can be up to 25 mm off in size (the gate is 30 / 25 mm). A re-align at step 3 put the guide 22 cm above the floor (14:14:38); the 14:19 build changes this and the logs since do not reach that step.
+- Run `-142733-` logged no tracked hand for its three minutes (`hands_status`); hands were back in run `-143616-`.
+- The step-check accuracy we measured is on renders only: 50 of 55 correct with no false "done" on the MALM drawer (`server/perception/README.md`).
+- 286 Android JVM tests and 331 server tests pass according to `docs/HANDOFF.md`; they were not re-run for this page. The WebXR client is a desktop preview, not the demo path. `quest-unity/` is the backup app and is not shown.
 
 ## Run it
 
@@ -83,11 +51,12 @@ Browser: three.js walkthrough (client/), checked in desktop Chrome and an emulat
 make setup && make env        # then add GEMINI_API_KEY to .env
 make dev                      # server on http://localhost:8000
 make smoke                    # second terminal: build the golden guide end to end
-tools/quest/doctor.sh && tools/quest/install.sh android   # the demo app; unity is the backup
-tools/quest/run.sh android --job malm-drawer --lang el    # logs to tools/quest/runs/
+.venv/bin/python jobs/drawer-src/build.py                  # the custom drawer guide (its sources are on the demo Mac)
+tools/quest/doctor.sh && tools/quest/install.sh android    # the demo app
+tools/quest/run.sh android --job drawer --lang el --secs 600 --keep-running    # logs to tools/quest/runs/
 ```
 
-The server URL and demo key are read from `jobs/_host/url.txt` and `.env`; neither is in git. Details: `README.md`, `quest-android/README.md`, `quest-unity/README.md`.
+The server URL and demo key are read from `jobs/_host/url.txt` and `.env`; neither is in git. Details: `README.md`, `docs/HANDOFF.md`, `quest-android/README.md`.
 
 ## Team and credits
 
@@ -97,9 +66,10 @@ The server URL and demo key are read from `jobs/_host/url.txt` and `.env`; neith
 
 ## Before submitting (delete this section)
 
-- `TODO(tracking: confirm on headset)`: waits for the headset (charging until about 13:30) and then for a run whose `agq.jsonl` shows `panel` events with `trusted: true` and `place` events with `source: markerless` while the drawer front is slid and turned. If it does, replace the marked line in "Honest limits" and the row "The guide follows the part" with the claim and that run's numbers, and do the same in `README.md` (status paragraph) and `docs/DEMO_VIDEO.md` (shot 8, level A). If it does not, delete only the marker and the sentence in italics.
-- `TODO(video)`: waits for the headset recordings H1 to H5 (`docs/DEMO_VIDEO.md`). Both cuts are built with the voice-over and placeholder cards in `jobs/_media/cut/`; its `README.txt` says where the clips go and what to change for each tracking outcome. The voice is synthesized and was checked by measurement only: listen to it once.
-- `TODO(job text)`: the demo job `malm-drawer` was built at 09:08, before the instruction-text fix (`e32eadd`, 09:42). Its dowel, cam lock and plastic pin actions (steps 2, 3 and 5) still say "screw it in here. Screw 1 of 2" in both languages; step 1 (cam bolts) is right. Either rebuild the job's text before recording past step 1, or record step 1 only, as the script does. The video hides those captions.
-- `TODO(names)`: team names, here and on the video's end card. `TODO(confirm on the form)`: track name and the form's required fields; they are not recorded in the repo.
-- `TODO(model rules)`: the build agent is not a Gemini model (`docs/PLAN.md` D20 and D22 say to check the event's rules). Confirm before submitting.
-- `TODO(length)`: the form's video limit is not recorded in the repo; a 2:47 cut and a 60 s cut both exist.
+- `TODO(names)`: team names, here and on the video's end card (`TEAM NAMES` in `jobs/_media/cut/shots.txt` and `shots-60s.txt`). Waits for the team.
+- `TODO(confirm on the form)`: the track name and the form's required fields are not recorded in the repo. Waits for someone to open the form.
+- `TODO(length)`: the form's video length limit is not recorded in the repo. A 2:42 cut and a 60 s cut are both built; pick one when the limit is known.
+- `TODO(model rules)`: the build agent is not a Gemini model (`claude-fable-5-2` for the demo, code default `claude-opus-5-5`; `docs/PLAN.md` D20 and D22 say to check the event's rules). Confirm before submitting, and say it in the form if asked.
+- `TODO(video)`: the five headset shots are placeholders until one recording session is done: `docs/DEMO_VIDEO.md`, "Recording session". Then listen to the synthesized voice-over once; nobody has.
+- `TODO(steps 4–6)`: if a run after 14:40 goes past step 3, replace the second limit with that run's `coach_phase` events. If the recorded take does not show the guide following the front, use the "nofollow" voice-over line (`docs/DEMO_VIDEO.md`, fallback).
+- The evidence is in git-ignored folders on the demo Mac (`tools/quest/runs/`, `jobs/_media/`). Keep that Mac's copy until judging is over.
