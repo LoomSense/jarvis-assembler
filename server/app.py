@@ -78,7 +78,24 @@ def _ensure_probe(app: FastAPI) -> None:
         app.state.probe = asyncio.create_task(_probe_tools(app))
 
 
+ENV_FILE_PREFIXES = ("AGJ_", "OUMI_", "TTS_")
+ENV_FILE_NAMES = ("ANTHROPIC_API_KEY", "CAD_SANDBOX", "GLTFPACK_BIN")
+
+
+def export_env_file() -> None:
+    """The build agent, the step check and the voice read their settings from the process environment
+    (AGJ_AGENT_MODEL, ANTHROPIC_API_KEY, ...). Copy them from `.env`, so that one file controls the server.
+    A variable already set in the environment wins."""
+    from dotenv import dotenv_values
+
+    for name, value in dotenv_values(ROOT / ".env").items():
+        if value and (name.startswith(ENV_FILE_PREFIXES) or name in ENV_FILE_NAMES):
+            os.environ.setdefault(name, value)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
+    if settings is None:
+        export_env_file()
     settings = settings or Settings()
     if not settings.demo_key:
         raise RuntimeError("DEMO_KEY is not set. Run `make env`, or add DEMO_KEY to .env (see .env.example).")

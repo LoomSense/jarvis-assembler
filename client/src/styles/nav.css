@@ -1,0 +1,53 @@
+/* The app's navigation (src/nav.ts): two quiet round controls under the language switch, on every screen. */
+#appnav {
+  position: fixed;
+  z-index: 40;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#appnav a {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(246, 236, 219, 0.2);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(246, 236, 219, 0.64);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#appnav a:hover,
+#appnav a:focus-visible {
+  color: #f6ecdb;
+  border-color: #f6ecdb;
+}
+#appnav a:focus-visible {
+  outline: 2px solid #f6ecdb;
+  outline-offset: 2px;
+}
+#appnav a:active {
+  transform: scale(0.96);
+}
+#appnav a[aria-current='page'] {
+  color: #f6ecdb;
+  border-color: rgba(246, 236, 219, 0.46);
+  background: rgba(246, 236, 219, 0.1);
+  cursor: default;
+}
+#appnav svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  #appnav a { transition: none; }
+}
