@@ -15,8 +15,9 @@ def seeded(name, salt=""):
     return np.random.default_rng(int(hashlib.md5((name + salt).encode()).hexdigest()[:8], 16))
 
 
-def degrade(img, name, dim=False):
-    """Sensor-like degradation: motion blur, gaussian noise, JPEG."""
+def degrade_jpeg(img, name, dim=False):
+    """Sensor-like degradation: motion blur, gaussian noise, JPEG. Returns the JPEG bytes (what a camera
+    would hand over; `degrade` is this, decoded)."""
     r = seeded(name, "deg")
     L = int(r.integers(0, 10))  # motion blur length in full-res px (head motion)
     if L >= 2:
@@ -30,7 +31,12 @@ def degrade(img, name, dim=False):
     img = np.clip(img.astype(np.float32) + r.normal(0, sigma, img.shape), 0, 255).astype(np.uint8)
     q = int(r.integers(60, 91))
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, q])
-    return cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    return buf
+
+
+def degrade(img, name, dim=False):
+    """Sensor-like degradation: motion blur, gaussian noise, JPEG."""
+    return cv2.imdecode(degrade_jpeg(img, name, dim), cv2.IMREAD_COLOR)
 
 
 def rot_err_deg(R1, R2):

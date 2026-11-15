@@ -26,6 +26,10 @@ import kotlinx.serialization.json.jsonObject
  * @property reducedMotion true = no breathing, mover or travelling dash (XR_NATIVE_SPEC §7); extra `reduced_motion`.
  * @property markerless true (the default) = the front-panel detector (vision/PanelPose.kt) may snap the ghost onto
  *   the real drawer front; `--ez markerless false` switches it off.
+ * @property dumpFrames true = record camera frames with everything the trackers were given (vision/FrameDump.kt) to
+ *   `files/dump/<session>/` for the offline tools; extra `dump_frames`. Off by default.
+ * @property dumpHz frames a second to record (extra `dump_hz`, `--ei dump_hz 3`; 0.2–30, default 3).
+ * @property dumpMax frames at most in one recording (extra `dump_max`, `--ei dump_max 400`; 1–5000, default 400).
  */
 data class Params(
     val server: String = "",
@@ -36,6 +40,9 @@ data class Params(
     val hud: Boolean = false,
     val reducedMotion: Boolean = false,
     val markerless: Boolean = true,
+    val dumpFrames: Boolean = false,
+    val dumpHz: Double = 3.0,
+    val dumpMax: Int = 400,
 ) {
   /** For the `start` log event: the key is reduced to whether it is set. */
   fun toLogMap(): Map<String, Any?> =
@@ -48,10 +55,14 @@ data class Params(
           "hud" to hud,
           "reduced_motion" to reducedMotion,
           "markerless" to markerless,
+          "dump_frames" to dumpFrames,
+          "dump_hz" to dumpHz,
+          "dump_max" to dumpMax,
       )
 
   companion object {
-    val KEYS = listOf("server", "key", "job", "lang", "replay", "hud", "reduced_motion", "markerless")
+    val KEYS =
+        listOf("server", "key", "job", "lang", "replay", "hud", "reduced_motion", "markerless", "dump_frames", "dump_hz", "dump_max")
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     /**
@@ -94,8 +105,19 @@ data class Params(
           hud = bool(m["hud"]),
           reducedMotion = bool(m["reduced_motion"]),
           markerless = m["markerless"]?.let { bool(it) } ?: true,
+          dumpFrames = bool(m["dump_frames"]),
+          dumpHz = number(m["dump_hz"])?.takeIf { it.isFinite() && it > 0 }?.coerceIn(0.2, 30.0) ?: 3.0,
+          dumpMax = number(m["dump_max"])?.takeIf { it.isFinite() && it >= 1 }?.toInt()?.coerceIn(1, 5000) ?: 400,
       )
     }
+
+    /** A number from an extra (`--ei` Int, `--ef` Float, `--es` String) or config.json; null when it is not one. */
+    private fun number(v: Any?): Double? =
+        when (v) {
+          is Number -> v.toDouble()
+          null -> null
+          else -> v.toString().trim().toDoubleOrNull()
+        }
 
     private fun str(v: Any?): String? = v?.toString()?.trim()
 
