@@ -442,6 +442,10 @@ class WorldModule(
   fun baseInPlace(nowMs: Long, forMs: Long = 2500L): Boolean =
       !farFromWearer && (baseInPlaceSinceMs?.let { nowMs - it >= forMs } ?: false)
 
+  /** Since when (elapsedRealtime) the base part has lain still where it is now; null = not seen in place now. */
+  val baseStillSinceMs: Long?
+    get() = baseInPlaceSinceMs
+
   private fun updateComfort(head: Pose3) {
     val b = basePart
     val a = anchor.pose

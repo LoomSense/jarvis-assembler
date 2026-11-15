@@ -91,6 +91,10 @@ class ActionCoach(private val cfg: Config = Config()) {
       val nearM: Float = 0.30f,
       /** After a wrong part is reported, the automatic signals wait this long. */
       val wrongMs: Long = 6_000,
+      /** PICK: a grip that began up to this long before "take" still counts (the hand went for the next part early). */
+      val gripLeadMs: Long = 3_000,
+      /** PICK: a closed hand that was at the part within this long has carried it off when its marker goes. */
+      val nearMemoryMs: Long = 8_000,
       /** PICK: a hand that closed at the part and has moved this far since has taken it. */
       val carryM: Float = 0.20f,
       /** PLACE: a hand must have been at the target this long in all… */
@@ -155,6 +159,8 @@ class ActionCoach(private val cfg: Config = Config()) {
    * from screwing the last bolt in, begun within reach of the pile, moved the third bolt on in its first second.
    */
   private var carriedGripMs = FAR_PAST
+  /** When a hand was last within [Config.nearM] of where an instance of the part to take lay. */
+  private var nearAtMs = FAR_PAST
   private val rest = LinkedHashMap<Int, Vec3>() // where each instance lay when it was first seen
   private var leftSinceMs: Long? = null
   private var handSeen = false // a hand was tracked at some time during this action
@@ -188,6 +194,7 @@ class ActionCoach(private val cfg: Config = Config()) {
     sinceMs = nowMs
     wrongAtMs = FAR_PAST
     wrongWhilePlacing = false
+    nearAtMs = FAR_PAST
     rest.clear()
     leftSinceMs = null
     dwellMs = 0
@@ -257,6 +264,7 @@ class ActionCoach(private val cfg: Config = Config()) {
   fun backToPick(nowMs: Long, why: String = "asked"): CoachChange? {
     if (phase != CoachPhase.PLACE || !hasPick) return null
     rest.clear()
+    nearAtMs = FAR_PAST
     return move(CoachPhase.PICK, why, nowMs)
   }
 
@@ -297,7 +305,7 @@ class ActionCoach(private val cfg: Config = Config()) {
     val hand = sight.hand
     // the hand closed where the part lay and has carried it off: nothing more to wait for
     val grip = sight.gripStart
-    if (sight.holding && (sight.holdingSinceMs >= sinceMs || sight.holdingSinceMs == carriedGripMs) && hand != null && grip != null &&
+    if (sight.holding && (sight.holdingSinceMs >= sinceMs - cfg.gripLeadMs || sight.holdingSinceMs == carriedGripMs) && hand != null && grip != null &&
         (hand - grip).length() > cfg.carryM &&
         rest.values.any { (grip - it).length() < cfg.nearM } && settled(nowMs) && !wrongFresh(nowMs))
         return move(CoachPhase.PLACE, "part_moved", nowMs, "grab")
@@ -306,7 +314,11 @@ class ActionCoach(private val cfg: Config = Config()) {
     // a hand where the part lay (or where it is now) makes "gone / moved" mean "taken"; a hand closed somewhere else
     // does so only for a board that clearly moves (a long board is held far from its middle). Small hardware comes
     // from the server's answers, which come and go (4 boxes, then 2, then 4 again): those are not "taken"
-    var handThere = false
+    if (hand != null && rest.values.any { (hand - it).length() < cfg.nearM }) nearAtMs = nowMs
+    // …and a hand that is closed now and was at the part within the last [Config.nearMemoryMs] has carried it off:
+    // the marker goes seconds after the hand has left (the picture is followed, the server answers every 5 s), and
+    // on the headset "take" stayed up for 85 s with the bolt in the hand
+    var handThere = sight.holding && nowMs - nearAtMs <= cfg.nearMemoryMs
     for ((key, at) in rest) {
       val cur = sight.spots.firstOrNull { it.key == key }
       val gone = cur == null && sight.looking && sight.spots.none { (it.pos - at).length() < cfg.sameM }

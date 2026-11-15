@@ -894,6 +894,9 @@ class MainActivity : AppSystemActivity() {
     val ids = if (act?.label(lang) != null && !act.preinstalled) listOfNotNull(act.partId, act.code) else emptyList()
     val next = assembly?.guide?.next(step, action)
     val why = coachWhy ?: if (again) "repeat" else if (by == StepBy.VOICE) "voice" else if (by == StepBy.AUTO) "start" else "next"
+    // BASE-IN-PLACE: who brought this action up, and when (a part already lying there does not end it after Back)
+    baseEntryByWearer = by != StepBy.AUTO
+    baseEntryMs = SystemClock.elapsedRealtime()
     coachWhy = null
     coachHeldLine = null
     coachSaidWhere = false
@@ -1098,8 +1101,11 @@ class MainActivity : AppSystemActivity() {
     val phase = actionCoach.phase
     // BASE-IN-PLACE: the base part already lies where it should (the detector holds it, close by, still for 2.5 s):
     // its action is done without anyone touching it
+    // …but not against the wearer: after Back or Repeat brought the step up, only a part that was put down since
+    // counts (on the headset every Back to step 1 was answered with step 2 six seconds later)
     if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing && curStep == world.basePart?.step &&
-        coachAct()?.partId == world.basePart?.partId && world.baseInPlace(now)) {
+        coachAct()?.partId == world.basePart?.partId && world.baseInPlace(now) &&
+        (!baseEntryByWearer || (world.baseStillSinceMs ?: 0L) > baseEntryMs)) {
       coachApply(actionCoach.inPlace(now), source = "device")
       if (actionCoach.phase == com.agj.android.ui.CoachPhase.DONE) return
     }
@@ -1201,6 +1207,10 @@ class MainActivity : AppSystemActivity() {
    * (`placed`, the server's `step_complete`); the honest line the first time the no-hands timer ends one. Otherwise
    * (Next, "επόμενο") only the line that is now stale stops, and the next action speaks for itself.
    */
+  // BASE-IN-PLACE: the base step was brought up by the wearer (Back, Repeat, voice), and when
+  private var baseEntryByWearer = false
+  private var baseEntryMs = 0L
+
   /** The server's `right_way` sentence while its action ends ([liveDone] puts it first). */
   private var liveRightWay: String? = null
 
