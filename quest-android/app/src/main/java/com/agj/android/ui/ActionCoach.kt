@@ -213,7 +213,13 @@ class ActionCoach(private val cfg: Config = Config()) {
   /** The server saw a wrong part in the hand: the phase stays, and `part_moved` / `timer` wait [Config.wrongMs]. */
   fun wrongPart(nowMs: Long) {
     if (phase != CoachPhase.DONE) wrongAtMs = nowMs
-    if (phase == CoachPhase.PLACE) wrongWhilePlacing = true
+    if (phase == CoachPhase.PLACE) {
+      wrongWhilePlacing = true
+      // what the hand did before the verdict proves nothing now: it must be at the part again, then away
+      dwellMs = 0
+      awayMs = 0
+      leftAtMs = null
+    }
   }
 
   /** A wrong part was reported less than [Config.wrongMs] ago (the right part's marker stays up meanwhile). */
@@ -252,6 +258,12 @@ class ActionCoach(private val cfg: Config = Config()) {
     if (phase != CoachPhase.PLACE || !hasPick) return null
     rest.clear()
     return move(CoachPhase.PICK, why, nowMs)
+  }
+
+  /** The device sees the action's part lying at its place (the base part, held by the detector): done, from any phase. */
+  fun inPlace(nowMs: Long): CoachChange? {
+    if (phase == CoachPhase.DONE || !settled(nowMs)) return null
+    return move(CoachPhase.DONE, "placed", nowMs, "in_place")
   }
 
   /** A server `action_complete` (not sent today): this one action is done. */

@@ -1096,6 +1096,13 @@ class MainActivity : AppSystemActivity() {
     val all = world.pickTargets
     val mine = all.filter { it.id in coachIds }
     val phase = actionCoach.phase
+    // BASE-IN-PLACE: the base part already lies where it should (the detector holds it, close by, still for 2.5 s):
+    // its action is done without anyone touching it
+    if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing && curStep == world.basePart?.step &&
+        coachAct()?.partId == world.basePart?.partId && world.baseInPlace(now)) {
+      coachApply(actionCoach.inPlace(now), source = "device")
+      if (actionCoach.phase == com.agj.android.ui.CoachPhase.DONE) return
+    }
     if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing) {
       mine.firstOrNull()?.let { coachSpot = it.worldPos }
       val spot = coachSpot
@@ -1109,7 +1116,8 @@ class MainActivity : AppSystemActivity() {
       // a fastener turned with a tool (cam lock, screw) keeps the hand a screwdriver's length away from it
       val toolKind = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)?.hardwareKind in setOf("cam", "screw")
       val reach = if (toolKind) 0.22f else 0.06f
-      val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= reach } }
+      val listening = toolKind && voice.speaking // its instruction is being read: no praise before it has been heard
+      val atTarget = !listening && box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= reach } }
       val sight =
           com.agj.android.ui.PickSight(
               // FLAT-PARTS: the rectangle's own target comes and goes with the camera's view (live for 2 s): it is not a
@@ -1121,7 +1129,7 @@ class MainActivity : AppSystemActivity() {
               looking = looking,
               gripStart = coachGripAt,
               atTarget = atTarget,
-              tracked = hands.isNotEmpty(),
+              tracked = hands.isNotEmpty() && !listening,
               nextSpots = if (phase == com.agj.android.ui.CoachPhase.PLACE) all.filter { it.id in coachNextIds }.map { it.worldPos } else emptyList(),
               // a tool-turned fastener, or a board that is followed by more work in the same step: the hand stays
               dwellEnds = toolKind || (coachAct()?.kind == ActionKind.PLACE && !actionCoach.lastOfStep),

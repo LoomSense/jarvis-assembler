@@ -422,6 +422,18 @@ class WorldModule(
    * (measured on the floor) switches the hint on and latches a comfortable spot (the fixed spot in front of the
    * head, on the measured surface); nearer than [NEAR_M] switches it off. In between nothing changes.
    */
+  // BASE-IN-PLACE: the base part (the drawer front) already lies where the guide can use it
+  private var baseStillAt: com.agj.android.core.Vec3? = null
+  @Volatile private var baseInPlaceSinceMs: Long? = null
+
+  /**
+   * The base part lies in place: the detector has held it (its size, its groove's side) at one spot, close to the
+   * wearer, for [forMs]. Its "place" action is then done without anyone touching it: a session that starts with the
+   * front already on the floor goes straight to the bolts instead of asking for the front to be put down again.
+   */
+  fun baseInPlace(nowMs: Long, forMs: Long = 2500L): Boolean =
+      !farFromWearer && (baseInPlaceSinceMs?.let { nowMs - it >= forMs } ?: false)
+
   private fun updateComfort(head: Pose3) {
     val b = basePart
     val a = anchor.pose
@@ -429,6 +441,8 @@ class WorldModule(
     val live = b != null && a != null && fp != null && (curStep == null || curStep == b.step) &&
         anchor.source == PlaceSource.MARKERLESS && anchor.sourceName == PlaceSource.MARKERLESS.wire && anchor.markerlessFresh(4000)
     if (!live) {
+      baseStillAt = null // BASE-IN-PLACE: not seen now (carried, covered, another step)
+      baseInPlaceSinceMs = null
       if (farFromWearer && (b == null || a == null || (curStep != null && curStep != b.step))) farFromWearer = false
       return // not seen right now (carried in the hands): keep the hint and its outline where they are
     }
@@ -436,6 +450,15 @@ class WorldModule(
     val dx = c.x - head.t.x
     val dz = c.z - head.t.z
     val dist = kotlin.math.sqrt(dx * dx + dz * dz)
+    // BASE-IN-PLACE: since when the detector has held the base part at one spot (within 3 cm), close to the wearer
+    val still = baseStillAt
+    if (dist > FAR_M) {
+      baseStillAt = null
+      baseInPlaceSinceMs = null
+    } else if (still == null || kotlin.math.hypot((still.x - c.x).toDouble(), (still.z - c.z).toDouble()) > 0.03) {
+      baseStillAt = c
+      baseInPlaceSinceMs = SystemClock.elapsedRealtime()
+    }
     if (!farFromWearer && dist > FAR_M) {
       val spot = BasePlacement.fixedSpot(head)
       val y = surfaceY ?: a.t.y

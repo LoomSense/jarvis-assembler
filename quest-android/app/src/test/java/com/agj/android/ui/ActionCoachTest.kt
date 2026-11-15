@@ -445,8 +445,11 @@ class ActionCoachTest {
     toPlace()
     frames(1500, PickSight(hand = wristAway, atTarget = true))
     coach.wrongPart(now)
-    assertNull(frames(5900, PickSight(hand = wristAway)))
-    assertEquals("placed", frames(200, PickSight(hand = wristAway))!!.why)
+    // what the hand did before the verdict proves nothing: away alone no longer ends the action…
+    assertNull(frames(6500, PickSight(hand = wristAway)))
+    // …the hand is at the part again (the mistake is being put right), then away
+    assertNull(frames(1500, PickSight(hand = wristAway, atTarget = true)))
+    assertEquals("placed", frames(2200, PickSight(hand = wristAway))!!.why)
   }
 
   @Test

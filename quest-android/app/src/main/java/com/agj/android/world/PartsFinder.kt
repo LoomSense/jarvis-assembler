@@ -171,6 +171,7 @@ class PartsFinder(
     generation++
     tracks.clear(keepBase = true) // the base part's track keeps moving the ghost
     lastStart = Long.MIN_VALUE / 2 // ask at once
+    inFlightSince = null // ...also while the answer about the last action is still on its way (5 to 14 s): it is dropped
   }
 
   val active: Boolean
@@ -208,7 +209,7 @@ class PartsFinder(
         } catch (e: Exception) {
           log.event("parts", mapOf("ok" to false, "ms" to clockMs() - t0, "want" to q.want, "step" to q.a?.step,
               "error" to (e.message ?: e.javaClass.simpleName)))
-          inFlightSince = null
+          if (q.gen == generation) inFlightSince = null // an answer about the last action does not free the new request
           return
         }
     val ms = clockMs() - t0
@@ -224,7 +225,7 @@ class PartsFinder(
     val a = q.a?.takeIf { q.gen == generation } // null: base only, or the action changed while asking
     val wanted = (a?.want ?: emptyList()).toSet() + listOfNotNull(q.baseId)
     if (wanted.isEmpty()) {
-      inFlightSince = null
+      if (q.gen == generation) inFlightSince = null // an answer about the last action does not free the new request
       return
     }
     val insts = instances(r).filter { it.f.id in wanted }
@@ -252,7 +253,7 @@ class PartsFinder(
 
   private fun complete(q: Request, a: Action?, g: FrameGrab, r: PartsResult, insts: List<Inst>, rays: List<Ray?>,
       hits: List<Vec3?>, ms: Long) {
-    inFlightSince = null
+    if (q.gen == generation) inFlightSince = null // an answer about the last action does not free the new request
     if (a != null && q.gen != generation) return
     val s = surfaces()
     val logFound = ArrayList<Map<String, Any?>>()
