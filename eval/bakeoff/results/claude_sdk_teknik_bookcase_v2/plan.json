@@ -1,0 +1,1496 @@
+{
+ "title": "Teknik 2-Shelf Bookcase, Hudson Elm (Model 5431916)",
+ "guide_id": "5431916",
+ "units": "mm",
+ "overall_mm": {
+  "L": 760,
+  "W": 400,
+  "H": 750
+ },
+ "cover_view_az_el_deg": [
+  -125,
+  20
+ ],
+ "dims": {
+  "W": 760,
+  "D": 400,
+  "H": 750,
+  "t": 18,
+  "tb": 16,
+  "tc": 25,
+  "zb": 30,
+  "zs": 380
+ },
+ "parts": [
+  {
+   "id": "left_end",
+   "name": "Left end (B)",
+   "short": "left end",
+   "el": "το αριστερό πλαϊνό",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/end_panel.py",
+   "params": {
+    "side": "L"
+   },
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "B",
+    "note": "LEFT END (1)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "estimated overall size of a 2-shelf bookcase"
+   }
+  },
+  {
+   "id": "right_end",
+   "name": "Right end (A)",
+   "short": "right end",
+   "el": "το δεξί πλαϊνό",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/end_panel.py",
+   "params": {
+    "side": "R"
+   },
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "A",
+    "note": "RIGHT END (1)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "estimated overall size of a 2-shelf bookcase"
+   }
+  },
+  {
+   "id": "top",
+   "name": "Top (C)",
+   "short": "top",
+   "el": "το καπάκι",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/top.py",
+   "params": {},
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "C",
+    "note": "TOP (1)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "overhangs the ends a little, as on the cover"
+   }
+  },
+  {
+   "id": "bottom",
+   "name": "Bottom (D)",
+   "short": "bottom",
+   "el": "τον πάτο",
+   "el_pron": "τον",
+   "count": 1,
+   "script": "parts/bottom.py",
+   "params": {},
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "D",
+    "note": "BOTTOM (1)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "between the ends, in front of the backs"
+   }
+  },
+  {
+   "id": "back",
+   "name": "Back panel (E)",
+   "short": "back panel",
+   "el": "την πλάτη",
+   "el_pron": "την",
+   "count": 2,
+   "script": "parts/back.py",
+   "params": {},
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "E",
+    "note": "BACK (2), stacked one above the other"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "each half the height of the ends"
+   }
+  },
+  {
+   "id": "shelf",
+   "name": "Adjustable shelf (F)",
+   "short": "shelf",
+   "el": "το ρυθμιζόμενο ράφι",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/shelf.py",
+   "params": {},
+   "material": "pine",
+   "color": "#8A6E50",
+   "cite": {
+    "page": 3,
+    "label": "F",
+    "note": "ADJUSTABLE SHELF (1)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "rests on four pins about mid height"
+   }
+  }
+ ],
+ "hardware": [
+  {
+   "code": "46E",
+   "kind": "leveler",
+   "name": "Leveler",
+   "short": "leveler",
+   "el": "το ποδαράκι ρύθμισης",
+   "count": 4,
+   "script": "parts/leveler.py",
+   "params": {},
+   "material": "steel",
+   "color": "#3A3A3A",
+   "cite": {
+    "page": 4,
+    "label": "46E"
+   }
+  },
+  {
+   "code": "1F",
+   "kind": "cam",
+   "name": "Hidden cam",
+   "short": "hidden cam",
+   "el": "το έκκεντρο",
+   "count": 16,
+   "script": "parts/hidden_cam.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": "1F"
+   }
+  },
+  {
+   "code": "2F",
+   "kind": "cam_dowel",
+   "name": "Cam dowel",
+   "short": "cam dowel",
+   "el": "τον πείρο του έκκεντρου",
+   "count": 16,
+   "script": "parts/cam_dowel.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": "2F"
+   }
+  },
+  {
+   "code": "42F",
+   "kind": "dowel",
+   "name": "Wood dowel",
+   "short": "wood dowel",
+   "el": "το ξύλινο καβιλάκι",
+   "count": 4,
+   "script": "parts/wood_dowel.py",
+   "params": {},
+   "material": "pine",
+   "color": "#D9B98A",
+   "cite": {
+    "page": 4,
+    "label": "42F"
+   }
+  },
+  {
+   "code": "129P",
+   "kind": "cover",
+   "name": "Cam cover",
+   "short": "cam cover",
+   "el": "το καπάκι του έκκεντρου",
+   "count": 12,
+   "script": "parts/cam_cover.py",
+   "params": {},
+   "material": "steel",
+   "color": "#7A6048",
+   "cite": {
+    "page": 4,
+    "label": "129P"
+   }
+  },
+  {
+   "code": "1R",
+   "kind": "pin",
+   "name": "Metal shelf pin",
+   "short": "metal pin",
+   "el": "το μεταλλικό στήριγμα ραφιού",
+   "count": 4,
+   "script": "parts/metal_pin.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": "1R"
+   }
+  },
+  {
+   "code": "2R",
+   "kind": "sleeve",
+   "name": "Rubber sleeve",
+   "short": "rubber sleeve",
+   "el": "το λαστιχένιο κάλυμμα",
+   "count": 4,
+   "script": "parts/rubber_sleeve.py",
+   "params": {},
+   "material": "steel",
+   "color": "#222222",
+   "cite": {
+    "page": 4,
+    "label": "2R"
+   }
+  }
+ ],
+ "subassemblies": [
+  {
+   "id": "backs",
+   "name": "Two back panels with cams",
+   "short": "back panels",
+   "el": "τις πλάτες",
+   "el_pron": "τις"
+  },
+  {
+   "id": "bottom_unit",
+   "name": "Bottom with dowels and cams",
+   "short": "bottom",
+   "el": "τον πάτο",
+   "el_pron": "τον"
+  },
+  {
+   "id": "right_unit",
+   "name": "Right end with cams and levelers",
+   "short": "right end",
+   "el": "το δεξί πλαϊνό",
+   "el_pron": "το"
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Push two hidden cams into the left end and put a cam dowel in each",
+   "cite": {
+    "page": 5,
+    "label": "1"
+   },
+   "add": [
+    {
+     "instance": "left_end#1",
+     "base": true
+    },
+    {
+     "instance": "1F#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.cam_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "1F#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.cam_top_2"
+      }
+     ]
+    },
+    {
+     "instance": "2F#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.dw_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "2F#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.dw_top_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "left_end"
+   ],
+   "hardware_used": {
+    "1F": 2,
+    "2F": 2
+   },
+   "notes": [
+    {
+     "en": "Do not tighten the hidden cams yet.",
+     "el": "Μη σφίξεις ακόμα τα έκκεντρα."
+    }
+   ],
+   "pose": "lying flat, inner face up",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay the left end flat, inner face up.",
+    "el": "Ξάπλωσε το αριστερό πλαϊνό με την εσωτερική πλευρά προς τα πάνω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 2,
+   "title": "Tap two levelers into the bottom edge of the left end",
+   "cite": {
+    "page": 6,
+    "label": "2"
+   },
+   "add": [
+    {
+     "instance": "46E#1",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.lev_1"
+      }
+     ]
+    },
+    {
+     "instance": "46E#2",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.lev_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "46E": 2
+   },
+   "pose": "lying flat, inner face up",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the left end lying flat.",
+    "el": "Άφησε το αριστερό πλαϊνό ξαπλωμένο."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Push eight hidden cams into the backs and put a cam dowel in each",
+   "cite": {
+    "page": 7,
+    "label": "3"
+   },
+   "subassembly": "backs",
+   "add": [
+    {
+     "instance": "back#1",
+     "into": "backs",
+     "base": true
+    },
+    {
+     "instance": "back#2",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "bot_1",
+       "fixed": "back#1.top_1"
+      },
+      {
+       "moving": "bot_2",
+       "fixed": "back#1.top_2"
+      }
+     ]
+    },
+    {
+     "instance": "1F#3",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "1F#4",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "1F#5",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "1F#6",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_r_hi"
+      }
+     ]
+    },
+    {
+     "instance": "1F#7",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "1F#8",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "1F#9",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "1F#10",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_r_hi"
+      }
+     ]
+    },
+    {
+     "instance": "2F#3",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "2F#4",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "2F#5",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "2F#6",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.r_hi"
+      }
+     ]
+    },
+    {
+     "instance": "2F#7",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "2F#8",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "2F#9",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "2F#10",
+     "into": "backs",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.r_hi"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "back",
+    "back"
+   ],
+   "hardware_used": {
+    "1F": 8,
+    "2F": 8
+   },
+   "notes": [
+    {
+     "en": "Do not tighten the hidden cams yet.",
+     "el": "Μη σφίξεις ακόμα τα έκκεντρα."
+    }
+   ],
+   "pose": "backs lying flat side by side, cam face up",
+   "assembly_rotation_deg": [
+    90,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay both backs flat, side by side, cam holes up.",
+    "el": "Ξάπλωσε τις δύο πλάτες δίπλα δίπλα, με τις τρύπες των έκκεντρων προς τα πάνω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -40,
+    35
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Fasten the backs to the left end and tighten four hidden cams",
+   "cite": {
+    "page": 8,
+    "label": "4"
+   },
+   "add": [
+    {
+     "subassembly": "backs",
+     "mates": [
+      {
+       "moving": "back#1.l_lo",
+       "fixed": "left_end#1.bk_1"
+      },
+      {
+       "moving": "back#1.l_hi",
+       "fixed": "left_end#1.bk_2"
+      },
+      {
+       "moving": "back#2.l_lo",
+       "fixed": "left_end#1.bk_3"
+      },
+      {
+       "moving": "back#2.l_hi",
+       "fixed": "left_end#1.bk_4"
+      }
+     ]
+    }
+   ],
+   "tighten": [
+    "1F#3",
+    "1F#4",
+    "1F#7",
+    "1F#8"
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "pose": "left end lying flat, backs standing on it",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "The left end stays flat; stand the backs on it.",
+    "el": "Το αριστερό πλαϊνό μένει ξαπλωμένο· στήσε τις πλάτες πάνω του."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Insert two wood dowels into the bottom",
+   "cite": {
+    "page": 9,
+    "label": "5"
+   },
+   "subassembly": "bottom_unit",
+   "add": [
+    {
+     "instance": "bottom#1",
+     "into": "bottom_unit",
+     "base": true
+    },
+    {
+     "instance": "42F#1",
+     "into": "bottom_unit",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.wd_l"
+      }
+     ]
+    },
+    {
+     "instance": "42F#2",
+     "into": "bottom_unit",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.wd_r"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "bottom"
+   ],
+   "hardware_used": {
+    "42F": 2
+   },
+   "pose": "bottom lying flat, underside up",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay the bottom flat with its underside up.",
+    "el": "Ξάπλωσε τον πάτο με την κάτω πλευρά προς τα πάνω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 6,
+   "title": "Push four hidden cams into the bottom and put a cam dowel in each",
+   "cite": {
+    "page": 10,
+    "label": "6"
+   },
+   "subassembly": "bottom_unit",
+   "add": [
+    {
+     "instance": "1F#11",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.cam_1"
+      }
+     ]
+    },
+    {
+     "instance": "1F#12",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.cam_2"
+      }
+     ]
+    },
+    {
+     "instance": "1F#13",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.cam_3"
+      }
+     ]
+    },
+    {
+     "instance": "1F#14",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.cam_4"
+      }
+     ]
+    },
+    {
+     "instance": "2F#11",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.dl_1"
+      }
+     ]
+    },
+    {
+     "instance": "2F#12",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.dl_2"
+      }
+     ]
+    },
+    {
+     "instance": "2F#13",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.dr_1"
+      }
+     ]
+    },
+    {
+     "instance": "2F#14",
+     "into": "bottom_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "bottom#1.dr_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "1F": 4,
+    "2F": 4
+   },
+   "notes": [
+    {
+     "en": "Do not tighten the hidden cams yet.",
+     "el": "Μη σφίξεις ακόμα τα έκκεντρα."
+    }
+   ],
+   "pose": "bottom lying flat, underside up",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the bottom underside up.",
+    "el": "Άφησε τον πάτο με την κάτω πλευρά προς τα πάνω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 7,
+   "title": "Fasten the bottom to the left end and tighten two hidden cams",
+   "cite": {
+    "page": 11,
+    "label": "7"
+   },
+   "add": [
+    {
+     "subassembly": "bottom_unit",
+     "mates": [
+      {
+       "moving": "bottom#1.dl_1",
+       "fixed": "left_end#1.bot_1"
+      },
+      {
+       "moving": "bottom#1.dl_2",
+       "fixed": "left_end#1.bot_2"
+      },
+      {
+       "moving": "bottom#1.wd_l",
+       "fixed": "left_end#1.bot_wd"
+      }
+     ]
+    }
+   ],
+   "tighten": [
+    "1F#11",
+    "1F#12"
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "notes": [
+    {
+     "en": "Make sure the wood dowel in the bottom goes into the left end.",
+     "el": "Βεβαιώσου ότι το ξύλινο καβιλάκι του πάτου μπαίνει στο αριστερό πλαϊνό."
+    }
+   ],
+   "pose": "left end lying flat",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "The left end stays flat.",
+    "el": "Το αριστερό πλαϊνό μένει ξαπλωμένο."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 8,
+   "title": "Push two hidden cams into the right end and put a cam dowel in each",
+   "cite": {
+    "page": 12,
+    "label": "8"
+   },
+   "subassembly": "right_unit",
+   "add": [
+    {
+     "instance": "right_end#1",
+     "into": "right_unit",
+     "base": true
+    },
+    {
+     "instance": "1F#15",
+     "into": "right_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.cam_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "1F#16",
+     "into": "right_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.cam_top_2"
+      }
+     ]
+    },
+    {
+     "instance": "2F#15",
+     "into": "right_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.dw_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "2F#16",
+     "into": "right_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.dw_top_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "right_end"
+   ],
+   "hardware_used": {
+    "1F": 2,
+    "2F": 2
+   },
+   "notes": [
+    {
+     "en": "Do not tighten the hidden cams yet.",
+     "el": "Μη σφίξεις ακόμα τα έκκεντρα."
+    }
+   ],
+   "pose": "right end lying flat, inner face up",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Lay the right end flat, inner face up.",
+    "el": "Ξάπλωσε το δεξί πλαϊνό με την εσωτερική πλευρά προς τα πάνω."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -140,
+    35
+   ]
+  },
+  {
+   "n": 9,
+   "title": "Tap two levelers into the bottom edge of the right end",
+   "cite": {
+    "page": 13,
+    "label": "9"
+   },
+   "subassembly": "right_unit",
+   "add": [
+    {
+     "instance": "46E#3",
+     "into": "right_unit",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.lev_1"
+      }
+     ]
+    },
+    {
+     "instance": "46E#4",
+     "into": "right_unit",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.lev_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "46E": 2
+   },
+   "pose": "right end lying flat, inner face up",
+   "assembly_rotation_deg": [
+    0,
+    90,
+    0
+   ],
+   "turn_text": {
+    "en": "Keep the right end lying flat.",
+    "el": "Άφησε το δεξί πλαϊνό ξαπλωμένο."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -140,
+    35
+   ]
+  },
+  {
+   "n": 10,
+   "title": "Fasten the right end to the bottom and backs and tighten six hidden cams",
+   "cite": {
+    "page": 14,
+    "label": "10"
+   },
+   "add": [
+    {
+     "subassembly": "right_unit",
+     "mates": [
+      {
+       "moving": "right_end#1.bk_1",
+       "fixed": "back#1.r_lo"
+      },
+      {
+       "moving": "right_end#1.bk_4",
+       "fixed": "back#2.r_hi"
+      },
+      {
+       "moving": "right_end#1.bot_1",
+       "fixed": "bottom#1.dr_1"
+      },
+      {
+       "moving": "right_end#1.bot_2",
+       "fixed": "bottom#1.dr_2"
+      }
+     ]
+    }
+   ],
+   "tighten": [
+    "1F#5",
+    "1F#6",
+    "1F#9",
+    "1F#10",
+    "1F#13",
+    "1F#14"
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "notes": [
+    {
+     "en": "Make sure the wood dowel in the bottom goes into the right end.",
+     "el": "Βεβαιώσου ότι το ξύλινο καβιλάκι του πάτου μπαίνει στο δεξί πλαϊνό."
+    }
+   ],
+   "pose": "left end lying flat, right end on top",
+   "assembly_rotation_deg": [
+    0,
+    -90,
+    0
+   ],
+   "turn_text": {
+    "en": "The unit stays on its left end.",
+    "el": "Η κατασκευή μένει ξαπλωμένη στο αριστερό πλαϊνό."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    40,
+    35
+   ]
+  },
+  {
+   "n": 11,
+   "title": "Stand the unit upright, insert two wood dowels and fasten the top",
+   "cite": {
+    "page": 15,
+    "label": "11"
+   },
+   "add": [
+    {
+     "instance": "42F#3",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.wd_top"
+      }
+     ]
+    },
+    {
+     "instance": "42F#4",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.wd_top"
+      }
+     ]
+    },
+    {
+     "instance": "top#1",
+     "mates": [
+      {
+       "moving": "l_1",
+       "fixed": "left_end#1.dw_top_1"
+      },
+      {
+       "moving": "l_2",
+       "fixed": "left_end#1.dw_top_2"
+      },
+      {
+       "moving": "r_1",
+       "fixed": "right_end#1.dw_top_1"
+      },
+      {
+       "moving": "r_2",
+       "fixed": "right_end#1.dw_top_2"
+      }
+     ]
+    }
+   ],
+   "tighten": [
+    "1F#1",
+    "1F#2",
+    "1F#15",
+    "1F#16"
+   ],
+   "parts_added": [
+    "top"
+   ],
+   "hardware_used": {
+    "42F": 2
+   },
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Carefully stand the unit upright on its levelers.",
+    "el": "Σήκωσε προσεκτικά την κατασκευή όρθια, πάνω στα ποδαράκια."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -55,
+    30
+   ]
+  },
+  {
+   "n": 12,
+   "title": "Fit the shelf pins and shelf, then tap a cam cover onto each visible hidden cam",
+   "cite": {
+    "page": 16,
+    "label": "12"
+   },
+   "add": [
+    {
+     "instance": "1R#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.pin_1"
+      }
+     ]
+    },
+    {
+     "instance": "2R#1",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.pin_1"
+      }
+     ]
+    },
+    {
+     "instance": "1R#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.pin_2"
+      }
+     ]
+    },
+    {
+     "instance": "2R#2",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.pin_2"
+      }
+     ]
+    },
+    {
+     "instance": "1R#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.pin_1"
+      }
+     ]
+    },
+    {
+     "instance": "2R#3",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.pin_1"
+      }
+     ]
+    },
+    {
+     "instance": "1R#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.pin_2"
+      }
+     ]
+    },
+    {
+     "instance": "2R#4",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.pin_2"
+      }
+     ]
+    },
+    {
+     "instance": "shelf#1",
+     "mates": [
+      {
+       "moving": "sl",
+       "fixed": "left_end#1.shelf_1"
+      },
+      {
+       "moving": "sr",
+       "fixed": "right_end#1.shelf_1"
+      }
+     ]
+    },
+    {
+     "instance": "129P#1",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.cam_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "129P#2",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "left_end#1.cam_top_2"
+      }
+     ]
+    },
+    {
+     "instance": "129P#3",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "129P#4",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "129P#5",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_l_lo"
+      }
+     ]
+    },
+    {
+     "instance": "129P#6",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_l_hi"
+      }
+     ]
+    },
+    {
+     "instance": "129P#7",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_r_hi"
+      }
+     ]
+    },
+    {
+     "instance": "129P#8",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#2.cam_r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "129P#9",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_r_hi"
+      }
+     ]
+    },
+    {
+     "instance": "129P#10",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "back#1.cam_r_lo"
+      }
+     ]
+    },
+    {
+     "instance": "129P#11",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.cam_top_1"
+      }
+     ]
+    },
+    {
+     "instance": "129P#12",
+     "press": true,
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "right_end#1.cam_top_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "shelf"
+   ],
+   "hardware_used": {
+    "1R": 4,
+    "2R": 4,
+    "129P": 12
+   },
+   "notes": [
+    {
+     "en": "Push a rubber sleeve over one end of each metal pin before setting the shelf on the pins.",
+     "el": "Πέρασε ένα λαστιχένιο κάλυμμα σε κάθε μεταλλικό στήριγμα πριν ακουμπήσεις το ράφι."
+    },
+    {
+     "en": "Touch up the edges with the touch-up pen if needed.",
+     "el": "Αν χρειάζεται, βάψε τις άκρες με το στυλό επιδιόρθωσης."
+    },
+    {
+     "en": "Turn the levelers to level the unit.",
+     "el": "Γύρισε τα ποδαράκια για να αλφαδιάσεις τη βιβλιοθήκη."
+    }
+   ],
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "The bookcase stays upright.",
+    "el": "Η βιβλιοθήκη μένει όρθια."
+   },
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -55,
+    30
+   ]
+  }
+ ],
+ "final_turn_text": {
+  "en": "The bookcase is ready; level it with the levelers.",
+  "el": "Η βιβλιοθήκη είναι έτοιμη· αλφάδιασέ τη με τα ποδαράκια."
+ },
+ "flags": [
+  {
+   "ref": "plan",
+   "kind": "estimated_size",
+   "message": "The guide prints no dimensions and none were given. Overall size 760 x 400 x 750 mm (W x D x H) is an estimate for a 2-shelf office bookcase; board thicknesses (18 mm, top 25 mm, backs 16 mm) are estimates too."
+  },
+  {
+   "ref": "hardware:9M",
+   "kind": "omitted_item",
+   "message": "The touch-up pen (9M, 1) on the hardware list is a finishing tool, not a fitted part, so it is not in the hardware list or the model; step 12 mentions it as a note."
+  },
+  {
+   "ref": "hardware:129P",
+   "kind": "unclear_drawing",
+   "message": "Cam covers go on 'each visible hidden cam': the 12 covers are placed on the 8 cams in the backs and the 4 cams in the ends; the 4 cams under the bottom are taken as not visible."
+  },
+  {
+   "ref": "part:back",
+   "kind": "unclear_drawing",
+   "message": "The backs carry their cams on the rear face (p.8 'Surface with HIDDEN CAMS'). Assumed they stand behind the bottom, from the bottom's underside up to the top."
+  },
+  {
+   "ref": "step:6",
+   "kind": "unclear_drawing",
+   "message": "Drawing check: the verifier called the bottom upside down, but the render matches p.10: the bottom lies with its cam face up, four cams near the short ends and the cam dowels and wood dowel sticking out of each short edge. This step passed unchanged on the first check (same score), so this is taken as a verifier misread."
+  },
+  {
+   "ref": "step:10",
+   "kind": "unclear_drawing",
+   "message": "Drawing check: the verifier called the assembly upside down after 2 fixes, but the render matches p.14: the unit lies on the left end, the right end (A) is on top with its levelers at the front-left corners, the bottom (D) is on the left and the two backs with their cams are on the right. The only difference is that the guide draws A lifted off (exploded)."
+  },
+  {
+   "ref": "step:12",
+   "kind": "unclear_drawing",
+   "message": "Shelf pin height is the user's choice; the shelf is placed about mid height, as on the cover."
+  }
+ ],
+ "guide": "/Users/karyotakisg/Desktop/hackathon/genai-summit-hackathon/jobs/hard2/guide.pdf"
+}
