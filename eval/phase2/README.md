@@ -7,7 +7,9 @@ One tool, `p2.py`, standard library plus ffmpeg.
 
 Five clips, 20–40 s each, with the camera chosen at gate G2, fixed at the demo angle and demo lighting.
 Start every clip with 3 s of empty hands so the first segment is easy to label.
-The scripts for the KNAGGLIG box are in `labels.template.json`:
+For any built guide, `python eval/phase2/make_labels.py jobs/<id>` writes `labels.json` with five clip scripts that use
+that guide's own part ids, hardware codes and steps (it prints them: read them out while recording). The times in it are
+placeholders. `labels.template.json` is the older hand-written example for the KNAGGLIG box; its part names are invented.
 
 | Clip | Kind | What happens | Expected event |
 |---|---|---|---|

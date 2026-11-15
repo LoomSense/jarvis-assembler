@@ -6,8 +6,11 @@
 #   boxd auth login                                           # browser sign-in; add a payment method
 #   make env                                                  # .env with DEMO_KEY and GEMINI_API_KEY
 #
-# NOT YET RUN against a real VM: the boxd commands follow docs.boxd.sh as read on 14 Nov.
+# Run for real on Sun 15 Nov (boxd CLI v0.3.5, x86_64 VM): smoke PASS through the public URL.
 # It deploys `git HEAD`, so commit first. Re-running it updates the code and restarts the service.
+# Build the client first (`make client`): client/dist is uploaded only if it exists.
+# Use an existing machine with VM=<name> deploy/boxd.sh. 2 vCPU / 8 GB is enough to pass the smoke test;
+# for the demo: boxd machine resize <name> --vcpu 4 --memory 16G -y   (reboots; the service comes back by itself).
 set -eu
 VM=${VM:-agj}
 REGION=${REGION:-fra}
@@ -27,6 +30,8 @@ fi
 # A build is CPU work with little network traffic; without this the VM may hibernate mid-job.
 boxd machine config set "$VM" auto-hibernate.timeout 0 || echo "warning: could not turn off auto-hibernate"
 boxd machine config set "$VM" auto-suspend.timeout 0 || echo "warning: could not turn off auto-suspend"
+# The browser check answers API calls, the event feed and the camera socket with a challenge page. DEMO_KEY guards the routes.
+boxd machine config set "$VM" bot-protection off || echo "warning: could not turn off bot protection"
 
 ARCH=$(boxd machine exec "$VM" -- uname -m | tr -d '\r\n')
 echo "== architecture: $ARCH   (record this in docs/PROGRESS.md, SET-03)"

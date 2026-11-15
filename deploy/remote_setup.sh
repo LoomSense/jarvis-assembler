@@ -34,6 +34,13 @@ if [ -x "$BLENDER_DIR/blender" ]; then
   grep -q '^BLENDER_BIN=' .env || echo "BLENDER_BIN=$BLENDER_DIR/blender" >> .env
 fi
 grep -q '^JOBS_DIR=' .env || echo "JOBS_DIR=$APP/jobs" >> .env
+# With an Anthropic key on this host, new guides are read by the build agent and Hydrogen writes the phase-2 questions.
+# The service reads .env as its environment (below), so these switches live there; a value already in .env wins.
+if grep -q '^ANTHROPIC_API_KEY=.\+' .env; then
+  grep -q '^AGJ_BUILD_AGENT=' .env || echo "AGJ_BUILD_AGENT=claude" >> .env
+  grep -q '^AGJ_AGENT_MAX_USD=' .env || echo "AGJ_AGENT_MAX_USD=5" >> .env
+fi
+grep -q '^AGJ_QUESTIONS=' .env || echo "AGJ_QUESTIONS=model" >> .env
 
 echo "== service"
 sudo tee /etc/systemd/system/agj.service >/dev/null <<UNIT

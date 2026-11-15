@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from pipeline import find_guide
 from server import catalog
 from server.auth import require_key
 from server.fetch_guide import FetchError, fetch_ikea_guide, normalize_article, product_photo, search_ikea
@@ -15,6 +17,9 @@ from server.routes.jobs import start_job
 from server.settings import ROOT
 
 router = APIRouter(dependencies=[Depends(require_key)])
+# What to do with a code or name that is not a known guide or an IKEA article: `links` (default) follows a link to
+# the maker's page or PDF, `agent` also searches the web with a short agent session (costs a few cents), `off` neither.
+FIND = os.environ.get("AGJ_FIND_GUIDE", "links")
 
 
 class OpenBody(BaseModel):
@@ -68,6 +73,13 @@ async def open_guide(request: Request, body: OpenBody) -> dict:
         except FetchError as e:
             raise HTTPException(e.status, str(e)) from e
         pdf, filename, product, article = got.data, got.filename, got.product, got.article
+    elif FIND != "off" and (FIND == "agent" or find_guide.is_url(q)):
+        # any other maker: follow the link from the box's QR code, or let the search agent find the guide (D22)
+        try:
+            got = await find_guide.find(q, use_agent=FIND == "agent")
+        except find_guide.NotFound as e:
+            raise HTTPException(404, f"No guide found for “{q[:80]}”: {e}") from e
+        pdf, filename, product, article = got.data, got.filename, got.product or got.filename, ""
     else:
         raise HTTPException(404, f"No guide matches “{q[:80]}”. Try the IKEA article number "
                                  "(e.g. 902.891.72) or paste the product page URL.")
