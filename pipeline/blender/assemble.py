@@ -23,6 +23,7 @@ order. Then one animation per step, `step_NN`, for viewers that step manually.
 """
 import json
 import math
+import re
 import struct
 import sys
 from pathlib import Path
@@ -58,6 +59,12 @@ scene = bpy.context.scene
 scene.render.fps = FPS
 
 
+def srgb(hexcode):
+    """'949494' → linear RGBA, as Blender's base colour wants it."""
+    lin = lambda c: c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4  # noqa: E731
+    return tuple(lin(int(hexcode[i:i + 2], 16) / 255) for i in (0, 2, 4)) + (1,)
+
+
 def material(name):
     if name in bpy.data.materials:
         return bpy.data.materials[name]
@@ -89,9 +96,15 @@ for pid, d in defs.items():
     if d["kind"] == "hardware":
         for poly in me.polygons:
             poly.use_smooth = True
+    own = re.fullmatch(r"#?([0-9a-fA-F]{6})", str(d.get("color") or ""))
     if d["kind"] == "hardware":
-        MATERIALS[f"hw_{pid}"] = (HW_COLOURS[list(h["code"] for h in plan["hardware"]).index(pid) % len(HW_COLOURS)], 1.0, 0.35)
+        colour = srgb(own.group(1)) if own else HW_COLOURS[list(h["code"] for h in plan["hardware"]).index(pid) % len(HW_COLOURS)]
+        MATERIALS[f"hw_{pid}"] = (colour, 1.0, 0.35)
         me.materials.append(material(f"hw_{pid}"))
+    elif own:                                                     # the real finish, read from the product photo
+        metal = d.get("material") == "steel"
+        MATERIALS[f"col_{pid}"] = (srgb(own.group(1)), 1.0 if metal else 0.0, 0.35 if metal else 0.7)
+        me.materials.append(material(f"col_{pid}"))
     else:
         me.materials.append(material(d.get("material", "pine")))
     meshes[pid] = me

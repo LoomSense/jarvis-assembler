@@ -72,7 +72,18 @@ def setup_workspace(job: Path, extra: str) -> Path:
     shutil.copyfile(ROOT / "pipeline" / "run.py", ws / "pipeline" / "run.py")
     brief = (ROOT / "pipeline" / "agent" / "BRIEF.md").read_text()
     (ws / "BRIEF.md").write_text(brief.replace(BUILD_LINE, "    ./build").replace(CHECK_LINE, "    ./check [N]"))
-    if extra:
+    photo = job / "product.jpg"                                # from the maker's site (server/routes/catalog.py)
+    if photo.is_file():
+        shutil.copyfile(photo, ws / "guide" / "product.jpg")
+        info = json.loads((job / "product.json").read_text()) if (job / "product.json").is_file() else {}
+        finish = ", ".join(x for x in [info.get("design"), ", ".join(c.get("name", "") for c in info.get("colors", []))] if x)
+        extra = (extra + "\n" if extra else "") + (
+            "- `guide/product.jpg` is the maker's photo of the finished product" + (f" (finish: {finish})" if finish else "")
+            + ". Give every part and every hardware item a `color` (\"#RRGGBB\") read from it, so the 3D model has the "
+            "real colours: frame, fabric, wheels and screws each as they look.")
+    if extra.startswith("- `guide/product.jpg`"):
+        pass
+    elif extra:
         extra = "- From the person who uploaded the guide: " + extra
     else:
         extra = ("- Nobody gave the product's overall size. Use a size printed in the guide if there is one, otherwise "

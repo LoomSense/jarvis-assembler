@@ -191,5 +191,6 @@ def test_ikea_product_search_by_name(client, monkeypatch):
     fg._search_cache.clear()
     items = client.get("/api/catalog/ikea?q=billy").json()["items"]
     assert items == [{"name": "BILLY", "type": "Bookcase", "article": "20522046",
-                      "url": "https://www.ikea.com/us/en/p/billy-bookcase-white-20522046/", "image": "https://x/i.jpg"}]
+                      "url": "https://www.ikea.com/us/en/p/billy-bookcase-white-20522046/", "image": "https://x/i.jpg",
+                      "design": None, "colors": []}]
     assert client.get("/api/catalog/ikea?q=b").json()["items"] == []

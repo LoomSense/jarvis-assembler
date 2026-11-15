@@ -91,9 +91,13 @@ async def create_job(request: Request, file: UploadFile | None = File(None),
     return {"job_id": job.id, "stage": "ingesting"}
 
 
-def start_job(request: Request, pdf: bytes, filename: str, size: str | None, **status) -> Job:
-    """Create the job folder and start the build. Shared by uploads and the catalog."""
+def start_job(request: Request, pdf: bytes, filename: str, size: str | None, files: dict[str, bytes] | None = None,
+              **status) -> Job:
+    """Create the job folder and start the build. Shared by uploads and the catalog. `files` are written into the
+    job folder first (the catalog's product photo)."""
     job = request.app.state.store.create(pdf, filename)
+    for name, data in (files or {}).items():
+        (job.dir / name).write_bytes(data)
     size = (size or "").strip()[:120]
     if size:
         (job.dir / "facts.txt").write_text(

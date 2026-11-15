@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from server import catalog
 from server.auth import require_key
-from server.fetch_guide import FetchError, fetch_ikea_guide, normalize_article, search_ikea
+from server.fetch_guide import FetchError, fetch_ikea_guide, normalize_article, product_photo, search_ikea
 from server.routes.jobs import start_job
 from server.settings import ROOT
 
@@ -73,5 +74,9 @@ async def open_guide(request: Request, body: OpenBody) -> dict:
     existing = catalog.job_for_guide(store, hashlib.sha256(pdf).hexdigest())
     if existing:
         return {"job_id": existing.id, "ready": existing.status().get("status") == "done", "product": product}
-    job = start_job(request, pdf, filename, body.size, product=product, article=article)
+    extra = {}
+    photo = await asyncio.to_thread(product_photo, article) if article else None
+    if photo:                                          # the agent reads the real colours from it
+        extra = {"product.jpg": photo[0], "product.json": json.dumps(photo[1], ensure_ascii=False).encode()}
+    job = start_job(request, pdf, filename, body.size, files=extra, product=product, article=article)
     return {"job_id": job.id, "ready": False, "product": product}

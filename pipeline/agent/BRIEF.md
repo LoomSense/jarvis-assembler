@@ -112,6 +112,7 @@ Library (`pipeline/cad/lib.py`, read it):
 }
 ```
 
+- `color` (optional, on a part or a hardware item): `"#RRGGBB"`, the real finish as the product photo shows it, when there is one. It replaces the `material` colour in the 3D model.
 - `parts[].id`: lower_snake_case descriptive name (guides often have no part letters). `material`: `pine` or `steel`. `short`, `el`, `el_pron` are the English and Greek words used in spoken instructions (`el` in the accusative with its article, `el_pron` the matching pronoun το/την/τον).
 - `steps`: one per numbered step in the guide, in order. If the guide says to repeat steps on the other side (a turn arrow followed by the same drawings), write those as further steps.
 - `add`: the ORDER of this list is the order of the animation: parts first, then each screw, one by one, in a sensible order (around the part, as a person would). Exactly one entry in the whole plan has `"base": true`: the first part laid down. Its local frame is the world frame, Z up.

@@ -175,6 +175,30 @@ def search_ikea(query: str, client: httpx.Client | None = None, size: int = 8) -
         if not re.fullmatch(r"s?\d{8}", article, re.I):
             continue
         out.append({"name": p.get("name"), "type": p.get("typeName"), "article": article.lower(),
-                    "url": p.get("pipUrl"), "image": p.get("mainImageUrl")})
+                    "url": p.get("pipUrl"), "image": p.get("mainImageUrl"), "design": p.get("validDesignText"),
+                    "colors": [{"name": c.get("name"), "hex": c.get("hex")} for c in p.get("colors") or []]})
     _search_cache[query.lower()] = (time.monotonic(), out)
     return out
+
+
+def product_photo(article: str, client: httpx.Client | None = None) -> tuple[bytes, dict] | None:
+    """The maker's photo of the finished product and its finish ({name, type, design, colors}), or None.
+    Given to the build agent so the 3D parts get the real colours."""
+    try:
+        found = [i for i in search_ikea(article, client) if i["article"] == article.lower()]
+    except FetchError:
+        return None
+    if not found or not found[0].get("image"):
+        return None
+    own = client is None
+    client = client or httpx.Client(headers={"User-Agent": UA}, timeout=15, follow_redirects=True)
+    try:
+        r = client.get(found[0]["image"])
+        if r.status_code != 200 or not r.content[:3] == b"\xff\xd8\xff" or len(r.content) > 8 << 20:
+            return None
+        return r.content, {k: found[0].get(k) for k in ("name", "type", "design", "colors", "url")}
+    except httpx.HTTPError:
+        return None
+    finally:
+        if own:
+            client.close()
