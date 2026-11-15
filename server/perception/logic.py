@@ -449,6 +449,8 @@ class Coach:
     def _prefilter(self, raw: dict, w: Watcher, rules, blocked: bool) -> dict:
         """The answers the Watcher gets: all of them, unless one of this layer's rules takes some out."""
         e, t, drop = self.expect, self.t, set()
+        if (yes_p(raw, "image_poor") or 0) >= w.cfg.unusable:
+            drop.add("image_poor")                               # under `poor_at`: usable, the Watcher must not skip it
         if blocked and not rules.blocked_discards_frame:
             drop.update(("view_blocked", *SCENE_QUESTIONS))      # the hand is in view, the assembly is not
         if t.step_complete_only_on_last_action and e.action is not None and not e.last_action:
@@ -497,7 +499,7 @@ class Coach:
         cfg, rules, t = w.cfg, self.t.rules(source), self.t
         self.frames += 1
         out: list[Emitted] = []
-        poor = (yes_p(raw, "image_poor") or 0) >= cfg.unusable
+        poor = (yes_p(raw, "image_poor") or 0) >= max(t.poor_at, cfg.unusable)
         blocked = (yes_p(raw, "view_blocked") or 0) >= cfg.unusable
         if rules.check_setup and not poor and not blocked and self._camera_moved(raw, ts, cfg, out):
             self.view = "moved"

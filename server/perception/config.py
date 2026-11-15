@@ -90,6 +90,17 @@ class Tuning:
     show_part_resolution: str = "high"
     max_frame_bytes: int = 1_500_000
     dark_luma: float = 22.0                # mean brightness (0-255) below this: dark, no call is spent; 0 disables
+    dark_peak: float = 60.0                # ...but only when the brightest 2 % of the frame stay below this as well:
+    #                                        a dark floor with lit parts on it is not a dark frame. 0: the mean alone
+    poor_at: float = 0.55                  # `image_poor` at or above this discards the frame (never below the
+    #                                        Watcher's `unusable`, 0.3, which was the line until Sun 15 Nov and still
+    #                                        is for `view_blocked`). Real headset frames with a hand in view scored
+    #                                        0.13-0.47 (p50-p90), frames of a floor or a desk about 0.5; imitated
+    #                                        dark, defocused or overexposed frames 0.64-0.92
+    show_nothing_max: float = 0.1          # show_part names a code only if `no_hardware` is below this (an empty
+    #                                        pinching hand scored 0.18-0.44, a held screw 0.01-0.04)
+    show_right_min: float = 0.7            # ...and, for a code needed now, only if `right_hardware` reaches this
+    #                                        (empty hand 0.21-0.62, the right screw 0.80-0.94)
 
     # ---- failure handling (§6.5) ----
     decision_timeout_s: float = 4.0        # above the measured p95 (up to 2.6 s). PLAN's 800 ms is below the median

@@ -189,6 +189,9 @@ def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str
     questions = dict(questions)
     if only is not None:
         questions = {k: v for k, v in questions.items() if k in only}
+        added = right_hardware_question(guide, sp, codes) if extra and EXTRA in only else None
+        if added and EXTRA not in questions:
+            questions[EXTRA] = added
     elif extra:
         added = right_hardware_question(guide, sp, codes)
         if added and EXTRA not in questions:
