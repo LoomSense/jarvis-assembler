@@ -32,8 +32,11 @@ import kotlinx.coroutines.runBlocking
  * // REGISTER fallback (no marker after 5 s): the table if the scene has one, else the fixed spot
  * tableFallback = world.tablePose(head, assembly) ?: fixedTableSpot(head)
  * world.workSurfaceY = tableFallback?.t?.y          // rays onto this plane when there is no scene table
- * // UI, every frame or at 10 Hz: an arrow + label above each real part
- * world.pickTargets   // List<PickTarget(id, label, worldPos (WORLD), confidence, ageMs, kind, method)>
+ * // the pick-up cue (ring + bobbing chevron, world/PickMarkers.kt), created in onCreate with the ghost's mesh hook:
+ * pickMarkers = PickMarkers { uri, make -> systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() } }
+ * // frameTick, inside `if (assembly != null && sceneReady)`, after ghost.tick(dt):
+ * pickMarkers.update(if (coach.stage == CoachFlow.Stage.GUIDE && !finished) world.pickTargets else emptyList(), dt)
+ * // world.pickTargets: List<PickTarget(id, label, worldPos (WORLD), confidence, ageMs, kind, method, radiusM, box)>
  * // onDestroy:
  * world.stop()
  * ```
@@ -76,7 +79,12 @@ class WorldModule(
   val pickTargets: List<PickTarget>
     get() = parts.pickTargets
 
+  private var started = false
+
+  /** Idempotent (MainActivity may call startCamera twice). */
   fun start() {
+    if (started) return
+    started = true
     scene.start()
     depth?.start()
     if (worker == null) {

@@ -10,7 +10,7 @@ Round 2 (vision/net/world, JVM-tested, not yet on a headset): camera-pose diagno
 placement without a marker, parts in the pile in 3D (`/parts` → rays → depth/table). See "World" below; the
 MainActivity wiring is in `world/WorldModule.kt`'s KDoc.
 
-One APK with guide/UI and vision/net wired together. Builds, 73 JVM unit tests pass (0 skipped once the synthetic
+One APK with guide/UI and vision/net wired together. Builds, 87 JVM unit tests pass (0 skipped once the synthetic
 replay set is generated). **Never run on a headset** yet: everything that touches the SDK at runtime is UNVERIFIED
 (see "First device run").
 
@@ -250,6 +250,15 @@ work-surface plane (`world.workSurfaceY` = the fixed spot, else the tracked asse
 `PickTarget(id, label, worldPos, confidence, ageMs, kind, method)`; an item the server reports `missing` is dropped,
 a new action clears them. Logs `parts` (`ok`, `ms`, `server_ms`, `want`, `found[{id, confidence, box_2d, method,
 pos_m}]`, `missing`, `targets`, `cam_pose`, `simulated`) and `depth_raycaster` (start result).
+`PickMarkers` draws the §4.6 cue for each target (azure ring 2 cm larger than the footprint estimated from the box
+size and distance, chevron 6 cm above, bobbing ±1 cm at 0.5 Hz, fading out over the last 3 s of a 15 s age) and logs
+`pick_markers`. Not yet: the "Πάρε / Pick up" label pill on the pile part, and moving the cue to the insertion path
+when the part is lifted.
+
+**Not wired in MainActivity yet** (owned by the UI agent): `MRUKFeature` in `registerFeatures`, `WorldModule` +
+`PickMarkers` construction, `world.start()`, `world.setAction` in `showStep`, the REGISTER fallback through
+`world.tablePose`, `pickMarkers.update` in `frameTick`, `showCameraBox` for the found box. The exact lines are in
+`world/WorldModule.kt`'s KDoc.
 
 ## Logs (shared with the Unity app)
 
@@ -302,6 +311,7 @@ Each module sits behind an interface; `MainActivity.kt` only wires them.
 | | `Table.kt` | `TableFinder`: scene corners → level rectangle, choice, footprint placement (pure, tested) |
 | | `SceneTable.kt` | MRUK scene load → WORLD surfaces → table; `MrukDepthRaycaster` (environment raycast) |
 | | `PickRays.kt` | box → pixel, pixel → WORLD ray, undistortion, ray-plane (pure, tested) |
+| | `PickMarkers.kt` | the §4.6 pick-up cue: ring under the real part + chevron bobbing ±1 cm at 0.5 Hz, fades with age (`PickCue` pure, tested) |
 | | `PartsFinder.kt` | the `/parts` loop every 5 s, ray → depth / table / floor / plane, `PickTarget`, `parts` log (tested with fakes) |
 | `ui/` | `CoachFlow.kt` | look → identify → build → locate → register → guide (pure, tested) |
 | | `Panels.kt` | glass `StepPanel` + toolbar ornament, `LabelPill`, `Hud` (Compose, world-space panels) |

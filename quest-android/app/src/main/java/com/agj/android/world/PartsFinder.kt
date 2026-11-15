@@ -21,6 +21,10 @@ data class PickTarget(
     val ageMs: Long,
     val kind: String = "",
     val method: String = "",
+    /** Rough footprint radius on the table, m (box size × distance / focal length), for the ring under the part. */
+    val radiusM: Float = 0.05f,
+    /** The server box, `[ymin, xmin, ymax, xmax]` 0–1000 over the camera picture (for the camera preview). */
+    val box: List<Double> = emptyList(),
 )
 
 /** What a ray may hit when there is no depth hit: the scene table, the floor, a work-surface height. */
@@ -158,7 +162,10 @@ class PartsFinder(
           mapOf("id" to f.id, "confidence" to f.confidence, "box_2d" to f.box_2d, "method" to (loc?.second ?: "none"),
               "pos_m" to loc?.first)
       if (loc != null) {
-        fresh += Stored(PickTarget(f.id, f.label.ifEmpty { f.id }, loc.first, f.confidence, 0, f.kind, loc.second), g.tMs)
+        val radius = footprintRadius(f.box_2d, g, loc.first)
+        fresh +=
+            Stored(PickTarget(f.id, f.label.ifEmpty { f.id }, loc.first, f.confidence, 0, f.kind, loc.second, radius,
+                f.box_2d), g.tMs)
       }
     }
     // keep older targets the server did not answer for (neither found nor missing) this time
@@ -183,6 +190,13 @@ class PartsFinder(
             "model" to r.model,
         ),
     )
+  }
+
+  private fun footprintRadius(box: List<Double>, g: FrameGrab, p: Vec3): Float {
+    val px = PickRays.boxToPx(box, g.intrinsics.width, g.intrinsics.height) ?: return 0.05f
+    val cam = g.worldFromCamera ?: return 0.05f
+    val sidePx = maxOf(px[2] - px[0], px[3] - px[1])
+    return (sidePx * (p - cam.t).length() / g.intrinsics.fx / 2).toFloat().coerceIn(0.02f, 0.25f)
   }
 
   companion object {

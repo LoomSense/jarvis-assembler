@@ -298,6 +298,10 @@ class WorldTest {
     assertEquals("Left side", t.label)
     assertEquals("table", t.method)
     near(t.worldPos, part, 2e-3f)
+    // footprint from the box: ~20 units of 1280 px × distance / fx, half of it
+    val dist = (part - cam.t).length()
+    assertEquals((0.020 * 1280 * dist / k.fx / 2).toFloat().coerceAtLeast(0.02f), t.radiusM, 2e-3f)
+    assertEquals(box, t.box)
     f.now += 1500
     assertEquals(1500L, pf.pickTargets.single().ageMs)
     // not again before 5 s
@@ -353,6 +357,22 @@ class WorldTest {
     assertTrue(err["error"].toString().contains("502"))
     f.now += 5000
     assertTrue("retries after an error", pf.tick())
+  }
+
+  @Test
+  fun pickCueSitsOnThePartAndBobs() {
+    val t = PickTarget("a", "A", Vec3(0.2f, 0.75f, -0.5f), 0.9, 0, radiusM = 0.05f)
+    near(PickCue.ringPose(t).t, Vec3(0.2f, 0.752f, -0.5f), 1e-5f)
+    assertEquals(0.07f, PickCue.ringRadius(t), 1e-6f) // 2 cm larger than the footprint
+    val ys = (0 until 40).map { PickCue.chevronPose(t, it * 0.05f).t.y }
+    assertEquals(0.75f + 0.06f + 0.01f, ys.max(), 1e-3f)
+    assertEquals(0.75f + 0.06f - 0.01f, ys.min(), 1e-3f)
+    assertEquals(0.81f, PickCue.chevronPose(t, 0.5f, reducedMotion = true).t.y, 1e-6f)
+    // the cone (+Y) is turned to point down
+    assertEquals(-1f, PickCue.chevronPose(t, 0f).q.rotate(Vec3(0f, 1f, 0f)).y, 1e-5f)
+    assertEquals(1f, PickCue.opacity(t), 0f)
+    assertEquals(0.5f, PickCue.opacity(t.copy(ageMs = 13_500)), 1e-6f)
+    assertEquals(0f, PickCue.opacity(t.copy(ageMs = 16_000)), 0f)
   }
 
   @Test
