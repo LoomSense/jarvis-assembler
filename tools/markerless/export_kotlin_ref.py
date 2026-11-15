@@ -1,7 +1,10 @@
 """Reference numbers for the Kotlin port (quest-android vision/PanelPose.kt).
 
 Runs detect_front_panel on the sample frames (raw JPEGs, no extra degradation, the same noisy camera pose and
-table prior as the evaluation) and writes inputs, the rectification homography and the outputs to JSON:
+table prior as the evaluation) and writes inputs, the rectification homography and the outputs to JSON. `out` is
+the drawer front alone (step 1), `out_hull` the same rectangle with `fill_hull` (steps 2 and 3: the sides stand
+on the front), `out_box` the whole outline of the turned-over box (418 x 380 x 130 mm; not shipped, it only pins
+that the port takes any rectangle):
 
   python export_kotlin_ref.py sample ../../quest-android/app/src/test/resources/panel_pose_ref.json
 """
@@ -14,7 +17,7 @@ import numpy as np
 
 from common import camera_pose_noisy, load_frames, table_prior
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from server.perception.panel import HALF, MM_PER_PX, THICK, detect_front_panel  # noqa: E402
+from server.perception.panel import HALF, MM_PER_PX, THICK, detect_footprint, detect_front_panel  # noqa: E402
 
 root, dst = sys.argv[1], sys.argv[2]
 rows = []
@@ -43,6 +46,10 @@ for f in load_frames(root):
         "cam_px": [float((cam[0] - x0) / s), float((cam[1] - y0) / s)], "hc": float(cam[2] - THICK),
         "gt_T_world_obj": f["T_world_obj"], "gt_obj_xy_yaw": f["obj_xy_yaw"],
         "out": r, "yaw_with_prev": None if r180 is None else r180["yaw"],
+        "out_hull": detect_footprint(img, K, T_wc, T_wt, fill_hull=True),
+        "out_box": detect_footprint(img, K, T_wc, T_wt, length=0.418, width=0.380, height=0.130),
     })
-    print(f["id"], f["state"], r["trusted"], r["reason"], r.get("x"), r.get("y"), r.get("yaw"), r.get("size_err_mm"), r.get("rectness"), r.get("contrast"))
+    h = rows[-1]["out_hull"]
+    print(f["id"], f["state"], r["trusted"], r["reason"], r.get("x"), r.get("y"), r.get("yaw"), r.get("size_err_mm"), r.get("rectness"), r.get("contrast"),
+          "| hull:", h["trusted"], h["reason"], "| box:", rows[-1]["out_box"]["trusted"], rows[-1]["out_box"]["reason"])
 json.dump({"rows": rows}, open(dst, "w"), indent=1)

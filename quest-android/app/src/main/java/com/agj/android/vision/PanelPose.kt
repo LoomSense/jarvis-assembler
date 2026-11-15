@@ -19,6 +19,7 @@ import kotlin.math.sqrt
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
+import org.opencv.core.MatOfInt
 import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.Point
@@ -41,14 +42,24 @@ import org.opencv.imgproc.Imgproc
  *
  * [PanelMath] and [PanelFrames] are pure Kotlin (JVM-tested against numbers exported from the Python reference);
  * [PanelPose] is the OpenCV part (Java API only, like [MarkerDetector]); [PanelPoseTracker] is the thin runtime.
+ *
+ * Every step, not only the first: the detector is the reference's `detect_footprint`, the same code for any flat
+ * rectangle ([PanelParams.longM] × [PanelParams.shortM], top face [PanelParams.thickM] above the table), and
+ * [PanelTarget] is what it looks for at one step, from the app's own guide ([StepFootprints.target]): the flat
+ * base part of the assembly (FOOTPRINT frame = PANEL generalised). For the drawer that is the front panel in
+ * steps 1–3 (in 2 and 3 the sides stand on it and hide parts of it, so the convex hull of the blob is measured:
+ * [PanelParams.fillHull]). From step 4 the drawer is turned over; from above it is not a flat rectangle of one
+ * height, the renders say it cannot be trusted (FRONT_PANEL.md "All steps"), and the tracker stays off.
  */
 
 /** Every constant of the reference, by name, so it can be tuned on the device. Defaults = server/perception/panel.py. */
 data class PanelParams(
-    /** Panel size, metres (`LONG`, `SHORT`, `THICK`). */
+    /** Rectangle size and the height of its top face above the table, metres (`length`, `width`, `height`; defaults `LONG`, `SHORT`, `THICK`). */
     val longM: Double = 0.380,
     val shortM: Double = 0.130,
     val thickM: Double = 0.016,
+    /** `fill_hull`: area, rectness and the contrast ring use the convex hull of each blob (parts standing on the panel hide parts of it). */
+    val fillHull: Boolean = false,
     /** Rectified view: millimetres per pixel (`MM_PER_PX`) and half size of the window on the table (`HALF`). */
     val mmPerPx: Double = 2.5,
     val halfM: Double = 0.7,
@@ -88,6 +99,45 @@ data class PanelParams(
     val ringInnerPx: Int = 5,
     val maxCut: Double = 0.03,
 )
+
+/**
+ * What the detector looks for at one step: a flat rectangle on the table, and where the assembly is relative to
+ * it. From the guide: [StepFootprints.target] (null there = the step has no flat base part = do not track it).
+ *
+ * @property lengthM @property widthM the rectangle, metres (length ≥ width).
+ * @property topM its top face above the table (the rectification height and the smear model's height).
+ * @property fillHull parts stand on it during the step and hide parts of it: [PanelParams.fillHull].
+ * @property assemblyFromFootprint ASSEMBLY ← FOOTPRINT (origin = the rectangle's centre ON the table plane, +X
+ *   along the length, +Z up; for the drawer front alone this is [PanelFrames.ASSEMBLY_FROM_PANEL]).
+ * @property slab the part node the rectangle is, for the log.
+ */
+data class PanelTarget(
+    val lengthM: Double,
+    val widthM: Double,
+    val topM: Double,
+    val fillHull: Boolean,
+    val assemblyFromFootprint: Pose3,
+    val slab: String? = null,
+) {
+  /** [base] with this rectangle: every gate and constant stays as it is. */
+  fun params(base: PanelParams = PanelParams()): PanelParams = base.copy(longM = lengthM, shortM = widthM, thickM = topM, fillHull = fillHull)
+
+  /** Length, width and top height in whole millimetres, for the log. */
+  fun footprintMm(): List<Long> = listOf(Math.round(lengthM * 1000), Math.round(widthM * 1000), Math.round(topM * 1000))
+
+  /** The same physical rectangle in the same place of the assembly (within 1 mm); [fillHull] may differ. */
+  fun sameRectangle(o: PanelTarget?): Boolean {
+    if (o == null) return false
+    val d = assemblyFromFootprint.inverse() * o.assemblyFromFootprint
+    return abs(lengthM - o.lengthM) < 1e-3 && abs(widthM - o.widthM) < 1e-3 && abs(topM - o.topM) < 1e-3 && d.t.length() < 1e-3f && abs(d.q.w) > 0.99999f
+  }
+
+  companion object {
+    /** The MALM drawer front alone (step 1): what the tracker looks for until [PanelPoseTracker.setStep] is called. */
+    val FRONT_PANEL: PanelTarget
+      get() = PanelTarget(0.380, 0.130, 0.016, false, PanelFrames.ASSEMBLY_FROM_PANEL, "part_drawer_front_1")
+  }
+}
 
 /**
  * One frame's result, in the TABLE frame given to the detector.
@@ -150,6 +200,9 @@ object PanelMath {
   const val REASON_NOT_LOOKING_DOWN = "camera not looking down at the table"
   const val REASON_NOT_IN_VIEW = "table not in view"
   const val REASON_SIZE = "size is not 380 x 130 mm"
+
+  /** The size gate's reason for the rectangle in [p] (the reference's f-string; [REASON_SIZE] for the defaults). */
+  fun reasonSize(p: PanelParams = PanelParams()): String = "size is not ${Math.round(p.longM * 1000)} x ${Math.round(p.shortM * 1000)} mm"
   const val REASON_RECT = "not a clean rectangle (hand or object over it)"
   const val REASON_CUT = "panel partly out of the camera view"
   const val REASON_CONTRAST = "low contrast against the table"
@@ -329,7 +382,7 @@ object PanelMath {
   /** The trust gates in the reference's order; null = trusted. */
   fun gate(errL: Double, errS: Double, rectness: Double, cut: Double, contrast: Double, p: PanelParams = PanelParams()): String? =
       when {
-        abs(errL) > p.tolLongM || abs(errS) > p.tolShortM -> REASON_SIZE
+        abs(errL) > p.tolLongM || abs(errS) > p.tolShortM -> reasonSize(p)
         rectness < p.minRectness -> REASON_RECT
         cut > p.maxCut -> REASON_CUT
         contrast < p.minContrast -> REASON_CONTRAST
@@ -390,13 +443,17 @@ object PanelFrames {
   fun tableFromPanel(x: Double, y: Double, yaw: Double): Pose3 =
       Pose3(Vec3(x.toFloat(), y.toFloat(), 0f), Quat.axisAngle(Vec3(0f, 0f, 1f), yaw.toFloat()))
 
-  /** WORLD ← ASSEMBLY of the real drawer front (what the marker path reports), for `ghost.setAssemblyPose`. */
-  fun worldFromAssembly(worldFromTable: Pose3, x: Double, y: Double, yaw: Double): Pose3 =
-      worldFromTable * tableFromPanel(x, y, yaw) * ASSEMBLY_FROM_PANEL.inverse()
+  /**
+   * WORLD ← ASSEMBLY of the real assembly (what the marker path reports), for `ghost.setAssemblyPose`.
+   * [assemblyFromFootprint]: ASSEMBLY ← FOOTPRINT of the rectangle that was detected ([PanelTarget]); default the
+   * drawer front alone.
+   */
+  fun worldFromAssembly(worldFromTable: Pose3, x: Double, y: Double, yaw: Double, assemblyFromFootprint: Pose3 = ASSEMBLY_FROM_PANEL): Pose3 =
+      worldFromTable * tableFromPanel(x, y, yaw) * assemblyFromFootprint.inverse()
 
-  /** The panel yaw a given WORLD ← ASSEMBLY corresponds to (the ghost's current pose → `prevYaw`). */
-  fun panelYawInTable(worldFromTable: Pose3, worldFromAssembly: Pose3): Double {
-    val ax = (worldFromTable.inverse() * worldFromAssembly * ASSEMBLY_FROM_PANEL).q.rotate(Vec3(1f, 0f, 0f))
+  /** The rectangle's yaw a given WORLD ← ASSEMBLY corresponds to (the ghost's current pose → `prevYaw`). */
+  fun panelYawInTable(worldFromTable: Pose3, worldFromAssembly: Pose3, assemblyFromFootprint: Pose3 = ASSEMBLY_FROM_PANEL): Double {
+    val ax = (worldFromTable.inverse() * worldFromAssembly * assemblyFromFootprint).q.rotate(Vec3(1f, 0f, 0f))
     return atan2(ax.y.toDouble(), ax.x.toDouble())
   }
 }
@@ -428,6 +485,17 @@ object PanelPose {
     } finally {
       bgr.release()
     }
+  }
+
+  /** `cv2.convexHull(cnt)`: the hull's points in OpenCV's order. Releases [cnt]. */
+  private fun hullOf(cnt: MatOfPoint): MatOfPoint {
+    val idx = MatOfInt()
+    Imgproc.convexHull(cnt, idx)
+    val pts = cnt.toArray()
+    val hull = MatOfPoint(*idx.toArray().map { pts[it] }.toTypedArray())
+    idx.release()
+    cnt.release()
+    return hull
   }
 
   /** [tableFromCamera]: TABLE ← CAMERA, 4 × 4 row-major (the reference's `T_tc`). */
@@ -486,8 +554,9 @@ object PanelPose {
         Imgproc.morphologyEx(mask, opened, Imgproc.MORPH_OPEN, kernel)
         val contours = ArrayList<MatOfPoint>()
         Imgproc.findContours(opened, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
-        for (cnt in contours) {
+        for (raw in contours) {
           var keep = false
+          val cnt = if (p.fillHull) hullOf(raw) else raw
           val area = Imgproc.contourArea(cnt)
           if (PanelMath.areaOk(area, v, p)) {
             val c2 = MatOfPoint2f(*cnt.toArray())
@@ -627,8 +696,9 @@ class PanelConsensus(
 }
 
 /**
- * Runs [PanelPose] at [hz] on its own thread while [enabled], the job is `malm-drawer`, the table height is known
- * and the camera looks down at the table; reports WORLD ← ASSEMBLY after [PanelConsensus] agrees.
+ * Runs [PanelPose] at [hz] on its own thread while [enabled], the job is `malm-drawer`, the step has a [PanelTarget]
+ * ([setStep]), the table height is known and the camera looks down at the table; reports WORLD ← ASSEMBLY after
+ * [PanelConsensus] agrees.
  *
  * Wiring (MainActivity; see quest-android/README.md "Markerless front panel"):
  * ```
@@ -642,8 +712,8 @@ class PanelConsensus(
  * panel?.setJob(a.jobId)                                   // stays off unless malm-drawer
  * // visionListener.onFrame, first line (camera thread):
  * panel?.onFrame(frame)
- * // showStep(), after world.setAction(…): only while the front is alone on the table
- * panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
+ * // showStep(), after world.setAction(…): the flat base part of this step, or off where there is none
+ * panel?.setStep(step, assembly?.let { a -> a.guide?.let { g -> StepFootprints.target(g, a.manifest, step) } })
  * // onDestroy:
  * panel?.stop()
  * ```
@@ -654,7 +724,10 @@ class PanelConsensus(
  * the ghost does not shimmer with the detector's noise.
  *
  * Logs AGQ `panel` at most once a second: `trusted`, `reason`, `ms`, `pos_m` (WORLD, panel centre on the table),
- * `xy_m`, `yaw_deg`, `size_err_mm`, `rectness`, `contrast`, `streak`, `reports`, `table_y_m`, `img`.
+ * `xy_m`, `yaw_deg`, `size_err_mm`, `rectness`, `contrast`, `streak`, `reports`, `table_y_m`, `img`, and what it is
+ * looking for: `on` (true), `step`, `footprint_mm` (length, width, top height), `hull`. [setStep] logs one more
+ * `panel` line whenever the step's target changes: `on` (false when the step has no flat base part, the switch is
+ * off or the job is another), `step`, `footprint_mm`, `hull`, `slab`, `trusted` false and the `reason` in words.
  *
  * @param tableHeight WORLD height of the table surface (the world module's MRUK table), null = unknown.
  * @param ghostPose WORLD ← ASSEMBLY the ghost shows now, for the 180° choice; null = the tracker's own last yaw.
@@ -675,8 +748,15 @@ class PanelPoseTracker(
     private val loadNative: () -> Boolean = { org.opencv.android.OpenCVLoader.initLocal() },
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
-  /** Switch for the launch extra and for steps where the panel is no longer alone. */
+  /** Switch for the launch extra (and, where [setStep] is not wired yet, for the steps after the first). */
   @Volatile var enabled = true
+
+  /** What to look for at the step shown now; null = off for this step. Before the first [setStep]: the drawer front alone. */
+  @Volatile var target: PanelTarget? = PanelTarget.FRONT_PANEL
+    private set
+
+  @Volatile private var step: Int? = null
+  private var loggedState: Any? = null
 
   @Volatile private var job: String? = null
   private val busy = AtomicBoolean(false)
@@ -706,11 +786,54 @@ class PanelPoseTracker(
   }
 
   val active: Boolean
-    get() = enabled && job == PanelFrames.MALM_JOB
+    get() = enabled && job == PanelFrames.MALM_JOB && target != null
+
+  /**
+   * The step shown now and its target ([StepFootprints.target]); null [target] = no flat base part at this step, the
+   * tracker rests and the ghost keeps its last pose. A different rectangle starts a new three-in-a-row; the same one
+   * (the drawer front in steps 1–3) carries on. Logs `panel` once per change. Any thread.
+   */
+  fun setStep(step: Int?, target: PanelTarget?) {
+    val old = this.target
+    this.step = step
+    this.target = target
+    if (target == null || !target.sameRectangle(old)) {
+      synchronized(this) {
+        consensus.reset()
+        lastReported = null
+        lastYaw = null
+      }
+    }
+    val state = listOf(active, step, target)
+    synchronized(this) {
+      if (state == loggedState) return
+      loggedState = state
+    }
+    log.event(
+        "panel",
+        mapOf(
+            "on" to active,
+            "step" to step,
+            "footprint_mm" to target?.footprintMm(),
+            "hull" to target?.fillHull,
+            "slab" to target?.slab,
+            "trusted" to false,
+            "reason" to
+                when {
+                  target == null -> REASON_NO_TARGET
+                  !enabled -> "tracker switched off"
+                  job != PanelFrames.MALM_JOB -> "tracker off: not the drawer guide"
+                  else -> "tracker on"
+                },
+        ),
+    )
+  }
 
   /** Camera thread. Cheap unless a detection is due. */
   fun onFrame(frame: CameraFrame) {
     if (!active) return
+    val t = target ?: return
+    val p = t.params(params)
     val now = clockMs()
     if (now - lastSubmitMs < (1000.0 / hz).toLong() || busy.get()) return
     val wc = frame.worldFromCamera
@@ -729,20 +852,20 @@ class PanelPoseTracker(
     val wt = PanelFrames.tableAtHeight(y!!)
     val tc = PanelMath.tableFromCamera(wc!!, wt)
     lastSubmitMs = now
-    if (!PanelMath.looksDown(tc, params)) {
-      onResult(PanelPoseResult(false, PanelMath.REASON_NOT_LOOKING_DOWN, null, null, null, null, 0.0), wt, now)
+    if (!PanelMath.looksDown(tc, p)) {
+      onResult(PanelPoseResult(false, PanelMath.REASON_NOT_LOOKING_DOWN, null, null, null, null, 0.0), wt, now, t)
       return
     }
     if (!busy.compareAndSet(false, true)) return
     try {
       val jpeg = frame.jpegAt(grabLongEdge, grabQuality) // live buffers are only valid inside this callback
       val k = frame.intrinsics
-      val prev = ghostPose()?.let { PanelFrames.panelYawInTable(wt, it) } ?: synchronized(this) { lastYaw }
+      val prev = ghostPose()?.let { PanelFrames.panelYawInTable(wt, it, t.assemblyFromFootprint) } ?: synchronized(this) { lastYaw }
       val w = worker ?: Executors.newSingleThreadExecutor { Thread(it, "agj-panel").apply { isDaemon = true } }.also { worker = it }
       w.execute {
         try {
           if (nativeOk == null) nativeOk = runCatching { loadNative() }.getOrDefault(false).also { if (!it) log.error("panel", "OpenCV native library did not load") }
-          if (nativeOk == true) onResult(PanelPose.detectJpeg(jpeg, k, tc, prev, params), wt, clockMs())
+          if (nativeOk == true) onResult(PanelPose.detectJpeg(jpeg, k, tc, prev, p), wt, clockMs(), t)
         } catch (t: Throwable) {
           log.error("panel", t.message)
         } finally {
@@ -757,10 +880,12 @@ class PanelPoseTracker(
 
   /**
    * One detector result → consensus → callback and log. Public for the JVM tests (no OpenCV needed).
-   * [worldFromTable] the table frame the result is in (null when the detector did not run).
+   * [worldFromTable] the table frame the result is in (null when the detector did not run). [t] the target the
+   * frame was searched for: a result for a rectangle that is no longer the step's is dropped.
    */
   @Synchronized
-  fun onResult(r: PanelPoseResult, worldFromTable: Pose3?, nowMs: Long) {
+  fun onResult(r: PanelPoseResult, worldFromTable: Pose3?, nowMs: Long, t: PanelTarget? = target) {
+    if (t == null || !t.sameRectangle(target)) return
     val sample =
         if (r.trusted && r.x != null && r.y != null && r.yaw != null && worldFromTable != null)
             PanelSample(r.x, r.y, r.yaw, worldFromTable.t.y, r.score ?: 0.0, nowMs)
@@ -770,7 +895,7 @@ class PanelPoseTracker(
     if (agreed != null && shouldReport(agreed, nowMs)) {
       lastReported = agreed
       reports++
-      val pose = PanelFrames.worldFromAssembly(PanelFrames.tableAtHeight(agreed.tableY), agreed.x, agreed.y, agreed.yaw)
+      val pose = PanelFrames.worldFromAssembly(PanelFrames.tableAtHeight(agreed.tableY), agreed.x, agreed.y, agreed.yaw, t.assemblyFromFootprint)
       latest = pose
       // trusted ⇒ score ≤ 2 (each side within its tolerance): 1.0 = exact size, 0.5 = at both tolerances
       val confidence = (1.0 - 0.25 * agreed.score).coerceIn(0.5, 1.0).toFloat()
@@ -799,6 +924,10 @@ class PanelPoseTracker(
               "reports" to reports,
               "table_y_m" to worldFromTable?.t?.y,
               "img" to r.imageSize,
+              "on" to true,
+              "step" to step,
+              "footprint_mm" to t.footprintMm(),
+              "hull" to t.fillHull,
           ),
       )
     }
@@ -824,5 +953,6 @@ class PanelPoseTracker(
 
   companion object {
     const val SOURCE = "markerless"
+    const val REASON_NO_TARGET = "tracker off: no flat base part at this step"
   }
 }

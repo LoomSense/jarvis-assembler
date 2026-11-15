@@ -1,4 +1,5 @@
-"""The drawer front lying flat on the table: its pose from ONE camera frame, no marker.
+"""A flat white rectangle lying on the table (the drawer front; or, per step, the flat base part of the
+assembly): its pose from ONE camera frame, no marker.
 
 Solves the plane-constrained case only (x, y, yaw on the known table plane), not general 6-DoF.
 Inputs: BGR image, intrinsics K OF THAT IMAGE, T_world_cam (OpenCV camera axes: x right, y down, z forward),
@@ -16,6 +17,12 @@ Method (only warp, threshold, contours, minAreaRect):
 Yaw is only known modulo 180 deg (a rectangle); pass `prev_yaw` to get the nearer one, otherwise it is in [0, pi).
 Measured on renders only (tools/markerless/FRONT_PANEL.md); evaluation: tools/markerless/panel_pose.py.
 The route is server/routes/panel.py. This is the only copy of the detector.
+
+`detect_footprint` is the same detector for any rectangle `length` x `width` whose top face is `height` above the
+table (the per-step outline from tools/markerless/footprint.py). `fill_hull` measures the convex hull of each
+blob instead of the blob: for a base part that is partly hidden by parts standing on it (the drawer front with
+the two sides on it). `detect_front_panel` is `detect_footprint` with the drawer front's numbers. What was
+measured per step, and why the turned-over box is NOT tracked, is in FRONT_PANEL.md "All steps".
 """
 from __future__ import annotations
 
@@ -31,6 +38,16 @@ MIN_CONTRAST = 18.0   # whiteness inside minus ring outside (0..255)
 
 
 def detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None):
+    """The MALM drawer front (380 x 130 x 16 mm) alone on the table: `detect_footprint` with its numbers."""
+    return detect_footprint(img, K, T_world_cam, T_world_table, prev_yaw=prev_yaw)
+
+
+def detect_footprint(img, K, T_world_cam, T_world_table, length=LONG, width=SHORT, height=THICK, prev_yaw=None,
+                     fill_hull=False):
+    """A white `length` x `width` rectangle (metres, length >= width) whose top face is `height` above the table.
+    Same gates and tolerances for every size. `fill_hull`: area, rectness and the contrast ring use the convex
+    hull of the blob (the rectangle itself is the same: minAreaRect of a blob is that of its hull)."""
+    LONG, SHORT, THICK = float(length), float(width), float(height)   # shadow the module defaults below
     out = {"trusted": False, "reason": "no candidate"}
     T_tc = np.linalg.inv(T_world_table) @ T_world_cam      # camera in table frame
     T_ct = np.linalg.inv(T_tc)
@@ -68,6 +85,8 @@ def detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None):
         m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
         cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in cnts:
+            if fill_hull:
+                cnt = cv2.convexHull(cnt)
             a = cv2.contourArea(cnt)
             if a < 0.6 * area_px or a > 2.2 * area_px:
                 continue
@@ -107,7 +126,7 @@ def detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None):
     contrast = float(white[mask_in > 0].mean() - white[(ring > 0) & valid].mean()) if (ring > 0).any() else 0.0
     reason = None
     if abs(err_l) > TOL_LONG or abs(err_s) > TOL_SHORT:
-        reason = "size is not 380 x 130 mm"
+        reason = f"size is not {LONG * 1000:.0f} x {SHORT * 1000:.0f} mm"
     elif rectness < MIN_RECT:
         reason = "not a clean rectangle (hand or object over it)"
     elif cut > 0.03:
