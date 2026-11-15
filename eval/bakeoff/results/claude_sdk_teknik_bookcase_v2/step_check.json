@@ -1,0 +1,311 @@
+{
+ "verifier": "decision",
+ "version": 2,
+ "pass_at": 0.5,
+ "checked_at": 1794729205,
+ "wall_s": 3.76,
+ "steps": 12,
+ "checked": 12,
+ "passed": 10,
+ "mean_score": 0.827,
+ "failed": [
+  6,
+  10
+ ],
+ "errors": [],
+ "results": [
+  {
+   "n": 1,
+   "render": "jobs/hard2/agent/job/out/renders/step_01.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-01-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "14d69058beeb1045",
+   "key": "2:decision:14d69058beeb1045:dc909bcf469c4be9",
+   "pass": true,
+   "score": 0.859,
+   "answers": {
+    "same_parts": 0.821,
+    "same_arrangement": 0.842,
+    "screws_placed": 0.914
+   },
+   "pose": "same",
+   "pose_confidence": 0.561,
+   "main_difference": "none",
+   "main_difference_confidence": 0.43,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 2000,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 2,
+   "render": "jobs/hard2/agent/job/out/renders/step_02.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-02-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "f1ba01f2cb9bb3c3",
+   "key": "2:decision:f1ba01f2cb9bb3c3:60de8787eb9d18a1",
+   "pass": true,
+   "score": 0.916,
+   "answers": {
+    "same_parts": 0.906,
+    "same_arrangement": 0.898,
+    "screws_placed": 0.943
+   },
+   "pose": "same",
+   "pose_confidence": 0.794,
+   "main_difference": "none",
+   "main_difference_confidence": 0.793,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1520,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 3,
+   "render": "jobs/hard2/agent/job/out/renders/step_03.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-03-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "14b0137307ae4618",
+   "key": "2:decision:14b0137307ae4618:a28725ef4c4c2212",
+   "pass": true,
+   "score": 0.784,
+   "answers": {
+    "same_parts": 0.741,
+    "same_arrangement": 0.792,
+    "screws_placed": 0.818
+   },
+   "pose": "same",
+   "pose_confidence": 0.56,
+   "main_difference": "none",
+   "main_difference_confidence": 0.302,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1982,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 4,
+   "render": "jobs/hard2/agent/job/out/renders/step_04.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-04-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "86d93f38e9d739cf",
+   "key": "2:decision:86d93f38e9d739cf:8a8b6dd2416c88be",
+   "pass": true,
+   "score": 0.898,
+   "answers": {
+    "same_parts": 0.884,
+    "same_arrangement": 0.912
+   },
+   "pose": "same",
+   "pose_confidence": 0.829,
+   "main_difference": "none",
+   "main_difference_confidence": 0.723,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1728,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 5,
+   "render": "jobs/hard2/agent/job/out/renders/step_05.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-05-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "3589f0545d18782c",
+   "key": "2:decision:3589f0545d18782c:5e744a38494c1cb2",
+   "pass": true,
+   "score": 0.874,
+   "answers": {
+    "same_parts": 0.864,
+    "same_arrangement": 0.874,
+    "screws_placed": 0.884
+   },
+   "pose": "same",
+   "pose_confidence": 0.602,
+   "main_difference": "none",
+   "main_difference_confidence": 0.635,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1639,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 6,
+   "render": "jobs/hard2/agent/job/out/renders/step_06.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-06-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "04ff0acce9d63d03",
+   "key": "2:decision:04ff0acce9d63d03:590d379f905a0798",
+   "pass": false,
+   "score": 0.71,
+   "answers": {
+    "same_parts": 0.661,
+    "same_arrangement": 0.749,
+    "screws_placed": 0.719
+   },
+   "pose": "upside_down",
+   "pose_confidence": 0.633,
+   "main_difference": "turned_differently",
+   "main_difference_confidence": 0.624,
+   "failed": [
+    "turned"
+   ],
+   "fix": [
+    "the assembly looks upside down compared with the drawing: check `pose` and `assembly_rotation_deg` of step 6"
+   ],
+   "latency_ms": 1742,
+   "rounds": 2,
+   "flagged": true
+  },
+  {
+   "n": 7,
+   "render": "jobs/hard2/agent/job/out/renders/step_07.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-07-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "94c73fd3ed7c50cc",
+   "key": "2:decision:94c73fd3ed7c50cc:4a5e7dea71e65080",
+   "pass": true,
+   "score": 0.778,
+   "answers": {
+    "same_parts": 0.79,
+    "same_arrangement": 0.766
+   },
+   "pose": "same",
+   "pose_confidence": 0.616,
+   "main_difference": "none",
+   "main_difference_confidence": 0.557,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 758,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 8,
+   "render": "jobs/hard2/agent/job/out/renders/step_08.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-08-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "e3a3d9c1554241da",
+   "key": "2:decision:e3a3d9c1554241da:dcc354698c2ecb6f",
+   "pass": true,
+   "score": 0.73,
+   "answers": {
+    "same_parts": 0.684,
+    "same_arrangement": 0.803,
+    "screws_placed": 0.702
+   },
+   "pose": "same",
+   "pose_confidence": 0.608,
+   "main_difference": "missing_or_extra_part",
+   "main_difference_confidence": 0.388,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1024,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 9,
+   "render": "jobs/hard2/agent/job/out/renders/step_09.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-09-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "0fa180f159a8364e",
+   "key": "2:decision:0fa180f159a8364e:04c240f50e02be7f",
+   "pass": true,
+   "score": 0.887,
+   "answers": {
+    "same_parts": 0.873,
+    "same_arrangement": 0.894,
+    "screws_placed": 0.893
+   },
+   "pose": "same",
+   "pose_confidence": 0.762,
+   "main_difference": "none",
+   "main_difference_confidence": 0.724,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 960,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 10,
+   "render": "jobs/hard2/agent/job/out/renders/step_10.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-10-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "094dc9dc45d3cfbe",
+   "key": "2:decision:094dc9dc45d3cfbe:3b6908835789d900",
+   "pass": false,
+   "score": 0.825,
+   "answers": {
+    "same_parts": 0.831,
+    "same_arrangement": 0.819
+   },
+   "pose": "upside_down",
+   "pose_confidence": 0.52,
+   "main_difference": "turned_differently",
+   "main_difference_confidence": 0.481,
+   "failed": [
+    "turned"
+   ],
+   "fix": [
+    "the assembly looks upside down compared with the drawing: check `pose` and `assembly_rotation_deg` of step 10"
+   ],
+   "latency_ms": 927,
+   "rounds": 3,
+   "flagged": true
+  },
+  {
+   "n": 11,
+   "render": "jobs/hard2/agent/job/out/renders/step_11.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-11-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "772bd5443b2f2e63",
+   "key": "2:decision:772bd5443b2f2e63:c75be6f12ad09119",
+   "pass": true,
+   "score": 0.831,
+   "answers": {
+    "same_parts": 0.79,
+    "same_arrangement": 0.878,
+    "screws_placed": 0.824
+   },
+   "pose": "same",
+   "pose_confidence": 0.884,
+   "main_difference": "none",
+   "main_difference_confidence": 0.614,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 841,
+   "rounds": 0,
+   "flagged": false
+  },
+  {
+   "n": 12,
+   "render": "jobs/hard2/agent/job/out/renders/step_12.png",
+   "drawing": "jobs/hard2/agent/job/out/check/step-12-guide.png",
+   "drawing_source": "page_auto",
+   "render_sha": "40b052d50867810f",
+   "key": "2:decision:40b052d50867810f:ea38d11588c339ef",
+   "pass": true,
+   "score": 0.83,
+   "answers": {
+    "same_parts": 0.836,
+    "same_arrangement": 0.843,
+    "screws_placed": 0.811
+   },
+   "pose": "same",
+   "pose_confidence": 0.921,
+   "main_difference": "none",
+   "main_difference_confidence": 0.656,
+   "failed": [],
+   "fix": [],
+   "latency_ms": 1617,
+   "rounds": 0,
+   "flagged": false
+  }
+ ]
+}
