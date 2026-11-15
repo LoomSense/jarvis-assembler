@@ -138,6 +138,20 @@ export function prepareModel(gltf: GLTF, manifest: Manifest): Model {
   // and shows or hides it with `visible`.
   for (const name of named.slice(1)) node(name)!.scale.set(1, 1, 1)
 
+  // Newer GLBs do carry scale tracks for parts and screws in the step clips: two keys of one value, 1 for the
+  // piece of the step's first action and 0.0001 for every other piece. Played, they shrink a screw to nothing the
+  // moment it is driven. The viewer hides and shows with `visible`, so those tracks are dropped here. The ring
+  // at the hole keeps its own (it is not a part), and the `walkthrough` clip is left as it is.
+  const sized = new Set(named.map((n) => node(n)!))
+  for (const step of manifest.steps) {
+    const clip = step.clip ? clips.get(step.clip) : undefined
+    if (!clip) continue
+    clip.tracks = clip.tracks.filter((t) => {
+      const target = PropertyBinding.parseTrackName(t.name)
+      return target.propertyName !== 'scale' || !sized.has(node(target.nodeName)!)
+    })
+  }
+
   const shapes = new Map<Object3D, FastenerShape>()
   return {
     gltf,
