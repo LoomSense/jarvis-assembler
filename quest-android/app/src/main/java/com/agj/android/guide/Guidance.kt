@@ -5,7 +5,6 @@ import com.agj.android.core.Quat
 import com.agj.android.core.Vec3
 import kotlin.math.abs
 import kotlin.math.acos
-import kotlin.math.hypot
 import kotlin.math.sqrt
 
 /*
@@ -49,16 +48,6 @@ data class Repeat(val index: Int, val of: Int, val remaining: List<GuideAction>)
 
 /** A part's size about an axis through a point: radial reach, and how far it reaches out of / into the surface. */
 data class AxisExtent(val radial: Float, val out: Float, val into: Float)
-
-/** Where the label pill and its leader go, WORLD. [hideBand] = heights where path dots are not drawn (under the pill). */
-data class LabelLayout(
-    val leaderFrom: Vec3,
-    val leaderLen: Float,
-    val pill: Vec3,
-    val leader: Boolean,
-    val stacked: Boolean,
-    val hideBand: ClosedFloatingPointRange<Float>?,
-)
 
 /**
  * TABLE ← ASSEMBLY while the assembly is turned over (a `turn` action), sampled from the GLB's `walkthrough` clip, so
@@ -136,21 +125,6 @@ object Guidance {
   const val PATH_BOARD = 0.25f
   const val PATH_GAP = 0.02f
   const val PATH_SPACING = 0.012f
-
-  /** Label (spec §4.5): leader 9 cm, pill 28 mm high in a 32 mm panel, at most 0.32 m wide. */
-  const val LABEL_LIFT = 0.09f
-  const val LABEL_STACK_LIFT = 0.03f
-  const val LABEL_STACK_MAX = 0.14f
-  const val LABEL_PANEL_H = 0.032f
-  const val LABEL_HALF_W = 0.16f
-
-  /**
-   * The pill's text is laid out at 1 dp = 1 mm with the name at 17 sp (ui/Panels.kt `TextSize.labelName`); the step
-   * window's body is 17.5 sp. Scaling the pill by 17.5 / 17 makes the name the window's body size at 0.8 m.
-   */
-  const val LABEL_NAME_MM = 17f
-  const val BODY_MM = 17.5f
-  const val LABEL_TEXT_SCALE = BODY_MM / LABEL_NAME_MM
 
   /** Hardware kinds (manifest `hardware[].kind`) without a thread: straight dotted line, no turning arrow (§4.2). */
   val PUSH_KINDS = setOf("dowel", "pin", "nail", "plug", "peg", "cap", "rivet")
@@ -270,52 +244,6 @@ object Guidance {
 
   /** The most dim rings any action of the guide needs at once. */
   fun maxRemaining(g: Guide): Int = g.steps.maxOfOrNull { s -> s.guided.maxOfOrNull { repeatOf(s, it)?.remaining?.size ?: 0 } ?: 0 } ?: 0
-
-  // ---------------------------------------------------------------- label
-
-  /** Dynamic scale (spec §2.2) × the factor that brings the name up to the window's body size. */
-  fun labelScale(distM: Float): Float = (distM / 0.8f).coerceIn(0.75f, 1.5f) * LABEL_TEXT_SCALE
-
-  /** The name's font size in degrees of visual angle at [distM]. */
-  fun labelNameDeg(distM: Float): Double =
-      Math.toDegrees(2.0 * kotlin.math.atan((LABEL_NAME_MM / 1000.0 * labelScale(distM)) / (2.0 * distM)))
-
-  /** The step window's body size in degrees at its design distance (0.8 m). */
-  val bodyDeg: Double = Math.toDegrees(2.0 * kotlin.math.atan((BODY_MM / 1000.0) / (2.0 * 0.8)))
-
-  /**
-   * The pill above the part, WORLD. Normally a 9 cm leader straight up from [anchor] (top centre of the ghost). When
-   * the part comes from above, the dotted path runs up that same line and the pill would sit on it:
-   *  - short path (hardware): the leader starts at the path's far end and is 3 cm long, so the wearer reads
-   *    pill → dots → hole in one line;
-   *  - long path (a board lowered from 25 cm): the pill stays near the part, the dots under it are not drawn and the
-   *    white leader is dropped (the dots are the leader).
-   * [pathWorld] is the insertion path, far end first.
-   */
-  fun labelLayout(anchor: Vec3, pathWorld: List<Vec3>, scale: Float): LabelLayout {
-    val half = LABEL_PANEL_H / 2f * scale
-    val lift = LABEL_LIFT * scale
-    val normal = LabelLayout(anchor, lift, anchor + UP * (lift + half), leader = true, stacked = false, hideBand = null)
-    if (pathWorld.size < 2) return normal
-    val top = pathWorld.first()
-    val near = pathWorld.last()
-    val d = top - near
-    val len = d.length()
-    if (len < 1e-4f || d.y / len < VERTICAL_COS) return normal
-    // Does the path cross the pill's place? (Within the pill's half width of the anchor's vertical, above the anchor.)
-    val column = LABEL_HALF_W * scale
-    val crosses = pathWorld.any { hypot(it.x - anchor.x, it.z - anchor.z) < column && it.y > anchor.y + 0.005f }
-    if (!crosses) return normal
-    if (top.y - anchor.y <= LABEL_STACK_MAX * scale) {
-      val l = LABEL_STACK_LIFT * scale
-      return LabelLayout(top, l, top + UP * (l + half), leader = true, stacked = true, hideBand = null)
-    }
-    val lo = anchor.y + lift
-    return LabelLayout(anchor, lift, normal.pill, leader = false, stacked = false, hideBand = (lo - 0.01f)..(lo + LABEL_PANEL_H * scale + 0.01f))
-  }
-
-  /** A path is "from above" when it rises within 35° of the vertical. */
-  val VERTICAL_COS: Float = kotlin.math.cos(Math.toRadians(35.0)).toFloat()
 
   // ---------------------------------------------------------------- math
 

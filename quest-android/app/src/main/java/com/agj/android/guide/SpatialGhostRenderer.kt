@@ -118,8 +118,6 @@ class SpatialGhostRenderer(
   private var turnTrack: TurnTrack? = null
   /** True until the current action's hole has been logged in WORLD (`ghost_hole`, once a pose is known). */
   private var holeWorldPending = false
-  /** Path dots hidden under the label pill this frame (indices into [path]); see [Guidance.labelLayout]. */
-  private var dotsUnderLabel: ClosedFloatingPointRange<Float>? = null
   private var materialLogged = false
   private var jobKey = "job"
   private var makeEntity: ((String, MeshData, GhostMat, Entity?) -> Entity)? = null
@@ -281,7 +279,6 @@ class SpatialGhostRenderer(
 
     // Insertion path (from `from_dir`, on the hole's axis for hardware) + turning arrow (clockwise seen from the head)
     path = emptyList()
-    dotsUnderLabel = null
     val arrow = if (a != null && !turning) Guidance.turnArrowOf(a) else null
     if (a != null && !turning) {
       val up = stepPose.q.conjugate().rotate(Vec3(0f, 1f, 0f))
@@ -509,9 +506,21 @@ class SpatialGhostRenderer(
       val cycle = 2.4f
       val k =
           if (tAction >= cycle * 3) 1f else ((tAction % cycle) / 1.6f).coerceIn(0f, 1f).let { easeInOutCubic(it) }
-      posedNow = Pose3(prevPose.t.lerp(stepPose.t, k), prevPose.q.nlerp(stepPose.q, k))
+      // Along the guide's own turn (same way round as its animation); without a clip, between the two step poses.
+      posedNow = turnTrack?.at(k) ?: Pose3(prevPose.t.lerp(stepPose.t, k), prevPose.q.nlerp(stepPose.q, k))
     }
     posed?.setComponent(Transform(posedNow.toSdk()))
+    // The hole in WORLD, once, when `ghost_show` could not give it (no pose yet at that moment).
+    if (holeWorldPending && wft != null) {
+      holeWorldPending = false
+      hole?.let { h ->
+        val wfa = wft * posedNow
+        Agq.log.event(
+            "ghost_hole",
+            mapOf("step" to step, "action" to action, "hole_m" to vec(wfa.transform(h.center)), "from_dir" to vec(wfa.q.rotate(h.normal))),
+        )
+      }
+    }
 
     // Ghost material by state (spec §4.1, 4.7–4.9, 4.12).
     val t = clock - stateSince
@@ -672,20 +681,9 @@ class SpatialGhostRenderer(
   companion object {
     private const val MAX_DOTS = 48
     private const val DASH = 4
-    private const val MAX_STATIC_RINGS = 6
+    /** Upper bound on the dim rings (the real number comes from the guide: [Guidance.maxRemaining]). */
+    private const val MAX_STATIC_RINGS = 24
 
-    /**
-     * The hole of a screw-like action (spec §4.4), ASSEMBLY frame: on the part's outer end along `from_dir`, 0.5 mm
-     * out, radius = half the part's width across the axis + 2 mm. Null for other kinds or without geometry.
-     */
-    fun holeOf(a: GuideAction): Hole? {
-      if (!a.kind.twists && a.kind != ActionKind.PRESS) return null
-      val geo = a.geometry ?: return null
-      val dir = Shapes.norm(a.fromDir ?: return null)
-      val c = geo.center + dir * (geo.extentAlong(dir) / 2f + 0.0005f)
-      val r = (geo.widthAcross(dir) / 2f + 0.002f).coerceIn(0.004f, 0.03f)
-      return Hole(c, dir, r)
-    }
     /** Half the label panel's height (m), so the pill's bottom edge sits on the leader line. */
     const val PILL_HALF_H = 0.02f
 
