@@ -932,6 +932,7 @@ class MainActivity : AppSystemActivity() {
 
   /** A held-part event: the badge as before ([held]), then the phase: right → "put it here", wrong → it stays. */
   private fun coachHeld(event: String, raw: JsonObject) {
+    if (coachAct()?.preinstalled == true) return // nothing is picked up: a verdict about the hand would only confuse
     coachHeldLine = null
     coachHolding = true
     try {
@@ -992,7 +993,8 @@ class MainActivity : AppSystemActivity() {
       coachGripSince = h.sinceMs
       coachGripAt = h.handWorldPos
     }
-    if (coach.stage != CoachFlow.Stage.GUIDE || finished || coachIds.isEmpty()) {
+    // a pre-installed fastener has no ids (no "take" phase) but its "do it here" phase still ends by the hands
+    if (coach.stage != CoachFlow.Stage.GUIDE || finished || (coachIds.isEmpty() && coachAct()?.preinstalled != true)) {
       coachShown = emptyList()
       world.flatShow = false // FLAT-PARTS: nothing to take now
       return
@@ -1028,6 +1030,8 @@ class MainActivity : AppSystemActivity() {
               atTarget = atTarget,
               tracked = hands.isNotEmpty(),
               nextSpots = if (phase == com.agj.android.ui.CoachPhase.PLACE) all.filter { it.id in coachNextIds }.map { it.worldPos } else emptyList(),
+              // a tool-turned fastener, or a board that is followed by more work in the same step: the hand stays
+              dwellEnds = toolKind || (coachAct()?.kind == ActionKind.PLACE && !actionCoach.lastOfStep),
           )
       coachApply(actionCoach.tick(now, sight), source = "hands")
     }
@@ -1159,7 +1163,9 @@ class MainActivity : AppSystemActivity() {
     voice.say(s("alignLook"), lang)
     scope.launch {
       delay(1500)
-      world.anchor.reset()
+      // Only on the base part's own step: later the detector cannot see the bare part again, and a dropped anchor
+      // would stay on the fixed spot (14:15 device run). There the ghost keeps its place and is only re-checked.
+      if (curStep == world.basePart?.step) world.anchor.reset()
       world.realign()
       delay(500) // placed again on the next frame
       realigning = false
@@ -1178,6 +1184,16 @@ class MainActivity : AppSystemActivity() {
     }
   }
 
+  /** The manifest's `walkthrough.steps[n = "finish"].text` in the app language, if the guide has one. */
+  private fun finishText(): String? =
+      runCatching {
+            val steps = (assembly?.manifest?.walkthrough as? JsonObject)?.get("steps") as? kotlinx.serialization.json.JsonArray
+            val fin = steps?.firstOrNull { ((it as? JsonObject)?.get("n") as? JsonPrimitive)?.contentOrNull == "finish" } as? JsonObject
+            val text = fin?.get("text") as? JsonObject
+            ((text?.get(lang) ?: text?.get("en")) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+          }
+          .getOrNull()
+
   private fun finishGuide() {
     val g = assembly?.guide ?: return
     finished = true
@@ -1192,8 +1208,13 @@ class MainActivity : AppSystemActivity() {
             progress = 1f,
             backLabel = s("back"),
         )
-    voice.say(s("allDone"), lang)
+    // the guide's own last line ("turn it the right way up") after "it is done"; nothing more to find or follow
+    val last = finishText()
+    if (last != null) stepPanel.state = stepPanel.state.copy(body = last)
+    voice.say(listOfNotNull(s("allDone") + ".", last).joinToString(" "), lang)
     sounds.play(Sounds.Cue.COMPLETE)
+    world.setAction(assembly?.jobId, curStep, curAction, null)
+    panel?.setStep(curStep, null)
     if (socketStarted) socket?.stop()
     socketStarted = false
     Agq.log.event("finish", mapOf("job" to assembly?.jobId, "steps" to g.steps.size))

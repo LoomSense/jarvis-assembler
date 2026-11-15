@@ -129,7 +129,8 @@ class HeldPartGuide(
     this.step = step
     this.action = action
     // only something that is picked up can be right or wrong in the hand: a part to place, hardware to fasten
-    val a = act?.takeIf { it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN }
+    // …and not a fastener that already sits in its part (nothing is in the hand then)
+    val a = act?.takeIf { (it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN) && !it.preinstalled }
     wanted = listOfNotNull(a?.partId, a?.code)
     expected = if (a?.kind == ActionKind.FASTEN) a.code ?: a.partId else a?.partId ?: a?.code
     label = a?.label(lang())

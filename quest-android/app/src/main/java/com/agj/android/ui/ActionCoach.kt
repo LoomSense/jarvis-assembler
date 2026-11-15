@@ -53,6 +53,12 @@ data class PickSight(
     val tracked: Boolean = hand != null,
     /** PLACE: where the next action's part lies (its pick targets), for "the hand went for the next part". */
     val nextSpots: List<Vec3> = emptyList(),
+    /**
+     * PLACE: working at the target long enough ends the action without the hand having to leave it: a fastener
+     * turned with a tool, or a board that a hand keeps steadying while the next fastener goes in (the drawer's side
+     * panels and their cam locks: the hand never goes "away" between them).
+     */
+    val dwellEnds: Boolean = false,
 )
 
 /**
@@ -83,6 +89,8 @@ class ActionCoach(private val cfg: Config = Config()) {
       val carryM: Float = 0.20f,
       /** PLACE: a hand must have been at the target this long in all… */
       val dwellMs: Long = 1_200,
+      /** …and, where [PickSight.dwellEnds] is set, this long at the target ends the action by itself. */
+      val dwellEndsMs: Long = 4_500,
       /** …and then every tracked hand away from it this long (the step's last action waits [awayLastMs]). */
       val awayMs: Long = 2_000,
       /** On the step's last action the server's `step_complete` gets this long to say it first. */
@@ -245,6 +253,7 @@ class ActionCoach(private val cfg: Config = Config()) {
       awayMs += dt
       if (leftAtMs == null) leftAtMs = nowMs
     }
+    if (sight.dwellEnds && dwellMs >= cfg.dwellEndsMs && !wrongFresh(nowMs)) return move(CoachPhase.DONE, "placed", nowMs, "dwell")
     val leftAt = leftAtMs
     if (dwellMs < cfg.dwellMs || leftAt == null || wrongFresh(nowMs)) return null
     if (awayMs >= (if (lastOfStep) cfg.awayLastMs else cfg.awayMs)) return move(CoachPhase.DONE, "placed", nowMs, "away")
