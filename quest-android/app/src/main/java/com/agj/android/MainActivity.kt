@@ -76,6 +76,7 @@ import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.MeshCreationSystem
+import com.agj.android.vision.PanelPoseTracker
 import com.agj.android.world.PickMarkers
 import com.agj.android.world.WorldModule
 import com.meta.spatial.mruk.MRUKFeature
@@ -130,6 +131,7 @@ class MainActivity : AppSystemActivity() {
   private var mruk: MRUKFeature? = null
   private lateinit var world: WorldModule
   private var pickMarkers: PickMarkers? = null
+  private var panel: PanelPoseTracker? = null
   private var socket: OkHttpPerceptionSocket? = null
   private var socketStarted = false
   private val follow = WindowRelocator()
@@ -196,6 +198,15 @@ class MainActivity : AppSystemActivity() {
         WorldModule(this, vision, mruk, { api }, params.lang) { uri, make ->
           systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
         }
+    if (params.markerless) {
+      // the white front panel found in the camera picture, on the device, 3 Hz: the ghost follows the real part
+      panel =
+          PanelPoseTracker(
+              tableHeight = { world.surfaceY },
+              ghostPose = { vision.worldFromAssembly() },
+              onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
+          )
+    }
     pickMarkers =
         PickMarkers { uri, make ->
               systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
@@ -282,6 +293,7 @@ class MainActivity : AppSystemActivity() {
         override fun onFrame(frame: CameraFrame, track: TrackSnapshot) {
           val stage = coach.stage
           val now = SystemClock.elapsedRealtime()
+          panel?.onFrame(frame)
           preview?.offer { frame.jpeg }
           if (stage == CoachFlow.Stage.LOOK) {
             if (!busy && lookQueued.compareAndSet(false, true)) {
@@ -468,6 +480,7 @@ class MainActivity : AppSystemActivity() {
         val a = withContext(Dispatchers.IO) { repo.load(id) }
         assembly = a
         world.setAssembly(a)
+        panel?.setJob(a.jobId)
         if (sceneReady) ghost.load(a)
         openSocket(a.jobId)
         locate(auto = true)
@@ -567,6 +580,7 @@ class MainActivity : AppSystemActivity() {
     hud.state = hud.state.copy(step = step, action = action)
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
+    panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
     world.coachLine(lang)?.let { stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = it) }
     loadDrawing(step, st.crop)
     showPartCard(act)
@@ -1012,6 +1026,7 @@ class MainActivity : AppSystemActivity() {
     voiceCtl?.cancel()
     vision.stop()
     world.stop()
+    panel?.stop()
     socket?.close()
     socket = null
     voice.stop()

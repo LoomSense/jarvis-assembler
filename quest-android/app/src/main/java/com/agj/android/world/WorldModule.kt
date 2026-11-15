@@ -122,6 +122,47 @@ class WorldModule(
         p.hideBaseTarget = { anchor.serverPlaced }
       }
 
+  /** Height of the surface the wearer looks down at, from Meta's depth raycast: works without a room scan. */
+  @Volatile var depthSurfaceY: Float? = null
+    private set
+  private val depthYs = ArrayDeque<Float>()
+  private var lastDepthProbeMs = 0L
+
+  /** WORLD height of the work surface: the scene's table if there is one, else the depth probe. */
+  val surfaceY: Float?
+    get() = scene.table?.y ?: depthSurfaceY
+
+  private fun probeSurface(head: Pose3) {
+    val d = depth ?: return
+    val now = SystemClock.elapsedRealtime()
+    if (now - lastDepthProbeMs < 700) return
+    val f = head.q.rotate(com.agj.android.core.Vec3(0f, 0f, -1f))
+    if (f.y > -0.35f) return // only while looking down at the work
+    lastDepthProbeMs = now
+    val right = head.q.rotate(com.agj.android.core.Vec3(1f, 0f, 0f))
+    val up = head.q.rotate(com.agj.android.core.Vec3(0f, 1f, 0f))
+    val rays =
+        listOf(0f to 0f, -0.15f to 0f, 0.15f to 0f, 0f to -0.12f, 0f to 0.12f).map { (a, b) ->
+          val v = f + right * a + up * b
+          Ray(head.t, v * (1f / v.length()))
+        }
+    d.cast(rays) { hits ->
+      val ys = hits.filterNotNull().map { it.y }.filter { it < head.t.y - 0.25f }.sorted()
+      if (ys.size >= 3) {
+        val y =
+            synchronized(depthYs) {
+              depthYs.addLast(ys[ys.size / 2])
+              while (depthYs.size > 9) depthYs.removeFirst()
+              depthYs.sorted()[depthYs.size / 2]
+            }
+        val first = depthSurfaceY == null
+        depthSurfaceY = y
+        if (first) Agq.log.event("surface", mapOf("source" to "depth", "y_m" to y, "head_y_m" to head.t.y))
+        if (scene.table == null && depthYs.size >= 3) anchor.setSurfaceHeight(y)
+      }
+    }
+  }
+
   /** The table chosen from the room model, null until (or unless) one is found. */
   val table: TableSurface?
     get() = scene.table
@@ -247,6 +288,7 @@ class WorldModule(
   @Suppress("UNUSED_PARAMETER")
   fun tick(dtS: Float) {
     val head = vision.heads.newest()
+    if (head != null) probeSurface(head)
     if (assembly != null && head != null && !markerTracking()) {
       val t = scene.table
       val fp = footprint()

@@ -92,6 +92,19 @@ class AssemblyAnchor(
     return true
   }
 
+  /**
+   * The work surface's real height (depth raycast, no room scan needed): a guessed anchor (fixed spot, or a server
+   * box resolved on that guess) moves to it. A table from the scene, a markerless pose and a manual nudge keep theirs.
+   */
+  @Synchronized
+  fun setSurfaceHeight(y: Float): Boolean {
+    val cur = pose ?: return false
+    if (source != PlaceSource.FIXED_SPOT && source != PlaceSource.SERVER_BOX) return false
+    if (kotlin.math.abs(cur.t.y - y) < 0.03f) return false
+    apply(Pose3(Vec3(cur.t.x, y, cur.t.z), cur.q), source!!, "depth_height")
+    return true
+  }
+
   /** The base part's place from one camera answer ([BasePlacement.fromBox]), as WORLD ← TABLE. */
   @Synchronized
   fun onServerBox(candidate: Pose3): Boolean {
