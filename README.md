@@ -18,7 +18,7 @@
 
 Any agent can use it through an MCP server with 11 tools. For example, a furniture shop's customer-support agent gets "I am stuck on step 3 of my box", asks the guide, and answers with the exact step and the part to pick up, with no person on the line.
 
-<details>
+<details open>
 <summary><b>See a real call and its answer</b></summary>
 
 The support agent calls one tool:
