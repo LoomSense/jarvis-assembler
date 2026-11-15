@@ -20,13 +20,13 @@ type Lang = 'el' | 'en'
 interface Action { type: string; text?: { en?: string; el?: string } }
 interface Step { n: number; title: string; actions: Action[]; crop?: string | null; ar?: string; pickParts?: string[]; hardware?: { code: string; qty: number }[] }
 interface Named { id?: string; code?: string; name: string; short?: string; names?: { en?: string; el?: string } }
-interface Verdict { step: number; done: boolean; visible: boolean; have: string; missing: string[]; say: { en: string; el: string }; message: string }
+interface Verdict { step: number; done: boolean; visible: boolean; certain?: boolean; have: string; wrong?: string[]; missing: string[]; say: { en: string; el: string }; message: string }
 
 const W = {
   en: {
     start: 'Start', startHelp: 'Hold the phone so the camera sees the parts. Build one step, then let it check your work.',
     step: 'Step', of: 'of', check: 'I’m done, check it', checking: 'Checking your work', hold: 'Hold the phone still',
-    done: 'Step finished', notYet: 'Not finished yet', cantSee: 'I can’t see it', next: 'Next step',
+    done: 'Step finished', notYet: 'Not finished yet', cantSee: 'I can’t see it', next: 'Next step', isWrong: 'Something is the wrong way', maybe: 'Check this',
     skip: 'Skip', back: 'Back', drawing: 'Show the drawing', close: 'OK', mic: 'Microphone',
     built: 'It is built.', failed: 'The check did not answer. Try again.',
     noCamera: 'The camera could not be opened. Allow it in the browser and try again.',
@@ -34,7 +34,7 @@ const W = {
   el: {
     start: 'Ξεκίνα', startHelp: 'Κράτα το κινητό ώστε η κάμερα να βλέπει τα κομμάτια. Χτίσε ένα βήμα και μετά άφησέ το να ελέγξει τη δουλειά σου.',
     step: 'Βήμα', of: 'από', check: 'Τελείωσα, έλεγξέ το', checking: 'Ελέγχω τη δουλειά σου', hold: 'Κράτα το κινητό σταθερό',
-    done: 'Το βήμα τελείωσε', notYet: 'Δεν τελείωσε ακόμα', cantSee: 'Δεν το βλέπω', next: 'Επόμενο βήμα',
+    done: 'Το βήμα τελείωσε', notYet: 'Δεν τελείωσε ακόμα', cantSee: 'Δεν το βλέπω', next: 'Επόμενο βήμα', isWrong: 'Κάτι μπήκε λάθος', maybe: 'Έλεγξε αυτό',
     skip: 'Παράλειψη', back: 'Πίσω', drawing: 'Δείξε το σχέδιο', close: 'Εντάξει', mic: 'Μικρόφωνο',
     built: 'Χτίστηκε.', failed: 'Ο έλεγχος δεν απάντησε. Δοκίμασε ξανά.',
     noCamera: 'Η κάμερα δεν άνοιξε. Δώσε άδεια στον browser και δοκίμασε ξανά.',
@@ -184,6 +184,27 @@ export async function startLive(app: HTMLElement): Promise<void> {
     saidTimer = window.setTimeout(() => (el.hidden = true), warn ? 8000 : 5000)
   }
 
+  // ---- the check's sentence is said aloud in the guide's own voice (POST /api/tts, the headset's voice). The
+  // coach's Live session may paraphrase or stay silent; a mistake must be heard exactly as it was found.
+  let audioCtx: AudioContext | null = null
+  let speaking: AudioBufferSourceNode | null = null
+  const speak = async (text: string, fallback: string) => {
+    if (!text) return
+    try {
+      const res = await apiFetch('/api/tts', key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
+      if (!res.ok || !audioCtx) throw new Error(String(res.status))
+      const buf = await audioCtx.decodeAudioData(await res.arrayBuffer())
+      speaking?.stop()
+      const src = audioCtx.createBufferSource()
+      src.buffer = buf
+      src.connect(audioCtx.destination)
+      src.start()
+      speaking = src
+    } catch {
+      coach?.tell(fallback) // no speech route, or it failed: the coach says it
+    }
+  }
+
   // ---- the check: one photo, one answer that fills the screen
   const photo = (): string | null => {
     if (!video.videoWidth) return null
@@ -248,25 +269,31 @@ export async function startLive(app: HTMLElement): Promise<void> {
       result.querySelector('p')!.textContent = v.have || sentence
       result.querySelector('ul')!.innerHTML = ''
       navigator.vibrate?.(60)
-      coach?.tell(`[RESULT] Step ${n} is finished. Say: "${sentence}"`)
+      void speak(sentence, `[RESULT] Step ${n} is finished. Say: "${sentence}"`)
       window.setTimeout(() => {
         closeResult()
         if (n === current().n) forward()
       }, 2800)
       return
     }
-    // a check the coach asked for that finds the step unfinished shows nothing: no cross for work in progress
-    if (auto) {
+    const mistakes = v.wrong ?? []
+    // a check the coach asked for that finds the step merely unfinished shows nothing: no cross for work in
+    // progress. A mistake it found is shown and said whoever asked.
+    if (auto && !mistakes.length) {
       lastAuto = performance.now() + (AFTER_FAIL_MS - AUTO_GAP_MS)
       return closeResult()
     }
     root.dataset.state = 'wrong'
-    result.dataset.v = v.visible ? 'wrong' : 'unsure'
-    result.querySelector('b')!.textContent = v.visible ? w.notYet : w.cantSee
+    result.hidden = false
+    // a cross only for a mistake both looks agree on; a doubt is a question mark; work still to do is neither
+    const kind = !v.visible ? 'unsure' : mistakes.length ? (v.certain === false ? 'unsure' : 'wrong') : 'todo'
+    result.dataset.v = kind
+    result.querySelector('b')!.textContent =
+      !v.visible ? w.cantSee : mistakes.length ? (v.certain === false ? w.maybe : w.isWrong) : w.notYet
     result.querySelector('p')!.textContent = sentence
-    result.querySelector('ul')!.innerHTML = (v.missing ?? []).slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join('')
-    navigator.vibrate?.([60, 40, 60])
-    coach?.tell(`[RESULT] Step ${n} is not finished. Say: "${sentence}"`)
+    result.querySelector('ul')!.innerHTML = [...mistakes, ...(v.missing ?? [])].slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join('')
+    navigator.vibrate?.(mistakes.length ? [80, 50, 80] : 40)
+    void speak(sentence, `[RESULT] Step ${n} is not finished. Say: "${sentence}"`)
     button.textContent = w.close
     button.hidden = false
     button.onclick = closeResult
@@ -289,8 +316,9 @@ export async function startLive(app: HTMLElement): Promise<void> {
     const err = $('.err')
     err.textContent = ''
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const audio = new Ctx() // made inside the tap, so that the phone lets the coach's voice play
+    const audio = new Ctx() // made inside the tap, so that the phone lets the voices play
     void audio.resume()
+    audioCtx = audio
     const wish = { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
     let stream: MediaStream
     try {

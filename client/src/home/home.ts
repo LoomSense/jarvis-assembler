@@ -844,6 +844,31 @@ export function startHome(app: HTMLElement): void {
       say(w().offline)
     }
   }
+  /**
+   * The carton, the foam and the scraps were laid out around a small product. A wide one (a drawer, a table top)
+   * stood in the middle of them: a carton flap came up through its floor. Each thing left from the unpacking is
+   * put back where it was laid out and then slid straight away from the product until it stands clear of it.
+   */
+  const clearAround = (product: Object3D) => {
+    product.updateMatrixWorld(true)
+    const foot = new Box3().setFromObject(product).expandByScalar(0.03)
+    const centre = foot.getCenter(new Vector3())
+    for (const thing of unpacked.children) {
+      const home = (thing.userData.home ??= thing.position.clone()) as Vector3
+      thing.position.copy(home)
+      thing.updateMatrixWorld(true)
+      const away = new Vector3(home.x - centre.x, 0, home.z - centre.z)
+      if (away.lengthSq() < 1e-6) away.set(1, 0, 0)
+      away.normalize()
+      for (let i = 0; i < 80; i++) {
+        const b = new Box3().setFromObject(thing)
+        const apart = b.max.x < foot.min.x || b.min.x > foot.max.x || b.max.z < foot.min.z || b.min.z > foot.max.z
+        if (apart) break
+        thing.position.addScaledVector(away, 0.02)
+        thing.updateMatrixWorld(true)
+      }
+    }
+  }
   const placeModel = (g: Object3D) => {
     if (model) scene.remove(model)
     const holder = new Group()
@@ -862,6 +887,7 @@ export function startHome(app: HTMLElement): void {
     holder.rotation.y = modelYaw
     model = holder
     scene.add(holder)
+    clearAround(holder)
     if (!reduce) { // it settles on the bench
       holder.position.y = 0.25
       void moveObj(holder, new Vector3(0.06, 0, 0.02), null, 900)

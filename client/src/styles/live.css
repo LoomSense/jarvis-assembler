@@ -50,9 +50,14 @@
 #live .result[data-v='wrong'] { color: var(--ag-error); }
 #live .result[data-v='unsure'] { color: var(--ag-unsure); }
 #live .result[data-v='wait'] { color: #fff; }
+#live .result[data-v='todo'] { color: #fff; }
+#live .result[data-v='todo'] li { background: rgba(255, 255, 255, 0.14); }
+#live .result[data-v='unsure'] li { background: rgba(232, 193, 75, 0.18); }
 /* a tick, a cross, a question mark, a turning ring: the shape says it, not only the colour */
 #live .result[data-v='done'] i::after { width: 28px; height: 52px; margin-top: -10px; border: solid #000; border-width: 0 10px 10px 0; transform: rotate(45deg); }
 #live .result[data-v='wrong'] i::after { width: 60px; height: 60px; background: linear-gradient(45deg, transparent 42%, #000 42%, #000 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, #000 42%, #000 58%, transparent 58%); }
+/* still to do: three dots */
+#live .result[data-v='todo'] i::after { content: "…"; font: 700 60px/0.6 var(--ag-font); color: #000; padding-bottom: 26px; }
 #live .result[data-v='unsure'] i::after { content: "?"; font: 700 68px/1 var(--ag-font); color: #000; }
 #live .result[data-v='wait'] i { background: none; border: 6px solid rgba(255, 255, 255, 0.25); border-top-color: #fff; animation: live-spin 1s linear infinite; }
 
