@@ -2,7 +2,7 @@
 // the piece to pick up between two buttons. One beat is one action of the guide.
 //
 // The loop never stops and the orbit controls are never disabled: a press always takes the camera.
-import { Box3, Color, Group, MathUtils, Matrix4, Object3D, PropertyBinding, Quaternion, Spherical, Vector3, type Mesh, type MeshStandardMaterial } from 'three'
+import { Box3, Color, Group, MathUtils, Matrix4, Object3D, PropertyBinding, Quaternion, Raycaster, Spherical, Vector3, type Mesh, type MeshStandardMaterial } from 'three'
 import { displayName, localise } from '../i18n'
 import type { Lang, Manifest, ManifestHardware, ManifestPart } from '../types'
 import { cloneForDisplay, isMesh, localBox, type Model } from '../viewer/model'
@@ -1006,7 +1006,55 @@ export function startGuide(o: GuideOptions): Guide {
   }
   const framings: Framing[] = []
   /** per screw action: what to keep in view from close by, and the way out of its hole */
-  const zooms = new Map<ActionInfo, { points: Vector3[]; out: Vector3 }>()
+  /** per screw action: what to keep in view from close by, and the side to look from (camera to screw) */
+  const zooms = new Map<ActionInfo, { points: Vector3[]; view: Vector3 }>()
+  /** a screw is seen from close by at an elevation in this range (radians); the whole step keeps 0.3..0.72 */
+  const SCREW_ELEVATION: [number, number] = [0.1, 1.3]
+  const sightRay = new Raycaster()
+
+  /**
+   * The side to watch a screw go in from: leaning off its axis so its shank shows entering the hole, from where
+   * no board stands between the eye and the hole, the screw before it goes in, or the head once it is in.
+   * Candidates lean 25 to 60 degrees off the axis all the way round it; each is lifted into the elevations the
+   * camera can take, then checked by casting rays from those three points towards the eye. Among the clear ones
+   * the pick leans about 38 degrees, is not looking flat along the floor or straight down, and is near the side
+   * the guide draws the step from. The assembly must be posed at the end of the action, with matrices updated.
+   */
+  function screwView(holeIn: Vector3, out: Vector3, start: Vector3, len: number, guide: Vector3 | null, reach: number): Vector3 {
+    const boards: Object3D[] = []
+    for (const [node, kind] of kindOf) if (node.visible && !kind.hardware) boards.push(node)
+    const u = new Vector3().crossVectors(out, Math.abs(out.y) < 0.9 ? Y : X).normalize()
+    const v = new Vector3().crossVectors(out, u)
+    const lift = Math.max(0.004, len * 0.15)
+    const from = [holeIn.clone().addScaledVector(out, lift), holeIn.clone().addScaledVector(out, lift + len * 0.6), start.clone().addScaledVector(out, lift)]
+    const toGuide = guide ? guide.clone().negate() : null
+    let best: { score: number; dir: Vector3 } | null = null
+    for (const tilt of [25, 32, 38, 45, 52, 60]) {
+      const t = MathUtils.degToRad(tilt)
+      for (let k = 0; k < 16; k++) {
+        const az = (k / 16) * Math.PI * 2
+        const cam = out.clone().multiplyScalar(Math.cos(t)).addScaledVector(u, Math.sin(t) * Math.cos(az)).addScaledVector(v, Math.sin(t) * Math.sin(az))
+        // into the elevations the camera can stand at (it never goes under the floor)
+        const elev = MathUtils.clamp(Math.asin(MathUtils.clamp(cam.y, -1, 1)), SCREW_ELEVATION[0], SCREW_ELEVATION[1])
+        const flat = Math.hypot(cam.x, cam.z) || 1
+        cam.set((cam.x / flat) * Math.cos(elev), Math.sin(elev), (cam.z / flat) * Math.cos(elev))
+        let blocked = 0
+        for (const f of from) {
+          sightRay.set(f, cam)
+          sightRay.far = reach
+          if (sightRay.intersectObjects(boards, true).length) blocked++
+        }
+        const lean = MathUtils.radToDeg(cam.angleTo(out))
+        let score = -10 * blocked - Math.abs(lean - 38) / 10
+        if (lean > 80) score -= 8 // nearly side on: the hole is a slit
+        if (elev < 0.25) score -= 1.5 // flat along the floor
+        if (elev > 1.15) score -= 1 // straight down
+        if (toGuide) score += 1.2 * cam.dot(toGuide)
+        if (!best || score > best.score) best = { score, dir: cam.clone().negate() }
+      }
+    }
+    return best!.dir
+  }
   const reachBox = new Box3()
   /** where along a turn the assembly is measured, so its highest corner on the way is inside the frame too */
   const TURN_SAMPLES = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
@@ -1068,16 +1116,20 @@ export function startGuide(o: GuideOptions): Guide {
           // from close by: the screw before it goes in, the tool on it, and the wood around its hole
           const close: Vector3[] = []
           corners(kind.box, a.node.matrixWorld, close)
+          const start = shape.head.clone().applyMatrix4(a.node.matrixWorld)
           if (kind.driven) {
-            const end = vb.copy(shape.head).applyMatrix4(a.node.matrixWorld).addScaledVector(axis, -TOOL_LENGTH)
+            const end = vb.copy(start).addScaledVector(axis, -TOOL_LENGTH)
             corners(box.setFromCenterAndSize(end, vc.setScalar(TOOL_RADIUS * 2)), null, points)
+            // close by too, the whole tool: its handle must not run into the row of parts above
             corners(box, null, close)
           }
           pose(st.index, a.t1, a.index)
           model.scene.updateMatrixWorld(true)
           const hole = shape.head.clone().applyMatrix4(a.node.matrixWorld)
-          corners(box.setFromCenterAndSize(hole, vc.setScalar(2 * Math.max(2.2 * kind.length, 0.34 * span))), null, close)
-          zooms.set(a, { points: close, out: axis.negate() })
+          // a little wood around the hole, sized by the screw and not by the furniture: a chair is a metre wide
+          corners(box.setFromCenterAndSize(hole, vc.setScalar(MathUtils.clamp(3.5 * kind.length, 0.08, 0.25))), null, close)
+          const outward = axis.clone().negate()
+          zooms.set(a, { points: close, view: screwView(hole, outward, start, kind.length, viewDir(st.index), 6 * span + 1) })
         }
         dir = viewDir(st.index)
         // The guide's view can have the screw holes on the far side. Then look from outside the face the screws
@@ -1108,7 +1160,7 @@ export function startGuide(o: GuideOptions): Guide {
   }
 
   /** Where the camera must look (`centre`) and stand (`off`, from that point) to fit `points` so. */
-  function solveView(points: Vector3[], dir: Vector3, top = insetTop, bottom = stage.height - insetBottom): { centre: Vector3; off: Vector3 } | null {
+  function solveView(points: Vector3[], dir: Vector3, top = insetTop, bottom = stage.height - insetBottom, elev: [number, number] = [0.3, 0.72]): { centre: Vector3; off: Vector3 } | null {
     if (!points.length) return null
     const { width, height } = stage
     const tanFull = Math.tan(MathUtils.degToRad(FOV) / 2)
@@ -1118,7 +1170,7 @@ export function startGuide(o: GuideOptions): Guide {
     const tanH = tanFull * (width / height) * (phone ? (width - 28) / width : 0.7)
 
     const off = dir.clone().normalize().negate() // from the assembly to the camera
-    const elevation = MathUtils.clamp(Math.asin(MathUtils.clamp(off.y, -1, 1)), 0.3, 0.72)
+    const elevation = MathUtils.clamp(Math.asin(MathUtils.clamp(off.y, -1, 1)), elev[0], elev[1])
     const flat = Math.hypot(off.x, off.z) || 1
     off.set((off.x / flat) * Math.cos(elevation), Math.sin(elevation), (off.z / flat) * Math.cos(elevation))
     const fwd = off.clone().negate()
@@ -1186,30 +1238,16 @@ export function startGuide(o: GuideOptions): Guide {
   }
 
   /**
-   * A screw going in, or being tightened, is watched from close by: its hole with some wood around it, the screw
-   * before it goes in and the tool. From the side the person is looking from, unless the hole faces away from it.
-   * False when the beat is not about a screw, or the close view would be no closer than the whole step.
+   * Every screw that goes in, or is tightened, is watched from close by, whatever else is on screen: its hole with
+   * a little wood around it, the screw before it goes in and the blade of the tool, from the side chosen for it
+   * when the guide was measured (screwView: leaning off its axis, with nothing in front of it).
+   * False only when the beat is not about a screw.
    */
-  function aimScrew(b: Beat, immediate: boolean, newStep: boolean): boolean {
+  function aimScrew(b: Beat, immediate: boolean, _newStep: boolean): boolean {
     const z = b.a ? zooms.get(b.a) : undefined
     if (!z) return false
-    const drawn = newStep ? framings[b.step].dir : null // a new step starts from the side the guide draws it from
-    const toCamera = drawn
-      ? drawn.clone().negate()
-      : tween.k < 1
-        ? new Vector3().setFromSpherical(tween.to).normalize() // on its way somewhere: from where it will be
-        : stage.camera.position.clone().sub(stage.controls.target).normalize()
-    let dir = toCamera.clone().negate()
-    if (toCamera.dot(z.out) < 0.25) {
-      const side = toCamera.clone().addScaledVector(z.out, -toCamera.dot(z.out))
-      if (side.lengthSq() < 1e-3) side.set(0, 1, 0).addScaledVector(z.out, -z.out.y)
-      if (side.lengthSq() < 1e-3) side.set(1, 0, 0)
-      side.normalize()
-      dir = z.out.clone().multiplyScalar(0.72).addScaledVector(side, 0.69).normalize().negate()
-    }
-    const tight = solveView(z.points, dir)
-    const whole = solveView(framings[b.step].points, dir)
-    if (!tight || (whole && tight.off.length() > 0.8 * whole.off.length())) return false
+    const tight = solveView(z.points, z.view, insetTop, stage.height - insetBottom, SCREW_ELEVATION)
+    if (!tight) return false
     moveCamera(tight, immediate, 0.8)
     near = true
     leaving = false
@@ -1318,7 +1356,7 @@ export function startGuide(o: GuideOptions): Guide {
     const size = reachBox.getSize(new Vector3())
     // the disc sits under everything the assembly ever covers
     stage.setFocus(new Vector3(centre.x, reachBox.min.y, centre.z), Math.hypot(size.x, size.z) * 0.5 * 1.12)
-    stage.controls.minDistance *= 0.3 // close enough to watch one screw go in
+    stage.controls.minDistance = Math.min(stage.controls.minDistance * 0.3, 0.2) // close enough to watch one screw go in, on a chair too
   }
   stage.scene.add(model.scene)
   page.progress.setAttribute('aria-valuemax', String(beats.length))
@@ -1452,6 +1490,7 @@ export function startGuide(o: GuideOptions): Guide {
     closeLook,
     debug: {
       openLook,
+      zooms,
       get looking() {
         return look.on
       },
