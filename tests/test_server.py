@@ -240,3 +240,8 @@ def test_golden_guide_end_to_end_then_retry_skips_finished_stages(client, tmp_pa
     after = {p.name: p.stat().st_mtime_ns for p in (job_dir / "stages").iterdir()}
     rerun = sorted(name for name in after if after[name] != before[name])
     assert rerun == ["export.done", "refs.done"]                                   # everything earlier was skipped
+
+
+def test_tts_needs_the_key_and_a_gemini_key(client):
+    assert client.post("/api/tts", json={"text": "Γεια"}, headers={"X-Demo-Key": "wrong"}).status_code == 401
+    assert client.post("/api/tts", json={"text": "Γεια"}).status_code == 503        # the test app has no Gemini key

@@ -10,7 +10,7 @@
 import '../styles/home.css'
 import {
   ACESFilmicToneMapping, Box3, BoxGeometry, CanvasTexture, Color, CylinderGeometry, DirectionalLight, Euler, Fog, Group,
-  HemisphereLight, MathUtils, Mesh, MeshStandardMaterial, Object3D, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry,
+  HemisphereLight, MathUtils, Mesh, MeshStandardMaterial, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry,
   AnimationMixer, LoopOnce, PointLight, Quaternion, Raycaster, SRGBColorSpace, Scene, SpotLight, Texture, Vector2, Vector3, WebGLRenderer,
 } from 'three'
 import { apiFetch, fileUrl } from '../api'
@@ -118,7 +118,7 @@ export function startHome(app: HTMLElement): void {
   renderer.toneMapping = ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.92
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = PCFSoftShadowMap
+  renderer.shadowMap.type = PCFShadowMap
   const scene = new Scene()
   scene.background = new Color(0x000000)
   scene.fog = new Fog(0x000000, 3.2, 6.5)

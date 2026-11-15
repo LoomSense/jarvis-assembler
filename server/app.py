@@ -23,6 +23,7 @@ from server.routes import catalog as catalog_routes
 from server.routes import diag as diag_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
+from server.routes import tts as tts_routes
 from server.settings import ROOT, Settings
 
 log = logging.getLogger("agj")
@@ -121,6 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(job_routes.router)
     app.include_router(catalog_routes.router)
     app.include_router(live_routes.router)
+    app.include_router(tts_routes.router)
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)
         app.include_router(importlib.import_module("server.perception.routes").router)
