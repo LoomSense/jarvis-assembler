@@ -19,7 +19,7 @@ You need three hours to build one drawer, because the guide is all drawings and 
 
 Give it one of four things: the code on the box, a photo of the box, the product name, or the PDF guide. An AI agent rebuilds the furniture in 3D, one move at a time, so you can see what you are building before you touch a screw. The same 3D model is what the phone and the headset use to follow your real build and check each part.
 
-Under the hood it combines a coding agent that reads the drawings and writes CAD (Claude Agent SDK, CadQuery), 3D animation in Blender, decision models that check live camera frames (Gemini Decisions API), a voice agent (Gemini Live), and object tracking on the Quest 3 itself (OpenCV, no markers) that locks the 3D guide onto the real boards. It is hosted on one boxd VM, because the build needs a whole Linux machine for headless Blender and the agent's code, behind a public HTTPS address.
+Under the hood it combines a coding agent that reads the drawings and writes CAD (Claude Agent SDK, CadQuery), 3D animation in Blender, decision models that check live camera frames (Gemini Decisions API), a voice agent (Gemini Live), and object tracking on the Quest 3 itself with OpenCV that locks the 3D guide onto the real boards. It is hosted on one boxd VM, because the build needs a whole Linux machine for headless Blender and the agent's code, behind a public HTTPS address.
 
 ![The phone flow in six screens: start, scan the code on the box, the agent reads the guide, a part being built in 3D, the guide is ready, a step](docs/img/phone-flow.jpg)
 
