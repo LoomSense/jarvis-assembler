@@ -241,6 +241,10 @@ class MainActivity : AppSystemActivity() {
                   PanelParams(
                       tolLongM = (intent?.getIntExtra("panel_tol_long_mm", 30) ?: 30) / 1000.0,
                       tolShortM = (intent?.getIntExtra("panel_tol_short_mm", 25) ?: 25) / 1000.0,
+                      // Lightness only: the real drawer front is wood-coloured, and the colour penalty (1.5) lost
+                      // it on the dark carpet. On 199 real frames: 2 trusted with 1.5, 80 with 0 (size error
+                      // p50 +6 / -0.4 mm, consecutive poses 5 mm / 0.24 deg apart).
+                      chromaWeight = (intent?.getFloatExtra("panel_chroma_w", 0f) ?: 0f).toDouble(),
                   ),
           )
     }
@@ -538,6 +542,9 @@ class MainActivity : AppSystemActivity() {
         assembly = a
         world.setAssembly(a)
         panel?.setJob(a.jobId)
+        // the detector's target comes from the loaded guide from the first moment (its built-in default is the
+        // old estimated 380 x 130 mm front)
+        a.stepNumbers.firstOrNull()?.let { s0 -> panel?.setStep(s0, a.guide?.let { g -> StepFootprints.target(g, a.manifest, s0) }) }
         if (sceneReady) ghost.load(a)
         openSocket(a.jobId)
         locate(auto = true)
