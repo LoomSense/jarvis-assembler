@@ -52,7 +52,7 @@ The headset app → ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=f
 
 ## For other agents
 
-Any agent can use it through an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file. For example, a furniture shop's customer-support agent gets "I am stuck on step 3 of my box", asks the guide, and answers with the exact step and the part to pick up, with no person on the line.
+Any agent can use it through an MCP server with 11 tools. For example, a furniture shop's customer-support agent gets "I am stuck on step 3 of my box", asks the guide, and answers with the exact step and the part to pick up, with no person on the line.
 
 The support agent calls one tool:
 
