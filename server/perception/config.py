@@ -123,6 +123,9 @@ class Tuning:
     #                                        4 uses about half of Tier 1's token budget, 8 nearly all of it
     max_hz: float = 4.0                    # frames accepted per second at most (PLAN §6.3)
     still_hz: float = 4.0                  # hand gate: hands present and still
+    moving_hz: float = 0.0                 # hand gate: hands present and moving. 0 = no decision call (the plan's rule:
+    #                                        a blurred frame). On the headset a bolt carried to its hole was then not
+    #                                        looked at for 18 s; the demo host sets 2.5 through PERCEPTION_TUNING
     idle_hz: float = 1.0                   # hand gate: no hands, keep-alive
     rate_slack: float = 0.8                # a frame is accepted when 0.8 of the interval has passed (client jitter)
     hands_fresh_s: float = 1.0             # a hand summary older than this is ignored

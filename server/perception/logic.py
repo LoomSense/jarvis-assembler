@@ -240,7 +240,7 @@ class Hands:
             left_recently = (self.absent_since is not None and self.seen_present_at is not None
                              and now - self.absent_since <= t.after_hands_burst_s)
             return t.max_hz if left_recently else t.idle_hz   # just left: the view is clear, "step done?"
-        return t.still_hz if self.still else 0.0         # moving fast: a blurred frame of nothing settled
+        return t.still_hz if self.still else t.moving_hz  # moving fast: a blurred frame (0 = none, see config)
 
     def rate_hz(self, now: float) -> float:
         recent = [a for a in self._arrivals if now - a <= 2.0]
