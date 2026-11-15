@@ -33,7 +33,6 @@ Headset (Quest 3 in developer mode, USB debugging allowed; builds are described 
 tools/quest/doctor.sh                                     # adb, headset, server, key, APKs
 tools/quest/install.sh android                            # the demo app; unity is the backup
 tools/quest/run.sh android --job drawer --lang el         # launches the app and logs to tools/quest/runs/ (malm-drawer is the fallback guide)
-tools/quest/pull_recordings.sh                            # lists today's headset recordings; pull and map them for the video
 ```
 
 The tools read the server URL from `jobs/_host/url.txt` and the demo key from `.env`.
