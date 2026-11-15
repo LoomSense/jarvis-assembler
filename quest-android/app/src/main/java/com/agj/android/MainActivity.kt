@@ -641,6 +641,7 @@ class MainActivity : AppSystemActivity() {
   private fun showStep(step: Int, action: Int, by: StepBy, speak: Boolean = true) {
     val g = assembly?.guide ?: return
     val st = g.step(step) ?: return
+    advanceToken++ // an advance that is still waiting gives way to this action
     val act = st.actions.getOrNull(action)
     val firstOfStep = step != curStep || finished
     val again = !firstOfStep && action == curAction // Repeat: the same action shown again
@@ -1325,13 +1326,20 @@ class MainActivity : AppSystemActivity() {
     // Said by the next step's entry, in front of its own line (one utterance). Spoken here, with the next
     // instruction appended, it was cut 1.4 s later by that same instruction.
     if (stepEnds) stepDone = if (lang == "el") "Το βήμα $curStep έγινε." else "Step $curStep done."
+    val token = ++advanceToken
     scope.launch {
       delay(if (stepEnds) 1400 else 1000)
       advancing = false
+      // Back or Repeat pressed while this was waiting showed another action: that press stands (on the headset a
+      // Repeat on step 1 was followed, one second later, by this jump to step 2)
+      if (token != advanceToken) return@launch
       showStep(n.first, n.second, by)
       sounds.play(Sounds.Cue.PLACE)
     }
   }
+
+  /** Counts every action shown: an [advance] that was waiting when another action was shown does not run. */
+  private var advanceToken = 0
 
   /**
    * Live guidance from perception (the socket owner calls this on the main thread): `step_complete` → correct and
