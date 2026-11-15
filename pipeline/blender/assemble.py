@@ -33,6 +33,9 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from instructions import names, text_for  # noqa: E402  (plain Python, tested in tests/test_instructions.py)
+
 plan_path, parts_dir, place_path, out = map(Path, sys.argv[sys.argv.index("--") + 1:][:4])
 plan = json.loads(plan_path.read_text())
 placements = json.loads(place_path.read_text())
@@ -83,6 +86,7 @@ def material(name):
 # --- unique meshes ---------------------------------------------------------------------------------
 defs = {p["id"]: dict(p, kind="part") for p in plan["parts"]}
 defs.update({h["code"]: dict(h, kind="hardware") for h in plan["hardware"]})
+HW = {h["code"]: h for h in plan["hardware"]}          # the plan's own `kind` (screw, dowel, cam...) picks the verb
 info = {pid: json.loads((parts_dir / f"{pid}.mates.json").read_text()) for pid in defs}
 meshes = {}
 for pid, d in defs.items():
@@ -221,40 +225,6 @@ def key_matrix(o, M, frame):
 
 
 # --- actions: what a person does, one thing at a time, in the guide's order -----------------------------
-ARTICLES = ("τους ", "τις ", "την ", "τον ", "τη ", "το ", "τα ", "οι ", "η ", "ο ")
-
-
-def names(d):
-    """{"en", "el"} display names: `short` in English, and the plan's Greek `el` without its leading article."""
-    el = (d.get("el") or "").strip()
-    for a in ARTICLES:
-        if el.lower().startswith(a):
-            el = el[len(a):]
-            break
-    return {"en": d.get("short", d["name"]), "el": el or d.get("short", d["name"])}
-
-
-def text_for(kind, d, i=0, n=0, first=False):
-    name, el = d.get("short", d["name"]).lower(), d.get("el", d["name"])
-    if kind == "tighten":
-        code = d["code"]
-        return {"en": f"Tighten {name} {code} firmly. {i} of {n}.", "el": f"Σφίξε καλά: {el} ({code}). {i} από {n}."}
-    if kind == "press":
-        return {"en": f"Press the {name} in firmly until it clicks.",
-                "el": f"Πίεσε {el} μέσα μέχρι να κουμπώσει."}
-    if kind == "join":
-        return {"en": f"Take the {name} you built and put it in place here.",
-                "el": f"Πάρε {el} που έφτιαξες και βάλε {d.get('el_pron', 'το')} στη θέση που φαίνεται."}
-    if kind == "fasten":
-        code = d["code"]
-        return {"en": f"Take a {name} ({code}) and screw it in here. Screw {i} of {n}.",
-                "el": f"Πάρε μια {el} ({code}) και βίδωσέ την εδώ. Βίδα {i} από {n}."}
-    if first:
-        return {"en": f"Lay the {name} flat in front of you.", "el": f"Ακούμπησε {el} μπροστά σου."}
-    return {"en": f"Take the {name} and put it in place here.",
-            "el": f"Πάρε {el} και βάλε {d.get('el_pron', 'το')} στη θέση που φαίνεται."}
-
-
 def is_join(a):
     return "subassembly" in a and "instance" not in a
 
@@ -339,7 +309,7 @@ for step in plan["steps"]:
     for a in hw_adds:
         inst = a["instance"]; code = inst.split("#")[0]; seen[code] = seen.get(code, 0) + 1
         acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F, "st": st, "rs": root_ref,
-                     "text": text_for("fasten", defs[code], seen[code], counts[code])})
+                     "text": text_for("fasten", HW[code], seen[code], counts[code], press=bool(a.get("press")))})
         f += APPROACH_F + DRIVE_F + GAP_F
     tight = [i for i in step.get("tighten", []) if i in placed]
     tcounts, tseen = {}, {}
@@ -348,7 +318,7 @@ for step in plan["steps"]:
     for inst in tight:
         code = inst.split("#")[0]; tseen[code] = tseen.get(code, 0) + 1
         acts.append({"type": "tighten", "inst": inst, "f0": f, "f1": f + TIGHTEN_F, "st": st, "rs": root_ref,
-                     "text": text_for("tighten", defs[code], tseen[code], tcounts[code])})
+                     "text": text_for("tighten", HW[code], tseen[code], tcounts[code])})
         f += TIGHTEN_F + GAP_F
     for a in adds:
         if is_join(a):
