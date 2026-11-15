@@ -538,7 +538,7 @@ class FlatParts(
     }
     setCues(made)
     log.event("board_cue", mapOf("ms" to Math.round((System.nanoTime() - t0) / 1e5) / 10.0,
-        "kinds" to made.map { (name, kc) -> mapOf("kind" to name, "lies" to kc.lies.map { listOf(kc.boards[it.board], it.face, it.look.name.lowercase(), it.turned, it.template.longPx, it.template.smallGroups) }) }))
+        "kinds" to made.map { (name, kc) -> mapOf("kind" to name, "lies" to kc.lies.map { listOf(kc.boards[it.board], it.face, it.look.name.lowercase(), it.turned, it.template.interiorPx, it.template.edgePx, it.template.smallGroups) }) }))
   }
 
   /** The cue's hypotheses per kind name (tests give them directly), and the detector's scorer with them. */
@@ -573,8 +573,9 @@ class FlatParts(
             "face" to c.look?.name?.lowercase(),
             "which" to c.board?.let { c.kind.boards[it] },
             "turned" to c.turned,
-            // per hypothesis: board, face up, turned by 180°, how much darker its long features and its small ones are (8-bit L)
-            "scores" to c.kind.lies.indices.map { i -> c.kind.lies[i].let { l -> listOf(c.kind.boards[l.board], l.look.name.lowercase(), l.turned, r1(c.long[i]), r1(c.small[i])) } },
+            // per hypothesis: board, face up, turned by 180°, how much darker (8-bit L) its long features away from the
+            // edges, its long features at an edge and its small ones are than the face round them
+            "scores" to c.kind.lies.indices.map { i -> c.kind.lies[i].let { l -> listOf(c.kind.boards[l.board], l.look.name.lowercase(), l.turned, r1(c.long[i]), r1(c.edge[i]), r1(c.small[i])) } },
             "ms" to Math.round(c.ms * 100) / 100.0,
         ),
     )

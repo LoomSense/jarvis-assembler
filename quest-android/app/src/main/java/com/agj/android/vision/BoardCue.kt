@@ -42,10 +42,14 @@ enum class FaceLook { RAIL, GROOVE, HOLES }
  * @property long per group: at least half the board's length (a groove, a rail). @property band per group: the plain
  *   face round it.
  */
-class FaceTemplate(val w: Int, val h: Int, val mmPerPx: Double, val group: IntArray, val long: BooleanArray, val band: Array<BooleanArray>, val look: FaceLook) {
+class FaceTemplate(val w: Int, val h: Int, val mmPerPx: Double, val group: IntArray, val long: BooleanArray, val band: Array<BooleanArray>, val look: FaceLook,
+    /** Per group: a long feature that runs within [BoardCue.EDGE_NEAR_PX] of a long edge (see [BoardCue.decide]: it proves little). */
+    val edge: BooleanArray = BooleanArray(long.size)) {
   val groups: Int = long.size
   val size: IntArray = IntArray(groups).also { n -> group.forEach { if (it >= 0) n[it]++ } }
   val longPx: Int = (0 until groups).filter { long[it] }.sumOf { size[it] }
+  val edgePx: Int = (0 until groups).filter { long[it] && edge[it] }.sumOf { size[it] }
+  val interiorPx: Int = longPx - edgePx
   val smallGroups: Int = long.count { !it }
 
   /** Footprint coordinates (metres) of each group's pixel centres, and of its band's: x0, y0, x1, y1, … */
@@ -63,7 +67,7 @@ class FaceTemplate(val w: Int, val h: Int, val mmPerPx: Double, val group: IntAr
     return out.toFloatArray()
   }
 
-  override fun toString(): String = "FaceTemplate(${w}x$h, $look, long=${long.count { it }} (${longPx} px), small=$smallGroups)"
+  override fun toString(): String = "FaceTemplate(${w}x$h, $look, long=${long.count { it }} (${interiorPx} px inside, ${edgePx} px at an edge), small=$smallGroups)"
 }
 
 /** One hypothesis: [board] (index in the kind) lies with [face] (0 / 1) up, [turned] by 180° or not; [template] is what shows. */
@@ -87,9 +91,12 @@ data class BoardCueParams(
     val minMargin: Double = 6.0,
     /** … which scores at most this fraction of the winner's. */
     val maxRatio: Double = 0.5,
-    /** Hypotheses within this of the winner's long score (or this share of it) show the same long features. */
-    val sameLong: Double = 3.0,
-    val sameLongShare: Double = 0.25,
+    /** A long feature away from the edges (a rail) is there when it is this much darker than the face round it … */
+    val minInterior: Double = 4.5,
+    /** … and proven absent when at most this (then a face that only has features at its edges may be the one that is up). */
+    val absent: Double = 2.0,
+    /** A hypothesis with a long feature at an edge is shifted across the board by at most this (it must not slide onto the edge itself). */
+    val edgeShiftPx: Int = 1,
     /** At least this fraction of a group and of its band must be inside the camera image. */
     val minSeen: Double = 0.6,
     /** The best common shift within ± this many rectified pixels is taken for each hypothesis. */
@@ -97,11 +104,11 @@ data class BoardCueParams(
 )
 
 /**
- * One rectangle's cue. [long] / [small] per hypothesis of [kind] (NaN = that hypothesis has no such features or they
- * were not in view). [look]: the face that is up, when decided. [board]: which of the kind's boards, when decided.
+ * One rectangle's cue. [long] (the long features away from the edges) / [edge] (the long features at an edge) /
+ * [small] per hypothesis of [kind] (NaN = that hypothesis has no such features or they were not in view). [look]: the face that is up, when decided. [board]: which of the kind's boards, when decided.
  * [turned]: the board's own +length axis points against the rectangle's yaw, when decided.
  */
-class BoardCueResult(val kind: KindCue, val long: DoubleArray, val small: DoubleArray, val best: Int, val look: FaceLook?, val board: Int?, val turned: Boolean?, val ms: Double) {
+class BoardCueResult(val kind: KindCue, val long: DoubleArray, val edge: DoubleArray, val small: DoubleArray, val best: Int, val look: FaceLook?, val board: Int?, val turned: Boolean?, val ms: Double) {
   val decided: Boolean get() = look != null
 }
 
@@ -127,6 +134,15 @@ object BoardCue {
   const val NARROW_PX = 4
   const val MIN_GROUP_PX = 3
   const val LONG_SHARE = 0.5
+
+  /**
+   * A long feature this close to a long edge of the board (15 mm) is an EDGE feature: on the real frames of 15 Nov the
+   * board's own edge (its side wall towards the camera, the smear into the floor) read as a "groove" 20–31 levels
+   * dark on a face that has none, against 35–40 for the real one. A small feature this close to an END (20 mm) is
+   * compared with the face beside it at the same distance from that end only.
+   */
+  const val EDGE_NEAR_PX = 6
+  const val END_NEAR_PX = 8
 
   /** Hardware belongs to a board when it lies inside the board's box grown by this. */
   const val HW_GROW_M = 0.002
@@ -270,6 +286,7 @@ object BoardCue {
     val sizes = ArrayList<Int>()
     val spans = ArrayList<Int>()
     val ups = ArrayList<Int>()
+    val boxes = ArrayList<IntArray>()
     val stack = IntArray(w * h)
     for (start in 0 until w * h) {
       if (!narrow[start] || label[start] >= 0) continue
@@ -280,6 +297,8 @@ object BoardCue {
       var n = 0
       var iMin = w
       var iMax = -1
+      var jMin = h
+      var jMax = -1
       var up = 0
       while (top > 0) {
         val at = stack[--top]
@@ -288,6 +307,8 @@ object BoardCue {
         val j = at / w
         iMin = min(iMin, i)
         iMax = max(iMax, i)
+        jMin = min(jMin, j)
+        jMax = max(jMax, j)
         if (raised[at]) up++
         for (b in max(0, j - 1)..min(h - 1, j + 1)) for (a in max(0, i - 1)..min(w - 1, i + 1)) {
           val q = b * w + a
@@ -300,6 +321,7 @@ object BoardCue {
       sizes += n
       spans += iMax - iMin + 1
       ups += up
+      boxes += intArrayOf(iMin, iMax, jMin, jMax)
     }
     val keep = sizes.indices.filter { sizes[it] >= MIN_GROUP_PX }
     if (keep.isEmpty()) return null
@@ -307,6 +329,9 @@ object BoardCue {
     keep.forEachIndexed { new, old -> renum[old] = new }
     val group = IntArray(w * h) { if (label[it] >= 0) renum[label[it]] else -1 }
     val long = BooleanArray(keep.size) { spans[keep[it]] >= LONG_SHARE * w }
+    val edge = BooleanArray(keep.size) { long[it] && (boxes[keep[it]][2] < EDGE_NEAR_PX || boxes[keep[it]][3] >= h - EDGE_NEAR_PX) }
+    // a small feature near an end: its band is the face beside it across the board, at the same distance from the end
+    val beside = BooleanArray(keep.size) { !long[it] && (boxes[keep[it]][0] < END_NEAR_PX || boxes[keep[it]][1] >= w - END_NEAR_PX) }
     // the band of each group: plain face at a Chebyshev distance of GAP_PX + 1 … GAP_PX + BAND_PX from it, not near any feature
     val nearFeat = BooleanArray(w * h)
     for (j in 0 until h) for (i in 0 until w) {
@@ -318,6 +343,11 @@ object BoardCue {
     for (j in 0 until h) for (i in 0 until w) {
       val g = group[j * w + i]
       if (g < 0) continue
+      if (beside[g]) {
+        val box = boxes[keep[g]]
+        for (b in max(EDGE_PX, box[2] - far)..min(h - 1 - EDGE_PX, box[3] + far)) if (!nearFeat[b * w + i] && (b < box[2] - GAP_PX || b > box[3] + GAP_PX)) band[g][b * w + i] = true
+        continue
+      }
       for (b in max(EDGE_PX, j - far)..min(h - 1 - EDGE_PX, j + far)) for (a in max(EDGE_PX, i - far)..min(w - 1 - EDGE_PX, i + far)) {
         if (!nearFeat[b * w + a]) band[g][b * w + a] = true
       }
@@ -330,10 +360,10 @@ object BoardCue {
           ok.any { long[it] } -> FaceLook.GROOVE
           else -> FaceLook.HOLES
         }
-    if (ok.size == keep.size) return FaceTemplate(w, h, mmPerPx, group, long, band, look)
+    if (ok.size == keep.size) return FaceTemplate(w, h, mmPerPx, group, long, band, look, edge)
     val re = IntArray(keep.size) { -1 }
     ok.forEachIndexed { new, old -> re[old] = new }
-    return FaceTemplate(w, h, mmPerPx, IntArray(w * h) { if (group[it] >= 0) re[group[it]] else -1 }, BooleanArray(ok.size) { long[ok[it]] }, Array(ok.size) { band[ok[it]] }, look)
+    return FaceTemplate(w, h, mmPerPx, IntArray(w * h) { if (group[it] >= 0) re[group[it]] else -1 }, BooleanArray(ok.size) { long[ok[it]] }, Array(ok.size) { band[ok[it]] }, look, BooleanArray(ok.size) { edge[ok[it]] })
   }
 
   /**
@@ -375,16 +405,22 @@ object BoardCue {
   fun score(kind: KindCue, light: ByteArray, stride: Int, valid: BooleanArray, n: Int, x0: Double, y0: Double, s: Double, x: Double, y: Double, yaw: Double, p: BoardCueParams = BoardCueParams()): BoardCueResult {
     val t0 = System.nanoTime()
     val long = DoubleArray(kind.lies.size) { Double.NaN }
+    val edge = DoubleArray(kind.lies.size) { Double.NaN }
     val small = DoubleArray(kind.lies.size) { Double.NaN }
     kind.lies.forEachIndexed { i, lie ->
       val r = lieScore(lie.template, light, stride, valid, n, x0, y0, s, x, y, if (lie.turned) yaw + Math.PI else yaw, p)
       long[i] = r[0]
-      small[i] = r[1]
+      edge[i] = r[1]
+      small[i] = r[2]
     }
-    return decide(kind, long, small, p, (System.nanoTime() - t0) / 1e6)
+    return decide(kind, long, edge, small, p, (System.nanoTime() - t0) / 1e6)
   }
 
-  /** [long score, small score] of one template at one yaw, at the shift where their sum is largest; NaN = none / not in view. */
+  /**
+   * [long features away from the edges, long features at an edge, small features] of one template at one yaw: how much
+   * darker than their bands; each long score at its own best shift (along and across the board), the small one at the
+   * shift where the sum of all three is largest; NaN = none / not in view.
+   */
   private fun lieScore(t: FaceTemplate, light: ByteArray, stride: Int, valid: BooleanArray, n: Int, x0: Double, y0: Double, s: Double, x: Double, y: Double, yaw: Double, p: BoardCueParams): DoubleArray {
     val ca = cos(yaw)
     val sa = sin(yaw)
@@ -413,10 +449,18 @@ object BoardCue {
       return if (c > 0 && c >= p.minSeen * (px.size / 2)) sum.toDouble() / c else Double.NaN
     }
     var best = Double.NEGATIVE_INFINITY
-    val out = doubleArrayOf(Double.NaN, Double.NaN)
-    for (dy in -p.shiftPx..p.shiftPx) for (dx in -p.shiftPx..p.shiftPx) {
-      var longNum = 0.0
-      var longDen = 0
+    val out = doubleArrayOf(Double.NaN, Double.NaN, Double.NaN)
+    val across = if (t.edgePx > 0) min(p.edgeShiftPx, p.shiftPx) else p.shiftPx
+    val tried = HashSet<Int>()
+    for (dv in -across..across) for (du in -p.shiftPx..p.shiftPx) {
+      // a shift of du pixels along the board and dv across it, as whole pixels of the picture
+      val dx = Math.round(ca * du - sa * dv).toInt()
+      val dy = Math.round(sa * du + ca * dv).toInt()
+      if (!tried.add((dy + 64) * 128 + dx + 64)) continue
+      var inNum = 0.0
+      var inDen = 0
+      var edNum = 0.0
+      var edDen = 0
       var smallSum = 0.0
       var smallN = 0
       for (g in 0 until t.groups) {
@@ -424,41 +468,70 @@ object BoardCue {
         if (f.isNaN()) continue
         val b = mean(bp[g], dx, dy)
         if (b.isNaN()) continue
-        if (t.long[g]) {
-          longNum += (b - f) * t.size[g]
-          longDen += t.size[g]
-        } else {
+        if (!t.long[g]) {
           smallSum += b - f
           smallN++
+        } else if (t.edge[g]) {
+          edNum += (b - f) * t.size[g]
+          edDen += t.size[g]
+        } else {
+          inNum += (b - f) * t.size[g]
+          inDen += t.size[g]
         }
       }
-      if (longDen < t.longPx || 2 * smallN < t.smallGroups) continue // a long feature or most of the small ones out of view
-      val lo = if (t.longPx > 0) longNum / longDen else Double.NaN
+      if (inDen < t.interiorPx || edDen < t.edgePx || 2 * smallN < t.smallGroups) continue // a long feature or most of the small ones out of view
+      val lo = if (t.interiorPx > 0) inNum / inDen else Double.NaN
+      val ed = if (t.edgePx > 0) edNum / edDen else Double.NaN
       val sm = if (t.smallGroups > 0) smallSum / smallN else Double.NaN
-      val total = (if (lo.isNaN()) 0.0 else lo) + (if (sm.isNaN()) 0.0 else sm)
+      // each long score is its own best over the shifts (two hypotheses that show the same rail must score the same,
+      // whatever their small features do); the small score is taken where everything together fits best
+      if (!lo.isNaN() && (out[0].isNaN() || lo > out[0])) out[0] = lo
+      if (!ed.isNaN() && (out[1].isNaN() || ed > out[1])) out[1] = ed
+      val total = (if (lo.isNaN()) 0.0 else lo) + (if (ed.isNaN()) 0.0 else ed) + (if (sm.isNaN()) 0.0 else sm)
       if (total > best) {
         best = total
-        out[0] = lo
-        out[1] = sm
+        out[2] = sm
       }
     }
     return out
   }
 
-  /** See the file comment. [long] / [small]: per hypothesis of [kind]. */
-  fun decide(kind: KindCue, long: DoubleArray, small: DoubleArray, p: BoardCueParams = BoardCueParams(), ms: Double = 0.0): BoardCueResult {
+  /**
+   * See the file comment. Per hypothesis of [kind]: [long] (long features away from the edges), [edge] (long features
+   * at an edge), [small].
+   *
+   * Stage 1, the face. A long feature away from the edges (a rail, a groove in the middle) is the evidence: the face
+   * whose own is there ([BoardCueParams.minInterior]) and clearly more than any other face's is up. A face that only
+   * has features at its edges (a side's groove face) is up only when every face that has a feature away from the
+   * edges is proven NOT to be (that feature is absent, [BoardCueParams.absent]) and its own edge feature is seen: an
+   * edge line alone proves nothing (so a board whose only feature is at an edge, the back, is never decided).
+   */
+  fun decide(kind: KindCue, long: DoubleArray, edge: DoubleArray, small: DoubleArray, p: BoardCueParams = BoardCueParams(), ms: Double = 0.0): BoardCueResult {
     val lies = kind.lies
-    // stage 1 looks at each hypothesis's main features: the long ones, or the small ones of a face that has no long one
-    val first = DoubleArray(lies.size) { if (lies[it].template.longPx > 0) long[it] else small[it] }
-    var b = -1
-    for (i in lies.indices) if (!first[i].isNaN() && (b < 0 || first[i] > first[b])) b = i
-    fun none() = BoardCueResult(kind, long, small, b, null, null, null, ms)
-    if (b < 0 || first[b] < p.minScore) return none()
+    val inside = BooleanArray(lies.size) { lies[it].template.interiorPx > 0 }
+    // what each hypothesis is ranked by: its long features away from the edges, else those at an edge, else its small ones
+    val first = DoubleArray(lies.size) { if (inside[it]) long[it] else if (lies[it].template.edgePx > 0) edge[it] else small[it] }
+    fun top(ok: (Int) -> Boolean): Int {
+      var b = -1
+      for (i in lies.indices) if (ok(i) && !first[i].isNaN() && (b < 0 || first[i] > first[b])) b = i
+      return b
+    }
     fun clearlyBelow(v: Double, top: Double) = v.isNaN() || (v <= top - p.minMargin && v <= p.maxRatio * top)
-    for (i in lies.indices) if (!kind.sameFace(lies[i], lies[b]) && !clearlyBelow(first[i], first[b])) return none()
+    var b = top { inside[it] }
+    fun none() = BoardCueResult(kind, long, edge, small, b, null, null, null, ms)
+    if (b >= 0 && first[b] >= p.minInterior) {
+      for (i in lies.indices) if (inside[i] && !kind.sameFace(lies[i], lies[b]) && !(first[i].isNaN() || first[i] <= p.maxRatio * first[b])) return none()
+    } else {
+      if (lies.indices.none { inside[it] } || lies.indices.any { inside[it] && !(first[it] <= p.absent) }) return none()
+      b = top { !inside[it] }
+      if (b < 0 || first[b] < p.minScore) return none()
+    }
     // stage 2: the hypotheses that show the same long features; the small ones tell them apart
-    val same = lies.indices.filter { kind.sameFace(lies[it], lies[b]) && !first[it].isNaN() && first[it] >= first[b] - max(p.sameLong, p.sameLongShare * first[b]) }
+    // (a hypothesis leaves the running only when its long features are CLEARLY less dark than the winner's: a weak
+    // rail seen a little better one way than the other tells nothing)
+    val same = lies.indices.filter { kind.sameFace(lies[it], lies[b]) && !first[it].isNaN() && (it == b || !clearlyBelow(first[it], first[b])) }
     val second = DoubleArray(lies.size) { if (lies[it].template.longPx > 0) small[it] else Double.NaN }
+    if (same.isEmpty()) return none()
     var e = -1
     for (i in same) if (!second[i].isNaN() && (e < 0 || second[i] > second[e])) e = i
     fun <T> attr(of: (BoardLie) -> T): T? {
@@ -470,7 +543,7 @@ object BoardCue {
     // "turned" is about the board's own length axis: with mirror-image boards it only means something once the board is known,
     // or when every board left in the running says the same
     val turned = attr { it.turned }
-    return BoardCueResult(kind, long, small, e.takeIf { it >= 0 && board != null } ?: b, lies[b].look, board, turned, ms)
+    return BoardCueResult(kind, long, edge, small, e.takeIf { it >= 0 && board != null } ?: b, lies[b].look, board, turned, ms)
   }
 }
 
