@@ -228,26 +228,33 @@ class MainActivity : AppSystemActivity() {
         WorldModule(this, vision, mruk, { api }, params.lang) { uri, make ->
           systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
         }
-    if (params.markerless) {
-      // the white front panel found in the camera picture, on the device, 3 Hz: the ghost follows the real part
-      panel =
-          PanelPoseTracker(
-              tableHeight = { world.surfaceY },
-              ghostPose = { vision.worldFromAssembly() },
-              onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
-              // Size gate tuned on the device: in the first real run (12:36) a clean panel measured 13-18 mm short
-              // and 6-14 mm wide of its true size, and the render-tuned 14 / 12 mm rejected every frame.
-              params =
-                  PanelParams(
-                      tolLongM = (intent?.getIntExtra("panel_tol_long_mm", 30) ?: 30) / 1000.0,
-                      tolShortM = (intent?.getIntExtra("panel_tol_short_mm", 25) ?: 25) / 1000.0,
-                      // Lightness only: the real drawer front is wood-coloured, and the colour penalty (1.5) lost
-                      // it on the dark carpet. On 199 real frames: 2 trusted with 1.5, 80 with 0 (size error
-                      // p50 +6 / -0.4 mm, consecutive poses 5 mm / 0.24 deg apart).
-                      chromaWeight = (intent?.getFloatExtra("panel_chroma_w", 0f) ?: 0f).toDouble(),
-                  ),
-          )
-    }
+    // the white front panel found in the camera picture, on the device, 3 Hz: the ghost follows the real part
+    // FLAT-PARTS: the detector is built in any case: the same 3 Hz pass also finds every loose board on the surface
+    // (world.flat says which part each one is and lights the one to pick up), with the same PanelParams (lightness
+    // only). `markerless false` switches off only the ghost following the front panel, as before.
+    panel =
+        PanelPoseTracker(
+                tableHeight = { world.surfaceY },
+                ghostPose = { vision.worldFromAssembly() },
+                onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
+                // Size gate tuned on the device: in the first real run (12:36) a clean panel measured 13-18 mm short
+                // and 6-14 mm wide of its true size, and the render-tuned 14 / 12 mm rejected every frame.
+                params =
+                    PanelParams(
+                        tolLongM = (intent?.getIntExtra("panel_tol_long_mm", 30) ?: 30) / 1000.0,
+                        tolShortM = (intent?.getIntExtra("panel_tol_short_mm", 25) ?: 25) / 1000.0,
+                        // Lightness only: the real drawer front is wood-coloured, and the colour penalty (1.5) lost
+                        // it on the dark carpet. On 199 real frames: 2 trusted with 1.5, 80 with 0 (size error
+                        // p50 +6 / -0.4 mm, consecutive poses 5 mm / 0.24 deg apart).
+                        chromaWeight = (intent?.getFloatExtra("panel_chroma_w", 0f) ?: 0f).toDouble(),
+                    ),
+            )
+            .also {
+              it.enabled = params.markerless // FLAT-PARTS
+              it.rectsWanted = { world.wantsRects } // FLAT-PARTS
+              it.onRects = { r, worldFromTable -> world.onRects(r, worldFromTable) } // FLAT-PARTS
+            }
+    world.reducedMotion = params.reducedMotion // FLAT-PARTS: no pulse on the part outline
     dump = FrameDump(this, params) // `--ez dump_frames true` records camera frames with their pose (tools/markerless/eval_real.py)
     pickMarkers =
         PickMarkers { uri, make ->
@@ -1180,6 +1187,7 @@ class MainActivity : AppSystemActivity() {
     if (!panelsPlaced && head != null && renderFrames.get() > 30) placePanels(head)
 
     coachTick(head) // ACTION-COACH: the phase of the action, and which pick targets are drawn this frame
+    world.flatGuiding = coach.stage == CoachFlow.Stage.GUIDE && !finished // FLAT-PARTS: loose boards are looked for while guiding
     if (assembly != null && sceneReady) {
       world.tick(dt) // no-marker registration: table, then the server's box for the base part
       when {

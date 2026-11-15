@@ -80,6 +80,28 @@ class WorldModule(
   private var worker: ScheduledExecutorService? = null
   private val outline = registerMesh?.let { PlaceOutline(it) }
 
+  // FLAT-PARTS (world/FlatParts.kt): which loose board each white rectangle on the surface is, and the outline on
+  // the one the action shown now needs. Fed by the on-device detector's rectangle pass (PanelPoseTracker.onRects).
+  val flat = FlatParts(Agq.log)
+  private val flatOutline = registerMesh?.let { FlatPartOutline(it) }
+
+  /** FLAT-PARTS: the guide is being followed (MainActivity sets it each frame): the rectangle pass runs and the outline shows. */
+  @Volatile var flatGuiding = false
+
+  /** FLAT-PARTS: no pulse on the outline. */
+  var reducedMotion = false
+    set(v) {
+      field = v
+      flatOutline?.reducedMotion = v
+    }
+
+  /** FLAT-PARTS: should the detector look for rectangles now? (camera thread) */
+  val wantsRects: Boolean
+    get() = flatGuiding && flat.wanted
+
+  /** FLAT-PARTS: one pass of the detector's rectangles with its WORLD ← TABLE (the detector's worker thread). */
+  fun onRects(r: com.agj.android.vision.RectsResult, worldFromTable: Pose3?) = flat.onRects(r, worldFromTable, anchor.pose, heldPose())
+
   /** The base part: what the guide places first, and what the anchor is aligned to. */
   class BasePart(val partId: String, val node: String, val step: Int, val names: Map<String, String>, val positions: FloatArray)
 
@@ -190,7 +212,8 @@ class WorldModule(
 
   /** Targets for the UI: real parts in the pile, WORLD positions; empty outside `place`/`fasten` actions. */
   val pickTargets: List<PickTarget>
-    get() = parts.pickTargets
+    // FLAT-PARTS: while the needed part's rectangle is live it stands in for the server's boxes of that part
+    get() = flat.merge(parts.pickTargets, if (parts.hideBaseTarget()) basePart?.partId else null)
 
   /** `table`, `fixed_spot`, `server_box`, `manual`, `markerless`; null before anything is placed. */
   val placeSource: String?
@@ -243,6 +266,7 @@ class WorldModule(
     basePart = b
     if (curStep == null) curStep = g?.steps?.firstOrNull()?.n
     parts.setBase(a?.jobId, b?.partId)
+    flat.setAssembly(a) // FLAT-PARTS: the guide's boards and their sizes
     Agq.log.event("place_base", mapOf("job" to a?.jobId, "part" to b?.partId, "node" to b?.node, "step" to b?.step,
         "footprint_m" to footprint()?.let { listOf(2 * it.halfX, 2 * it.halfZ) }))
   }
@@ -264,6 +288,7 @@ class WorldModule(
     val rest = guide?.step(step)?.actions?.filter { it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN }
         ?.flatMap { listOfNotNull(it.partId, it.code) } ?: emptyList()
     parts.setAction(jobId, step, action, pick, own + rest, own)
+    flat.setAction(step, action, act) // FLAT-PARTS: the board this action places is the one to light
     inject() // the step's pose may have changed (a turn): keep WORLD ← TABLE where it is
   }
 
@@ -330,6 +355,7 @@ class WorldModule(
       if (t == null) surfaceY?.let { anchor.setSurfaceHeight(it) }
     }
     outline?.update(if (outlineVisible()) anchor.pose else null, footprint())
+    flatOutline?.update(if (flatGuiding) flat.lit() else null, dtS) // FLAT-PARTS: the outline on the real part to pick up
   }
 
   /** The outline shows while the anchor is a placed one (no live tracking) and the base part's step is on. */

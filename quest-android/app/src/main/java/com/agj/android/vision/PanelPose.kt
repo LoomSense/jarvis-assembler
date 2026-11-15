@@ -389,6 +389,51 @@ object PanelMath {
         else -> null
       }
 
+  // ---- FLAT-PARTS ----
+
+  /** The four corners of a [lengthM] × [widthM] rectangle at ([x], [y]) turned by [yaw], TABLE frame (x0, y0, … x3, y3), order of [cornersPx]. */
+  fun rectCorners(x: Double, y: Double, yaw: Double, lengthM: Double, widthM: Double): DoubleArray {
+    val ca = cos(yaw)
+    val sa = sin(yaw)
+    val out = DoubleArray(8)
+    val signs = arrayOf(-1 to -1, 1 to -1, 1 to 1, -1 to 1)
+    for ((i, sg) in signs.withIndex()) {
+      val lx = sg.first * lengthM / 2
+      val ly = sg.second * widthM / 2
+      out[2 * i] = x + ca * lx - sa * ly
+      out[2 * i + 1] = y + sa * lx + ca * ly
+    }
+    return out
+  }
+
+  /**
+   * One blob seen at several thresholds, and blobs inside blobs, down to one rectangle per real thing:
+   *  1. the same blob at two thresholds ([RectGates.sameCentreM], [RectGates.sameSizeM]) → the cleaner rectangle;
+   *  2. a rectangle with two or more others inside it is several parts read as one (a low threshold joined them
+   *     across a narrow gap): it goes, the parts stay;
+   *  3. a rectangle with exactly one other, different, inside it: two readings of one place and no way to say
+   *     which is the part (a hard shadow across a board, or two boards of which only one came out clean) →
+   *     neither is reported. No rectangle is better than a wrong one.
+   */
+  fun resolveRects(found: List<FoundRect>, g: RectGates = RectGates()): List<FoundRect> {
+    val reps = ArrayList<FoundRect>()
+    for (r in found.sortedByDescending { it.rectness }) {
+      val same = reps.any { k ->
+        val dx = k.x - r.x
+        val dy = k.y - r.y
+        sqrt(dx * dx + dy * dy) <= g.sameCentreM && abs(k.lengthM - r.lengthM) <= g.sameSizeM && abs(k.widthM - r.widthM) <= g.sameSizeM
+      }
+      if (!same) reps += r
+    }
+    val drop = BooleanArray(reps.size)
+    for ((i, a) in reps.withIndex()) {
+      val inner = reps.indices.filter { j -> j != i && reps[j].lengthM * reps[j].widthM < a.lengthM * a.widthM && a.contains(reps[j].x, reps[j].y) }
+      if (inner.isNotEmpty()) drop[i] = true
+      if (inner.size == 1) drop[inner[0]] = true
+    }
+    return reps.filterIndexed { i, _ -> !drop[i] }
+  }
+
   /** The 4 top-face corners projected into the image (x0, y0, … x3, y3). */
   fun cornersPx(x: Double, y: Double, yaw: Double, fx: Double, fy: Double, cx: Double, cy: Double, v: PanelView, p: PanelParams = PanelParams()): DoubleArray {
     val ca = cos(yaw)
@@ -438,6 +483,10 @@ object PanelFrames {
 
   /** WORLD ← TABLE for a level table whose surface is at WORLD height [y] (the world module's `table.y`). */
   fun tableAtHeight(y: Float): Pose3 = Pose3(Vec3(0f, y, 0f), TABLE_Q)
+
+  /** FLAT-PARTS: a [FoundRect]'s four top-face corners in WORLD ([worldFromTable] of the call that found it). */
+  fun cornersWorld(worldFromTable: Pose3, r: FoundRect): List<Vec3> =
+      (0 until 4).map { worldFromTable.transform(Vec3(r.cornersTable[2 * it].toFloat(), r.cornersTable[2 * it + 1].toFloat(), r.topM.toFloat())) }
 
   /** TABLE ← PANEL from the detector's result. */
   fun tableFromPanel(x: Double, y: Double, yaw: Double): Pose3 =
@@ -636,7 +685,233 @@ object PanelPose {
       mats.forEach { it.release() }
     }
   }
+
+  /**
+   * FLAT-PARTS: every clean white rectangle lying on the surface, in one pass over one frame. The same rectified
+   * view, whiteness and threshold sweep as [detect], rectified at [PanelParams.thickM] above the surface (16 mm:
+   * the top of a board; a thinner board is measured about 1 % large). There is no size target: a blob is a
+   * rectangle when it passes [PanelParams.minRectness], [RectGates]' size range, is fully in view (the camera
+   * image: [PanelParams.maxCut]; the rectified window: [RectGates.borderPx]), stands out from the ring round it
+   * ([PanelParams.minContrast]) and from the ring's strip on each of its four sides. [PanelMath.resolveRects] then
+   * leaves one rectangle per real thing. Stateless, thread-safe; [detect] is not touched by it.
+   */
+  fun findRects(bgr: Mat, k0: Intrinsics, tableFromCamera: DoubleArray, p: PanelParams = PanelParams(), g: RectGates = RectGates(), t0: Long = System.nanoTime()): RectsResult {
+    val size = intArrayOf(bgr.cols(), bgr.rows())
+    fun done(reason: String, rects: List<FoundRect> = emptyList(), candidates: Int = 0) = RectsResult(rects, reason, (System.nanoTime() - t0) / 1e6, candidates, size)
+    val k = k0.scaledTo(bgr.cols(), bgr.rows())
+    val v = PanelMath.view(k.fx, k.fy, k.cx, k.cy, tableFromCamera, p) ?: return done(PanelMath.REASON_NOT_LOOKING_DOWN)
+    val n = v.n
+    val (valid, validCount) = PanelMath.validMask(v, bgr.cols(), bgr.rows(), p)
+    if (validCount.toDouble() / (n * n) < p.minValidFraction) return done(PanelMath.REASON_NOT_IN_VIEW)
+
+    val mats = ArrayList<Mat>()
+    fun mat(m: Mat): Mat {
+      mats += m
+      return m
+    }
+    try {
+      val hMat = mat(Mat(3, 3, CvType.CV_64F))
+      hMat.put(0, 0, *v.h)
+      val bird = mat(Mat())
+      Imgproc.warpPerspective(bgr, bird, hMat, Size(n.toDouble(), n.toDouble()), Imgproc.INTER_LINEAR or Imgproc.WARP_INVERSE_MAP)
+      val blur = mat(Mat())
+      Imgproc.GaussianBlur(bird, blur, Size(p.blurPx.toDouble(), p.blurPx.toDouble()), 0.0)
+      val lab = mat(Mat())
+      Imgproc.cvtColor(blur, lab, Imgproc.COLOR_BGR2Lab)
+      val labBytes = ByteArray(n * n * 3)
+      lab.get(0, 0, labBytes)
+      val white = FloatArray(n * n)
+      val vals = FloatArray(validCount)
+      var vi = 0
+      val cw = p.chromaWeight.toFloat()
+      for (i in 0 until n * n) {
+        if (!valid[i]) continue
+        val l = (labBytes[3 * i].toInt() and 0xff).toFloat()
+        val a = (labBytes[3 * i + 1].toInt() and 0xff) - 128f
+        val b = (labBytes[3 * i + 2].toInt() and 0xff) - 128f
+        val w = (l - cw * sqrt(a * a + b * b)).coerceIn(0f, 255f)
+        white[i] = w
+        vals[vi++] = w
+      }
+      vals.sort()
+      val thresholds = p.percentiles.map { PanelMath.percentile(vals, it) }.distinct().sorted()
+
+      val kernel = mat(Mat.ones(p.openPx, p.openPx, CvType.CV_8U))
+      val kOuter = mat(Mat.ones(p.ringOuterPx, p.ringOuterPx, CvType.CV_8U))
+      val kInner = mat(Mat.ones(p.ringInnerPx, p.ringInnerPx, CvType.CV_8U))
+      val mask = mat(Mat(n, n, CvType.CV_8UC1))
+      val opened = mat(Mat())
+      val hierarchy = mat(Mat())
+      val noHierarchy = mat(Mat())
+      val maskBytes = ByteArray(n * n)
+      val pxPerM2 = 1.0 / (v.s * v.s)
+      val minArea = 0.7 * g.minLongM * g.minShortM * pxPerM2
+      val maxArea = 1.3 * g.maxLongM * g.maxShortM * pxPerM2
+      val pad = p.ringOuterPx / 2 + 2
+      val found = ArrayList<FoundRect>()
+      for (thr in thresholds) {
+        for (i in 0 until n * n) maskBytes[i] = if (white[i] > thr) 1 else 0
+        mask.put(0, 0, maskBytes)
+        Imgproc.morphologyEx(mask, opened, Imgproc.MORPH_OPEN, kernel)
+        val contours = ArrayList<MatOfPoint>()
+        Imgproc.findContours(opened, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+        for (cnt in contours) {
+          try {
+            val area = Imgproc.contourArea(cnt)
+            if (area < minArea || area > maxArea) continue
+            val c2 = MatOfPoint2f(*cnt.toArray())
+            val rect = Imgproc.minAreaRect(c2)
+            c2.release()
+            val pts = arrayOfNulls<Point>(4)
+            rect.points(pts)
+            val box = DoubleArray(8) { if (it % 2 == 0) pts[it / 2]!!.x else pts[it / 2]!!.y }
+            val c = PanelMath.candidate(box, area, v, p) ?: continue
+            // candidate() measures against p's rectangle: the measured sides are the errors plus that rectangle
+            val lengthM = c.errL + p.longM
+            val widthM = c.errS + p.shortM
+            if (c.rectness < p.minRectness || lengthM < g.minLongM || lengthM > g.maxLongM || widthM < g.minShortM || widthM > g.maxShortM) continue
+            val br = Imgproc.boundingRect(cnt)
+            if (br.x < g.borderPx || br.y < g.borderPx || br.x + br.width > n - g.borderPx || br.y + br.height > n - g.borderPx) continue
+            // the ring round the blob, in a window round it: inside the camera image, darker than the blob, on every side
+            val rx0 = max(0, br.x - pad)
+            val ry0 = max(0, br.y - pad)
+            val rw = min(n, br.x + br.width + pad) - rx0
+            val rh = min(n, br.y + br.height + pad) - ry0
+            val maskIn = Mat.zeros(rh, rw, CvType.CV_8UC1)
+            val outer = Mat()
+            val inner = Mat()
+            val inB = ByteArray(rw * rh)
+            val outerB = ByteArray(rw * rh)
+            val innerB = ByteArray(rw * rh)
+            try {
+              Imgproc.drawContours(maskIn, listOf(cnt), -1, Scalar(1.0), -1, Imgproc.LINE_8, noHierarchy, Int.MAX_VALUE, Point(-rx0.toDouble(), -ry0.toDouble()))
+              Imgproc.dilate(maskIn, outer, kOuter)
+              Imgproc.dilate(maskIn, inner, kInner)
+              maskIn.get(0, 0, inB)
+              outer.get(0, 0, outerB)
+              inner.get(0, 0, innerB)
+            } finally {
+              maskIn.release()
+              outer.release()
+              inner.release()
+            }
+            val e0 = sqrt((box[2] - box[0]) * (box[2] - box[0]) + (box[3] - box[1]) * (box[3] - box[1]))
+            val e1 = sqrt((box[4] - box[2]) * (box[4] - box[2]) + (box[5] - box[3]) * (box[5] - box[3]))
+            val halfL = max(e0, e1) / 2
+            val halfS = min(e0, e1) / 2
+            var ring = 0
+            var ringCut = 0
+            var nIn = 0
+            var sumIn = 0.0
+            val sideN = IntArray(4)
+            val sideSum = DoubleArray(4)
+            for (j in 0 until rh) {
+              for (i in 0 until rw) {
+                val q = j * rw + i
+                val gi = (ry0 + j) * n + rx0 + i
+                if (inB[q].toInt() != 0) {
+                  nIn++
+                  sumIn += white[gi]
+                }
+                if (outerB[q].toInt() != 0 && innerB[q].toInt() == 0) {
+                  ring++
+                  if (!valid[gi]) {
+                    ringCut++
+                    continue
+                  }
+                  val dx = rx0 + i - c.ctr[0]
+                  val dy = ry0 + j - c.ctr[1]
+                  val u = dx * c.al[0] + dy * c.al[1]
+                  val w = dx * c.asv[0] + dy * c.asv[1]
+                  val side = if (abs(u) - halfL > abs(w) - halfS) (if (u > 0) 0 else 1) else (if (w > 0) 2 else 3)
+                  sideN[side]++
+                  sideSum[side] += white[gi]
+                }
+              }
+            }
+            if (nIn == 0 || ring == 0) continue
+            if (ringCut.toDouble() / ring > p.maxCut) continue
+            val ringValid = sideN.sum()
+            if (ringValid == 0) continue
+            val meanIn = sumIn / nIn
+            val contrast = meanIn - sideSum.sum() / ringValid
+            if (contrast < p.minContrast) continue
+            val minSide = p.minContrast * g.sideContrastShare
+            if ((0 until 4).any { sideN[it] == 0 || meanIn - sideSum[it] / sideN[it] < minSide }) continue
+            val measured = p.copy(longM = lengthM, shortM = widthM)
+            val xyYaw = PanelMath.pose(c, v, null, measured) // anchored at the far corner, never smeared
+            found +=
+                FoundRect(xyYaw[0], xyYaw[1], xyYaw[2], lengthM, widthM, c.rectness, contrast,
+                    PanelMath.cornersPx(xyYaw[0], xyYaw[1], xyYaw[2], k.fx, k.fy, k.cx, k.cy, v, measured),
+                    PanelMath.rectCorners(xyYaw[0], xyYaw[1], xyYaw[2], lengthM, widthM), p.thickM)
+          } finally {
+            cnt.release()
+          }
+        }
+      }
+      return done(PanelMath.REASON_OK, PanelMath.resolveRects(found, g), found.size)
+    } finally {
+      mats.forEach { it.release() }
+    }
+  }
 }
+
+// ---- FLAT-PARTS: every clean white rectangle on the surface (world/FlatParts.kt says which part each one is) ----
+
+/**
+ * The gates of [PanelPose.findRects]: a plausible board, no size target (rectness, contrast and "fully in view" are
+ * [PanelParams]', as for the single target).
+ */
+data class RectGates(
+    val minLongM: Double = 0.150,
+    val maxLongM: Double = 0.700,
+    val minShortM: Double = 0.050,
+    val maxShortM: Double = 0.600,
+    /**
+     * Each of the four sides must stand out from its own strip of the ring by this share of [PanelParams.minContrast]:
+     * a real edge against the surface on every side. Rejects the brighter half of one board (one "edge" is only a
+     * change of light) and a board lying against another white thing.
+     */
+    val sideContrastShare: Double = 0.5,
+    /** A blob this close to the edge of the rectified window is cut by the window: its size is not the part's. */
+    val borderPx: Int = 2,
+    /** The same blob at two thresholds: centres this close and both sides this close. */
+    val sameCentreM: Double = 0.030,
+    val sameSizeM: Double = 0.040,
+)
+
+/**
+ * One clean white rectangle on the surface, TABLE frame of the call.
+ *
+ * @property x @property y centre, metres. @property yaw of the long side, radians in [0, π).
+ * @property lengthM @property widthM measured sides after the smear correction (length ≥ width).
+ * @property cornersPx the top-face corners in the input image (x0, y0, … x3, y3), order (−,−), (+,−), (+,+), (−,+)
+ *   along (long, short). @property cornersTable the same corners in the TABLE frame (x0, y0, …), at height [topM].
+ */
+class FoundRect(
+    val x: Double,
+    val y: Double,
+    val yaw: Double,
+    val lengthM: Double,
+    val widthM: Double,
+    val rectness: Double,
+    val contrast: Double,
+    val cornersPx: DoubleArray,
+    val cornersTable: DoubleArray,
+    val topM: Double,
+) {
+  /** Is the TABLE point ([px], [py]) inside the rectangle? */
+  fun contains(px: Double, py: Double): Boolean {
+    val dx = px - x
+    val dy = py - y
+    val c = cos(yaw)
+    val s = sin(yaw)
+    return abs(dx * c + dy * s) <= lengthM / 2 && abs(-dx * s + dy * c) <= widthM / 2
+  }
+}
+
+/** One frame's rectangles. [reason]: "ok" or why nothing was looked at. [candidates]: blobs that passed every gate, before [PanelMath.resolveRects]. */
+class RectsResult(val rects: List<FoundRect>, val reason: String, val ms: Double, val candidates: Int = 0, val imageSize: IntArray? = null)
 
 /** One trusted result: panel centre and yaw in the TABLE frame of a table at WORLD height [tableY]. */
 data class PanelSample(val x: Double, val y: Double, val yaw: Double, val tableY: Float, val score: Double, val tMs: Long)
@@ -831,11 +1106,22 @@ class PanelPoseTracker(
     )
   }
 
+  // FLAT-PARTS: every clean rectangle on the surface (PanelPose.findRects), in the same pass and from the same decoded
+  // picture as the target above, and also on steps (and jobs) where the target is off. [rectsWanted] is asked on
+  // the camera thread; [onRects] gets each pass's result with its WORLD ← TABLE on the worker thread (null table:
+  // the pass did not run: no camera pose or no surface height).
+  @Volatile var rectsWanted: () -> Boolean = { false }
+  @Volatile var onRects: ((RectsResult, Pose3?) -> Unit)? = null
+
+  /** The rectangles' rectification: the default [PanelParams] (top face 16 mm above the surface), whatever the step's target is. */
+  var rectParams: PanelParams = PanelParams()
+
   /** Camera thread. Cheap unless a detection is due. */
   fun onFrame(frame: CameraFrame) {
-    if (!active) return
-    val t = target ?: return
-    val p = t.params(params)
+    val sink = onRects?.takeIf { rectsWanted() } // FLAT-PARTS
+    val t = if (active) target else null
+    if (t == null && sink == null) return
+    val p = t?.params(params)
     val now = clockMs()
     if (now - lastSubmitMs < (1000.0 / hz).toLong() || busy.get()) return
     val wc = frame.worldFromCamera
@@ -848,26 +1134,50 @@ class PanelPoseTracker(
         }
     if (skip != null) {
       lastSubmitMs = now
-      onResult(PanelPoseResult(false, skip, null, null, null, null, 0.0), null, now)
+      if (t != null) onResult(PanelPoseResult(false, skip, null, null, null, null, 0.0), null, now)
+      sink?.invoke(RectsResult(emptyList(), skip, 0.0), null) // FLAT-PARTS
       return
     }
     val wt = PanelFrames.tableAtHeight(y!!)
     val tc = PanelMath.tableFromCamera(wc!!, wt)
     lastSubmitMs = now
-    if (!PanelMath.looksDown(tc, p)) {
-      onResult(PanelPoseResult(false, PanelMath.REASON_NOT_LOOKING_DOWN, null, null, null, null, 0.0), wt, now, t)
-      return
-    }
+    val look = t != null && PanelMath.looksDown(tc, p!!)
+    if (t != null && !look) onResult(PanelPoseResult(false, PanelMath.REASON_NOT_LOOKING_DOWN, null, null, null, null, 0.0), wt, now, t)
+    // FLAT-PARTS
+    val rectsLook = sink != null && PanelMath.looksDown(tc, rectParams)
+    if (sink != null && !rectsLook) sink(RectsResult(emptyList(), PanelMath.REASON_NOT_LOOKING_DOWN, 0.0), wt)
+    if (!look && !rectsLook) return
     if (!busy.compareAndSet(false, true)) return
     try {
       val jpeg = frame.jpegAt(grabLongEdge, grabQuality) // live buffers are only valid inside this callback
       val k = frame.intrinsics
-      val prev = ghostPose()?.let { PanelFrames.panelYawInTable(wt, it, t.assemblyFromFootprint) } ?: synchronized(this) { lastYaw }
+      val prev = if (look) ghostPose()?.let { PanelFrames.panelYawInTable(wt, it, t!!.assemblyFromFootprint) } ?: synchronized(this) { lastYaw } else null
       val w = worker ?: Executors.newSingleThreadExecutor { Thread(it, "agj-panel").apply { isDaemon = true } }.also { worker = it }
       w.execute {
         try {
           if (nativeOk == null) nativeOk = runCatching { loadNative() }.getOrDefault(false).also { if (!it) log.error("panel", "OpenCV native library did not load") }
-          if (nativeOk == true) onResult(PanelPose.detectJpeg(jpeg, k, tc, prev, p), wt, clockMs(), t)
+          if (nativeOk == true) {
+            if (!rectsLook) {
+              onResult(PanelPose.detectJpeg(jpeg, k, tc, prev, p!!), wt, clockMs(), t)
+            } else {
+              // FLAT-PARTS: one decode for both the step's target and the rectangles
+              val t0 = System.nanoTime()
+              val buf = MatOfByte(*jpeg)
+              val bgr = Imgcodecs.imdecode(buf, Imgcodecs.IMREAD_COLOR)
+              buf.release()
+              try {
+                if (bgr.empty()) {
+                  if (look) onResult(PanelPoseResult(false, "image did not decode", null, null, null, null, (System.nanoTime() - t0) / 1e6), wt, clockMs(), t)
+                  sink!!(RectsResult(emptyList(), "image did not decode", (System.nanoTime() - t0) / 1e6), wt)
+                } else {
+                  if (look) onResult(PanelPose.detect(bgr, k, tc, prev, p!!, t0), wt, clockMs(), t)
+                  sink!!(PanelPose.findRects(bgr, k, tc, rectParams), wt)
+                }
+              } finally {
+                bgr.release()
+              }
+            }
+          }
         } catch (t: Throwable) {
           log.error("panel", t.message)
         } finally {
