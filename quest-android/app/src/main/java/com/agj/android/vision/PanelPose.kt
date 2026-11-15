@@ -124,7 +124,7 @@ data class PanelTarget(
     val recess: RecessMap? = null,
 ) {
   /** [base] with this rectangle: every gate and constant stays as it is. */
-  fun params(base: PanelParams = PanelParams()): PanelParams = base.copy(longM = lengthM, shortM = widthM, thickM = topM, fillHull = fillHull, recess = recess)
+  fun params(base: PanelParams = PanelParams()): PanelParams = base.copy(longM = lengthM, shortM = widthM, thickM = topM, fillHull = fillHull, recess = recess) // RECESS-CUE
 
   /** Length, width and top height in whole millimetres, for the log. */
   fun footprintMm(): List<Long> = listOf(Math.round(lengthM * 1000), Math.round(widthM * 1000), Math.round(topM * 1000))
@@ -831,6 +831,7 @@ class PanelPoseTracker(
             "footprint_mm" to target?.footprintMm(),
             "hull" to target?.fillHull,
             "slab" to target?.slab,
+            "recess_px" to target?.recess?.let { listOf(it.narrowCount, it.asymmetric) }, // RECESS-CUE: null = no 180° cue for this part
             "trusted" to false,
             "reason" to
                 when {

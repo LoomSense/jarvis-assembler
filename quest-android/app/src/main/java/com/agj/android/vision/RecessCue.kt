@@ -33,17 +33,19 @@ import kotlin.math.sin
  * The recesses of a part's top face in its FOOTPRINT frame. Pixel (i, j) covers
  * x = −length/2 + (i … i + 1) × [mmPerPx], y = −width/2 + (j … j + 1) × [mmPerPx]; arrays are row-major [h] × [w].
  *
- * @property recess the surface is clearly below the top face here. @property band top-face pixels a little away from a
- *   recess on every side: what the recess is compared with. @property asymmetric recess pixels that are not a recess
- *   after a 180° turn (what tells the two orientations apart).
+ * @property recess the surface is clearly below the top face here. @property narrow the recess pixels the cue looks at:
+ *   the NARROW recesses (a groove, a hole: shadowed, so dark); a wide lowered area is lit like the face and is left out.
+ * @property band top-face pixels a little away from a narrow recess on every side: what it is compared with.
+ * @property asymmetric narrow pixels that are not narrow after a 180° turn (what tells the two orientations apart).
  */
-class RecessMap(val w: Int, val h: Int, val mmPerPx: Double, val recess: BooleanArray, val band: BooleanArray) {
+class RecessMap(val w: Int, val h: Int, val mmPerPx: Double, val recess: BooleanArray, val narrow: BooleanArray, val band: BooleanArray) {
   val count: Int = recess.count { it }
+  val narrowCount: Int = narrow.count { it }
   val bandCount: Int = band.count { it }
-  val asymmetric: Int = (0 until w * h).count { recess[it] && !recess[w * h - 1 - it] }
+  val asymmetric: Int = (0 until w * h).count { narrow[it] && !narrow[w * h - 1 - it] }
 
-  /** Footprint coordinates (metres) of the recess pixels' centres, then of the band's: x0, y0, x1, y1, … */
-  internal val recessXy: FloatArray = centres(recess)
+  /** Footprint coordinates (metres) of the narrow recess pixels' centres, then of the band's: x0, y0, x1, y1, … */
+  internal val recessXy: FloatArray = centres(narrow)
   internal val bandXy: FloatArray = centres(band)
 
   private fun centres(m: BooleanArray): FloatArray {
@@ -71,15 +73,20 @@ class RecessMap(val w: Int, val h: Int, val mmPerPx: Double, val recess: Boolean
 
   override fun hashCode(): Int = 31 * (31 * w + h) + recess.contentHashCode()
 
-  override fun toString(): String = "RecessMap(${w}x$h, recess=$count, band=$bandCount, asymmetric=$asymmetric)"
+  override fun toString(): String = "RecessMap(${w}x$h, recess=$count, narrow=$narrowCount, band=$bandCount, asymmetric=$asymmetric)"
 }
 
-/** The cue's numbers; the defaults are what the real headset frames of 15 Nov gave (quest-android/README.md). */
+/**
+ * The cue's numbers. Measured on the real headset frames of 15 Nov 2026 (the drawer front on a carpet, the `drawer`
+ * job's own mesh, 80 trusted results; a one-off run, the frames are private): the right orientation scored
+ * 13.2 … 38.4 (median 27.0), the turned one 0.7 … 9.8 (median 1.5, 90 % below 3.0), the difference 9.3 … 36.3.
+ * With the defaults 79 of the 80 were decided, all 79 right; the other one (9.8 against 19.2) was left undecided.
+ */
 data class RecessCueParams(
     /** The winning orientation's recesses are at least this much darker than their surroundings (8-bit L). */
-    val minScore: Double = 4.0,
+    val minScore: Double = 8.0,
     /** … and at least this much more than the other orientation's. */
-    val minMargin: Double = 3.0,
+    val minMargin: Double = 6.0,
     /** … and the other orientation scores at most this fraction of the winner's (a clear winner, not two dark lines). */
     val maxRatio: Double = 0.5,
     /** At least this fraction of the recess and of the band pixels must be inside the blob, in both orientations. */
@@ -122,9 +129,12 @@ object RecessCue {
   const val BAND_GAP_PX = 2
   const val BAND_PX = 3
 
-  /** Fewer asymmetric recess pixels than this: no cue. More than this fraction recessed: not a flat face, no cue. */
+  /** Fewer asymmetric narrow pixels than this: no cue. More than this fraction recessed: not a flat face, no cue. */
   const val MIN_ASYMMETRIC_PX = 12
-  const val MAX_RECESS_FRACTION = 0.25
+  const val MAX_RECESS_FRACTION = 0.5
+
+  /** A recess is narrow where it is less than 2 × [NARROW_PX] + 1 pixels across (17.5 mm at 2.5 mm per pixel). */
+  const val NARROW_PX = 3
 
   /**
    * The recess map of one part: its triangles ([positions] xyz per vertex in ASSEMBLY, [indices]) seen from above in
@@ -192,18 +202,36 @@ object RecessCue {
   fun of(w: Int, h: Int, mmPerPx: Double, recess: BooleanArray): RecessMap? {
     val n = recess.count { it }
     if (n == 0 || n > MAX_RECESS_FRACTION * w * h) return null
-    // Chebyshev distance to the nearest recess pixel, up to the band's outer edge
+    // narrow = the recess minus its opening by a (2 × NARROW_PX + 1) square: what a square that size does not fit in
+    val k = NARROW_PX
+    val core = BooleanArray(w * h) // the square centred here lies wholly in the recess
+    for (j in k until h - k) for (i in k until w - k) {
+      var all = true
+      for (b in j - k..j + k) for (a in i - k..i + k) if (!recess[b * w + a]) all = false
+      core[j * w + i] = all
+    }
+    val narrow = BooleanArray(w * h)
+    for (j in 0 until h) for (i in 0 until w) {
+      if (!recess[j * w + i]) continue
+      var wide = false
+      for (b in max(0, j - k)..min(h - 1, j + k)) for (a in max(0, i - k)..min(w - 1, i + k)) if (core[b * w + a]) wide = true
+      narrow[j * w + i] = !wide
+    }
+    // the band: top-face pixels at a Chebyshev distance of BAND_GAP_PX + 1 … BAND_GAP_PX + BAND_PX from a narrow pixel
     val far = BAND_GAP_PX + BAND_PX
     val band = BooleanArray(w * h)
     for (j in EDGE_PX until h - EDGE_PX) for (i in EDGE_PX until w - EDGE_PX) {
       if (recess[j * w + i]) continue
       var d = far + 1
+      var nearRecess = false
       for (b in max(0, j - far)..min(h - 1, j + far)) for (a in max(0, i - far)..min(w - 1, i + far)) {
-        if (recess[b * w + a]) d = min(d, max(abs(a - i), abs(b - j)))
+        val cheb = max(abs(a - i), abs(b - j))
+        if (narrow[b * w + a]) d = min(d, cheb)
+        if (recess[b * w + a] && cheb <= BAND_GAP_PX) nearRecess = true // the rim of any recess is not "the face"
       }
-      band[j * w + i] = d in (BAND_GAP_PX + 1)..far
+      band[j * w + i] = !nearRecess && d in (BAND_GAP_PX + 1)..far
     }
-    val map = RecessMap(w, h, mmPerPx, recess, band)
+    val map = RecessMap(w, h, mmPerPx, recess, narrow, band)
     return if (map.asymmetric < MIN_ASYMMETRIC_PX || map.bandCount == 0) null else map
   }
 
@@ -237,8 +265,9 @@ object RecessCue {
     fun pixels(xy: FloatArray): IntArray {
       val out = IntArray(xy.size)
       for (k in 0 until xy.size / 2) {
-        out[2 * k] = floor((x + ca * xy[2 * k] - sa * xy[2 * k + 1] - x0) / s).toInt()
-        out[2 * k + 1] = floor((y + sa * xy[2 * k] + ca * xy[2 * k + 1] - y0) / s).toInt()
+        // rectified pixel i is the TABLE point x0 + i × s (the detector's convention): the nearest pixel
+        out[2 * k] = Math.round((x + ca * xy[2 * k] - sa * xy[2 * k + 1] - x0) / s).toInt()
+        out[2 * k + 1] = Math.round((y + sa * xy[2 * k] + ca * xy[2 * k + 1] - y0) / s).toInt()
       }
       return out
     }
