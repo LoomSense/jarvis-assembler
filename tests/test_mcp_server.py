@@ -72,7 +72,8 @@ def test_unknown_job_and_bad_input_are_readable_errors(backend, tmp_path):
     result = run(M.mcp._handle_call_tool(None, type("P", (), {"name": "guide_status",
                                                               "arguments": {"job_id": "nope123"}})()))
     assert result.is_error and "No such job" in result.content[0].text
-    assert run(M.list_guides()) == {"jobs": [], "catalog": None}
+    listed = run(M.list_guides())                     # no jobs yet; the catalog still lists the known guides
+    assert listed["jobs"] == [] and {i["source"] for i in listed["catalog"]["items"]} == {"known"}
 
 
 def test_wrong_key_or_no_backend_never_leaks_the_key(backend, monkeypatch):
