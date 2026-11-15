@@ -25,6 +25,7 @@ Every method takes its time in seconds from any monotonic clock, so a test can r
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, deque
 from dataclasses import dataclass, field
 
@@ -45,6 +46,22 @@ SILENT = ("vision_paused", "vision_resumed")     # a badge on the screen (§6.5)
 RIGHT_HARDWARE = "right_hardware"                # the question this layer adds to the request
 SCENE_QUESTIONS = ("step_complete", "next_step_part_used", "orientation_ok")   # about the assembly, not the hand
 REFUSALS = ("auth", "billing")                   # the API will not answer at all: do not keep asking
+
+
+_SIDE = re.compile(r"(?:^|(?<=[_\-\s]))(?:left|right|l|r)(?=$|[_\-\s])", re.I)
+
+
+def _unsided(part: str) -> str:
+    """A part id without its left/right word: mirror twins give the same string."""
+    return _SIDE.sub("", str(part))
+
+
+def other_steps_sum(probs: dict, parts) -> float:
+    """The probability that a part of another step is held: every part choice that is neither one of this
+    step's `parts` nor the mirror twin of one (a twin is as likely the right part, read wrongly)."""
+    twins = {_unsided(part) for part in parts}
+    return min(1.0, sum(float(v) for k, v in probs.items() if isinstance(v, (int, float))
+                        and k not in SPECIAL and k not in parts and _unsided(k) not in twins))
 
 
 @dataclass(frozen=True)
@@ -418,9 +435,7 @@ class Coach:
                       evidence={f"{kind}_in_hand.{observed}": conf, check: yes_p(raw, check)})
             probs = answer.get("probabilities")
             if kind == "part" and self.t.wrong_part_sum and isinstance(probs, dict):
-                kw["evidence"]["part_in_hand.other_steps"] = round(min(1.0, sum(     # what `_wrong_part_sum` compared
-                    float(v) for k, v in probs.items() if k not in SPECIAL and k not in e.parts
-                    and isinstance(v, (int, float)))), 3)
+                kw["evidence"]["part_in_hand.other_steps"] = round(other_steps_sum(probs, e.parts), 3)
             self.confirmed = {c for c in self.confirmed if c[0] != kind}     # the next right pick is confirmed again
         elif name == "flip_needed":
             o = yes_p(raw, "orientation_ok")
@@ -485,24 +500,29 @@ class Coach:
     def _wrong_part_sum(self, raw: dict, w: Watcher) -> dict:
         """A part this step does not use, read from the whole answer instead of its first choice alone.
 
-        The model cannot tell mirror twins apart from a distance: a side panel held up during step 1 scored
-        left 0.47-0.54 and right 0.36-0.43 on real frames, so neither reached the 0.75 line while "a part of
-        another step" stood at 0.86-0.95. When the first choice is such a part, the probabilities of all such
-        parts are added up; at the line, the frame counts as a confident wrong pick for the Watcher's window.
-        `right_part` is the cross-check, with its own line (`wrong_part_no`): holding the wrong board on the
-        spot where the right one goes it scored 0.08-0.27 (real frames), the right part 0.32 at the least."""
+        Real frames (Sun 15 Nov): the drawer bottom held up during step 3 scored `drawer_bottom` 0.66-0.84 (four
+        of six frames under the 0.75 line) with `right_part` at 0.08-0.27 (three above the 0.15 line); a side
+        panel held up during step 1 scored left 0.47-0.54 and right 0.36-0.43, because the model cannot tell
+        mirror twins apart from a distance. So when the first choice is a part of another step, the
+        probabilities of all such parts are added up, and the frame counts as a confident wrong pick for the
+        Watcher's window when that sum reaches `wrong_part_sum_min` and `right_part` is at `wrong_part_no` or
+        less. A step without parts has no `right_part` question: there the sum must reach the Watcher's own
+        `choice` line. The mirror twin of a part this step uses is left to the Watcher's own rule and is not
+        in the sum: left and right are told apart too badly to be relaxed."""
         answer = raw.get("part_in_hand") or {}
         probs, choice = answer.get("probabilities"), answer.get("choice")
-        if not isinstance(probs, dict) or choice in SPECIAL or choice in w.parts or choice not in probs:
+        if not isinstance(probs, dict) or choice not in probs or choice in SPECIAL or choice in w.parts:
             return raw
-        if (yes_p(raw, "hands_present") or 0) < w.cfg.hands:
+        if _unsided(choice) in {_unsided(part) for part in w.parts} or (yes_p(raw, "hands_present") or 0) < w.cfg.hands:
             return raw
-        total = min(1.0, sum(float(v) for k, v in probs.items()
-                             if k not in SPECIAL and k not in w.parts and isinstance(v, (int, float))))
+        total = other_steps_sum(probs, w.parts)
         right = yes_p(raw, "right_part")
-        if total < w.cfg.choice or (right is not None and right > self.t.wrong_part_no):
+        if right is None:
+            if total < w.cfg.choice:
+                return raw
+        elif total < self.t.wrong_part_sum_min or right > self.t.wrong_part_no:
             return raw
-        out = {**raw, "part_in_hand": {**answer, "confidence": max(total, float(answer.get("confidence") or 0.0))}}
+        out = {**raw, "part_in_hand": {**answer, "confidence": max(total, w.cfg.choice, float(answer.get("confidence") or 0.0))}}
         if right is not None and right > w.cfg.no:
             out["right_part"] = {**raw["right_part"], "noul": w.cfg.no}     # a "no" by `wrong_part_no`
         return out

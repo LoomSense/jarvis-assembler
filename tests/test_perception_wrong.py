@@ -53,20 +53,36 @@ def test_the_sum_needs_right_part_to_say_no():
 
 
 def test_the_sum_is_not_reached_by_a_weak_or_unsure_answer():
-    weak = {"drawer_bottom": 0.66, "drawer_side_left": 0.17, "other": 0.1, "nothing_held": 0.07}   # a real frame: 0.70 in all
-    assert not wrong(coach(LEFT), [held(weak, right_part=0.1)] * 20)                 # step 3: the left side is its own part
+    weak = {"drawer_bottom": 0.6, "drawer_side_left": 0.25, "other": 0.15}           # under wrong_part_sum_min (0.65)
+    assert not wrong(coach(LEFT), [held(weak, right_part=0.1)] * 20)
     unsure = {"other": 0.5, "drawer_side_left": 0.3, "drawer_side_right": 0.2}       # the first choice is not a part
     assert not wrong(coach(FRONT), [held(unsure, right_part=0.1)] * 20)
     assert not wrong(coach(FRONT), [held(TWINS, right_part=0.1, hands=0.2)] * 20)    # nobody's hands in view
+    bolts = Expect(step=2, page=3, hardware=frozenset({"BOLT-C"}), action=0, action_kind="fasten", action_id="BOLT-C")
+    some = {"drawer_side_left": 0.4, "drawer_side_right": 0.3, "other": 0.3}         # no right_part to agree: 0.75 it is
+    assert not wrong(coach(bolts), [held(some, right_part=None)] * 20)
 
 
-def test_the_twin_of_the_part_needed_is_not_called_wrong():
-    """Left is needed, the model leans to right: the two are told apart badly, so nothing is said."""
+def test_the_bottom_held_up_while_the_side_is_needed_as_on_the_real_frames():
+    """Six kept frames of 14:14 (Sun 15 Nov), step 3: `drawer_bottom`, the sum, `right_part` as the model gave them."""
+    real = [(0.78, 0.09), (0.66, 0.23), (0.73, 0.27), (0.70, 0.20), (0.84, 0.08), (0.73, 0.11)]
+    frames = [held({"drawer_bottom": b, "drawer_side_left": round(0.9 - b, 2), "other": 0.06, "drawer_back": 0.02,
+                    "drawer_side_right": 0.02}, right_part=r) for b, r in real]
+    said, events = feed(coach(LEFT), frames)
+    assert said == [(0.75, "wrong_part")]                             # the 4th frame; none of it was said before
+    assert (events[0].observed_id, events[0].expected_id) == ("drawer_bottom", "drawer_side_left")
+    assert not wrong(coach(LEFT, wrong_part_sum=False), frames)       # the Watcher alone: 2 of the 6 vote
+
+
+def test_the_twin_of_the_part_needed_is_left_to_the_watchers_own_rule():
+    """Left is needed and the model says right: the two are told apart badly, so nothing here is relaxed."""
     lean = {"drawer_side_right": 0.5, "drawer_side_left": 0.45, "other": 0.05}
     assert not wrong(coach(LEFT), [held(lean, right_part=0.2)] * 20)
-    sure = {"drawer_bottom": 0.73, "other": 0.15, "drawer_side_left": 0.08, "drawer_back": 0.04}   # a real frame
-    said, events = feed(coach(LEFT), [held(sure, right_part=0.27)] * 5)
-    assert said == [(0.75, "wrong_part")] and events[0].observed_id == "drawer_bottom"
+    surer = {"drawer_side_right": 0.8, "drawer_side_left": 0.15, "other": 0.05}
+    assert not wrong(coach(LEFT), [held(surer, right_part=0.2)] * 20)                # 0.15 stays the line for a twin
+    assert wrong(coach(LEFT), [held(surer, right_part=0.05)] * 5) == ["wrong_part"]  # as before this change
+    with_twin = {"drawer_bottom": 0.5, "drawer_side_right": 0.3, "drawer_side_left": 0.2}    # the twin is not in the sum
+    assert not wrong(coach(LEFT), [held(with_twin, right_part=0.1)] * 20)
 
 
 def test_the_sum_can_be_switched_off():

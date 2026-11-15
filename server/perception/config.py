@@ -68,14 +68,17 @@ class Tuning:
     hardware_veto: bool = True             # ...whose clear answer overrules a contradicting choice answer
     hardware_no_floor: float = 0.4         # a clear "not the right one" lets a different code count from this confidence
     step_complete_only_on_last_action: bool = True   # when the display reports actions, wait for the last one
-    wrong_part_sum: bool = True            # wrong_part: when the first choice is a part this step does not use, the
-    #                                        probabilities of all such parts are added up and compared with the
-    #                                        Watcher's `choice` line (0.75). Mirror twins share one answer: a side
-    #                                        panel shown during step 1 scored left 0.47-0.54, right 0.36-0.43
-    wrong_part_no: float = 0.3             # ...and `right_part` at or below this is its "not the right part" (the
-    #                                        Watcher's own `no`, 0.15, when the sum is off). Real frames: a wrong
-    #                                        board held where the right one goes 0.08-0.27; the right part, named
-    #                                        with confidence, 0.32 at the least (21 logged frames), 0.90-0.93 held up
+    wrong_part_sum: bool = True            # wrong_part: when the first choice is a part of another step, the
+    #                                        probabilities of all such parts are added up (mirror twins share one
+    #                                        answer: a side panel shown during step 1 scored left 0.47-0.54, right
+    #                                        0.36-0.43). False: the Watcher's rule alone (first choice at 0.75)
+    wrong_part_sum_min: float = 0.65       # ...the sum that counts, when `right_part` agrees. Real frames, the
+    #                                        drawer bottom held up during step 3: 0.70-0.88; the part needed: 0.01-0.04.
+    #                                        A step without parts has no `right_part`: the sum must reach `choice`
+    wrong_part_no: float = 0.3             # ...and `right_part` at or below this agrees (the Watcher's own `no` is
+    #                                        0.15). Real frames: a wrong board held where the right one goes
+    #                                        0.08-0.27; the right part, named with confidence, 0.32 at the least
+    #                                        (21 logged frames), 0.90-0.93 when held up
     all_choices: bool = True               # "which part / which hardware is held" also offers the parts of later
     #                                        steps and every hardware code of the guide (questions.complete_choices).
     #                                        A question file lists only its own step's and the next one's, so any
