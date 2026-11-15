@@ -167,5 +167,5 @@ STAGES = [
     Stage("refs", refs, lambda j: [j.approved_plan, j.dir / "placements.json", j.glb], progress=0.96,
           timeout_s=600),
     Stage("export", export, lambda j: [j.approved_plan, j.dir / "placements.json", j.glb, j.guide], progress=1.0,
-          timeout_s=300),
+          timeout_s=420),
 ]
