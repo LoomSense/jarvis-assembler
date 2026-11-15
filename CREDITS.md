@@ -50,6 +50,8 @@ Everything in this repository that we did not build ourselves during the hackath
 | NativeWebSocket (endel) | Perception socket client in `quest-unity/` | Apache-2.0 | https://github.com/endel/NativeWebSocket |
 | jp.keijiro.apriltag (Keijiro Takahashi, wraps AprilTag 3 from the APRIL lab) | Marker detection in `quest-unity/` | BSD-2-Clause (UNVERIFIED for the wrapper) | https://github.com/keijiro/jp.keijiro.apriltag |
 | Inter (font) | Latin + Greek UI text in `quest-unity/` (`Assets/AG/UI/Fonts/`, licence file next to it) | SIL OFL 1.1 | https://github.com/rsms/inter |
+| OpenPnP OpenCV Java bindings 4.9.0-0 (`org.openpnp:opencv`), OkHttp MockWebServer | `quest-android/` JVM unit tests only: marker tracker on the synthetic replay set, perception socket against a scripted server | BSD-3-Clause (packaging) + Apache-2.0 (OpenCV); Apache-2.0 | https://github.com/openpnp/opencv, https://square.github.io/okhttp |
+| 1€ filter (Casiez, Roussel, Vogel, CHI 2012) | Algorithm behind `quest-android` `OneEuroPoseFilter` (own implementation) | paper | https://gery.casiez.net/1euro/ |
 
 ## Prior work reused
 

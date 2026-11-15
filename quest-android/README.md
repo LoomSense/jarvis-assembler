@@ -100,13 +100,17 @@ First launch asks for the headset-camera permission (`horizonos.permission.HEADS
 
 ### Replay camera
 
-With `replay=true` the camera reads `/sdcard/Android/data/com.agj.android/files/replay/`: `*.jpg` in name order,
-`intrinsics.json` `{fx, fy, cx, cy, width, height}`, optional `poses.jsonl` (one line per frame, WORLD ← CAMERA with
-OpenCV axes: `{"frame": i, "pos_m": [x,y,z], "quat_xyzw": [x,y,z,w]}`; `p`/`q` and `"file": "<name>"` accepted),
-at 10 fps, looping. The `poses.jsonl` field names are a proposal until tools/quest/replay/ fixes them.
+With `replay=true` the camera reads `/sdcard/Android/data/com.agj.android/files/replay/` in the tools' format
+(docs/QUEST_TESTING.md "Replay datasets"): `*.jpg` in name order, `intrinsics.json` `{fx, fy, cx, cy, width, height,
+fps, distortion}`, optional `poses.jsonl` (`frame`, `file`, `cam_p`, `cam_q` = WORLD ← CAMERA with OpenCV axes), at
+the dataset `fps`, looping, every frame delivered. In replay mode a `track` event is logged for every frame, with
+`frame` and `q`, so the run can be scored:
 
 ```sh
-adb push tools/quest/replay/<dataset>/. /sdcard/Android/data/com.agj.android/files/replay/
+.venv/bin/python tools/quest/replay/make_marker_synthetic.py           # once, ~10 s
+tools/quest/install.sh android --replay marker-synthetic
+tools/quest/run.sh android --replay --secs 40
+.venv/bin/python tools/quest/replay/score_track.py tools/quest/runs/<latest>-android
 ```
 
 ## Logs (shared with the Unity app)
@@ -143,8 +147,23 @@ Each module sits behind an interface so different people can work in parallel wi
 | | `MarkerTracker.kt` | AprilTag 36h11 + IPPE_SQUARE PnP (written, not run) |
 | | `TouchTracker.kt` | two-corner snap (`solveSnap` real, fingertip input TODO) |
 | | `PoseFilter.kt` | `PoseFilter` → `ExpPoseFilter` (One-Euro TODO) |
+| | `JobRepository.kt` | `JobRepository` → `HttpJobRepository` (manifest + GLB download real; final poses TODO) |
+| | `GhostRenderer.kt` | `GhostRenderer` → `StubGhostRenderer` |
+| | `GhostMaterial.kt` + `app/src/shaders/ghost_fresnel.*` | fresnel ghost material (compiled, not yet used) |
+| `vision/` | `VisionModule.kt` | **the one entry point for MainActivity** (see "Vision and perception socket") |
+| | `CameraSource.kt` | `CameraSource`, `CameraFrame` (lazy JPEG, luminance plane), `Intrinsics`, `GrayImage` |
+| | `ReplayCameraSource.kt` | replay folder in the tools' format, dataset fps (real, JVM-tested) |
+| | `LiveCameraSource.kt` | Camera2 passthrough capture: YUV → gray + lazy JPEG, intrinsics, lens pose, head pose (written, not run) |
+| | `SpatialInput.kt` | Spatial SDK system: head pose buffer, hand joints, render fps (written, not run) |
+| | `Frames.kt` | frame conversions (Spatial LH ↔ WORLD RH, lens pose, Rodrigues), `MarkerConfig`, `MarkerPlacement` |
+| | `MarkerDetector.kt` | OpenCV AprilTag 36h11 + `solvePnPGeneric(IPPE_SQUARE)` (JVM-tested on the synthetic set) |
+| | `MarkerTracker.kt` | `MarkerTracker` (ObjectTracker), `MarkerSolver` (ambiguity, world poses) |
+| | `TrackingCore.kt` | filter + hold + touch fallback + the AGQ `track` event (pure, tested) |
+| | `PoseFilter.kt` | `OneEuroPoseFilter` (outlier rejection, re-lock, hold), `ExpPoseFilter` (phase 1) |
+| | `HeadPoseBuffer.kt`, `Yuv.kt`, `VisionConfig.kt` | head pose at capture time; NV21 resize, stream intrinsics; `vision.json` |
+| | `Hands.kt`, `TouchTracker.kt` | hand summary (port of handChecks.ts), fingertip hold, two-corner snap (port of register.ts) |
 | `net/` | `ServerApi.kt` | `ServerApi` → `HttpServerApi` (OkHttp, all REST calls) |
-| | `PerceptionSocket.kt` | `PerceptionSocket` (+ `packFrame`, tested) → `StubPerceptionSocket` |
+| | `PerceptionSocket.kt` | `PerceptionSocket` → `OkHttpPerceptionSocket` (flow control, reconnect, AGQ; MockWebServer-tested) |
 | `ui/` | `CoachFlow.kt` | look → identify → build → locate → register → guide (pure, tested) |
 | | `Panels.kt` | glass `StepPanel` + toolbar ornament, `LabelPill`, `Hud` (Compose, world-space panels) |
 | | `Strings.kt` | EL/EN copy (from client/src/xr/i18n.ts and XR_NATIVE_SPEC §5.4), Greek caps without tonos |
@@ -152,9 +171,62 @@ Each module sits behind an interface so different people can work in parallel wi
 | | `Voice.kt` | `Voice` → `ServerVoice` (`/api/tts`, cache, prefetch), `StubVoice` without a server |
 | | `Jpeg.kt` | camera JPEG → 768 px q70 for identify/locate |
 
-Frames and units (all metres, right-handed): WORLD = Spatial SDK tracking space (+Y up); ASSEMBLY = GLB root
+Frames and units (all metres, right-handed): WORLD = the Spatial SDK tracking space mirrored in Z (+Y up, +Z back;
+the SDK itself is left-handed, convert with `vision/Frames.kt`); ASSEMBLY = GLB root
 `assembly` (glTF Y-up; manifest vectors are Blender Z-up, convert with `blenderToGltf`); CAMERA = OpenCV axes
 (+X right, +Y down, +Z forward). `aFromB` maps B → A.
+
+## Vision and perception socket (round 1)
+
+**Offline accuracy** (JVM, desktop OpenCV 4.9 via `org.openpnp:opencv`, the device code path `ReplayDataset` →
+`MarkerTracker` → `TrackingCore`; `./gradlew test` writes `tools/quest/runs/android-jvm-marker-synthetic/agq.jsonl`,
+scored with `score_track.py`): 300/300 frames tracked, position error p50 1.37 mm / p90 1.83 mm / max 1.97 mm, bias
+1.19 mm, still jitter 0.014 mm, yaw error p50 0.01°, 2–3 ms per 1280×960 frame on the Mac. Reference tracker on the
+same frames: p50 1.37 / p90 1.86 mm. Skipped (not failed) when the dataset is not generated.
+
+**Wiring** (MainActivity owns the calls; the module owns the camera, tracking and the `track` log):
+
+```kotlin
+vision = VisionModule(this, params.replay)                 // reads files/vision.json if present
+systemManager.registerSystem(vision.input)                  // head pose + hands + render fps, every frame
+vision.listener = object : VisionListener {                 // all optional
+  override fun onFrame(frame: CameraFrame, track: TrackSnapshot) { /* read frame.jpeg HERE if needed */ }
+  override fun onTrackState(s: TrackSnapshot) {}
+  override fun onHands(h: HandSummary) { socket.sendHands(h) }
+}
+vision.start()                                              // after the camera permissions (at once in replay)
+vision.spatialPose()?.let { p -> Pose(Vector3(p[0], p[1], p[2]), Quaternion(p[6], p[3], p[4], p[5])) }  // ghost root
+vision.stop()                                               // onDestroy
+```
+
+Frames: our WORLD is right-handed (+Z back, OpenXR); the **Spatial SDK is left-handed (+Z forward)** (its Scene docs;
+`Vector3.Forward = (0,0,1)` in the 0.15.0 jar). `Frames.spatialToWorld` / `worldToSpatial` mirror Z; use
+`vision.spatialPose()` for Spatial `Transform`s. Lens pose: HEAD ← CAMERA(OpenCV) = (`LENS_POSE_TRANSLATION`,
+conj(`LENS_POSE_ROTATION`)), which is Android's definition and, mirrored, exactly Meta's showcase formula (unit test
+`lensPoseMatchesMetaShowcaseConversion`). Camera pose = head pose at the frame's `SENSOR_TIMESTAMP` (ring buffer,
+interpolated) × HEAD ← CAMERA.
+
+Marker on the MALM drawer front: ASSEMBLY ← MARKER = 180° about X, t = (0, 0.065, 0) m: the front's inside face is
+the plane Z = 0 of the GLB `assembly` frame (sides at Z < 0), the groove is at Y ≈ 0.015, the marker sits centred
+between the groove and the top edge (Y 0.015…0.115 for the 100 mm cut square), TOP toward the groove. Override in
+`vision.json` (`marker_offset_m`, `marker_q`).
+
+`track` (10 Hz live, every frame in replay): `fps` (render), `tracked`, `pos_m` (marker point, WORLD), `yaw_deg`,
+`reproj_px`, `source` (`marker`, `touch`, `anchor` = held after the marker was lost, `none`), `frame` + `q` (replay),
+`state` (`tracked`/`held`/`lost`), `method`, `pos`, `rot`, `ms`, `raw_pos_m`, `asm_pos_m`, `age_ms`, `cam_fps`,
+`solve_hz`. When the marker is hidden (MALM steps 5+) the last pose is held forever (`tracked:false`, `source:anchor`).
+Other events: `camera` (all Camera2 values), `camera_frame` (first frame: capture age, head-pose availability),
+`hands_source`, `vision`, `touch`, `perception`, `perception_stats`.
+
+`vision.json` (`/sdcard/Android/data/com.agj.android/files/vision.json`, all optional) lets a device run try the
+UNVERIFIED choices without a rebuild: `camera_position` (0 left), `lens_convention` (`android`/`direct`/`forward`),
+`head_time_offset_ms`, `unknown_ts_latency_ms`, `track_log_hz`, `use_distortion`, `aruco3`, `marker_size_m`,
+`marker_offset_m`, `marker_q`, One-Euro `pos_min_cutoff_hz`/`pos_beta`/`rot_min_cutoff_hz`/`rot_beta`.
+
+Perception socket: `OkHttpPerceptionSocket(server, key, Agq.log)`, `connect(job, listener)`, then `start(step,
+action)`, `sendFrame(jpeg, step, tsMs)` (false = dropped by `hello.limits`: max_unacked, max_hz, ack timeout),
+`sendHands`, `step`, `action`, `stop`, `close`. Typed callbacks `onStepComplete`, `onWrongHardware`, `onFlipNeeded`,
+`onUnsure`; reconnects with backoff and resumes the step.
 
 ## Open questions
 
@@ -166,6 +238,16 @@ Frames and units (all metres, right-handed): WORLD = Spatial SDK tracking space 
   (`Quaternion.lookRotationAroundY(panel − head)`; if the pill shows its back, negate the vector), panel
   `DpPerMeterDisplayOptions(1000, 3)` density, Compose hover/press states on hand rays, MediaPlayer WAV playback.
 - Step window starts at (0, 1.15, −0.8) in session space; it only follows once the guide runs.
+- Lens pose axis conversion and camera-timestamp alignment (RESEARCH.md §1): derived and unit-tested against Meta's
+  formula, still needs a marker test on device (`vision.json` `lens_convention`, `head_time_offset_ms`).
+- Fingertips: `SpatialInput` tries the body-tracking skeleton (`Scene.updateBodyTrackingBuffersAtTime`, hand joints
+  incl. index tips), else AvatarBody hand entities (wrist only, no touch registration). Which works: `hands_source`.
+- Whether `getViewerPose()` is the current or the display-predicted head pose (affects the camera pose by up to
+  ~40 ms of head motion).
+- AGQ `t` is ms since start, but `tools/quest/agq.py` reads `t < 1e11` as seconds: rates and latencies from
+  `summarize.py` are off by 1000× for this app until one side changes (core/AgqLog.kt, not changed here).
+- GLB final transforms: parse the `walkthrough` clip's last keyframe from the file (the SDK does not seem to expose
+  animation curves to Kotlin: UNVERIFIED).
 - cpu/gpu frame times for the `frame` event (OVR Metrics feature?).
 - Label text quality: Compose mesh panels vs. an SDF text shader.
 - APK size: 114 MB debug; release with R8 and without unused SDK modules should be smaller.

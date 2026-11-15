@@ -73,7 +73,16 @@ dependencies {
   implementation(libs.opencv)
 
   testImplementation(libs.junit)
+  testImplementation(libs.okhttp.mockwebserver)
+  // Desktop OpenCV Java bindings (+ macOS/Linux/Windows natives) so MarkerDetector runs in JVM tests on the
+  // synthetic replay set. The Android AAR's org.opencv classes are removed from the unit-test runtime below so the
+  // two copies do not clash.
+  testImplementation(libs.opencv.desktop)
 }
+
+configurations
+    .matching { it.name.endsWith("UnitTestRuntimeClasspath") }
+    .configureEach { exclude(group = "org.opencv", module = "opencv") }
 
 spatial {
   allowUsageDataCollection.set(false)

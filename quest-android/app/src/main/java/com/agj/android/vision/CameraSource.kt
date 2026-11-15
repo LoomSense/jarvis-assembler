@@ -4,7 +4,9 @@ import com.agj.android.core.Pose3
 
 /**
  * Pinhole intrinsics in pixels of the delivered image ([width] × [height]), origin top-left, OpenCV convention.
- * Same fields as the replay `intrinsics.json`: `{fx, fy, cx, cy, width, height}`.
+ * Same fields as the replay `intrinsics.json`: `{fx, fy, cx, cy, width, height}` (+ `distortion`, null there).
+ *
+ * @property distortion OpenCV order (k1, k2, p1, p2, k3), dimensionless (so it survives [scaledTo]); null = none.
  */
 data class Intrinsics(
     val fx: Double,
@@ -13,34 +15,48 @@ data class Intrinsics(
     val cy: Double,
     val width: Int,
     val height: Int,
+    val distortion: List<Double>? = null,
 ) {
   /** The same camera delivering a resized image (aspect kept). */
   fun scaledTo(w: Int, h: Int): Intrinsics {
+    if (w == width && h == height) return this
     val sx = w.toDouble() / width
     val sy = h.toDouble() / height
-    return Intrinsics(fx * sx, fy * sy, cx * sx, cy * sy, w, h)
+    return Intrinsics(fx * sx, fy * sy, cx * sx, cy * sy, w, h, distortion)
   }
 }
+
+/** 8-bit luminance image (the Y plane of a YUV frame), row-major, [rowStride] ≥ [width]. */
+class GrayImage(val data: ByteArray, val width: Int, val height: Int, val rowStride: Int = width)
 
 /**
  * One camera image.
  *
- * @property jpeg encoded image (what the server wants and what replay stores). Decode for CV with OpenCV `imdecode`.
- * @property timestampNs capture time, `SystemClock.elapsedRealtimeNanos` base for live frames (Camera2
- *   `SENSOR_TIMESTAMP`, REALTIME source: UNVERIFIED on Quest), synthetic for replay.
- * @property worldFromCamera camera pose at capture time, WORLD ← CAMERA(OpenCV axes: +X right, +Y down, +Z forward),
- *   metres. Live: head pose at [timestampNs] × head-from-lens (`LENS_POSE_*`). Replay: from `poses.jsonl`. Null when
+ * @property jpeg encoded image for the server (long edge ≤ 768 for live frames, the stored file for replay). Live
+ *   frames encode it lazily on first access, so frames that are only tracked cost no JPEG encode.
+ * @property width @property height size of the full-resolution image the [intrinsics] belong to.
+ * @property timestampNs capture time. Live: Camera2 `SENSOR_TIMESTAMP` (`Image.timestamp`), whose base is
+ *   `SENSOR_INFO_TIMESTAMP_SOURCE` (logged in the `camera` event). Replay: synthetic.
+ * @property worldFromCamera camera pose at capture time, WORLD ← CAMERA (OpenCV axes), metres; see [Frames]. Live:
+ *   head pose at [timestampNs] × HEAD ← CAMERA (`LENS_POSE_*`). Replay: `poses.jsonl` `cam_p`/`cam_q`. Null when
  *   unknown (then trackers can only report camera-relative poses).
+ * @property gray full-resolution luminance for tracking (live). Null for replay: decode [jpeg] instead.
+ * @property replayFrame index of the replay frame in its dataset (for `track.frame`), null for live frames.
  */
 class CameraFrame(
     val index: Long,
-    val jpeg: ByteArray,
+    jpegBytes: ByteArray?,
     val width: Int,
     val height: Int,
     val timestampNs: Long,
     val intrinsics: Intrinsics,
     val worldFromCamera: Pose3?,
-)
+    val gray: GrayImage? = null,
+    private val encode: (() -> ByteArray)? = null,
+    val replayFrame: Int? = null,
+) {
+  val jpeg: ByteArray by lazy { jpegBytes ?: encode?.invoke() ?: ByteArray(0) }
+}
 
 fun interface FrameListener {
   /** Called on the source's own background thread. Do not block for long: frames are dropped, not queued. */
