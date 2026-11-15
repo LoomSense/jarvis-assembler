@@ -4,7 +4,7 @@
 #   deploy/mac_host.sh            # Ctrl-C stops everything
 #
 # - keeps the Mac awake while it runs (caffeinate)
-# - builds client/ once if client/dist is missing
+# - builds client/ from this checkout every time it starts
 # - runs the server on 127.0.0.1 only (nothing is open on the network) and restarts it if it exits
 # - runs a cloudflared quick tunnel and restarts it too; the URL changes when the tunnel restarts
 # - writes the current URL to $HOST_DIR/url.txt and checks /healthz through it every 60 s
@@ -21,10 +21,9 @@ command -v cloudflared >/dev/null || { echo "cloudflared is missing: brew instal
 grep -q '^DEMO_KEY=.\+' .env 2>/dev/null || { echo "DEMO_KEY is missing in .env: run 'make env'"; exit 1; }
 KEY=$(sed -n 's/^DEMO_KEY=//p' .env | head -1)
 
-if [ ! -f client/dist/index.html ]; then
-  echo "== building the client"
-  (cd client && npm ci --no-audit --no-fund && npm run build) || echo "client build failed: the API still works, / shows a notice"
-fi
+echo "== building the client from this checkout"                  # always: a stale build hid new screens once
+(cd client && npm ci --no-audit --no-fund >/dev/null && npm run build >/dev/null) \
+  || echo "client build failed: the API still works, / shows a notice"
 
 pids=()
 cleanup() { echo; echo "== stopping"; kill "${pids[@]}" 2>/dev/null; pkill -P $$ 2>/dev/null; exit 0; }
