@@ -120,6 +120,7 @@ class PartsBody(BaseModel):
     want: list[str | int] | None = Field(default=None, max_length=pile.MAX_WANT)  # part ids and hardware codes
     step: int | None = None
     lang: Literal["en", "el"] = "en"
+    mode: Literal["pick", "step"] = "pick"     # step: also `items`, with every instance, both names and the counts
 
 
 def _wanted(guide: Guide, cat: dict, body: PartsBody, request: Request, job_id: str) -> tuple[list[str], int | None]:
@@ -146,6 +147,9 @@ def _wanted(guide: Guide, cat: dict, body: PartsBody, request: Request, job_id: 
 async def parts(job_id: str, body: PartsBody, request: Request) -> dict:
     """Where the wanted parts and hardware lie in the picture: `{found: [{id, kind, box_2d, confidence, label}],
     missing, message, step, latency_ms, model, simulated}`. `box_2d` is [ymin, xmin, ymax, xmax], 0-1000.
+    With `mode: "step"` the same call also answers `items`: one entry for every part and hardware code the step needs,
+    seen or not, `{id, code, kind: panel|hardware, name: {en, el}, label, visible, box_2d, boxes, confidence,
+    count_seen, count_needed, count_in_box, count_text}`, plus `mode` and `all_in_view`.
     404 unknown job, 409 no manifest yet, 422 bad image, unknown item or step."""
     job = request.app.state.store.get(job_id)
     if job is None:
@@ -158,10 +162,10 @@ async def parts(job_id: str, body: PartsBody, request: Request) -> dict:
     cat = pile.catalogue(guide)
     wanted, step = _wanted(guide, cat, body, request, job_id)
     if simulate(request):
-        return pile.simulated(guide, wanted, body.lang, step, cat)
+        return pile.simulated(guide, wanted, body.lang, step, cat, body.mode)
     os.environ.setdefault("GEMINI_API_KEY", request.app.state.settings.gemini_api_key)   # pipeline.check reads it there
     try:
-        return await run_in_threadpool(pile.find, guide, jpeg, wanted, body.lang, step, cat)
+        return await run_in_threadpool(pile.find, guide, jpeg, wanted, body.lang, step, cat, body.mode)
     except RuntimeError as e:
         text = str(e)
         status = 429 if " 429:" in text else 503 if any(f" {c}:" in text for c in (401, 403)) else 502

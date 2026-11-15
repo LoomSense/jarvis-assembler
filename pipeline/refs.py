@@ -9,6 +9,8 @@ pipeline.run calls it as its last stage; run it alone to redo only the pictures.
     refs/step-NN-before.png                         the pieces of the step before, already in this step's pose (none for step 1)
     refs/step-NN-sheet.png                          LEFT half: the "added" picture. RIGHT half: labelled candidates
     refs/step-NN-sheet.json                         the labels on the sheet, for whoever writes the questions
+    refs/step-NN-detail.png                         only for a step whose added hardware does not show on the sheet: a
+                                                    before/after close-up from a side where it does (pipeline.perception.details)
 and sets `thumb` on parts and hardware and `refRender`, `refSheet` on steps in manifest.json.
 
 Candidates on a sheet: the parts and hardware of this step, parts that look like them, and the parts and
@@ -149,6 +151,16 @@ def questions(job: Path) -> dict:
         return {"error": f"{type(e).__name__}: {e}"[:300]}
 
 
+def details(job: Path) -> dict:
+    """Close-ups for the steps whose added hardware does not show on the sheet (pipeline.perception.details): about
+    50 s of renders when a job has such steps, nothing otherwise. Like the questions, a failure never fails the build."""
+    try:
+        from pipeline.perception import details as close_ups
+        return close_ups.build(job)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"[:300]}
+
+
 def build(plan_path: Path, job: Path) -> dict:
     t0 = time.perf_counter()
     plan = json.loads(plan_path.read_text())
@@ -179,9 +191,10 @@ def build(plan_path: Path, job: Path) -> dict:
     for h in manifest["hardware"]:
         h["thumb"] = f"renders/part-{h['code']}-shaded.png"
     (job / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
+    close_ups = details(job)
     t3 = time.perf_counter()
     asked = questions(job)
-    return {"questions": asked, "questions_s": round(time.perf_counter() - t3, 2), "part_renders": parts["files"], "refs": len(refs["refs"]), "sheets": len(sizes), "sheet_bytes_max": max(sizes),
+    return {"questions": asked, "questions_s": round(time.perf_counter() - t3, 2), "details": close_ups, "part_renders": parts["files"], "refs": len(refs["refs"]), "sheets": len(sizes), "sheet_bytes_max": max(sizes),
             "look_alikes": {k: v for k, v in alike.items() if v},
             "timings_s": {"parts": round(t1 - t0, 2), "refs": round(t2 - t1, 2), "sheets": round(time.perf_counter() - t2, 2)}}
 

@@ -11,6 +11,10 @@ the mirrored side panel), and returns a box per wanted item in Gemini's own conv
 the render's own scale (`renders/parts.json` px_per_mm) gives an estimate, so a long screw and a short one differ in
 the prompt even when the renders look alike.
 
+`mode="step"` (the route's optional `mode`) is the same call asked for more: how many of each item are in view and a
+box around each one, answered as `items`, one entry per wanted item whether seen or not, with both names and the
+number the step needs ("2 of 4 in view"). `found`, `missing` and `message` are the same in both modes.
+
 No invented boxes: an item the model did not mark as seen, with a low confidence, or with an empty or malformed box,
 goes to `missing`. Boxes are clamped to 0-1000 and put in min/max order here, not trusted as sent.
 """
@@ -44,6 +48,8 @@ MIN_SIDE = 2                         # a box thinner than this (0-1000 units) is
 TIMEOUT_S = 25
 WHITE = 245                          # the renders' background is white: brighter than this in all channels
 SIM_BOX = [350, 350, 650, 650]
+MODES = ("pick", "step")            # pick: one box per item (the default). step: also every instance and how many
+MAX_BOXES = 12                       # per item, in step mode
 _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pile")
 
 SCHEMA_ITEM = {
@@ -56,6 +62,15 @@ SCHEMA_ITEM = {
     },
     "required": ["label", "visible", "box_2d", "confidence"],
 }
+
+SCHEMA_STEP = {"count": {"type": "INTEGER"},
+               "boxes": {"type": "ARRAY", "items": {"type": "ARRAY", "items": {"type": "INTEGER"}}}}
+
+PROMPT_STEP = """
+- `count`: how many of that item you can see in Image 1; 0 when not visible. Count every one once, also the ones in a
+  heap or partly covered. Never count a look-alike.
+- `boxes`: one [ymin, xmin, ymax, xmax] box, normalised to 0-1000, tight around each one you counted, the easiest to
+  pick up first (the same box as `box_2d`), at most {max_boxes}. An empty list when not visible."""
 
 PROMPT = """Image 1 is a camera view of a work area where a person is about to assemble flat-pack furniture ({title}).
 Loose parts and hardware lie in it, maybe in a pile, maybe partly covered by others or by hands. Find where each wanted
@@ -115,6 +130,11 @@ class Item:
     count: int | None
     size: str                     # "60 mm long", "about 400 mm across (estimated)", or ""
     thumb: Path | None
+
+    def names(self) -> dict:
+        """Both display names, first letter upper case; `el` is None when the job has no Greek name."""
+        up = lambda t: t[:1].upper() + t[1:] if t else None          # noqa: E731
+        return {"en": up(self.name_en or self.id), "el": up(self.name_el)}
 
     def label(self, lang: str) -> str:
         """`Left side panel` / `Cam lock · 120076` / `Αριστερό πλαϊνό`."""
@@ -294,18 +314,23 @@ def _picture(item: Item, caption: str) -> list:
         return [f"{caption} (no reference picture: use the description)"]
 
 
-def request(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str]) -> tuple[list, dict]:
+def request(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str], mode: str = "pick") -> tuple[list, dict]:
     """The prompt parts and the response schema for one call (at most PER_CALL wanted items)."""
     others = lookalikes(cat, wanted)
+    step = mode == "step"
     text = PROMPT.format(title=guide.title, wanted="\n".join(f"- {w}: {cat[w].describe()}" for w in wanted),
                          lookalikes=LOOKALIKES.format(items="\n".join(f"- {o}: {cat[o].describe()}" for o in others))
                          if others else "")
+    if step:
+        text += PROMPT_STEP.format(max_boxes=MAX_BOXES)
     parts: list = [text, "Image 1, the camera view:", ("image/jpeg", frame)]
     for w in wanted:
         parts += _picture(cat[w], f"Reference for wanted label `{w}`:")
     for o in others:
         parts += _picture(cat[o], f"Look-alike `{o}`, NOT wanted:")
     item = {**SCHEMA_ITEM, "properties": {**SCHEMA_ITEM["properties"], "label": {"type": "STRING", "enum": list(wanted)}}}
+    if step:
+        item = {**item, "properties": {**item["properties"], **SCHEMA_STEP}, "required": [*item["required"], *SCHEMA_STEP]}
     schema = {"type": "OBJECT", "properties": {"items": {"type": "ARRAY", "items": item}}, "required": ["items"]}
     return parts, schema
 
@@ -331,8 +356,10 @@ def clean_box(box) -> list[int] | None:
     return [y0, x0, y1, x1]
 
 
-def read_answer(raw, wanted: list[str]) -> dict[str, dict]:
-    """The model's `items` as {id: {box_2d, confidence}} for the wanted items it saw. Anything else is dropped."""
+def read_answer(raw, wanted: list[str], mode: str = "pick") -> dict[str, dict]:
+    """The model's `items` as {id: {box_2d, confidence}} for the wanted items it saw. Anything else is dropped.
+    In step mode each also has `boxes` (every usable box, `box_2d` first) and `count` (what the model counted, never
+    less than the boxes it drew)."""
     out: dict[str, dict] = {}
     entries = raw.get("items") if isinstance(raw, dict) else None
     for e in entries if isinstance(entries, list) else []:
@@ -345,6 +372,11 @@ def read_answer(raw, wanted: list[str]) -> dict[str, dict]:
             continue
         if e["label"] not in out or conf > out[e["label"]]["confidence"]:
             out[e["label"]] = {"box_2d": box, "confidence": round(conf, 2)}
+            if mode == "step":
+                more = [b for b in map(clean_box, e.get("boxes") if isinstance(e.get("boxes"), list) else []) if b]
+                boxes = ([box] + [b for b in more if b != box])[:MAX_BOXES]
+                n = _number(e.get("count"))
+                out[e["label"]].update(boxes=boxes, count=max(len(boxes), int(n) if n and n > 0 else 1))
     return out
 
 
@@ -371,14 +403,54 @@ def message(cat: dict[str, Item], found: list[dict], missing: list[str], lang: s
     return m["nothing"].format(step=step if step is not None else "")
 
 
-def answer(cat: dict[str, Item], wanted: list[str], seen: dict[str, dict], lang: str, step: int | None) -> dict:
-    found = [{"id": w, "kind": cat[w].kind, **seen[w], "label": cat[w].label(lang)} for w in wanted if w in seen]
+COUNT_TEXT = {"en": "{seen} of {needed} in view", "el": "φαίνονται {seen} από {needed}"}
+
+
+def needed(guide: Guide, step: int | None) -> dict[str, int]:
+    """How many of each item step `step` uses: a hardware code's `qty`, a part's `place` actions (at least 1)."""
+    if step is None or guide.step(step) is None:
+        return {}
+    out = {p: max(1, sum(1 for a in guide.actions(step) if a.get("type") == "place" and str(a.get("partId")) == p))
+           for p in guide.parts(step)}
+    out.update({c: q for c, q in guide.hardware(step) if isinstance(q, int) and not isinstance(q, bool) and q > 0})
+    return out
+
+
+def step_view(guide: Guide, cat: dict[str, Item], wanted: list[str], seen: dict[str, dict], lang: str,
+              step: int | None) -> list[dict]:
+    """Step mode's `items`: every wanted item, seen or not, in the order asked."""
+    need = needed(guide, step)
+    out = []
+    for w in wanted:
+        item, got = cat[w], seen.get(w)
+        limit = max(item.count or 0, need.get(w) or 0) or None        # nobody can see more than the box holds
+        n = 0 if not got else min(got["count"], limit) if limit else got["count"]
+        entry = {"id": w, "code": w if item.kind == "hardware" else None,
+                 "kind": "hardware" if item.kind == "hardware" else "panel",
+                 "name": item.names(), "label": item.label(lang), "visible": got is not None,
+                 "box_2d": got["box_2d"] if got else None, "boxes": got["boxes"] if got else [],
+                 "confidence": got["confidence"] if got else 0.0,
+                 "count_seen": n, "count_needed": need.get(w), "count_in_box": item.count,
+                 "count_text": {k: t.format(seen=n, needed=need[w]) for k, t in COUNT_TEXT.items()} if need.get(w) else None}
+        out.append(entry)
+    return out
+
+
+def answer(cat: dict[str, Item], wanted: list[str], seen: dict[str, dict], lang: str, step: int | None,
+           guide: Guide | None = None, mode: str = "pick") -> dict:
+    found = [{"id": w, "kind": cat[w].kind, "box_2d": seen[w]["box_2d"], "confidence": seen[w]["confidence"],
+              "label": cat[w].label(lang)} for w in wanted if w in seen]
     missing = [w for w in wanted if w not in seen]
-    return {"found": found, "missing": missing, "message": message(cat, found, missing, lang, step), "step": step}
+    out = {"found": found, "missing": missing, "message": message(cat, found, missing, lang, step), "step": step}
+    if mode == "step" and guide is not None:
+        items = step_view(guide, cat, wanted, seen, lang, step)
+        out.update(mode="step", items=items,
+                   all_in_view=bool(items) and all(i["count_seen"] >= (i["count_needed"] or 1) for i in items))
+    return out
 
 
-def _call(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str]) -> dict[str, dict]:
-    parts, schema = request(guide, cat, frame, wanted)
+def _call(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str], mode: str = "pick") -> dict[str, dict]:
+    parts, schema = request(guide, cat, frame, wanted, mode)
     try:
         raw = json.loads(gemini.generate(MODEL, parts, timeout=TIMEOUT_S, thinking_budget=THINKING, schema=schema))
     except json.JSONDecodeError:
@@ -387,11 +459,11 @@ def _call(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str]) -
         raise RuntimeError(f"{MODEL} did not answer: {type(e).__name__}") from None
     if not isinstance(raw, dict):
         raise RuntimeError("the model returned no usable JSON")
-    return read_answer(raw, wanted)
+    return read_answer(raw, wanted, mode)
 
 
 def find(guide: Guide, jpeg: bytes, wanted: list[str], lang: str = "en", step: int | None = None,
-         cat: dict[str, Item] | None = None) -> dict:
+         cat: dict[str, Item] | None = None, mode: str = "pick") -> dict:
     """The response body. Raises RuntimeError when a model request fails or returns no JSON."""
     t0 = time.perf_counter()
     cat = cat or catalogue(guide)
@@ -400,25 +472,25 @@ def find(guide: Guide, jpeg: bytes, wanted: list[str], lang: str = "en", step: i
         frame = _frame(jpeg)
         chunks = [wanted[i:i + PER_CALL] for i in range(0, len(wanted), PER_CALL)]
         if len(chunks) == 1:
-            seen = _call(guide, cat, frame, chunks[0])
+            seen = _call(guide, cat, frame, chunks[0], mode)
         else:
-            for got in _pool.map(lambda c: _call(guide, cat, frame, c), chunks):
+            for got in _pool.map(lambda c: _call(guide, cat, frame, c, mode), chunks):
                 seen.update(got)
-    out = answer(cat, wanted, seen, lang, step)
+    out = answer(cat, wanted, seen, lang, step, guide, mode)
     out["latency_ms"] = round((time.perf_counter() - t0) * 1000)
     out["model"] = MODEL
     out["simulated"] = False
-    log.info("pile %s: want=%s found=%s missing=%s (%s ms)", guide.dir.name, wanted,
+    log.info("pile %s (%s): want=%s found=%s missing=%s (%s ms)", guide.dir.name, mode, wanted,
              [(f["id"], f["box_2d"], f["confidence"]) for f in out["found"]], out["missing"], out["latency_ms"])
     return out
 
 
 def simulated(guide: Guide, wanted: list[str], lang: str = "en", step: int | None = None,
-              cat: dict[str, Item] | None = None) -> dict:
+              cat: dict[str, Item] | None = None, mode: str = "pick") -> dict:
     """No model: the first wanted item in the middle of the picture at confidence 0.5, the rest missing."""
     cat = cat or catalogue(guide)
-    seen = {wanted[0]: {"box_2d": list(SIM_BOX), "confidence": 0.5}} if wanted else {}
-    out = answer(cat, wanted, seen, lang, step)
+    seen = {wanted[0]: {"box_2d": list(SIM_BOX), "confidence": 0.5, "boxes": [list(SIM_BOX)], "count": 1}} if wanted else {}
+    out = answer(cat, wanted, seen, lang, step, guide, mode)
     if wanted:
         out["message"] = MESSAGES.get(lang, MESSAGES["en"])["simulated"]
     return {**out, "latency_ms": 0, "model": None, "simulated": True}

@@ -98,6 +98,7 @@ A plan can build a group of parts on its own and attach it later as one piece, a
 ## Phase-2 perception: questions and the Decision 1 request (`pipeline/perception/`)
 
 ```
+.venv/bin/python -m pipeline.perception.details   jobs/<id>            # close-ups for steps whose hardware the sheet hides
 .venv/bin/python -m pipeline.perception.questions jobs/<id>            # once per guide, after pipeline.run
 .venv/bin/python -m pipeline.perception.request  jobs/<id> 5 frame.jpg # one request for step 5
 .venv/bin/python -m pipeline.perception.bench    jobs/<id>             # stand-in benchmark, 64 requests
@@ -108,6 +109,13 @@ A plan can build a group of parts on its own and attach it later as one piece, a
   sheet, plus `hardware_only`, `nothing_held`, `no_hardware`, `other` (the names `eval/phase2/p2.py` scores).
   `gemini-4-hydrogen` writes what each part looks like and the orientation and completion criteria; `--no-model` uses
   plain template wording.
+- `details.py`: for a step whose added pieces cover under 64 px of the sheet's left half (`questions.added_px`: small
+  hardware on a side the reference camera does not see), renders the assembly from five other sides, keeps the one
+  where most of that hardware shows, and writes `refs/step-NN-detail.png` (LEFT: that place before the step, RIGHT:
+  after, hardware in orange) and `detail` in `step-NN-sheet.json`. The refs stage runs it before the questions; about
+  50 s when a job has such steps, nothing otherwise. `questions.py` then words `step_complete` around the close-up
+  (`step_complete_v` 2, `added_px`, `detail`, `detail_note` in the question file) and `request.py` sends it as Image 3.
+  MALM drawer, 55 requests: 46 → 50 correct, false "done" 1 → 0 (table in `server/perception/README.md`).
 - `request.py`: `ask(job, step_n, frame)` where `frame` is a path or JPEG bytes. Images are sent as JPEG on a connection
   that stays open (`pipeline/check/decisions.py`); with PNG and a new connection per request the round trip was 2.5 s
   instead of 0.7 s.

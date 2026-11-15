@@ -233,3 +233,90 @@ def test_the_contract_keys(client, monkeypatch):
     out = client.post(URL, json={"image": jpeg_b64()}).json()
     assert set(out) == {"found", "missing", "message", "step", "latency_ms", "model", "simulated"}
     assert set(out["found"][0]) == {"id", "kind", "box_2d", "confidence", "label"}
+
+
+# ---- mode "step": everything the step needs, with names, counts and every instance ----------------
+
+def counted(label, boxes, count, conf=0.9):
+    return {**item(label, boxes[0], conf), "boxes": boxes, "count": count}
+
+
+def test_step_mode_answers_every_item_with_both_names_counts_and_all_boxes(client, monkeypatch):
+    calls = []
+    slats = [[100, 100, 200, 600], [300, 100, 400, 600]]
+    screws = [[700, 700, 720, 730], [740, 700, 760, 730], [800, 760, 1300, 790], [5, 5, 5, 9]]   # the last is not a box
+    fake_model(monkeypatch, {"items": [counted("end_slat", slats, 2), counted(SHORT, screws, 5, 0.8)]}, calls)
+    out = client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step", "lang": "el"}).json()
+    # one model call, asked for a count and a box per instance
+    assert len(calls) == 1 and calls[0]["wanted"] == ["end_slat", SHORT]
+    props = calls[0]["schema"]["properties"]["items"]["items"]
+    assert {"count", "boxes"} <= set(props["properties"]) and {"count", "boxes"} <= set(props["required"])
+    assert "`count`: how many of that item you can see" in texts(calls[0]["parts"])
+    # what the first clients read stays as it was
+    assert set(out) == {"found", "missing", "message", "step", "latency_ms", "model", "simulated", "mode", "items", "all_in_view"}
+    assert out["found"] == [
+        {"id": "end_slat", "kind": "part", "box_2d": slats[0], "confidence": 0.9, "label": "Απλή σανίδα"},
+        {"id": SHORT, "kind": "hardware", "box_2d": screws[0], "confidence": 0.8, "label": f"Κοντή βίδα · {SHORT}"}]
+    assert out["missing"] == [] and out["mode"] == "step" and out["step"] == 3
+    assert out["items"] == [
+        {"id": "end_slat", "code": None, "kind": "panel", "name": {"en": "Plain slat", "el": "Απλή σανίδα"},
+         "label": "Απλή σανίδα", "visible": True, "box_2d": slats[0], "boxes": slats, "confidence": 0.9,
+         "count_seen": 2, "count_needed": 2, "count_in_box": None,
+         "count_text": {"en": "2 of 2 in view", "el": "φαίνονται 2 από 2"}},
+        {"id": SHORT, "code": SHORT, "kind": "hardware", "name": {"en": "Short screw", "el": "Κοντή βίδα"},
+         "label": f"Κοντή βίδα · {SHORT}", "visible": True, "box_2d": screws[0],
+         "boxes": [screws[0], screws[1], [800, 760, 1000, 790]], "confidence": 0.8,
+         "count_seen": 5, "count_needed": 8, "count_in_box": 24,
+         "count_text": {"en": "5 of 8 in view", "el": "φαίνονται 5 από 8"}}]
+    assert out["all_in_view"] is False                              # 5 of the 8 screws
+
+
+def test_step_mode_lists_what_it_did_not_see_and_never_counts_more_than_the_box_holds(client, monkeypatch):
+    fake_model(monkeypatch, {"items": [counted(SHORT, [[700, 700, 720, 730]], 99),
+                                       {**item("end_slat", None, visible=False), "boxes": [], "count": 0}]})
+    out = client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step"}).json()
+    slat, screw = out["items"]
+    assert out["missing"] == ["end_slat"] and [f["id"] for f in out["found"]] == [SHORT]
+    assert slat == {"id": "end_slat", "code": None, "kind": "panel", "name": {"en": "Plain slat", "el": "Απλή σανίδα"},
+                    "label": "Plain slat", "visible": False, "box_2d": None, "boxes": [], "confidence": 0.0,
+                    "count_seen": 0, "count_needed": 2, "count_in_box": None,
+                    "count_text": {"en": "0 of 2 in view", "el": "φαίνονται 0 από 2"}}
+    assert screw["count_seen"] == 24 and screw["count_needed"] == 8 and screw["boxes"] == [[700, 700, 720, 730]]
+    assert out["all_in_view"] is False
+    # every item in view, as many as the step needs
+    fake_model(monkeypatch, {"items": [counted(SHORT, [[700, 700, 720, 730]], 8),
+                                       counted("end_slat", [[100, 100, 200, 600]], 2)]})
+    assert client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step"}).json()["all_in_view"] is True
+    # a count the model left out or garbled is the number of boxes it drew
+    fake_model(monkeypatch, {"items": [{**item(SHORT, [700, 700, 720, 730]), "boxes": "?", "count": "many"}]})
+    assert client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step"}).json()["items"][1]["count_seen"] == 1
+
+
+def test_step_mode_with_want_and_no_step_has_no_needed_count(client, monkeypatch):
+    fake_model(monkeypatch, {"items": [counted(LONG, [[10, 10, 50, 90]], 3)]})
+    out = client.post(URL, json={"image": jpeg_b64(), "want": [int(LONG)], "mode": "step"}).json()
+    assert out["step"] is None and out["items"][0]["count_needed"] is None and out["items"][0]["count_text"] is None
+    assert out["items"][0]["count_seen"] == 3 and out["items"][0]["count_in_box"] == 4 and out["all_in_view"] is True
+
+
+def test_pick_mode_is_the_default_and_is_not_asked_for_counts(client, monkeypatch):
+    calls = []
+    fake_model(monkeypatch, {"items": [item("end_slat", [100, 100, 300, 300])]}, calls)
+    plain = client.post(URL, json={"image": jpeg_b64(), "step": 3}).json()
+    named = client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "pick"}).json()
+    assert {k: v for k, v in plain.items() if k != "latency_ms"} == {k: v for k, v in named.items() if k != "latency_ms"}
+    assert set(plain) == {"found", "missing", "message", "step", "latency_ms", "model", "simulated"}
+    for call in calls:
+        assert "count" not in call["schema"]["properties"]["items"]["items"]["properties"]
+        assert "`count`" not in texts(call["parts"])
+    assert client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "everything"}).status_code == 422
+
+
+def test_step_mode_simulated(tmp_path, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with app_client(tmp_path, gemini_key="") as c:
+        make_job(c.app.state.settings.jobs_dir)
+        out = c.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step"}).json()
+    assert out["simulated"] is True and out["model"] is None and out["mode"] == "step" and out["all_in_view"] is False
+    assert [(i["id"], i["kind"], i["visible"], i["count_seen"], i["boxes"]) for i in out["items"]] == [
+        ("end_slat", "panel", True, 1, [[350, 350, 650, 650]]), (SHORT, "hardware", False, 0, [])]

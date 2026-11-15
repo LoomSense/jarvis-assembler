@@ -242,6 +242,20 @@ The simplest client sends frames steadily at 4 Hz and lets the server ack the ga
 - **Said once.** A warning is given once and not again while the same thing stays in the hand. After it was put down (the window emptied) and 20 s passed, it can be given again (`repeat: 1`). Any two utterances are 6 s apart; `step_complete` is never held back.
 - **Confirmations.** Once per step per item; given again after a correction for that kind. They obey the 20 s same-event rule, so a second, different part picked within 20 s is not confirmed.
 - **`step_complete`.** A frame votes for it when `step_complete` is 0.45 or more and `orientation_ok` is 0.4 or more (both measured; other yes/no answers need 0.85). It needs 8 of the last 10 frames and hands out of the picture for 2 s. When the display reports actions, frames vote only during the last action. Measured: it stays weak on some steps (step 3 of the KNAGGLIG box scored 0.28 when finished), so **the display must always offer its own way to advance** (a pinch, "next").
+- **`step_complete` when the step's hardware does not show on the sheet** [added Sun 15 Nov, 15:00]. The sheet's left half is taken from the front; hardware that goes into a side (the cam locks of MALM drawer step 3, the runner screws of step 7) covers 0 pixels of it, so the question "are the orange parts attached?" was asked about a picture with no orange in it. Step 3 never fired (0.44 when done), and step 7 fired on a frame that merely looked like the sheet (0.69 on its "before" frame). Now, for any job:
+  - `pipeline.perception.questions.added_px` counts the pixels by which `refs/step-NN-added.png` differs from `step-NN-ref.png`; under 64 the step is "hidden".
+  - A hidden step with a close-up (`refs/step-NN-detail.png`, written by `python -m pipeline.perception.details <job>`, also part of the refs stage) sends it as **Image 3** (two more input blocks, about 560 tokens) and asks whether those places look like its AFTER or its BEFORE half. Without a close-up the question asks for the hardware itself in the live frame and "cannot tell" is a no.
+  - Every `step_complete` question also says that steps are done in order (a frame further along than the sheet means yes).
+  - A question file written before this (`step_complete_v` missing) is brought up to date in memory when it is loaded; the job folder is not written. The other questions are untouched.
+  - Measured on the same 55 pairs as before (MALM drawer renders, real calls, threshold 0.45; identical requests return identical scores, so one run each):
+
+    | | correct of 55 | false "done" | step 3 done / frame before | step 7 done / "before" frame |
+    |---|---|---|---|---|
+    | before | 46 | 1 | 0.44 / 0.34 | 0.55 / 0.69 |
+    | after, with close-ups | 50 | 0 | 0.46 / 0.42 | 0.60 / 0.34 |
+    | after, no close-ups (a job where `details` was not run) | 45 | 0 | 0.40 / 0.34 | 0.31 / 0.18 |
+
+    Step 3 clears the line by 0.01 with the frame before it 0.03 under: on real frames expect it to miss often. Asked alone, as `/locate` asks it, the same 55 pairs give 49 correct and 0 false "done" (step 3 done 0.58, step 7 done 0.47 with the frame before it at 0.44, also 0.01 from the line). A job needs its close-ups to gain anything: **run `python -m pipeline.perception.details jobs/<id>` once on jobs built before this** (about 50 s, Blender, no model call), then reconnect. Renders only; hands, real light and a real camera are not measured.
 - **`flip_needed`** is about how the assembly stands, from `orientation_ok` ≤ 0.15. Measured to separate poorly; it was not retuned.
 - **`unsure_show_part`.** 8 frames in a row with hands in view and a part that is not recognised, including a confident `other` (a tool).
 - **Slow answers.** A request gets 4 s; without an answer by then the frame is acked `timeout` and does not count. The pipeline's client tries a dead connection a second time first, so that ack can take 8 s. After 3 s of failures without a success: `vision_paused`.
@@ -339,7 +353,39 @@ Three plain REST calls: which product is this, how far along is it (both before 
 - A model failure is 502 (429 when the model is rate limited, 503 when the key is refused). 404 unknown job, 409 no manifest yet.
 - Measured (real calls, Sun 15 Nov, from a laptop): the MALM drawer's own part renders pasted at known places on a plain background (1280×960, not a photo). IoU with the pasted boxes: side panel left 0.99, right 0.95–0.98, drawer front 0.99, runner 0.94–0.95, back 0.91, cam bolt 0.94–0.95, small screw 0.93, cam lock 0.67–0.69 (box a little short). With only the right side panel and the left runner in view, the left panel and the right runner were reported `missing`, not boxed on their mirror twins; an absent plastic pin was `missing`. 4.2 to 5.8 s per call (3–4 items). Real photos, hands and clutter are **not measured yet**.
 
-**Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, none of these calls a model and all say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`; parts boxes the first wanted item at `[350, 350, 650, 650]`, confidence 0.5, puts the rest in `missing`, and says `model: null`.
+**`mode: "step"` on the same route** [added Sun 15 Nov, 15:00]: one call that finds everything the step needs. Optional; without it (or with `"mode": "pick"`) the request and the response above are unchanged, key for key. With it the model is also asked how many of each item are in view and for a box around each one, and the response gains three keys: `mode`, `items` and `all_in_view`. `found`, `missing`, `message`, `step`, `latency_ms`, `model` and `simulated` are as above.
+```json
+{"image": "<base64 JPEG>", "step": 2, "lang": "el", "mode": "step"}
+```
+```json
+{"found": [{"id": "drawer_side_left", "kind": "part", "box_2d": [110, 76, 305, 439], "confidence": 0.99, "label": "Αριστερό πλαϊνό"},
+           {"id": "drawer_side_right", "kind": "part", "box_2d": [443, 83, 638, 447], "confidence": 0.99, "label": "Δεξί πλαϊνό"},
+           {"id": "101345", "kind": "hardware", "box_2d": [178, 616, 197, 666], "confidence": 0.98, "label": "Ξύλινη καβίλια · 101345"}],
+ "missing": [], "message": "Αριστερό πλαϊνό: πάνω αριστερά.", "step": 2,
+ "mode": "step", "all_in_view": true,
+ "items": [
+  {"id": "drawer_side_left", "code": null, "kind": "panel", "name": {"en": "Left side panel", "el": "Αριστερό πλαϊνό"},
+   "label": "Αριστερό πλαϊνό", "visible": true, "box_2d": [110, 76, 305, 439], "boxes": [[110, 76, 305, 439]], "confidence": 0.99,
+   "count_seen": 1, "count_needed": 1, "count_in_box": 1, "count_text": {"en": "1 of 1 in view", "el": "φαίνονται 1 από 1"}},
+  {"id": "drawer_side_right", "code": null, "kind": "panel", "name": {"en": "Right side panel", "el": "Δεξί πλαϊνό"},
+   "label": "Δεξί πλαϊνό", "visible": true, "box_2d": [443, 83, 638, 447], "boxes": [[443, 83, 638, 447]], "confidence": 0.99,
+   "count_seen": 1, "count_needed": 1, "count_in_box": 1, "count_text": {"en": "1 of 1 in view", "el": "φαίνονται 1 από 1"}},
+  {"id": "101345", "code": "101345", "kind": "hardware", "name": {"en": "Wooden dowel", "el": "Ξύλινη καβίλια"},
+   "label": "Ξύλινη καβίλια · 101345", "visible": true, "box_2d": [178, 616, 197, 666],
+   "boxes": [[178, 616, 197, 666], [243, 707, 301, 745]], "confidence": 0.98,
+   "count_seen": 2, "count_needed": 2, "count_in_box": 2, "count_text": {"en": "2 of 2 in view", "el": "φαίνονται 2 από 2"}}],
+ "latency_ms": 5706, "model": "gemini-4-hydrogen", "simulated": false}
+```
+(A real answer: the MALM drawer's renders pasted on a plain background, step 2.)
+- `items` has **one entry for every wanted item, seen or not**, in the order asked (the step's parts, then its hardware codes; or `want`). An item not seen has `visible: false`, `box_2d: null`, `boxes: []`, `confidence: 0`, `count_seen: 0`.
+- `id` is the part id or the hardware code; `code` repeats it for hardware and is `null` for a part. `kind` is `"panel"` or `"hardware"` here (the older `found[].kind` keeps `"part"` / `"hardware"`).
+- `name.en` and `name.el` are the manifest's short names, first letter upper case, Greek without its article; `name.el` is `null` when the job has no Greek name. `label` is the one in `lang`, as in `found`.
+- `box_2d` is the instance easiest to pick up; `boxes` is every instance the model boxed, `box_2d` first, at most 12, each `[ymin, xmin, ymax, xmax]` in 0-1000 and cleaned like `box_2d`.
+- `count_seen`: how many the model counted in the picture, never less than `boxes` and never more than the box holds. `count_needed`: how many this step uses (the hardware's `qty`; for a part, its `place` actions); `null` when `want` was given without `step`. `count_in_box`: the manifest's count, or `null`. `count_text` says it in both languages (`"3 of 4 in view"`, `"φαίνονται 3 από 4"`), `null` without a needed count.
+- `all_in_view`: every item is seen at least `count_needed` times (once when that is unknown).
+- Still one `gemini-4-hydrogen` call per 6 wanted items. Measured (real calls, Sun 15 Nov, a laptop, the MALM drawer's renders pasted at known places on a plain 1280×960 background, not a photo): **4.5 to 6.6 s, median 5.1 s** over 6 calls with 1 to 3 wanted items; the default mode on the same pictures took 3.9 to 5.0 s. Counts were right in all 6 calls (2 of 2 dowels; 3 small screws in view of the 4 needed → `"3 of 4 in view"`; plastic pins not in the picture → 0 of 2). Box IoU: panels 0.98 to 1.0, dowels 0.89 and 0.94, small screws (44 px long) 0.57 to 0.94. One wrong answer in both modes: with the back panel absent, the left side panel (the same outline) was boxed as the back panel at confidence 0.95 to 0.98: look-alike protection covers hardware of the same kind and mirrored left/right parts, not two different panels of the same size. Real photos, hands and clutter are **not measured**.
+
+**Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, none of these calls a model and all say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`; parts boxes the first wanted item at `[350, 350, 650, 650]`, confidence 0.5, puts the rest in `missing`, and says `model: null` (with `mode: "step"`, that item has `count_seen: 1` and the others 0).
 
 ## Voice endpoint for the native headset apps [added Sun 15 Nov]
 

@@ -7,7 +7,8 @@
     .venv/bin/python -m pipeline.perception.request <job_dir> <step_n> <frame.jpg>
 
 The input is four blocks, in this order: the step header, the live frame, a line explaining the sheet,
-the reference sheet. Both images go at `medium` resolution (560 tokens each) and as JPEG: a PNG frame
+the reference sheet. A step whose hardware does not show on the sheet has two more: a line explaining the
+close-up, and the close-up (`pipeline.perception.details`). Both images go at `medium` resolution (560 tokens each) and as JPEG: a PNG frame
 and sheet are 1.1 MB per request and cost about a second of upload. Run pipeline.perception.questions first.
 
 `frame` may be a path or JPEG bytes (what the camera socket delivers).
@@ -46,7 +47,15 @@ def sheet_jpeg(job: str, rel: str) -> bytes:
 def build(job: Path, n: int, frame: Path | bytes) -> tuple[list, dict]:
     pack = step_pack(str(job), n)
     live = frame if isinstance(frame, bytes) else jpeg(Path(frame))
-    return [pack["header"], ("image/jpeg", live), pack["sheet_note"], ("image/jpeg", sheet_jpeg(str(job), pack["sheet"]))], pack["questions"]
+    inputs = [pack["header"], ("image/jpeg", live), pack["sheet_note"], ("image/jpeg", sheet_jpeg(str(job), pack["sheet"]))]
+    return inputs + detail_blocks(job, pack), pack["questions"]
+
+
+def detail_blocks(job: Path, pack: dict) -> list:
+    """Image 3, for a step whose hardware does not show on the sheet: the close-up `pipeline.perception.details` made."""
+    if not pack.get("detail") or not pack.get("detail_note") or not (Path(job) / pack["detail"]).is_file():
+        return []
+    return [pack["detail_note"], ("image/jpeg", sheet_jpeg(str(job), pack["detail"]))]
 
 
 def ask(job: Path, n: int, frame: Path | bytes, timeout: float = 30) -> dict:
