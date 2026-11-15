@@ -129,9 +129,19 @@ class WorldModule(
   private val depthYs = ArrayDeque<Float>()
   private var lastDepthProbeMs = 0L
 
-  /** WORLD height of the work surface: the scene's table if there is one, else the depth probe. */
+  /**
+   * Height of the work surface measured AT the base part: a depth ray through the server's box hits the part's top,
+   * minus the part's own height. Once known it wins over the gaze probe, which follows whatever the wearer looks at
+   * (first device run: floor at -0.03 m, a desk at 0.56 m within 30 s, and the ghost went up and down with it).
+   * A re-align clears it.
+   */
+  @Volatile var lockedSurfaceY: Float? = null
+    private set
+  private val partYs = ArrayDeque<Float>()
+
+  /** WORLD height of the work surface: the scene's table, else the height at the part, else the steady gaze probe. */
   val surfaceY: Float?
-    get() = scene.table?.y ?: depthSurfaceY
+    get() = scene.table?.y ?: lockedSurfaceY ?: depthSurfaceY
 
   private fun probeSurface(head: Pose3) {
     val d = depth ?: return
@@ -150,16 +160,21 @@ class WorldModule(
     d.cast(rays) { hits ->
       val ys = hits.filterNotNull().map { it.y }.filter { it < head.t.y - 0.25f }.sorted()
       if (ys.size >= 3) {
-        val y =
+        // the gaze wanders (floor, desk, chair): only a height that holds for the whole window counts
+        val (y, steady) =
             synchronized(depthYs) {
               depthYs.addLast(ys[ys.size / 2])
-              while (depthYs.size > 9) depthYs.removeFirst()
-              depthYs.sorted()[depthYs.size / 2]
+              while (depthYs.size > GAZE_WINDOW) depthYs.removeFirst()
+              val sorted = depthYs.sorted()
+              sorted[sorted.size / 2] to (sorted.size >= GAZE_WINDOW && sorted.last() - sorted.first() <= GAZE_SPREAD_M)
             }
-        val first = depthSurfaceY == null
-        depthSurfaceY = y
-        if (first) Agq.log.event("surface", mapOf("source" to "depth", "y_m" to y, "head_y_m" to head.t.y))
-        if (scene.table == null && depthYs.size >= 3) anchor.setSurfaceHeight(y)
+        if (steady && lockedSurfaceY == null) {
+          val prev = depthSurfaceY
+          depthSurfaceY = y
+          if (prev == null || kotlin.math.abs(prev - y) > 0.03f) {
+            Agq.log.event("surface", mapOf("source" to "depth_gaze", "y_m" to y, "prev_y_m" to prev, "head_y_m" to head.t.y))
+          }
+        }
       }
     }
   }
@@ -311,6 +326,8 @@ class WorldModule(
       } else if (t == null && anchor.source == null && SystemClock.elapsedRealtime() - assemblySetMs >= FIXED_SPOT_AFTER_MS) {
         anchor.placeInitial(centred(BasePlacement.fixedSpot(head)), PlaceSource.FIXED_SPOT)
       }
+      // a guessed anchor (fixed spot, server box, flow) sits at the measured surface height; no-op within 3 cm
+      if (t == null) surfaceY?.let { anchor.setSurfaceHeight(it) }
     }
     outline?.update(if (outlineVisible()) anchor.pose else null, footprint())
   }
@@ -329,9 +346,49 @@ class WorldModule(
       anchor.onServerMiss()
       return
     }
+    // Without a scene table the height of the work surface is measured where the part is: one depth ray through
+    // the box centre (the answer comes back on the main thread), then the placement on that plane.
+    val d = depth
+    val cam = g.worldFromCamera
+    val ray =
+        if (d != null && cam != null && scene.table == null) {
+          PickRays.boxRay(cam, found.box_2d, g.intrinsics, vision.config.detector.useDistortion)
+        } else null
+    if (d == null || ray == null) placeBase(found, g, null) else d.cast(listOf(ray)) { hits -> placeBase(found, g, hits.firstOrNull()) }
+  }
+
+  /** The base part's top above the work surface in this step's resting pose (0.016 m for the drawer front lying flat). */
+  private fun baseTopM(): Float {
+    val b = basePart ?: return 0f
+    val tableFromAssembly = heldPose()
+    var top = 0f
+    var i = 0
+    while (i + 2 < b.positions.size) {
+      top = maxOf(top, tableFromAssembly.transform(com.agj.android.core.Vec3(b.positions[i], b.positions[i + 1], b.positions[i + 2])).y)
+      i += 3
+    }
+    return top.coerceIn(0f, 0.6f)
+  }
+
+  private fun placeBase(found: PartsFound, g: FrameGrab, depthHit: com.agj.android.core.Vec3?) {
     val cur = anchor.pose ?: return
     val fp = footprint() ?: return
-    val bp = BasePlacement.fromBox(found.box_2d, g, cur.t.y, cur, fp, vision.config.detector.useDistortion)
+    val camY = g.worldFromCamera?.t?.y
+    if (depthHit != null && camY != null && depthHit.y < camY - 0.25f) {
+      val y =
+          synchronized(partYs) {
+            partYs.addLast(depthHit.y - baseTopM())
+            while (partYs.size > 5) partYs.removeFirst()
+            partYs.sorted()[partYs.size / 2]
+          }
+      val prev = lockedSurfaceY
+      lockedSurfaceY = y
+      if (prev == null || kotlin.math.abs(prev - y) > 0.02f) {
+        Agq.log.event("surface", mapOf("source" to "depth_at_part", "y_m" to y, "hit_y_m" to depthHit.y, "prev_y_m" to prev, "cam_y_m" to camY))
+      }
+    }
+    val planeY = lockedSurfaceY ?: cur.t.y
+    val bp = BasePlacement.fromBox(found.box_2d, g, planeY, cur, fp, vision.config.detector.useDistortion)
     val onTable = bp != null && (scene.table?.contains(bp.partCenter, 0.10f) ?: true)
     // The box must be about the size of the part: on the first device run a 0.89 m box (not the 0.38 m drawer
     // front) at confidence 0.95 moved the ghost 1.36 m away.
@@ -369,7 +426,11 @@ class WorldModule(
   }
 
   /** "Re-align": the next camera answer for the base part moves the anchor (also after a manual nudge). */
-  fun realign() = anchor.requestRealign()
+  fun realign() {
+    lockedSurfaceY = null // measured again at the part on the next camera answer
+    synchronized(partYs) { partYs.clear() }
+    anchor.requestRealign()
+  }
 
   /** Slide the ghost on the table ([rightM], [forwardM] away from the user) and twist it by [yawDeg]. */
   fun nudge(rightM: Float, forwardM: Float, yawDeg: Float = 0f): Boolean =
@@ -414,6 +475,9 @@ class WorldModule(
     /** Without a scene table this long after the guide is loaded, the fixed spot is used. */
     const val FIXED_SPOT_AFTER_MS = 2500L
     const val FOLLOW_EVERY_MS = 2500L
+    /** Gaze probe: this many samples (0.7 s apart) within this spread before a looked-at height counts. */
+    const val GAZE_WINDOW = 5
+    const val GAZE_SPREAD_M = 0.05f
     const val MIN_BASE_CONFIDENCE = 0.4
   }
 }

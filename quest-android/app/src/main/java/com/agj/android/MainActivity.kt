@@ -77,7 +77,10 @@ import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.MeshCreationSystem
+import com.agj.android.vision.DumpExtras
+import com.agj.android.vision.FrameDump
 import com.agj.android.vision.PanelPoseTracker
+import com.agj.android.vision.StepFootprints
 import com.agj.android.world.PickMarkers
 import com.agj.android.world.PlaceSource
 import com.agj.android.world.WorldModule
@@ -134,6 +137,7 @@ class MainActivity : AppSystemActivity() {
   private lateinit var world: WorldModule
   private var pickMarkers: PickMarkers? = null
   private var panel: PanelPoseTracker? = null
+  private var dump: FrameDump? = null
   private var socket: OkHttpPerceptionSocket? = null
   private var socketStarted = false
   private val follow = WindowRelocator()
@@ -232,6 +236,7 @@ class MainActivity : AppSystemActivity() {
               onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
           )
     }
+    dump = FrameDump(this, params) // `--ez dump_frames true` records camera frames with their pose (tools/markerless/eval_real.py)
     pickMarkers =
         PickMarkers { uri, make ->
               systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
@@ -323,6 +328,11 @@ class MainActivity : AppSystemActivity() {
         override fun onFrame(frame: CameraFrame, track: TrackSnapshot) {
           val stage = coach.stage
           val now = SystemClock.elapsedRealtime()
+          dump?.onFrame(frame) {
+            DumpExtras(surfaceY = world.surfaceY, anchor = world.anchor.pose, anchorSource = world.placeSource,
+                ghost = vision.worldFromAssembly(), job = assembly?.jobId, step = curStep, action = curAction,
+                track = track, panel = panel?.latest)
+          }
           panel?.onFrame(frame)
           preview?.offer { frame.jpeg }
           if (stage == CoachFlow.Stage.LOOK) {
@@ -621,7 +631,8 @@ class MainActivity : AppSystemActivity() {
     held.onAction(step, action, act, st) // HELD-PART: a new pick; clears the badge and what was waiting
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
-    panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
+    // the detector's target is the flat base part of this step, from the guide (off where none is safe to track)
+    panel?.setStep(step, assembly?.let { a -> a.guide?.let { g -> StepFootprints.target(g, a.manifest, step) } })
     val coachNow = coachLine() // "Place … inside the blue outline.": first line of the body, spoken before the step line
     stepPanel.coach = coachNow ?: ""
     stepPanel.align = alignLabel()
@@ -1128,6 +1139,7 @@ class MainActivity : AppSystemActivity() {
 
   override fun onDestroy() {
     voiceCtl?.cancel()
+    dump?.stop()
     vision.stop()
     world.stop()
     panel?.stop()
