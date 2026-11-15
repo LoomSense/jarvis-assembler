@@ -47,7 +47,10 @@ namespace AG.Vision
         public int Width, Height;
         /// <summary>GPU image (may be a RenderTexture). Unity convention: row 0 at the BOTTOM.</summary>
         public Texture Texture;
-        /// <summary>Optional CPU copy, RGBA32, row 0 at the BOTTOM (Texture2D.GetPixels32 order). Null unless requested.</summary>
+        /// <summary>
+        /// Optional CPU copy, RGBA32, row 0 at the BOTTOM (Texture2D.GetPixels32 order). Null unless requested. The array
+        /// may be reused by the source for the next frame: copy what you keep.
+        /// </summary>
         public Color32[] Pixels;
         /// <summary>Optional original JPEG bytes (replay supplies them; send as-is to the server).</summary>
         public byte[] Jpeg;
@@ -55,6 +58,8 @@ namespace AG.Vision
         /// <summary>Camera pose in Unity WORLD space at <see cref="TimeS"/> (+Z = optical axis). Valid when <see cref="HasPose"/>.</summary>
         public Pose CameraPose;
         public bool HasPose;
+        /// <summary>Replay only: the dataset frame number (poses.jsonl <c>frame</c>, else the file's position); -1 live.</summary>
+        public int ReplayFrame;
     }
 
     /// <summary>

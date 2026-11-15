@@ -29,9 +29,16 @@ namespace AG.Vision
     {
         /// <summary>AprilTag family tagStandard41h12 (the only one jp.keijiro.apriltag detects), tag id.</summary>
         public int TagId;
-        /// <summary>Edge length of the black square in metres (measure the printed tag).</summary>
+        /// <summary>
+        /// AprilTag pose size in metres: edge of the DETECTED square. For tagStandard41h12 that is the inner edge of the
+        /// black ring (5 of 9 modules): 0.0571429 on the shared strip (marker.json <c>tag41h12_0.size_m</c>).
+        /// </summary>
         public float TagSizeM;
-        /// <summary>Tag frame in the assembly frame (tag centre; +Z out of the tag face, +Y towards the tag's top edge).</summary>
+        /// <summary>
+        /// Tag frame in the assembly frame: tag centre; +X to the tag's right, +Y towards its printed TOP edge, +Z INTO
+        /// the face (Unity Quad convention, the mirror of ArUco's "z out of the face"). Build it with
+        /// <see cref="MarkerSetup"/> (strip placement x tag offset).
+        /// </summary>
         public Pose TagInAssembly;
     }
 

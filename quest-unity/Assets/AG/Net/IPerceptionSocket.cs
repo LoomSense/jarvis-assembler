@@ -13,6 +13,8 @@ namespace AG.Net
     ///
     /// Threading: main thread. Messages are dispatched from <see cref="Tick"/> (call every frame); all events fire
     /// on the main thread. Logs <c>perception</c> {event, ms} for every event.
+    /// Reconnects by itself (backoff 0.5 s .. 8 s) after a network close and re-sends the last start/step/action, so
+    /// callers do not need to handle drops; fatal closes (4401 key, 4404 job, 4409 not built, 4400 role) stop retrying.
     /// Owner: Net agent.
     /// </summary>
     public interface IPerceptionSocket
@@ -49,6 +51,19 @@ namespace AG.Net
         event Action<ServerError> ErrorReceived;
         /// <summary>Close code and reason (4401 key, 4404 unknown job, 4409 not built, 1006 network).</summary>
         event Action<int, string> Closed;
+
+        /// <summary>"idle", "connecting", "open", "reconnecting", "closed" (fatal or CloseAsync).</summary>
+        string State { get; }
+        /// <summary>Latest round trip frame -> ack (client clock), ms; -1 until known.</summary>
+        int LastAckRttMs { get; }
+
+        /// <summary>Convenience routes of <see cref="EventReceived"/>.</summary>
+        event Action<PerceptionEvent> StepComplete;
+        event Action<PerceptionEvent> WrongHardware;
+        event Action<PerceptionEvent> FlipNeeded;
+        event Action<PerceptionEvent> WrongPart;
+        /// <summary>true when the socket (re)opened, false when it dropped.</summary>
+        event Action<bool> ConnectionChanged;
 
         void Tick();
     }

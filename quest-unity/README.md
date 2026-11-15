@@ -91,7 +91,7 @@ adb logcat -s AGQ        # one JSON object per line
 - Package id **`com.agj.unity`**.
 - **Launch params** `server`, `key`, `job` (optional), `lang` (`el`|`en`), `replay` (bool), `hud` (bool). Later sources override earlier: `StreamingAssets/local.config.json` (git-ignored, dev only) < `persistentDataPath/config.json` < intent extras (`--es`/`--ez`; booleans also as strings). `AG.Core.LaunchParams`. Committed example: `Assets/StreamingAssets/config.example.json`. **Never commit a key.**
 - **Logs**: logcat tag `AGQ`, one JSON per line `{"t": ms since start, "app": "unity", "ev": ..., ...}` via `android.util.Log` on device, `Debug.Log("AGQ ...")` in the editor (`AG.Core.AgLog`). Events: `start` (version, params with key redacted), `job_loaded` (job, steps, actions, ms), `identify` (ms, product, confidence), `locate` (ms, next_step), `track` 1 Hz (fps, tracked, pos_m [x,y,z], yaw_deg, reproj_px, source `marker`|`touch`|`none`), `perception` (event, ms), `step` (step, action, by `auto`|`button`), `frame` every 5 s (fps), `error` (where, message). Extra: `camera`, `coach`.
-- **Replay camera** (`replay=true`, `AG.Vision.ReplayCameraSource`): folder `persistentDataPath/replay/` (= `/sdcard/Android/data/com.agj.unity/files/replay/`) or `replay_dir` in the editor. Sorted `*.jpg`, `intrinsics.json` `{fx, fy, cx, cy, width, height}` in pixels of those JPEGs (top-left origin), optional `poses.jsonl`: one line per frame `{"file":"000000.jpg","t":0.0,"pos":[x,y,z],"rot":[x,y,z,w],"frame":"unity"|"openxr"}`, camera pose in world (`unity`: left-handed Y-up, camera +Z forward; `openxr`: right-handed, -Z forward, converted by mirroring Z). 10 fps, loops.
+- **Replay camera** (`replay=true`, `AG.Vision.ReplayCameraSource`): folder `persistentDataPath/replay/` (= `/sdcard/Android/data/com.agj.unity/files/replay/`) or `replay_dir` in the editor. Sorted `*.jpg`, `intrinsics.json` `{fx, fy, cx, cy, width, height, fps}` in pixels of those JPEGs (OpenCV convention), optional `poses.jsonl` in the canonical tools format (docs/QUEST_TESTING.md): `frame` (int), `t`, `file`, `cam_p`, `cam_q` (OpenCV camera axes), `cam_q_xr`, world right-handed Y up. Unity camera pose = mirror of (`cam_p`, `cam_q_xr`): `(x, y, -z)`, `(-qx, -qy, qz, qw)`. Legacy phase-1 lines (`pos`/`rot`/string `frame`) still parse. Plays at the dataset `fps` (default 10), loops; frames carry `CameraFrame.ReplayFrame` for the `track.frame` field.
 - **Debug HUD** (`hud=true`): fps, camera, tracker state/source and reprojection error, last perception event + latency, step/action, server reachability (`GET /healthz` every 10 s).
 
 ## Module map and ownership
@@ -102,8 +102,8 @@ Each folder is one assembly (asmdef) and one owner. Interfaces (`I*.cs`, DTOs, `
 |---|---|---|---|
 | `Assets/AG/Core` `AG.Core` | lead | `AgLog`, `LaunchParams`, `Http`, `Tween`/`Ease` | all working |
 | `Assets/AG/Guide` `AG.Guide` | Guide agent | `IJobRepository`, `IGhostRenderer`, `AssemblyModel.cs` (AssemblyGuide, GuideStep, GuideAction, PartNode, PartInfo), `ManifestDto.cs`, `FrameConvert` | `HttpJobRepository` + `ResourcesJobRepository` + `GuideLoader`/`GlbAnimation` (GLB + walkthrough end pose, **tested**), `GuideBuilder`, `GhostRenderer` (real, editor-verified; `GhostRendererStub` kept as fallback) |
-| `Assets/AG/Vision` `AG.Vision` | Vision agent | `ICameraSource` (+ `CameraFrame`, `CameraIntrinsics`), `IObjectTracker` (+ `TrackResult`, `MarkerConfig`), `IPoseFilter` | `ReplayCameraSource` (working), `PcaCameraSource` (written against MRUK 209 API, untested on device), `MarkerObjectTracker` (**stub**: AprilTag + PnP TODO), `TwoCornerTracker` (solver written), `SmoothingPoseFilter`, `FrameJpeg` |
-| `Assets/AG/Net` `AG.Net` | Net agent | `IServerApi`, `IPerceptionSocket`, `Dtos.cs` (exact server JSON) | `HttpServerApi` (working code, not yet run against the server), `PerceptionSocket` (framing, limits, routing; reconnect TODO) |
+| `Assets/AG/Vision` `AG.Vision` | Vision agent | `ICameraSource` (+ `CameraFrame`, `CameraIntrinsics`), `IObjectTracker` (+ `TrackResult`, `MarkerConfig`), `IPoseFilter` | `ReplayCameraSource` (canonical poses.jsonl), `PcaCameraSource` (crop-aware intrinsics, async readback, untested on device), `MarkerObjectTracker` (AprilTag 41h12 + real-intrinsics pose, gates, hold; replay-scored), `TwoCornerTracker` (fingertip dwell capture), `HandJointSource` (XR Hands), `SmoothingPoseFilter` (One Euro), `MarkerSetup`, `FrameJpeg` (+ worker-thread encode). See "Vision and Net" below |
+| `Assets/AG/Net` `AG.Net` | Net agent | `IServerApi`, `IPerceptionSocket`, `Dtos.cs` (exact server JSON) | `HttpServerApi` (working code, not yet run against the server), `PerceptionSocket` on `WsTransport` (ClientWebSocket; reconnect + resume, limits, typed events, latency logs; mock-server tested), `HandsSummarizer` |
 | `Assets/AG/UI` `AG.UI` | UI agent | `ICoach` (+ `CoachStage`, `CoachContext`), `IStepPanel` (+ `StepView`), `IVoice`, `IDebugHud`, `UiTheme` | `CoachFlow` (§5.4 cards, retry, events, Where am I), `StepPanel` (glass window + toolbar), `StepPanelStub` (debug HUD only), `VoicePlayer` (TTS + prefetch), `UiSounds` |
 | `Assets/AG/App` `AG.App` | Guide/UI agent (round 1) | `AppRoot` (composition root: the only place that names concrete classes) | `AppRoot` (tracking state -> ghost + pill, window placement, input, keys), `PinchRayInput` |
 | `Assets/AG/Editor` `AG.Editor` | lead | `SetupProject.Run`, `Build.Apk` | |
@@ -117,6 +117,30 @@ Dependencies: Core <- Guide, Vision, Net <- UI <- App. Guide, Vision and Net do 
 - Parts rest hidden (scale 1e-4); final transforms come from sampling the `walkthrough` clip at its last frame (glTFast with `AnimationMethod.Legacy`, then `clip.SampleAnimation(root, clip.length)`).
 - Camera: intrinsics in pixels, top-left origin, v down; `CameraFrame.Pixels` rows are bottom-up (Unity order). `CameraFrame.CameraPose` is in world, +Z = optical axis.
 - Tracking: `TrackResult.AssemblyInWorld` maps the assembly frame to world. AppRoot copies it to `AssemblyAnchor`; the ghost renderer only ever works in the assembly frame under that anchor.
+
+## Vision and Net (round 1)
+
+**Marker.** The shared print is the dual strip (`tools/quest/marker/marker.json`): 36h11 id 0 for OpenCV apps, **tagStandard41h12 id 0** for this app (`jp.keijiro.apriltag` decodes only 41h12). Tag size passed to AprilTag = **0.0571429 m** (inner edge of the 80 mm black ring; 0.08 would scale every pose by 1.4x). Tag centre at **+0.05 m** along the strip x. `track.pos_m` = the **strip centre**. `MarkerSetup.LoadForApp()` reads `persistentDataPath/marker.json` when pushed (`adb push tools/quest/marker/marker.json /sdcard/Android/data/com.agj.unity/files/`), else built-in defaults, and logs `marker`.
+
+**Axes.** AprilTag returns x right, y DOWN, z INTO the tag in the OpenCV camera. Unity camera = OpenCV camera mirrored in y, Unity tag frame = AprilTag frame mirrored in y (x right, y to the TOP edge, z INTO the face), so `R' = S R S`, `t' = S t`, `S = diag(1,-1,1)` (`TagDetection.InUnityCamera`). Strip in Unity axes: marker.json's ArUco offset `(x, y, z)` is `(x, y, -z)`.
+
+**MALM placement** (`MarkerSetup.MalmStripInAssembly`, read from `walkthrough.glb` on 15 Nov): the drawer front is the unanimated base part, x [-0.19, 0.19], y [-0.015, 0.115], z [0, 0.016] in the assembly frame; the inside face is z = 0 and assembly -Z is up; the groove is at y ~ 0.0135. Strip centre at **(0, 0.064, 0)**, TOP edge toward the groove (-Y), so rotation **Euler(0, 0, 180)**. UNVERIFIED on a real drawer: check that the ghost front lands on the real one in step 1, then adjust `MalmStripCentreY` only.
+
+**Tracker** (`MarkerObjectTracker`): grayscale on the main thread, AprilTag detect + AprilTag's own `estimate_tag_pose` with the frame's real fx, fy, cx, cy (+0.5 px for AprilTag's pixel-centre convention) on a worker thread; gates: hamming <= 1, decision margin >= 25, reprojection <= 3 px, jump gate (> 4 cm / 15 deg needs 3 agreeing detections); camera pose at capture; One Euro filter (`SmoothingPoseFilter`); hold: `Tracked` stays true 0.5 s after the last detection, then false with the pose kept (AppRoot then leaves the anchor where it was). Auto row-order flip after 45 frames without a tag (`track_rows`). `track` 1 Hz: fps, tracked, pos_m, yaw_deg, reproj_px, source, + state, method, asm_m, det_hz, det_ms, margin, held, age_ms. In replay (`LogEveryDetection`) one `track` per frame with integer `frame` and `q` (Unity values; score with `--unity`).
+
+**Offline accuracy** (EditMode test `AG.Vision.Tests.VisionTests.MarkerTracker_ReplayAccuracy`, regenerated `marker-synthetic`, 15 Nov): 300/300 frames tracked; `score_track.py --unity`: filtered p50 0.83 mm / p90 0.94 mm / max 1.06 mm, still jitter 0.014 mm, yaw 0.008 deg, rotation 0.019 deg; unfiltered p50 0.77 mm / p90 1.09 mm (reference OpenCV 41h12: p50 0.81 mm / p90 1.19 mm). 13 ms/frame in the editor including JPEG decode.
+
+```sh
+.venv/bin/python tools/quest/replay/make_marker_synthetic.py
+$U -batchmode -nographics -projectPath quest-unity -buildTarget Android -runTests -testPlatform EditMode -testResults /tmp/r.xml -logFile -
+.venv/bin/python tools/quest/replay/score_track.py tools/quest/runs/unity-editmode-marker-synthetic --unity
+```
+
+**PCA camera** (`PcaCameraSource`): asks HEADSET_CAMERA, requests 1280x960 at 30 fps, detects new images by `Timestamp` (not `IsUpdatedThisFrame`, which depends on script order), carries `GetCameraPose()` (pose at the image timestamp) with the frame, non-blocking `AsyncGPUReadback` for CPU pixels (one in flight, <= `CpuMaxHz`; falls back to MRUK's blocking `GetColors` after 3 readback errors). Intrinsics: MRUK's crop + scale (`CropScale`). One `camera` event at start with sensor size, focal, principal point, lens offset, derived intrinsics, the naive plain-scaled ones for comparison, and FoV; `camera_first` with the image age.
+
+**Socket** (`PerceptionSocket` on `WsTransport`): `ClientWebSocket` with worker-thread send/receive (NativeWebSocket 1.x sends synchronously on the main thread), ordered send queue, reconnect 0.5 to 8 s, re-sends start/step/action after the new hello, fatal closes 4400/4401/4404/4409 stop retrying. Typed events `StepComplete`, `WrongHardware`, `FlipNeeded`, `WrongPart`, `ConnectionChanged`. AGQ: `perception` {event, kind, ms (server), rtt_ms (client), step, action, p, seq, reason, votes}, `perception_ack` every 5 s, `perception_conn`, `perception_hello`, `hands` 1 Hz {hz, present, hand_at_target, still, raised}.
+
+**Hands**: `HandJointSource` (Unity XR Hands: index tips and palms, world via the rig's TrackingSpace) -> `AG.Net.HandsSummarizer` (hand_at_target 5 cm to the ghost part's world box, still 1 cm / 0.5 s, raised above head - 5 cm) -> `SendHands` at 10 Hz. `TwoCornerTracker` fallback: fingertip held still 0.8 s on corner A, then B (MALM default: both ends of the front's long edge away from the groove).
 
 ## Status (15 Nov 2026)
 
@@ -137,8 +161,8 @@ Dependencies: Core <- Guide, Vision, Net <- UI <- App. Guide, Vision and Net do 
 ## Open questions
 
 - PCA on the OpenXR backend with Meta Core 209 (RESEARCH.md says default path, not stated explicitly). If the camera never starts: check Horizon OS >= v74, the HEADSET_CAMERA prompt, OVRManager "Enabled Passthrough Camera Access".
-- PCA intrinsics: given for `SensorResolution`; we scale to `CurrentResolution` (UNVERIFIED, compare with Meta's CameraToWorld sample).
-- `jp.keijiro.apriltag` pose assumes the principal point at the image centre; may need our own PnP with cx, cy.
-- NativeWebSocket on Android IL2CPP (UNVERIFIED); fallback: `System.Net.WebSockets.ClientWebSocket`.
+- PCA intrinsics: resolved from MRUK 209's source (centred crop + scale, see Vision and Net); the first device run's `camera` event must confirm the numbers (sensor size, principal point near the centre, hfov ~70-80°).
+- PCA CPU row order: MRUK flips the texture to Unity order, so `GetColors`/readback rows should be bottom-up (what the tracker expects). The tracker flips by itself if it finds no tag for 45 frames (`track_rows` event says which).
+- `ClientWebSocket` (WsTransport) on Android IL2CPP: expected to work (NativeWebSocket uses the same class); `link.xml` keeps it from stripping. UNVERIFIED on device.
 - GameActivity entry (`com.unity3d.player.UnityPlayerGameActivity`) with Meta SDK 209: check the Project Setup Tool does not ask to switch to Activity; if it does, update the manifest and the `am start` line here and in tools/quest/.
-- Marker placement on the MALM drawer front (`MarkerConfig.TagInAssembly`) needs measuring.
+- Marker placement on the MALM drawer front (`MarkerSetup.MalmStripCentreY` = 0.064 m, from the GLB) needs one check on a real drawer.

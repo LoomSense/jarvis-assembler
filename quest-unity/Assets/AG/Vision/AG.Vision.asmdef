@@ -1,7 +1,7 @@
 {
     "name": "AG.Vision",
     "rootNamespace": "AG.Vision",
-    "references": ["AG.Core", "meta.xr.mrutilitykit", "AprilTag.Runtime"],
+    "references": ["AG.Core", "meta.xr.mrutilitykit", "AprilTag.Runtime", "Unity.XR.Hands"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -11,7 +11,8 @@
     "defineConstraints": [],
     "versionDefines": [
         { "name": "com.meta.xr.mrutilitykit", "expression": "81.0.0", "define": "AG_HAS_MRUK" },
-        { "name": "jp.keijiro.apriltag", "expression": "1.0.0", "define": "AG_HAS_APRILTAG" }
+        { "name": "jp.keijiro.apriltag", "expression": "1.0.0", "define": "AG_HAS_APRILTAG" },
+        { "name": "com.unity.xr.hands", "expression": "1.0.0", "define": "AG_HAS_XRHANDS" }
     ],
     "noEngineReferences": false
 }

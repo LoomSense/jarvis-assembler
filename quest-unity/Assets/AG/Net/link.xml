@@ -1,0 +1,8 @@
+<!-- Keep the managed WebSocket client used by WsTransport under IL2CPP code stripping. -->
+<linker>
+  <assembly fullname="System">
+    <namespace fullname="System.Net.WebSockets" preserve="all"/>
+  </assembly>
+  <assembly fullname="System.Net.WebSockets" ignoreIfMissing="1" preserve="all"/>
+  <assembly fullname="System.Net.WebSockets.Client" ignoreIfMissing="1" preserve="all"/>
+</linker>

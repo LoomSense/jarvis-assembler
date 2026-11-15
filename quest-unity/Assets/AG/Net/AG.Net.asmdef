@@ -1,7 +1,7 @@
 {
     "name": "AG.Net",
     "rootNamespace": "AG.Net",
-    "references": ["AG.Core", "endel.nativewebsocket"],
+    "references": ["AG.Core"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -9,8 +9,6 @@
     "precompiledReferences": ["Newtonsoft.Json.dll"],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        { "name": "com.endel.nativewebsocket", "expression": "1.0.0", "define": "AG_HAS_NATIVEWS" }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }
