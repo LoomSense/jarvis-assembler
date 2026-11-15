@@ -522,4 +522,102 @@ class ActionCoachTest {
     assertEquals("ΒΑΛΕ", Strings.upper("el", Strings.t("el", "coachPhasePut")))
     assertEquals(listOf("pick", "place", "done"), CoachPhase.entries.map { it.wire })
   }
+
+  // ---- no hand seen at all during the action (the headset gives no hands) ----
+
+  /** A fastener taken from the pile with no hand data: "take" ended because its pick target went. */
+  private fun placedBlind(kind: String? = "bolt") {
+    keep(coach.start(3, 0, ActionKind.FASTEN, listOf("118331"), false, now, "next", kind))
+    coach.tick(at(700), PickSight(listOf(PickSpot(7, lay))))
+    assertEquals("part_moved", frames(1600, PickSight())?.why)
+    assertEquals(CoachPhase.PLACE, coach.phase)
+  }
+
+  @Test
+  fun withNoHandSeenPlaceEndsByItselfAfterTheKindsTime() {
+    placedBlind()
+    assertNull("a bolt takes at least 9 s", frames(8900, PickSight()))
+    val c = frames(200, PickSight())!!
+    assertEquals(CoachChange(3, 0, CoachPhase.PLACE, CoachPhase.DONE, "timer"), c)
+    assertEquals("no_hands", coach.how)
+  }
+
+  @Test
+  fun withNoHandSeenAPartBackWhereItLayHoldsPlace() {
+    placedBlind()
+    assertNull(frames(5000, PickSight()))
+    // the bolt is seen again where it lay: it was not taken, or it was put back
+    assertNull(frames(6000, PickSight(listOf(PickSpot(8, lay + Vec3(0.02f, 0f, 0f))))))
+    // gone again: 4 s more
+    assertNull(frames(3900, PickSight()))
+    assertEquals("timer", frames(200, PickSight())?.why)
+    assertEquals("no_hands", coach.how)
+  }
+
+  @Test
+  fun aHandSeenDuringTheActionSwitchesTheNoHandsTimerOff() {
+    placedBlind()
+    coach.tick(at(50), PickSight(hand = wristAway)) // one frame with a hand
+    assertNull(frames(60_000, PickSight()))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+    // also when the hand was only seen while the part was still to be taken
+    keep(coach.start(3, 1, ActionKind.FASTEN, listOf("118331"), false, now, "next", "bolt"))
+    coach.tick(at(700), PickSight(listOf(PickSpot(7, lay)), wristAway))
+    coach.next(at(1000))
+    assertNull(frames(60_000, PickSight()))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+  }
+
+  @Test
+  fun aWrongVerdictHoldsTheNoHandsTimerBack() {
+    placedBlind()
+    frames(8000, PickSight())
+    coach.wrongPart(now)
+    assertNull(frames(5900, PickSight()))
+    assertEquals("timer", frames(200, PickSight())!!.why)
+  }
+
+  @Test
+  fun theNoHandsTimeDependsOnWhatIsPutIn() {
+    for (kind in listOf("bolt", "screw", "cam", null)) assertEquals(9_000L, ActionCoach.noHandsMs(ActionKind.FASTEN, kind, true))
+    for (kind in listOf("dowel", "Pin", "peg")) assertEquals(6_000L, ActionCoach.noHandsMs(ActionKind.FASTEN, kind, true))
+    assertEquals("a board", 12_000L, ActionCoach.noHandsMs(ActionKind.PLACE, null, true))
+    assertEquals("a fastener already in its part", 12_000L, ActionCoach.noHandsMs(ActionKind.FASTEN, "cam", false))
+    assertEquals(12_000L, ActionCoach.noHandsMs(ActionKind.TURN, null, false))
+    // a peg: 6 s
+    placedBlind("pin")
+    assertNull(frames(5900, PickSight()))
+    assertEquals("timer", frames(200, PickSight())?.why)
+    // a board: 12 s
+    toPlace()
+    assertNull(frames(11_900, PickSight()))
+    assertEquals("timer", frames(200, PickSight())?.why)
+    // a cam lock already in its part: nothing to take, "put" from the start, 12 s
+    keep(coach.start(3, 1, ActionKind.FASTEN, emptyList(), false, now, "next", "cam"))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+    assertNull(frames(11_900, PickSight()))
+    assertEquals("timer", frames(200, PickSight())?.why)
+    assertEquals("no_hands", coach.how)
+  }
+
+  @Test
+  fun backAndRepeatStartTheNoHandsTimerAgain() {
+    placedBlind()
+    frames(8000, PickSight())
+    keep(coach.start(3, 0, ActionKind.FASTEN, listOf("118331"), false, now, "repeat", "bolt"))
+    assertEquals(CoachPhase.PICK, coach.phase)
+    assertNull("take never ends by this timer", frames(20_000, PickSight(listOf(PickSpot(7, lay)))))
+    coach.next(at(1000))
+    assertNull(frames(8900, PickSight(listOf(PickSpot(7, lay + Vec3(0.3f, 0f, 0f))))))
+    assertEquals("timer", frames(200, PickSight())?.why)
+    assertEquals("no_hands", coach.how)
+  }
+
+  @Test
+  fun theDeviceSeeingTheBoardLiftedIsARightPartWithItsOwnHow() {
+    board()
+    val c = coach.rightPart(at(1000), "side_left", "grab_rect")!!
+    assertEquals(CoachChange(2, 0, CoachPhase.PICK, CoachPhase.PLACE, "right_part"), c)
+    assertEquals("grab_rect", coach.how)
+  }
 }

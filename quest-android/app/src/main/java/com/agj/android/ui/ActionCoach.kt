@@ -14,8 +14,11 @@ import com.agj.android.guide.PartLabel
  *                  and carried it off, or its pick target moved or vanished); Next or "επόμενο"
  *                  ([ActionCoach.next]); the hand has been closed for 12 s (`timer`).
  *   PLACE → DONE   the server's `step_complete` on the step's last action; the hand was at the target and then left
- *                  it, or went for the next part (`placed`, [ActionCoach.tick]); Next or "επόμενο". Never a bare
- *                  timer: without a hand seen at the target, only the server or the wearer ends it.
+ *                  it, or went for the next part (`placed`, [ActionCoach.tick]); Next or "επόμενο". With a hand seen
+ *                  during the action it is never a bare timer: only that hand, the server or the wearer ends it.
+ *                  With no hand seen at all during the action (the headset gives none): `timer`, how `no_hands`,
+ *                  once the phase has lasted the time its kind needs and the part taken has not been back where it
+ *                  lay for 4 s ([ActionCoach.Config.noHandsGoneMs], [ActionCoach.noHandsMs]).
  *   PICK  → DONE   only the server's `step_complete` on the step's last action (the step advances once).
  *   A turn has nothing to take: it starts at PLACE. Back and Repeat start the action again at PICK ([ActionCoach.start]).
  *   A wrong part in the hand ([ActionCoach.wrongPart]) never moves the phase and holds the automatic signals back.
@@ -95,6 +98,14 @@ class ActionCoach(private val cfg: Config = Config()) {
       val awayMs: Long = 2_000,
       /** On the step's last action the server's `step_complete` gets this long to say it first. */
       val awayLastMs: Long = 4_000,
+      /** No hand seen during the action: PLACE lasts at least this for a bolt, a screw, a cam… */
+      val noHandsTurnMs: Long = 9_000,
+      /** … this for what is pushed in (a dowel, a pin, a peg)… */
+      val noHandsPushMs: Long = 6_000,
+      /** … and this for a board, and for an action with nothing to take (a fastener already in its part, a turn). */
+      val noHandsBoardMs: Long = 12_000,
+      /** No hand seen: the part taken must not have been back where it lay for this long. */
+      val noHandsGoneMs: Long = 4_000,
   )
 
   var step = 0
@@ -114,7 +125,10 @@ class ActionCoach(private val cfg: Config = Config()) {
   var lastOfStep = false
     private set
 
-  /** What the last change made by [tick] saw: `grab`, `moved`, `gone`, `held`, `away`, `next_pick` (for the log). */
+  /**
+   * What the last change saw (for the log): from [tick] `grab`, `moved`, `gone`, `held`, `away`, `next_pick`,
+   * `no_hands`; from [rightPart] `grab_rect` when the device itself saw the board lifted.
+   */
   var how: String? = null
     private set
 
@@ -128,12 +142,25 @@ class ActionCoach(private val cfg: Config = Config()) {
   private var wrongAtMs = FAR_PAST
   private val rest = LinkedHashMap<Int, Vec3>() // where each instance lay when it was first seen
   private var leftSinceMs: Long? = null
+  private var handSeen = false // a hand was tracked at some time during this action
+  private var noHandsMinMs = 0L // no hand seen: how long PLACE must last for this action
+  private var backAtMs = FAR_PAST // no hand seen: when every instance was last where it lay (nothing taken, or put back)
 
   /**
    * The action shown now: PICK when it has a part to take ([kind] place / fasten and [ids] not empty), else PLACE.
    * Called for every step or action change, and again for Back and Repeat, which is how those restart at PICK.
    */
-  fun start(step: Int, action: Int, kind: ActionKind?, ids: Collection<String>, lastOfStep: Boolean, nowMs: Long, why: String): CoachChange {
+  fun start(
+      step: Int,
+      action: Int,
+      kind: ActionKind?,
+      ids: Collection<String>,
+      lastOfStep: Boolean,
+      nowMs: Long,
+      why: String,
+      /** Manifest `hardware[].kind` of the fastener (bolt, cam, dowel…), for [noHandsMs]; null for a board. */
+      hardwareKind: String? = null,
+  ): CoachChange {
     val from = if (started) phase else null
     started = true
     this.step = step
@@ -150,14 +177,20 @@ class ActionCoach(private val cfg: Config = Config()) {
     awayMs = 0
     leftAtMs = null
     how = null
+    handSeen = false
+    backAtMs = FAR_PAST
+    noHandsMinMs = noHandsMs(kind, hardwareKind, hasPick, cfg)
     return CoachChange(step, action, from, phase, why)
   }
 
-  /** The server saw the right part in the hand (`right_part`, `right_hardware`, a `show_part_result` that matched). */
-  fun rightPart(nowMs: Long, id: String? = null): CoachChange? {
+  /**
+   * The right part is in the hand: the server saw it (`right_part`, `right_hardware`, a `show_part_result` that
+   * matched), or the device did ([how] `grab_rect`: the hand lifted the board's own rectangle, ui/GrabJudge.kt).
+   */
+  fun rightPart(nowMs: Long, id: String? = null, how: String? = null): CoachChange? {
     if (phase != CoachPhase.PICK || !settled(nowMs) || !mine(id)) return null
     wrongAtMs = FAR_PAST // the wrong part was put down
-    return move(CoachPhase.PLACE, "right_part", nowMs)
+    return move(CoachPhase.PLACE, "right_part", nowMs, how)
   }
 
   /** The server saw a wrong part in the hand: the phase stays, and `part_moved` / `timer` wait [Config.wrongMs]. */
@@ -202,11 +235,12 @@ class ActionCoach(private val cfg: Config = Config()) {
    * Every frame while guiding. In PICK: `part_moved` when a pick target of the item has moved more than
    * [Config.movedM] from where it lay, or is gone, while a hand is closed or near it; with no hand data, when it
    * has been gone for [Config.vanishMs] while the wearer faces the spot. `timer` when a hand has been closed for
-   * [Config.holdMs] in this phase.
+   * [Config.holdMs] in this phase. In PLACE: see [placed], and [noHands] while no hand has been seen in this action.
    */
   fun tick(nowMs: Long, sight: PickSight): CoachChange? {
     val dt = (nowMs - tickMs).coerceIn(0L, 100L) // a gap between ticks is not time spent at the target
     tickMs = nowMs
+    if (sight.tracked || sight.hand != null || sight.holding) handSeen = true
     if (phase == CoachPhase.PLACE) return placed(nowMs, dt, sight)
     if (phase != CoachPhase.PICK) return null
     for (s in sight.spots) if (s.key !in rest && rest.values.none { (it - s.pos).length() < cfg.sameM }) rest[s.key] = s.pos
@@ -245,6 +279,7 @@ class ActionCoach(private val cfg: Config = Config()) {
    * Frames without a tracked hand count for nothing (a hand hidden behind the furniture has not left it).
    */
   private fun placed(nowMs: Long, dt: Long, sight: PickSight): CoachChange? {
+    if (!handSeen) return noHands(nowMs, sight)
     if (sight.atTarget) {
       dwellMs += dt
       awayMs = 0
@@ -261,6 +296,19 @@ class ActionCoach(private val cfg: Config = Config()) {
     if (sight.holding && sight.holdingSinceMs > leftAt && hand != null && sight.nextSpots.any { (hand - it).length() < cfg.nearM })
         return move(CoachPhase.DONE, "placed", nowMs, "next_pick")
     return null
+  }
+
+  /**
+   * PLACE with no hand seen at all during this action (the headset gives no hands: nothing can show the work being
+   * done): `timer`, how `no_hands`, once the phase has lasted [noHandsMs] and, for an item that was taken, no
+   * instance of it has been back where it lay for [Config.noHandsGoneMs] (every instance where it lay = nothing was
+   * taken, or it was put back). Never within [Config.wrongMs] of a wrong verdict. A hand seen once switches this
+   * off for the action ([placed] decides then); Back and Repeat start it again ([start]).
+   */
+  private fun noHands(nowMs: Long, sight: PickSight): CoachChange? {
+    if (rest.isNotEmpty() && rest.values.all { at -> sight.spots.any { (it.pos - at).length() < cfg.sameM } }) backAtMs = nowMs
+    if (nowMs - sinceMs < noHandsMinMs || nowMs - maxOf(backAtMs, sinceMs) < cfg.noHandsGoneMs || wrongFresh(nowMs)) return null
+    return move(CoachPhase.DONE, "timer", nowMs, "no_hands")
   }
 
   private fun mine(id: String?) = id == null || wanted.isEmpty() || id in wanted
@@ -281,6 +329,21 @@ class ActionCoach(private val cfg: Config = Config()) {
 
   companion object {
     private const val FAR_PAST = Long.MIN_VALUE / 2
+
+    /** Hardware that is pushed in, not turned (the same kinds as `Guidance.PUSH_KINDS`). */
+    private val PUSHED = setOf("dowel", "pin", "nail", "plug", "peg", "cap", "rivet")
+
+    /**
+     * With no hand seen: how long PLACE must have lasted before it may end by itself. A board 12 s; what is turned
+     * in (bolt, screw, cam) 9 s; what is pushed in (dowel, pin, peg) 6 s; an action with nothing to take (a fastener
+     * already in its part, a turn) 12 s.
+     */
+    fun noHandsMs(kind: ActionKind?, hardwareKind: String?, hasPick: Boolean, cfg: Config = Config()): Long =
+        when {
+          !hasPick || kind != ActionKind.FASTEN -> cfg.noHandsBoardMs
+          hardwareKind?.lowercase() in PUSHED -> cfg.noHandsPushMs
+          else -> cfg.noHandsTurnMs
+        }
   }
 }
 
