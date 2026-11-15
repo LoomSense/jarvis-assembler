@@ -269,3 +269,13 @@ html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webk
   #landing .how .flow .ico, #landing .how .flow .arr .dash { animation: none; }
   html:has(#landing) { scroll-behavior: auto; }
 }
+
+/* No status pills and no dots (Sun 15 Nov): a guide's state is a plain word in its status colour, a guide being
+   built shows the cube mark, and the hero has no star field. */
+#landing .state { font-size: var(--ag-text-small); font-weight: 500; }
+#landing .state.ok { color: var(--ag-success); }
+#landing .state.run { color: var(--ag-info); }
+#landing .state.ask { color: var(--ag-unsure); }
+#landing .state.bad { color: var(--ag-error); }
+#landing .wait { color: var(--ag-text-meta); opacity: 0.55; }
+#landing .wait svg { width: 44px; height: 44px; stroke-width: 1.3; }

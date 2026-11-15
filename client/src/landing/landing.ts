@@ -1,6 +1,5 @@
 import '../styles/landing.css'
 import { themeButton } from '../theme'
-import { mountStars } from './stars'
 import { appLink } from '../routes'
 import { bw } from '../build/words'
 import { apiFetch, fileUrl } from '../api'
@@ -93,7 +92,7 @@ export function startLanding(app: HTMLElement): void {
 
     <main>
       <section class="hero">
-        <p class="eyebrow"><i></i>${w.eyebrow}</p>
+        <p class="eyebrow">${w.eyebrow}</p>
         <h1>${w.h1}</h1>
         <div class="boxes" id="boxes" role="group" aria-label="${w.boxes}">${BOX(1, 'MARKUS')}${BOX(2, 'KNAGGLIG')}${BOX(3, 'LACK')}<i class="floor"></i></div>
         <p class="lead">${w.lead}</p>
@@ -130,7 +129,6 @@ export function startLanding(app: HTMLElement): void {
 
   const $ = <T extends HTMLElement>(sel: string) => app.querySelector<T>(sel)!
   $('.bar nav').insertBefore(themeButton(), $('.lang'))
-  mountStars($('.hero'))
 
   const list = $('#list')
   const hint = $('#hint')
@@ -199,10 +197,10 @@ export function startLanding(app: HTMLElement): void {
         const a = document.createElement('a')
         a.className = 'card'
         a.href = s.open
-        const pic = j.status === 'done' ? `<img src="${esc(fileUrl(j.job_id, 'renders/cover.png', key))}" alt="" loading="lazy" />` : `<span class="spin" aria-hidden="true"></span>`
+        const pic = j.status === 'done' ? `<img src="${esc(fileUrl(j.job_id, 'renders/cover.png', key))}" alt="" loading="lazy" />` : `<span class="wait" aria-hidden="true">${svg(ICON.mark)}</span>`
         a.innerHTML = `<div class="pic ${s.cls}">${pic}</div>
           <div class="meta"><h3>${esc(name(j))}</h3>
-          <p><span class="chip ${s.cls}"><i></i>${s.word}</span><span class="go">${s.action}${svg(ICON.arrow)}</span></p></div>`
+          <p><span class="state ${s.cls}">${s.word}</span><span class="go">${s.action}${svg(ICON.arrow)}</span></p></div>`
         a.querySelector('img')?.addEventListener('error', (e) => (e.target as HTMLElement).remove())
         return a
       }),
