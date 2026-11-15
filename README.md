@@ -52,4 +52,23 @@ The headset app → ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=f
 
 ## For other agents
 
-Any agent can use it through an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file. For example, a furniture shop's customer-support agent gets "I am stuck on step 4 of my wardrobe", finds that product's guide, and answers with the exact step in 3D and how to undo the mistake, with no person on the line.
+Any agent can use it through an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file. For example, a furniture shop's customer-support agent gets "I am stuck on step 3 of my box", asks the guide, and answers with the exact step and the part to pick up, with no person on the line.
+
+The support agent calls one tool:
+
+```json
+{ "tool": "ask_guide", "job_id": "1115-1432-ef587a", "step": 3, "question": "What do I do in this step?" }
+```
+
+and gets back an answer it can say, the part to light up in the 3D view, and the page of the guide it came from:
+
+```json
+{
+  "answer": "Turn the assembly upside down. Then place the second side panel against the open end of the bottom panel, as shown on page 4.",
+  "actions": [{ "type": "highlight_part", "part_id": "side_panel" }],
+  "undo": null,
+  "cites": { "page": 4, "step": 3 },
+  "latency_ms": 4116,
+  "model": "gemini-4-hydrogen"
+}
+```
