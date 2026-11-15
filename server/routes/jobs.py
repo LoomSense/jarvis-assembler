@@ -5,7 +5,7 @@ import json
 import mimetypes
 import re
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -47,7 +47,9 @@ def summary(job: Job, request: Request) -> dict:
 
 
 @router.post("/api/jobs")
-async def create_job(request: Request, file: UploadFile = File(...)) -> dict:
+async def create_job(request: Request, file: UploadFile = File(...), size: str | None = Form(None)) -> dict:
+    """`size`: optional overall size typed by the person, e.g. "62 x 60 x 135 cm". Guides print no dimensions, so this
+    is what gives the model its true scale (needed for the headset); without it every size is an estimate."""
     limit = request.app.state.settings.max_upload_mb * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -55,6 +57,12 @@ async def create_job(request: Request, file: UploadFile = File(...)) -> dict:
     if b"%PDF-" not in data[:1024]:
         raise HTTPException(415, "The guide must be a PDF file")
     job = request.app.state.store.create(data, file.filename or "guide.pdf")
+    size = (size or "").strip()[:120]
+    if size:
+        (job.dir / "facts.txt").write_text(
+            f"- The person who uploaded the guide gave the product's overall size: {size}. "
+            "Use it as the true scale; it overrides any size you would estimate.\n", encoding="utf-8")
+        job.set_status(size=size)
     request.app.state.orch.start(job)
     return {"job_id": job.id, "stage": "ingesting"}
 

@@ -9,6 +9,7 @@ The PDFs are copyrighted by their manufacturers (IKEA, Sauder, Teknik). Use them
 | Role | Guide | Why |
 |---|---|---|
 | **Golden guide (phase 1)** | `ikea/knagglig-box__AA-1159337-7.pdf` | 8 clear numbered steps, all parts are boards or slats (ideal for CadQuery), only 2 hardware types (4× and 24× screws), single product on every page. Cheap to buy, so it can also be the physical product for phase 2. |
+| `ikea/markus-office-chair__AA-251870-22.pdf` | MARKUS office chair | IKEA | 16 | [ikea.com/us](https://www.ikea.com/us/en/assembly_instructions/markus-office-chair-vissle-dark-gray__AA-251870-22-100.pdf) |
 | **Smoke test** | `ikea/lack-side-table__AA-2606170-1.pdf` | Smallest possible case: a top, 4 legs, 4 screws, 4 pages. Also in the IKEA-Manual dataset with ground-truth 3D parts (see below). |
 | **Stretch guide with ground truth** | `ikea/bekvaem-step-stool__AA-498351-9.pdf` | 6 steps, mixed shapes (treads, angled legs, a brace bar), left/right mirrored parts ("L" and "R" callouts), which tests orientation checks. Ground truth in the dataset as `Chair/bekvam_3017`. |
 | **Hard case** | `ikea/kallax-shelf-unit__AA-2326605-1.pdf` | 24 pages, dowels and cam locks, multi-language warnings. Tests plan extraction at scale. |

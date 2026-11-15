@@ -41,7 +41,7 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 
 | Method | Path | Request → Response |
 |---|---|---|
-| POST | `/api/jobs` | multipart `file=guide.pdf` → `{job_id, stage: "ingesting"}` |
+| POST | `/api/jobs` | multipart `file=guide.pdf`, optional `size` ("62 x 60 x 135 cm") → `{job_id, stage: "ingesting"}` |
 | GET | `/api/jobs` | → `{jobs: [...]}`, newest first |
 | GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title}` |
 | GET | `/api/jobs/{id}/events` | SSE stream of events; resumes from `Last-Event-ID` or `?since=<seq>` |
