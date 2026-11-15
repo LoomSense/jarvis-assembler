@@ -108,7 +108,9 @@ class PickMarkers(private val registerMesh: (String, () -> SceneMesh) -> Unit) {
       if (markers.isEmpty()) create()
       timeS += dtS
       // the action's own items first; a target keeps its marker while its track lives (no hopping between parts)
-      val live = targets.filter { PickCue.opacity(it) > 0f }.sortedWith(compareBy({ !it.current }, { -it.confidence })).take(MAX)
+      // FLAT-PARTS: a target on a recognised rectangle has its own cue (the outline on the part, FlatPartOutline): no ring,
+      // no chevron, and none for the server's boxes of that part while the rectangle stands in for them
+      val live = targets.filter { it.method != FlatParts.METHOD && !it.shadowed && PickCue.opacity(it) > 0f }.sortedWith(compareBy({ !it.current }, { -it.confidence })).take(MAX)
       val slots = PickCue.assign(live.map { it.key }, slotKeys)
       for ((i, m) in markers.withIndex()) {
         val t = slots[i]?.let { live[it] }
