@@ -174,6 +174,9 @@ class WorldModule(
    * the loose parts' pick markers.
    */
   @Volatile var flowFollowsBase = false
+
+  /** True while the panel detector has a target for the step shown (set by MainActivity): then it places the ghost. */
+  @Volatile var panelPlaces: () -> Boolean = { false }
   private val partYs = ArrayDeque<Float>()
 
   /** WORLD height of the work surface: the scene's table, else the height at the part, else the steady gaze probe. */
@@ -443,7 +446,10 @@ class WorldModule(
       }
     }
     baseBoxOk = ok // only a box that passed these gates may move the ghost through the flow track too
-    val applied = if (ok) anchor.onServerBox(bp!!.worldFromTable) else false
+    // While the on-device detector has a target for this step it places the ghost; the server's box only gives the
+    // surface height above. (14:11 device run: the box for the front sat on another board 1 m away and held the
+    // ghost there for 30 s, until the detector locked on the real front.)
+    val applied = if (ok && !panelPlaces()) anchor.onServerBox(bp!!.worldFromTable) else false
     Agq.log.event(
         "place_candidate",
         mapOf("source" to "server_box", "part" to found.id, "confidence" to found.confidence, "box_2d" to found.box_2d,

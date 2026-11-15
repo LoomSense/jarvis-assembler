@@ -266,6 +266,7 @@ class MainActivity : AppSystemActivity() {
               it.onRects = { r, worldFromTable -> world.onRects(r, worldFromTable) } // FLAT-PARTS
             }
     world.reducedMotion = params.reducedMotion // FLAT-PARTS: no pulse on the part outline
+    world.panelPlaces = { panel?.active == true }
     dump = FrameDump(this, params) // `--ez dump_frames true` records camera frames with their pose (tools/markerless/eval_real.py)
     pickMarkers =
         PickMarkers { uri, make ->
