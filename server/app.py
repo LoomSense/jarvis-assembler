@@ -26,6 +26,7 @@ from server.routes import diag as diag_routes
 from server.routes import identify as identify_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
+from server.routes import panel as panel_routes
 from server.routes import tts as tts_routes
 from server.routes import voice as voice_routes
 from server.settings import ROOT, Settings
@@ -150,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(voice_routes.router)             # POST /api/voice/{id}: hands-free commands and questions
     app.include_router(identify_routes.router)          # POST /api/identify: which product the camera sees
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
+    app.include_router(panel_routes.router)            # POST /api/perception/{id}/panel: drawer front on the table
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)
         app.include_router(importlib.import_module("server.perception.routes").router)
     except ModuleNotFoundError as e:

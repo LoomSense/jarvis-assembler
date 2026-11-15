@@ -7,7 +7,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 202.2317499977362,
+"ms": 186.8440409998584,
 "t_mm": 3.2983356734744773,
 "yaw_deg": 0.21554670805796658
 },
@@ -18,7 +18,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 28.712040999380406,
+"ms": 17.38012499845354,
 "t_mm": 13.02132432213456,
 "yaw_deg": 0.2622181941952553
 },
@@ -29,7 +29,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 25.76049999697716,
+"ms": 9.627040999475867,
 "t_mm": 16.054873129002168,
 "yaw_deg": 0.010921874252146196
 },
@@ -40,7 +40,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 34.43279099883512,
+"ms": 8.914707999792881,
 "t_mm": 16.551234107821593,
 "yaw_deg": 0.43375839520012555
 },
@@ -51,7 +51,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.628375000233063,
+"ms": 9.108665999519872,
 "t_mm": 3.5762129465041674,
 "yaw_deg": 0.077775765848231
 },
@@ -62,7 +62,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 34.18312500070897,
+"ms": 9.452624999539694,
 "t_mm": 4.431349797245173,
 "yaw_deg": 0.01090821387380617
 },
@@ -73,7 +73,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.451874998689163,
+"ms": 9.131041999353329,
 "t_mm": 17.012475739808124,
 "yaw_deg": 0.09618312566141536
 },
@@ -84,7 +84,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.839208001125371,
+"ms": 12.607459000719246,
 "t_mm": 11.637266391758384,
 "yaw_deg": 0.2433463815185101
 },
@@ -95,7 +95,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 22.67970899993088,
+"ms": 8.886125000572065,
 "t_mm": 10.57107462030787,
 "yaw_deg": 0.2433463815185101
 },
@@ -106,7 +106,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 31.69854100269731,
+"ms": 9.311499998148065,
 "t_mm": 4.575339481514818,
 "yaw_deg": 0.14648666535996765
 },
@@ -117,7 +117,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 37.32145799949649,
+"ms": 10.663208999176277,
 "t_mm": 3.8218110718353864,
 "yaw_deg": 0.4067381668435551
 },
@@ -128,7 +128,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 9.562707997247344,
+"ms": 17.539083997689886,
 "t_mm": 0.41452555794755563,
 "yaw_deg": 0.01090821387380617
 },
@@ -139,7 +139,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 40.69129199706367,
+"ms": 15.60925000012503,
 "t_mm": 1.6649044568772553,
 "yaw_deg": 0.0810466229220755
 },
@@ -150,7 +150,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 19.789124999078922,
+"ms": 17.5874999986263,
 "t_mm": 6.348894256515832,
 "yaw_deg": 0.06715401815026956
 },
@@ -161,7 +161,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 26.511500000196975,
+"ms": 17.42316699892399,
 "t_mm": 3.0016210712815163,
 "yaw_deg": 0.14964301629510518
 },
@@ -172,7 +172,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 25.021042001753813,
+"ms": 15.070416000526166,
 "t_mm": 7.9581864431934095,
 "yaw_deg": 0.010915044062976182
 },
@@ -183,7 +183,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.933459002553718,
+"ms": 24.110542002745206,
 "t_mm": 2.98860399822785,
 "yaw_deg": 0.22711785205055982
 },
@@ -194,7 +194,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 44.610916997044114,
+"ms": 8.54099999924074,
 "t_mm": 2.9125292217343364,
 "yaw_deg": 0.3108832920315962
 },
@@ -205,7 +205,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.564707999146776,
+"ms": 8.209708001231775,
 "t_mm": 3.807150584679854,
 "yaw_deg": 0.35033446467758983
 },
@@ -216,7 +216,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 31.4695839988417,
+"ms": 7.943958000396378,
 "t_mm": 6.172798012230763,
 "yaw_deg": 0.10114184299884463
 },
@@ -227,7 +227,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.091250000608852,
+"ms": 8.765165999648161,
 "t_mm": 8.790760035232772,
 "yaw_deg": 0.07128628259812728
 },
@@ -238,7 +238,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 35.97862500100746,
+"ms": 8.544791002350394,
 "t_mm": 6.189261072283255,
 "yaw_deg": 0.5347555989185125
 },
@@ -249,7 +249,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 15.766583997901762,
+"ms": 8.687708002980798,
 "t_mm": 13.124615229690864,
 "yaw_deg": 0.2155535382471366
 },
@@ -260,7 +260,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 21.80045900240657,
+"ms": 8.485583999572555,
 "t_mm": 7.715398337457282,
 "yaw_deg": 0.19542497076310902
 },
@@ -271,7 +271,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 32.95441699810908,
+"ms": 8.342958997673122,
 "t_mm": 7.461604281119846,
 "yaw_deg": 0.1256750789589388
 },
@@ -282,7 +282,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 18.663291000848403,
+"ms": 9.461041998292785,
 "t_mm": 1.7909441067447134,
 "yaw_deg": 0.07776210546989097
 },
@@ -293,7 +293,7 @@
 "hand": true,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 17.209707999427337,
+"ms": 7.90779199815006,
 "t_mm": 3.7017486215261726,
 "yaw_deg": 0.254335352354469
 },
@@ -304,7 +304,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 36.13637500166078,
+"ms": 13.492750000295928,
 "t_mm": 12.48331838335699,
 "yaw_deg": 0.9424777147718453
 },
@@ -315,7 +315,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 36.375374998897314,
+"ms": 13.007292000111192,
 "t_mm": 26.376899879227793,
 "yaw_deg": 9.473233723956032
 },
@@ -326,7 +326,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 16.084958999272203,
+"ms": 26.735250001365785,
 "t_mm": 7.805917175260765,
 "yaw_deg": 0.01090821387380617
 },
@@ -337,7 +337,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 14.339417000883259,
+"ms": 12.908124997920822,
 "t_mm": 4.1514453185425335,
 "yaw_deg": 0.24396113486467705
 },
@@ -348,7 +348,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 27.00225000080536,
+"ms": 10.642915996868396,
 "t_mm": 10.256240632937475,
 "yaw_deg": 0.33143790647929217
 },
@@ -359,7 +359,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 28.78387500095414,
+"ms": 9.988875000999542,
 "t_mm": 3.260004620140548,
 "yaw_deg": 0.1118413706545354
 },
@@ -370,7 +370,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 27.291124999464955,
+"ms": 10.397417001513531,
 "t_mm": 6.77844359751839,
 "yaw_deg": 0.3411649720377135
 },
@@ -381,7 +381,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 21.893291999731446,
+"ms": 10.836416000529425,
 "t_mm": 3.1244403689425195,
 "yaw_deg": 0.11184478574912039
 },
@@ -392,7 +392,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 17.406832997949095,
+"ms": 9.845332999248058,
 "t_mm": 7.648095862227136,
 "yaw_deg": 0.18770086667128202
 },
@@ -403,7 +403,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 32.391917000495596,
+"ms": 9.978750000300352,
 "t_mm": 1.9666598846997592,
 "yaw_deg": 0.04279069705996828
 },
@@ -414,7 +414,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 36.127292001765454,
+"ms": 9.944666999217588,
 "t_mm": 5.153770016240597,
 "yaw_deg": 0.06305674450771932
 },
@@ -425,7 +425,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 16.826833998493385,
+"ms": 10.191874996962724,
 "t_mm": 14.477235128000606,
 "yaw_deg": 0.1118482008437054
 },
@@ -436,7 +436,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 41.90300000118441,
+"ms": 8.734750001167413,
 "t_mm": 5.442382888017221,
 "yaw_deg": 0.06894436757227031
 },
@@ -447,7 +447,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 19.04395800011116,
+"ms": 8.804458997474285,
 "t_mm": 6.602036401951699,
 "yaw_deg": 0.3866403715316584
 },
@@ -458,7 +458,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 48.19279199728044,
+"ms": 9.187708998069866,
 "t_mm": 3.6863474384904955,
 "yaw_deg": 0.20822558512717032
 },
@@ -469,7 +469,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 11.013000003003981,
+"ms": 11.157624998304527,
 "t_mm": 6.285433236315267,
 "yaw_deg": 0.3581550675981202
 },
@@ -480,7 +480,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.944916998705594,
+"ms": 12.473374998080544,
 "t_mm": 4.934139077505596,
 "yaw_deg": 0.04467670545121501
 },
@@ -491,7 +491,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 36.64674999890849,
+"ms": 25.736917003087,
 "t_mm": 1.6406924933914095,
 "yaw_deg": 0.04468012054580001
 },
@@ -502,7 +502,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 45.98516700207256,
+"ms": 15.563624998321757,
 "t_mm": 3.3081313466010203,
 "yaw_deg": 0.11183454046536538
 },
@@ -513,7 +513,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 13.285041000926867,
+"ms": 21.19075000155135,
 "t_mm": 2.1150342732576015,
 "yaw_deg": 0.24396113486467705
 },
@@ -524,7 +524,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 30.75525000167545,
+"ms": 63.19629100107704,
 "t_mm": 3.8311387734349287,
 "yaw_deg": 0.06896739705404215
 },
@@ -535,7 +535,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 15.354375002061715,
+"ms": 19.096457999694394,
 "t_mm": 4.389522121388548,
 "yaw_deg": 0.09125859559070197
 },
@@ -546,7 +546,7 @@
 "hand": false,
 "trusted": false,
 "reason": "panel partly out of the camera view",
-"ms": 47.33516600026633,
+"ms": 22.02575000046636,
 "t_mm": 3.6738263959453312,
 "yaw_deg": 0.2268959072234002
 },
@@ -557,7 +557,7 @@
 "hand": false,
 "trusted": false,
 "reason": "panel partly out of the camera view",
-"ms": 28.04012499836972,
+"ms": 14.262541000789497,
 "t_mm": 3.6328394579760515,
 "yaw_deg": 0.04466304507287498
 },
@@ -568,7 +568,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 14.206750001903856,
+"ms": 10.477583997271722,
 "t_mm": 2.5032745686736506,
 "yaw_deg": 0.39283535310886
 },
@@ -579,7 +579,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 34.36083300039172,
+"ms": 11.266833000263432,
 "t_mm": 1.8752600618499047,
 "yaw_deg": 0.1399134481432878
 },
@@ -590,7 +590,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 45.19020799853024,
+"ms": 11.372041000868194,
 "t_mm": 5.482376928046672,
 "yaw_deg": 0.3732019743396583
 },
@@ -601,7 +601,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 52.31366699808859,
+"ms": 8.551540999178542,
 "t_mm": 3.659930373176954,
 "yaw_deg": 0.04467670545121501
 },
@@ -612,7 +612,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 19.054542000958463,
+"ms": 9.18495799851371,
 "t_mm": 7.464582306477967,
 "yaw_deg": 0.09727170097457499
 },
@@ -623,7 +623,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 11.915249997400679,
+"ms": 11.776999999710824,
 "t_mm": 3.006477504558835,
 "yaw_deg": 0.3866369564370734
 },
@@ -634,7 +634,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 42.63558399907197,
+"ms": 10.073959001601906,
 "t_mm": 8.37990448099702,
 "yaw_deg": 0.25453426769985676
 },
@@ -645,7 +645,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 35.33191599854035,
+"ms": 9.298459001001902,
 "t_mm": 4.449092739125877,
 "yaw_deg": 0.09726487078540498
 },
@@ -656,7 +656,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 23.158332998718834,
+"ms": 8.800291998340981,
 "t_mm": 3.5041442677425225,
 "yaw_deg": 0.012598722014250122
 },
@@ -667,7 +667,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 34.98741699877428,
+"ms": 8.755124999879627,
 "t_mm": 2.7922490694059032,
 "yaw_deg": 0.3182565243311869
 },
@@ -678,7 +678,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 29.798666000715457,
+"ms": 8.254250002210028,
 "t_mm": 4.43556532334503,
 "yaw_deg": 0.4903089895238081
 },
@@ -689,7 +689,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 19.472875002975343,
+"ms": 9.197040999424644,
 "t_mm": 12.599165681303306,
 "yaw_deg": 0.6868467931712094
 },
@@ -700,7 +700,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 61.84804100121255,
+"ms": 8.86658399758744,
 "t_mm": 10.131268194240159,
 "yaw_deg": 0.4903089895238081
 },
@@ -711,7 +711,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 47.118792001128895,
+"ms": 12.246041998878354,
 "t_mm": 9.401590728176316,
 "yaw_deg": 0.34882073114727846
 },
@@ -722,7 +722,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 32.768625002063345,
+"ms": 27.458000000478933,
 "t_mm": 10.756277022648586,
 "yaw_deg": 0.6004936012144537
 },
@@ -733,7 +733,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 25.54995799800963,
+"ms": 24.739208001847146,
 "t_mm": 4.554689747789749,
 "yaw_deg": 0.4419922313351379
 },
@@ -744,7 +744,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 11.174833998666145,
+"ms": 23.834750001697103,
 "t_mm": 1.7152001389889506,
 "yaw_deg": 0.11686156646419091
 },
@@ -755,7 +755,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 20.9846670004481,
+"ms": 17.09820799806039,
 "t_mm": 8.080703870251702,
 "yaw_deg": 0.2189455737992015
 },
@@ -766,7 +766,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 20.03379199959454,
+"ms": 22.884375001012813,
 "t_mm": 4.655126603457652,
 "yaw_deg": 0.3182565243311869
 },
@@ -777,7 +777,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 27.80358299787622,
+"ms": 29.277041998284403,
 "t_mm": 8.68757855214297,
 "yaw_deg": 0.3182565243311869
 },
@@ -788,7 +788,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 13.380082997173304,
+"ms": 16.670708002493484,
 "t_mm": 4.2002957065905075,
 "yaw_deg": 0.2828078425388207
 },
@@ -799,7 +799,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 24.403790997894248,
+"ms": 8.210292002331698,
 "t_mm": 2.2972553871492916,
 "yaw_deg": 0.8969784527063672
 },
@@ -810,7 +810,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 17.690499997115694,
+"ms": 11.399208000511862,
 "t_mm": 6.376347279896001,
 "yaw_deg": 0.15137362262054985
 },
@@ -821,7 +821,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 30.372208002518164,
+"ms": 12.117374997615116,
 "t_mm": 4.557908694549371,
 "yaw_deg": 0.6770873425669768
 },
@@ -832,7 +832,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 18.91720799903851,
+"ms": 11.700291997840395,
 "t_mm": 7.683163084128771,
 "yaw_deg": 0.2073811738146544
 },
@@ -843,7 +843,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 31.56124999804888,
+"ms": 9.495832997345133,
 "t_mm": 7.920835081498174,
 "yaw_deg": 0.011854238164414872
 },
@@ -854,7 +854,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 33.07108300214168,
+"ms": 10.030916000687284,
 "t_mm": 1.3735104175034254,
 "yaw_deg": 0.011867898542754897
 },
@@ -865,7 +865,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 29.1089579986874,
+"ms": 8.708500001375796,
 "t_mm": 5.45761606129626,
 "yaw_deg": 0.31824286395284684
 },
@@ -876,7 +876,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 21.30241700069746,
+"ms": 9.289457997510908,
 "t_mm": 6.462090719035593,
 "yaw_deg": 0.08055822130585764
 },
@@ -887,7 +887,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 37.95729099874734,
+"ms": 12.6139170024544,
 "t_mm": 2.1853620531509783,
 "yaw_deg": 0.10615777031506544
 },
@@ -898,7 +898,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.46204200066859,
+"ms": 8.414125000854256,
 "t_mm": 6.2866710375900485,
 "yaw_deg": 0.06950103475932248
 },
@@ -909,7 +909,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 32.13208300076076,
+"ms": 7.973125000717118,
 "t_mm": 1.6960678023948852,
 "yaw_deg": 0.3182565243311869
 },
@@ -920,7 +920,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.85191700037103,
+"ms": 8.835917000396876,
 "t_mm": 2.5336761083490233,
 "yaw_deg": 0.2235414013909046
 },
@@ -931,7 +931,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 32.29170800113934,
+"ms": 9.500374999333872,
 "t_mm": 5.751396241891026,
 "yaw_deg": 0.24977704771263903
 },
@@ -942,7 +942,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.70929200091632,
+"ms": 8.475832997646648,
 "t_mm": 3.114998786843113,
 "yaw_deg": 0.2235414013909046
 },
@@ -953,7 +953,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 32.56316700208117,
+"ms": 8.021041998290457,
 "t_mm": 10.607757508991297,
 "yaw_deg": 0.5142752336016674
 },
@@ -964,7 +964,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 17.707625000184635,
+"ms": 8.430333000433166,
 "t_mm": 9.306254561009192,
 "yaw_deg": 0.25277461103855914
 },
@@ -975,7 +975,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 29.961665997689124,
+"ms": 7.879749999119667,
 "t_mm": 4.966450356116968,
 "yaw_deg": 0.21721664621947276
 },
@@ -986,7 +986,7 @@
 "hand": false,
 "trusted": true,
 "reason": "ok",
-"ms": 27.08679200077313,
+"ms": 8.02441699852352,
 "t_mm": 3.0385532703988067,
 "yaw_deg": 0.5142615732233273
 },
@@ -997,7 +997,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 11.10283299931325
+"ms": 19.204207997972844
 },
 {
 "id": "s03_f001",
@@ -1006,7 +1006,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 26.356165999459336
+"ms": 14.617791999626206
 },
 {
 "id": "s03_f002",
@@ -1015,7 +1015,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 31.653124999138527
+"ms": 13.582209001469892
 },
 {
 "id": "s03_f003",
@@ -1024,7 +1024,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 41.91033299866831
+"ms": 21.842334001121344
 },
 {
 "id": "s03_f004",
@@ -1033,7 +1033,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 17.249000000447268
+"ms": 17.198790999827906
 },
 {
 "id": "s03_f005",
@@ -1042,7 +1042,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 16.759334001108073
+"ms": 19.656417000078363
 },
 {
 "id": "s03_f006",
@@ -1051,7 +1051,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 12.043124999763677
+"ms": 25.058457998966333
 },
 {
 "id": "s03_f007",
@@ -1060,7 +1060,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 19.23625000199536
+"ms": 21.519874997466104
 },
 {
 "id": "s03_f008",
@@ -1069,7 +1069,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 9.7366250010964
+"ms": 26.171166999120032
 },
 {
 "id": "s03_f009",
@@ -1078,7 +1078,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 16.941707999649225
+"ms": 8.516624999174383
 },
 {
 "id": "s03_f010",
@@ -1087,7 +1087,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 15.728624999610474
+"ms": 8.983542000351008
 },
 {
 "id": "s03_f011",
@@ -1096,7 +1096,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 11.287459001323441
+"ms": 9.519915998680517
 },
 {
 "id": "s03_f012",
@@ -1105,7 +1105,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 27.965458000835497
+"ms": 9.666375000961125
 },
 {
 "id": "s03_f013",
@@ -1114,7 +1114,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 17.562541001097998
+"ms": 9.235583998815855
 },
 {
 "id": "s03_f014",
@@ -1123,7 +1123,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.80420800120919
+"ms": 9.093458000279497
 },
 {
 "id": "s03_f015",
@@ -1132,7 +1132,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 11.676250000164146
+"ms": 13.362749999942025
 },
 {
 "id": "s03_f016",
@@ -1141,7 +1141,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 17.925000000104774
+"ms": 11.042958998586982
 },
 {
 "id": "s03_f017",
@@ -1150,7 +1150,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 24.837332999595674
+"ms": 8.790874999249354
 },
 {
 "id": "s03_f018",
@@ -1159,7 +1159,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 27.28158399986569
+"ms": 9.510624997346895
 },
 {
 "id": "s03_f019",
@@ -1168,7 +1168,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 19.320665996929165
+"ms": 9.135915999650024
 },
 {
 "id": "s03_f020",
@@ -1177,7 +1177,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.978625000163447
+"ms": 9.31970899910084
 },
 {
 "id": "s03_f021",
@@ -1186,7 +1186,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.854208001954248
+"ms": 8.164250000845641
 },
 {
 "id": "s03_f022",
@@ -1195,7 +1195,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.702415997424396
+"ms": 9.008374996483326
 },
 {
 "id": "s03_f023",
@@ -1204,7 +1204,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.61295900098048
+"ms": 9.839916001510574
 },
 {
 "id": "s03_f024",
@@ -1213,7 +1213,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.154208999680122
+"ms": 9.208540999679826
 },
 {
 "id": "s03_f025",
@@ -1222,7 +1222,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.628792001545662
+"ms": 32.07420800026739
 },
 {
 "id": "s03_f026",
@@ -1231,7 +1231,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.610083000268787
+"ms": 22.189250001247274
 },
 {
 "id": "s03_f027",
@@ -1240,7 +1240,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.62958299877937
+"ms": 18.894584001827752
 },
 {
 "id": "s03_f028",
@@ -1249,7 +1249,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 42.47708300317754
+"ms": 27.518834001966752
 },
 {
 "id": "s03_f029",
@@ -1258,7 +1258,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.829958002839703
+"ms": 36.693750000267755
 },
 {
 "id": "s04_f000",
@@ -1267,7 +1267,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.89937500024098
+"ms": 10.860958002012921
 },
 {
 "id": "s04_f001",
@@ -1276,7 +1276,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 15.837625000131084
+"ms": 17.54854199680267
 },
 {
 "id": "s04_f002",
@@ -1285,7 +1285,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.763041999889538
+"ms": 8.984250001958571
 },
 {
 "id": "s04_f003",
@@ -1294,7 +1294,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 9.15812500170432
+"ms": 9.138375000475207
 },
 {
 "id": "s04_f004",
@@ -1303,7 +1303,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.242082998564
+"ms": 9.804042001633206
 },
 {
 "id": "s04_f005",
@@ -1312,7 +1312,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 25.25495800000499
+"ms": 9.666833000665065
 },
 {
 "id": "s04_f006",
@@ -1321,7 +1321,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.847292001126334
+"ms": 9.340500000689644
 },
 {
 "id": "s04_f007",
@@ -1330,7 +1330,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.647332999738865
+"ms": 9.18404199910583
 },
 {
 "id": "s04_f008",
@@ -1339,7 +1339,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 33.56570899995859
+"ms": 9.472958001424558
 },
 {
 "id": "s04_f009",
@@ -1348,7 +1348,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 26.609417000145186
+"ms": 9.825542001635768
 },
 {
 "id": "s04_f010",
@@ -1357,7 +1357,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 36.25599999941187
+"ms": 8.750375000090571
 },
 {
 "id": "s04_f011",
@@ -1366,7 +1366,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 41.67724999933853
+"ms": 8.417083001404535
 },
 {
 "id": "s04_f012",
@@ -1375,7 +1375,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 23.857290998421377
+"ms": 11.854708998725982
 },
 {
 "id": "s04_f013",
@@ -1384,7 +1384,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.694458001031308
+"ms": 10.055249997094506
 },
 {
 "id": "s04_f014",
@@ -1393,7 +1393,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.6500419996446
+"ms": 11.043333997804439
 },
 {
 "id": "s04_f015",
@@ -1402,7 +1402,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 27.78220800246345
+"ms": 30.84662500259583
 },
 {
 "id": "s04_f016",
@@ -1411,7 +1411,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.717542000464164
+"ms": 23.80191699921852
 },
 {
 "id": "s04_f017",
@@ -1420,7 +1420,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 32.530709002458025
+"ms": 24.437416999717243
 },
 {
 "id": "s04_f018",
@@ -1429,7 +1429,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.382999998924788
+"ms": 39.04770900044241
 },
 {
 "id": "s04_f019",
@@ -1438,7 +1438,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.46862500012503
+"ms": 23.33883399842307
 },
 {
 "id": "s04_f020",
@@ -1447,7 +1447,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.4019169973908
+"ms": 26.056209000671515
 },
 {
 "id": "s04_f021",
@@ -1456,7 +1456,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 28.712957999232458
+"ms": 32.039708999946015
 },
 {
 "id": "s04_f022",
@@ -1465,7 +1465,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.681459001934854
+"ms": 18.594665998534765
 },
 {
 "id": "s04_f023",
@@ -1474,7 +1474,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.574958998622606
+"ms": 34.258374998898944
 },
 {
 "id": "s04_f024",
@@ -1483,7 +1483,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.96787499936181
+"ms": 19.040167000639485
 },
 {
 "id": "s04_f025",
@@ -1492,7 +1492,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.119083001394756
+"ms": 9.317041000031168
 },
 {
 "id": "s04_f026",
@@ -1501,7 +1501,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 9.33604099918739
+"ms": 9.052207999047823
 },
 {
 "id": "s04_f027",
@@ -1510,7 +1510,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.91974999953527
+"ms": 8.844625001074746
 },
 {
 "id": "s04_f028",
@@ -1519,7 +1519,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.200166999420617
+"ms": 7.824666001397418
 },
 {
 "id": "s04_f029",
@@ -1528,7 +1528,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.93275000070571
+"ms": 8.57466700108489
 },
 {
 "id": "s05_f000",
@@ -1537,7 +1537,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.424708002479747
+"ms": 10.326833002181957
 },
 {
 "id": "s05_f001",
@@ -1546,7 +1546,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.84183299849974
+"ms": 9.490166001342004
 },
 {
 "id": "s05_f002",
@@ -1555,7 +1555,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.621167000674177
+"ms": 9.805917001358466
 },
 {
 "id": "s05_f003",
@@ -1564,7 +1564,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.838624997239094
+"ms": 10.9670419988106
 },
 {
 "id": "s05_f004",
@@ -1573,7 +1573,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 31.670041000325
+"ms": 9.466749997955048
 },
 {
 "id": "s05_f005",
@@ -1582,7 +1582,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.285833000030834
+"ms": 9.039459000632633
 },
 {
 "id": "s05_f006",
@@ -1591,7 +1591,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.3962919988262
+"ms": 10.371459000452887
 },
 {
 "id": "s05_f007",
@@ -1600,7 +1600,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 36.845624999841675
+"ms": 9.711874998174608
 },
 {
 "id": "s05_f008",
@@ -1609,7 +1609,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.94462500140071
+"ms": 8.677542002260452
 },
 {
 "id": "s05_f009",
@@ -1618,7 +1618,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.663624999229796
+"ms": 9.916292001435068
 },
 {
 "id": "s05_f010",
@@ -1627,7 +1627,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.0913340007246
+"ms": 9.28225000097882
 },
 {
 "id": "s05_f011",
@@ -1636,7 +1636,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 23.24975000010454
+"ms": 9.385833000123966
 },
 {
 "id": "s05_f012",
@@ -1645,7 +1645,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 18.598208000184968
+"ms": 9.108957998250844
 },
 {
 "id": "s05_f013",
@@ -1654,7 +1654,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 14.407708000362618
+"ms": 8.685458000400104
 },
 {
 "id": "s05_f014",
@@ -1663,7 +1663,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 23.86516600017785
+"ms": 8.536500001355307
 },
 {
 "id": "s05_f015",
@@ -1672,7 +1672,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 23.14937499977532
+"ms": 9.730791000038153
 },
 {
 "id": "s05_f016",
@@ -1681,7 +1681,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 22.259707999182865
+"ms": 12.590750000526896
 },
 {
 "id": "s05_f017",
@@ -1690,7 +1690,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 22.699249999277527
+"ms": 30.675207999593113
 },
 {
 "id": "s05_f018",
@@ -1699,7 +1699,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 21.408542001154274
+"ms": 11.76741699964623
 },
 {
 "id": "s05_f019",
@@ -1708,7 +1708,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 16.457249999803025
+"ms": 20.033374999911757
 },
 {
 "id": "s05_f020",
@@ -1717,7 +1717,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 16.941082998528145
+"ms": 18.220124999061227
 },
 {
 "id": "s05_f021",
@@ -1726,7 +1726,7 @@
 "hand": false,
 "trusted": false,
 "reason": "not a clean rectangle (hand or object over it)",
-"ms": 19.964000002801185
+"ms": 20.26141599708353
 },
 {
 "id": "s05_f022",
@@ -1735,7 +1735,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.935416999127483
+"ms": 16.515584000444505
 },
 {
 "id": "s05_f023",
@@ -1744,7 +1744,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 25.489083000138635
+"ms": 13.532249999116175
 },
 {
 "id": "s05_f024",
@@ -1753,7 +1753,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.604542000597576
+"ms": 27.78437500091968
 },
 {
 "id": "s05_f025",
@@ -1762,7 +1762,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.42308399945614
+"ms": 19.97937499982072
 },
 {
 "id": "s05_f026",
@@ -1771,7 +1771,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 54.78475000199978
+"ms": 22.484292003355222
 },
 {
 "id": "s05_f027",
@@ -1780,7 +1780,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.002875000500353
+"ms": 14.212999998562736
 },
 {
 "id": "s05_f028",
@@ -1789,7 +1789,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.260000000940636
+"ms": 25.4722909994598
 },
 {
 "id": "s05_f029",
@@ -1798,7 +1798,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.556707997864578
+"ms": 17.79375000114669
 },
 {
 "id": "s06_f000",
@@ -1807,7 +1807,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 16.829916999995476
+"ms": 12.244749999808846
 },
 {
 "id": "s06_f001",
@@ -1816,7 +1816,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 9.989874997700099
+"ms": 8.574915998906363
 },
 {
 "id": "s06_f002",
@@ -1825,7 +1825,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.86333300312981
+"ms": 9.134250001807231
 },
 {
 "id": "s06_f003",
@@ -1834,7 +1834,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.50175000031595
+"ms": 8.846207998431055
 },
 {
 "id": "s06_f004",
@@ -1843,7 +1843,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.770874998357613
+"ms": 7.654917000763817
 },
 {
 "id": "s06_f005",
@@ -1852,7 +1852,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.445125001249835
+"ms": 8.01379200129304
 },
 {
 "id": "s06_f006",
@@ -1861,7 +1861,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.891749997535953
+"ms": 8.593624999775784
 },
 {
 "id": "s06_f007",
@@ -1870,7 +1870,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.005249998765066
+"ms": 8.17237500086776
 },
 {
 "id": "s06_f008",
@@ -1879,7 +1879,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.895125002833083
+"ms": 8.247041998401983
 },
 {
 "id": "s06_f009",
@@ -1888,7 +1888,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.74195800095913
+"ms": 8.55795800089254
 },
 {
 "id": "s06_f010",
@@ -1897,7 +1897,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.46570799939218
+"ms": 9.171792000415735
 },
 {
 "id": "s06_f011",
@@ -1906,7 +1906,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.29133299665409
+"ms": 9.00562500100932
 },
 {
 "id": "s06_f012",
@@ -1915,7 +1915,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 27.245875000517117
+"ms": 7.954415999847697
 },
 {
 "id": "s06_f013",
@@ -1924,7 +1924,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.679833002242958
+"ms": 8.320584001921816
 },
 {
 "id": "s06_f014",
@@ -1933,7 +1933,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 10.65158299752511
+"ms": 8.074207999015925
 },
 {
 "id": "s06_f015",
@@ -1942,7 +1942,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.392250000237254
+"ms": 8.711750000657048
 },
 {
 "id": "s06_f016",
@@ -1951,7 +1951,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.68737499898998
+"ms": 9.302000002207933
 },
 {
 "id": "s06_f017",
@@ -1960,7 +1960,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 38.51554100037902
+"ms": 9.5911669995985
 },
 {
 "id": "s06_f018",
@@ -1969,7 +1969,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.171707998291822
+"ms": 9.346750000986503
 },
 {
 "id": "s06_f019",
@@ -1978,7 +1978,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.100792000448564
+"ms": 11.030541998479748
 },
 {
 "id": "s06_f020",
@@ -1987,7 +1987,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.816500000364613
+"ms": 8.584250001149485
 },
 {
 "id": "s06_f021",
@@ -1996,7 +1996,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 34.816584000509465
+"ms": 7.966166998812696
 },
 {
 "id": "s06_f022",
@@ -2005,7 +2005,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.795083000848535
+"ms": 7.435291998262983
 },
 {
 "id": "s06_f023",
@@ -2014,7 +2014,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.241041998408036
+"ms": 7.3698749984032474
 },
 {
 "id": "s06_f024",
@@ -2023,7 +2023,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.55858399963472
+"ms": 15.00829100041301
 },
 {
 "id": "s06_f025",
@@ -2032,7 +2032,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.377166997088352
+"ms": 8.933582997997291
 },
 {
 "id": "s06_f026",
@@ -2041,7 +2041,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 16.29233299900079
+"ms": 8.009500001207925
 },
 {
 "id": "s06_f027",
@@ -2050,7 +2050,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 16.60545800041291
+"ms": 15.220582998153986
 },
 {
 "id": "s06_f028",
@@ -2059,7 +2059,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 7.313582998904167
+"ms": 7.854457999201259
 },
 {
 "id": "s06_f029",
@@ -2068,7 +2068,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 14.128457998594968
+"ms": 6.248374997085193
 },
 {
 "id": "s07_f000",
@@ -2077,7 +2077,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.626415999780875
+"ms": 14.392500001122244
 },
 {
 "id": "s07_f001",
@@ -2086,7 +2086,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.711583998490823
+"ms": 8.898791998944944
 },
 {
 "id": "s07_f002",
@@ -2095,7 +2095,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.72245800163364
+"ms": 81.0866249994433
 },
 {
 "id": "s07_f003",
@@ -2104,7 +2104,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 33.55241700046463
+"ms": 66.11012499706703
 },
 {
 "id": "s07_f004",
@@ -2113,7 +2113,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.111959000321804
+"ms": 27.01833399987663
 },
 {
 "id": "s07_f005",
@@ -2122,7 +2122,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.274374997621635
+"ms": 11.58233400201425
 },
 {
 "id": "s07_f006",
@@ -2131,7 +2131,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.835917002230417
+"ms": 9.404207998159109
 },
 {
 "id": "s07_f007",
@@ -2140,7 +2140,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.453124997700797
+"ms": 12.217875002534129
 },
 {
 "id": "s07_f008",
@@ -2149,7 +2149,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.11100000143051
+"ms": 9.652790999098215
 },
 {
 "id": "s07_f009",
@@ -2158,7 +2158,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.985165999969468
+"ms": 9.910917000524933
 },
 {
 "id": "s07_f010",
@@ -2167,7 +2167,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 52.49175000062678
+"ms": 14.19625000198721
 },
 {
 "id": "s07_f011",
@@ -2176,7 +2176,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.55458399950294
+"ms": 11.13779200022691
 },
 {
 "id": "s07_f012",
@@ -2185,7 +2185,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 11.937999999645399
+"ms": 9.689708000223618
 },
 {
 "id": "s07_f013",
@@ -2194,7 +2194,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.38212500035297
+"ms": 9.420750000572298
 },
 {
 "id": "s07_f014",
@@ -2203,7 +2203,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.54062499923748
+"ms": 9.67504200161784
 },
 {
 "id": "s07_f015",
@@ -2212,7 +2212,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.010792001703521
+"ms": 9.559459002048243
 },
 {
 "id": "s07_f016",
@@ -2221,7 +2221,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.011000000318745
+"ms": 8.76004100064165
 },
 {
 "id": "s07_f017",
@@ -2230,7 +2230,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 11.25362500170013
+"ms": 7.515833996876609
 },
 {
 "id": "s07_f018",
@@ -2239,7 +2239,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 22.846291998575907
+"ms": 7.423541999742156
 },
 {
 "id": "s07_f019",
@@ -2248,7 +2248,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.072834001126466
+"ms": 9.975458000553772
 },
 {
 "id": "s07_f020",
@@ -2257,7 +2257,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.731790998164797
+"ms": 9.90237500082003
 },
 {
 "id": "s07_f021",
@@ -2266,7 +2266,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.720958000514656
+"ms": 10.246290999930352
 },
 {
 "id": "s07_f022",
@@ -2275,7 +2275,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.733333002368454
+"ms": 8.132541999657406
 },
 {
 "id": "s07_f023",
@@ -2284,7 +2284,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.814333000103943
+"ms": 8.484458001476014
 },
 {
 "id": "s07_f024",
@@ -2293,7 +2293,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 25.132165999821154
+"ms": 8.000124998943647
 },
 {
 "id": "s07_f025",
@@ -2302,7 +2302,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 31.71591699720011
+"ms": 8.540416998584988
 },
 {
 "id": "s07_f026",
@@ -2311,7 +2311,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.390958000556566
+"ms": 7.928250000986736
 },
 {
 "id": "s07_f027",
@@ -2320,7 +2320,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.019459002563963
+"ms": 9.700167000119109
 },
 {
 "id": "s07_f028",
@@ -2329,7 +2329,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.44841700201505
+"ms": 9.449542001675582
 },
 {
 "id": "s07_f029",
@@ -2338,7 +2338,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 18.128499999875203
+"ms": 14.826958999037743
 },
 {
 "id": "s08_f000",
@@ -2347,7 +2347,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.582334000209812
+"ms": 26.53266699780943
 },
 {
 "id": "s08_f001",
@@ -2356,7 +2356,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.752750001614913
+"ms": 10.010917001636699
 },
 {
 "id": "s08_f002",
@@ -2365,7 +2365,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.576582998619415
+"ms": 8.905292001145426
 },
 {
 "id": "s08_f003",
@@ -2374,7 +2374,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.32320800269372
+"ms": 10.119583999767201
 },
 {
 "id": "s08_f004",
@@ -2383,7 +2383,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 31.73412500109407
+"ms": 10.436458000185667
 },
 {
 "id": "s08_f005",
@@ -2392,7 +2392,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.167499999544816
+"ms": 20.29433299685479
 },
 {
 "id": "s08_f006",
@@ -2401,7 +2401,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.867999999813037
+"ms": 11.487249998026527
 },
 {
 "id": "s08_f007",
@@ -2410,7 +2410,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.380791997216875
+"ms": 11.878666999109555
 },
 {
 "id": "s08_f008",
@@ -2419,7 +2419,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 32.358249998651445
+"ms": 22.509958002046915
 },
 {
 "id": "s08_f009",
@@ -2428,7 +2428,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.971915998321492
+"ms": 15.626333999534836
 },
 {
 "id": "s08_f010",
@@ -2437,7 +2437,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.322958000178915
+"ms": 16.858708000654588
 },
 {
 "id": "s08_f011",
@@ -2446,7 +2446,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.970833000726998
+"ms": 19.971790999989025
 },
 {
 "id": "s08_f012",
@@ -2455,7 +2455,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 28.31187500123633
+"ms": 12.910958997963462
 },
 {
 "id": "s08_f013",
@@ -2464,7 +2464,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.11891599916271
+"ms": 32.17758300161222
 },
 {
 "id": "s08_f014",
@@ -2473,7 +2473,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.576166999380803
+"ms": 13.740083002630854
 },
 {
 "id": "s08_f015",
@@ -2482,7 +2482,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.73020799839287
+"ms": 17.698125000606524
 },
 {
 "id": "s08_f016",
@@ -2491,7 +2491,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.421041998110013
+"ms": 23.182500000984874
 },
 {
 "id": "s08_f017",
@@ -2500,7 +2500,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.08633299858775
+"ms": 19.506332999299048
 },
 {
 "id": "s08_f018",
@@ -2509,7 +2509,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.115667000529356
+"ms": 16.935625000769505
 },
 {
 "id": "s08_f019",
@@ -2518,7 +2518,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.17633299753652
+"ms": 20.374833002279047
 },
 {
 "id": "s08_f020",
@@ -2527,7 +2527,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.683249999507098
+"ms": 15.283249998901738
 },
 {
 "id": "s08_f021",
@@ -2536,7 +2536,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.26291699844296
+"ms": 18.300499999895692
 },
 {
 "id": "s08_f022",
@@ -2545,7 +2545,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.506209002429387
+"ms": 17.465791999711655
 },
 {
 "id": "s08_f023",
@@ -2554,7 +2554,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.39674999853014
+"ms": 15.599334001308307
 },
 {
 "id": "s08_f024",
@@ -2563,7 +2563,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.628040997195058
+"ms": 11.343999998643994
 },
 {
 "id": "s08_f025",
@@ -2572,7 +2572,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 27.93533300064155
+"ms": 19.47341699997196
 },
 {
 "id": "s08_f026",
@@ -2581,7 +2581,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.486209000111558
+"ms": 16.28795800206717
 },
 {
 "id": "s08_f027",
@@ -2590,7 +2590,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.865874999988591
+"ms": 16.740083003242034
 },
 {
 "id": "s08_f028",
@@ -2599,7 +2599,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.262833999964641
+"ms": 19.408915999520104
 },
 {
 "id": "s08_f029",
@@ -2608,7 +2608,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.70245799687109
+"ms": 10.968083002808271
 },
 {
 "id": "s09_f000",
@@ -2617,7 +2617,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 33.753166997485096
+"ms": 16.591334002441727
 },
 {
 "id": "s09_f001",
@@ -2626,7 +2626,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.58775000134483
+"ms": 18.568292001873488
 },
 {
 "id": "s09_f002",
@@ -2635,7 +2635,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.65429200147628
+"ms": 14.074042002903298
 },
 {
 "id": "s09_f003",
@@ -2644,7 +2644,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.772040999872843
+"ms": 14.801332999923034
 },
 {
 "id": "s09_f004",
@@ -2653,7 +2653,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.779374999809079
+"ms": 16.84574999671895
 },
 {
 "id": "s09_f005",
@@ -2662,7 +2662,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 9.59595799940871
+"ms": 18.876583999372087
 },
 {
 "id": "s09_f006",
@@ -2671,7 +2671,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 27.22850000282051
+"ms": 11.451500002294779
 },
 {
 "id": "s09_f007",
@@ -2680,7 +2680,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.28704099758761
+"ms": 29.07325000342098
 },
 {
 "id": "s09_f008",
@@ -2689,7 +2689,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.77566600200953
+"ms": 12.363665999146178
 },
 {
 "id": "s09_f009",
@@ -2698,7 +2698,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.138167000055546
+"ms": 11.537374997715233
 },
 {
 "id": "s09_f010",
@@ -2707,7 +2707,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.379291998717235
+"ms": 39.032500000757864
 },
 {
 "id": "s09_f011",
@@ -2716,7 +2716,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.867833998432616
+"ms": 25.665292003395734
 },
 {
 "id": "s09_f012",
@@ -2725,7 +2725,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.107083997572772
+"ms": 17.061083002772648
 },
 {
 "id": "s09_f013",
@@ -2734,7 +2734,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.90558399868314
+"ms": 31.02562500134809
 },
 {
 "id": "s09_f014",
@@ -2743,7 +2743,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.914208002679516
+"ms": 13.16716699875542
 },
 {
 "id": "s09_f015",
@@ -2752,7 +2752,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.588292000553338
+"ms": 27.404000000387896
 },
 {
 "id": "s09_f016",
@@ -2761,7 +2761,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.937958000198705
+"ms": 19.347041998116765
 },
 {
 "id": "s09_f017",
@@ -2770,7 +2770,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.08004200150026
+"ms": 15.664374997868435
 },
 {
 "id": "s09_f018",
@@ -2779,7 +2779,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.302916999236913
+"ms": 7.144540999433957
 },
 {
 "id": "s09_f019",
@@ -2788,7 +2788,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.36937500006752
+"ms": 11.805333000665996
 },
 {
 "id": "s09_f020",
@@ -2797,7 +2797,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.560208002483705
+"ms": 9.967083002266008
 },
 {
 "id": "s09_f021",
@@ -2806,7 +2806,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.384166999865556
+"ms": 16.974124999251217
 },
 {
 "id": "s09_f022",
@@ -2815,7 +2815,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.495084000576753
+"ms": 8.248250000178814
 },
 {
 "id": "s09_f023",
@@ -2824,7 +2824,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.64175000123214
+"ms": 12.709332997474121
 },
 {
 "id": "s09_f024",
@@ -2833,7 +2833,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.085000001941808
+"ms": 13.6165420008183
 },
 {
 "id": "s09_f025",
@@ -2842,7 +2842,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.638792000478134
+"ms": 15.862082997045945
 },
 {
 "id": "s09_f026",
@@ -2851,7 +2851,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 28.723415998683777
+"ms": 13.10649999868474
 },
 {
 "id": "s09_f027",
@@ -2860,7 +2860,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 10.09195799997542
+"ms": 17.64125000045169
 },
 {
 "id": "s09_f028",
@@ -2869,7 +2869,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 17.087208001612453
+"ms": 11.116292000224348
 },
 {
 "id": "s09_f029",
@@ -2878,7 +2878,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.459666001144797
+"ms": 11.137165998661658
 },
 {
 "id": "s10_f000",
@@ -2887,7 +2887,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.15437499762629
+"ms": 25.60941699994146
 },
 {
 "id": "s10_f001",
@@ -2896,7 +2896,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 28.221250002388842
+"ms": 19.863083001837367
 },
 {
 "id": "s10_f002",
@@ -2905,7 +2905,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.767709000210743
+"ms": 14.92550000330084
 },
 {
 "id": "s10_f003",
@@ -2914,7 +2914,7 @@
 "hand": false,
 "trusted": false,
 "reason": "no candidate",
-"ms": 17.065790998458397
+"ms": 12.400040999636985
 },
 {
 "id": "s10_f004",
@@ -2923,7 +2923,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 30.806582999503007
+"ms": 15.513708000071347
 },
 {
 "id": "s10_f005",
@@ -2932,7 +2932,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.58008300163783
+"ms": 15.412541000841884
 },
 {
 "id": "s10_f006",
@@ -2941,7 +2941,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.49287500124774
+"ms": 18.951583002490224
 },
 {
 "id": "s10_f007",
@@ -2950,7 +2950,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 9.692624997114763
+"ms": 13.642041001730831
 },
 {
 "id": "s10_f008",
@@ -2959,7 +2959,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.19262500066543
+"ms": 19.637790999695426
 },
 {
 "id": "s10_f009",
@@ -2968,7 +2968,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.56579199738917
+"ms": 24.26612499766634
 },
 {
 "id": "s10_f010",
@@ -2977,7 +2977,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 26.269792000675807
+"ms": 9.852125000179512
 },
 {
 "id": "s10_f011",
@@ -2986,7 +2986,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.303374998940853
+"ms": 17.656042000453454
 },
 {
 "id": "s10_f012",
@@ -2995,7 +2995,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.590250001376262
+"ms": 16.498708002472995
 },
 {
 "id": "s10_f013",
@@ -3004,7 +3004,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.095458998985123
+"ms": 19.664832998387283
 },
 {
 "id": "s10_f014",
@@ -3013,7 +3013,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.329540998209268
+"ms": 30.198417000065092
 },
 {
 "id": "s10_f015",
@@ -3022,7 +3022,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.992832999676466
+"ms": 21.26187499743537
 },
 {
 "id": "s10_f016",
@@ -3031,7 +3031,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.078292002319358
+"ms": 25.818582998908823
 },
 {
 "id": "s10_f017",
@@ -3040,7 +3040,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 26.501541000470752
+"ms": 14.098791001742939
 },
 {
 "id": "s10_f018",
@@ -3049,7 +3049,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.719790997944074
+"ms": 21.782542000437388
 },
 {
 "id": "s10_f019",
@@ -3058,7 +3058,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.04650000060792
+"ms": 12.280124999961117
 },
 {
 "id": "s10_f020",
@@ -3067,7 +3067,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.30654199855053
+"ms": 21.07120900109294
 },
 {
 "id": "s10_f021",
@@ -3076,7 +3076,7 @@
 "hand": true,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.019917001860449
+"ms": 13.641040997754317
 },
 {
 "id": "s10_f022",
@@ -3085,7 +3085,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.853875000175321
+"ms": 21.351082999899518
 },
 {
 "id": "s10_f023",
@@ -3094,7 +3094,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.879459002258955
+"ms": 16.120292002597125
 },
 {
 "id": "s10_f024",
@@ -3103,7 +3103,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.259458000102313
+"ms": 20.451707998290658
 },
 {
 "id": "s10_f025",
@@ -3112,7 +3112,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.44270800150116
+"ms": 19.300083000416635
 },
 {
 "id": "s10_f026",
@@ -3121,7 +3121,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.576833000115585
+"ms": 17.667541000264464
 },
 {
 "id": "s10_f027",
@@ -3130,7 +3130,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.477249999705236
+"ms": 22.03791699866997
 },
 {
 "id": "s10_f028",
@@ -3139,7 +3139,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 14.398625000467291
+"ms": 24.309000000357628
 },
 {
 "id": "s10_f029",
@@ -3148,7 +3148,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.305958997894777
+"ms": 26.0211659988272
 },
 {
 "id": "s11_f000",
@@ -3157,7 +3157,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.080250000115484
+"ms": 22.170500000356697
 },
 {
 "id": "s11_f001",
@@ -3166,7 +3166,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 25.65800000229501
+"ms": 23.172499997599516
 },
 {
 "id": "s11_f002",
@@ -3175,7 +3175,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.235917002428323
+"ms": 15.056333999382332
 },
 {
 "id": "s11_f003",
@@ -3184,7 +3184,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.64504199734074
+"ms": 23.87345800161711
 },
 {
 "id": "s11_f004",
@@ -3193,7 +3193,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 21.86908400108223
+"ms": 16.031082999688806
 },
 {
 "id": "s11_f005",
@@ -3202,7 +3202,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.61362500253017
+"ms": 18.904332999227336
 },
 {
 "id": "s11_f006",
@@ -3211,7 +3211,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 20.12687499882304
+"ms": 14.617500000895234
 },
 {
 "id": "s11_f007",
@@ -3220,7 +3220,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 24.847250002494548
+"ms": 21.716666997235734
 },
 {
 "id": "s11_f008",
@@ -3229,7 +3229,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.28362499974901
+"ms": 26.65312500175787
 },
 {
 "id": "s11_f009",
@@ -3238,7 +3238,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 28.51304200157756
+"ms": 24.704957999347243
 },
 {
 "id": "s11_f010",
@@ -3247,7 +3247,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 34.948290998727316
+"ms": 17.44404200144345
 },
 {
 "id": "s11_f011",
@@ -3256,7 +3256,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 16.056249998655403
+"ms": 23.030833999655442
 },
 {
 "id": "s11_f012",
@@ -3265,7 +3265,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.247415999212535
+"ms": 19.75937499810243
 },
 {
 "id": "s11_f013",
@@ -3274,7 +3274,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 31.080250002560206
+"ms": 12.215458002174273
 },
 {
 "id": "s11_f014",
@@ -3283,7 +3283,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 30.443333002040163
+"ms": 21.81558400116046
 },
 {
 "id": "s11_f015",
@@ -3292,7 +3292,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 30.034332998184254
+"ms": 21.571124998445157
 },
 {
 "id": "s11_f016",
@@ -3301,7 +3301,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 17.804041999625042
+"ms": 21.65854199847672
 },
 {
 "id": "s11_f017",
@@ -3310,7 +3310,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 30.281625000498025
+"ms": 15.595500000927132
 },
 {
 "id": "s11_f018",
@@ -3319,7 +3319,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.826083999447292
+"ms": 13.575084001786308
 },
 {
 "id": "s11_f019",
@@ -3328,7 +3328,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 13.706582998565864
+"ms": 21.511625000130152
 },
 {
 "id": "s11_f020",
@@ -3337,7 +3337,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 19.494791002216516
+"ms": 19.34208300008322
 },
 {
 "id": "s11_f021",
@@ -3346,7 +3346,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 22.917083002539584
+"ms": 20.723209003335796
 },
 {
 "id": "s11_f022",
@@ -3355,7 +3355,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 15.539750002062647
+"ms": 20.267250001779757
 },
 {
 "id": "s11_f023",
@@ -3364,7 +3364,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 8.53162500061444
+"ms": 20.029208997584647
 },
 {
 "id": "s11_f024",
@@ -3373,7 +3373,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 34.79604200038011
+"ms": 16.20908400218468
 },
 {
 "id": "s11_f025",
@@ -3382,7 +3382,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 18.912166000518482
+"ms": 22.51037499809172
 },
 {
 "id": "s11_f026",
@@ -3391,7 +3391,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 29.418750000331784
+"ms": 18.272708999575116
 },
 {
 "id": "s11_f027",
@@ -3400,7 +3400,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 12.677833998168353
+"ms": 14.077875002840301
 },
 {
 "id": "s11_f028",
@@ -3409,7 +3409,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 26.8839169984858
+"ms": 21.638332997099496
 },
 {
 "id": "s11_f029",
@@ -3418,7 +3418,7 @@
 "hand": false,
 "trusted": false,
 "reason": "size is not 380 x 130 mm",
-"ms": 23.630083000171
+"ms": 18.407040999591118
 }
 ]
 }
