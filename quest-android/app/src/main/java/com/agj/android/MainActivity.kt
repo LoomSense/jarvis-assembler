@@ -22,6 +22,7 @@ import com.agj.android.guide.SpatialGhostRenderer
 import com.agj.android.guide.StubGhostRenderer
 import com.agj.android.guide.facingPose
 import com.agj.android.guide.toPose3
+import com.agj.android.guide.toSdk
 import com.agj.android.net.HandSummary
 import com.agj.android.net.HttpServerApi
 import com.agj.android.net.OkHttpPerceptionSocket
@@ -144,7 +145,7 @@ class MainActivity : AppSystemActivity() {
   private var voiceCtl: VoiceController? = null
   private val drawings = HashMap<Int, ImageBitmap?>()
   private val wires = HashMap<String, FloatArray>()
-  private var lastRelocations = 0
+  private var lastRelocations = -1 // −1: the first placement beside the object is logged too (`window`)
   private val sounds by lazy { Sounds() }
   private var lostShown = false
   private var advancing = false
@@ -883,7 +884,7 @@ class MainActivity : AppSystemActivity() {
         // the facing is frozen while faded in/out so the window does not swing during a relocation
         if (follow.phase == WindowRelocator.Phase.FOLLOW || windowHead == null) windowHead = head.t
         windowPos = p
-        e.setComponent(Transform(facingPose(p, windowHead!!)))
+        e.setComponent(Transform(Placement.facing(p, windowHead!!).toSdk()))
       }
       if (stepPanel.alpha != follow.alpha) {
         stepPanel.alpha = follow.alpha
@@ -891,7 +892,7 @@ class MainActivity : AppSystemActivity() {
       }
       if (follow.relocations != lastRelocations) {
         lastRelocations = follow.relocations
-        Agq.log.event("window", mapOf("relocate" to lastRelocations, "pos_m" to p))
+        Agq.log.event("window", mapOf("relocate" to lastRelocations, "pos_m" to p, "head_m" to head.t, "object_m" to objectTop))
       }
     }
     placeSide()
@@ -913,7 +914,7 @@ class MainActivity : AppSystemActivity() {
     val right = Vec3(-dz / d, 0f, dx / d)
     // outer edge = the side away from the object: the window sits right of the object, so further right
     val pos = p + right * (STEP_PANEL_W / 2 + 0.02f + SIDE_PANEL_W / 2) + Vec3(0f, -0.02f, 0f)
-    se.setComponent(Transform(facingPose(pos, h)))
+    se.setComponent(Transform(Placement.facing(pos, h).toSdk()))
   }
 
   /**
@@ -924,7 +925,7 @@ class MainActivity : AppSystemActivity() {
     panelsPlaced = true
     if (coach.stage == CoachFlow.Stage.GUIDE) return // the window already follows the object
     val step = Placement.ahead(head, 0.8f, 0.21f) // tan 15° × 0.8 m
-    stepEntity?.setComponent(Transform(facingPose(step, head.t)))
+    stepEntity?.setComponent(Transform(Placement.facing(step, head.t).toSdk()))
     windowPos = step
     windowHead = head.t
     val hudPos = Placement.ahead(head, 0.9f, 0.45f, right = -0.55f)
