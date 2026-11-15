@@ -2,7 +2,10 @@
 # Launch an app with the shared intent extras and record its AGQ log into a run folder.
 # Usage: tools/quest/run.sh <unity|android> [--job J] [--lang el|en] [--replay] [--hud] [--reduced-motion]
 #                           [--secs N] [--no-launch] [--keep-running] [--note "text"]
+#                           [--dump] [--dump-hz N] [--dump-max N]
 #   extras (= the apps' Params): server, key, job, lang, replay, hud, reduced_motion
+#   --dump          android only: record camera frames + poses on the headset (vision/FrameDump.kt, extras
+#                   dump_frames, dump_hz, dump_max); fetch them with tools/markerless/pull.sh
 #   --secs N        stop after N seconds (default 120; 0 = until Ctrl-C)
 #   --no-launch     do not start the app, only record (e.g. you launched it in the headset)
 #   --keep-running  do not force-stop the app at the end
@@ -10,11 +13,12 @@
 # Output: tools/quest/runs/<YYYYmmdd-HHMMSS>-<app>/{agq.jsonl,logcat.txt,meta.json,summary.json,summary.md}
 source "$(dirname "$0")/lib.sh"
 
-usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 [[ $# -ge 1 ]] || usage
 app="$1"; shift
 pkg="$(pkg_for "$app")"
 job="malm-drawer"; lang="el"; replay=false; hud=false; reduced=false; secs=120; launch=1; keep=0; note=""
+dump=false; dump_hz=""; dump_max=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --job) job="${2:?}"; shift 2 ;;
@@ -26,6 +30,9 @@ while [[ $# -gt 0 ]]; do
     --no-launch) launch=0; shift ;;
     --keep-running) keep=1; shift ;;
     --note) note="${2:-}"; shift 2 ;;
+    --dump) dump=true; shift ;;
+    --dump-hz) dump=true; dump_hz="${2:?}"; shift 2 ;;
+    --dump-max) dump=true; dump_max="${2:?}"; shift 2 ;;
     -h|--help) usage ;;
     *) die "unknown argument: $1" ;;
   esac
@@ -86,7 +93,12 @@ if [[ "$launch" -eq 1 ]]; then
   cmd="am start -S -W -n $(q "$activity") --es lang $(q "$lang") --es job $(q "$job") --ez replay $replay --ez hud $hud --ez reduced_motion $reduced"
   [[ -n "$server" ]] && cmd+=" --es server $(q "$server")"
   [[ -n "$key" ]] && cmd+=" --es key $(q "$key")"
-  info "launching $activity  job=$job lang=$lang replay=$replay hud=$hud reduced_motion=$reduced server=${server:-none} key=$([[ -n $key ]] && echo '***' || echo none)"
+  if [[ "$dump" == true ]]; then
+    cmd+=" --ez dump_frames true"
+    [[ -n "$dump_hz" ]] && cmd+=" --ei dump_hz $(q "$dump_hz")"
+    [[ -n "$dump_max" ]] && cmd+=" --ei dump_max $(q "$dump_max")"
+  fi
+  info "launching $activity  job=$job lang=$lang replay=$replay hud=$hud reduced_motion=$reduced dump=$dump server=${server:-none} key=$([[ -n $key ]] && echo '***' || echo none)"
   launch_out="$("$ADB" shell "$cmd" 2>&1 | tr -d '\r')"
   if grep -qi 'error' <<<"$launch_out"; then bad "am start: $(grep -i error <<<"$launch_out" | head -2)"; fi
 fi
