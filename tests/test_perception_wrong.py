@@ -268,3 +268,22 @@ def test_the_guide_says_how_many_of_each_item_a_step_uses(tmp_path):
         for code, qty in guide.hardware(n):
             assert e.uses(code) == (qty if isinstance(qty, int) and qty > 1 else 1)
         assert all(e.uses(part) >= 1 for part in guide.parts(n)) and e.uses("not_in_this_step") == 1
+
+
+def test_greek_names_come_from_the_manifest_when_the_job_folder_has_no_plan(tmp_path):
+    """The `drawer` job is published without its plan.json: its Greek names are in the manifest's `names.el`."""
+    from server.perception.logic import Emitted
+    from server.perception.phrases import sentences
+    job = make_job(tmp_path)
+    manifest = json.loads((job / "manifest.json").read_text())
+    part, other = manifest["parts"][0], manifest["parts"][1]
+    for entry, el in ((part, "πάτο του συρταριού"), (other, "αριστερό πλαϊνό")):
+        entry.pop("el", None)
+        entry["names"] = {"en": entry.get("short") or entry["name"], "el": el}
+    (job / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False))
+    for name in ("plan.json", "plan.approved.json"):
+        (job / name).unlink(missing_ok=True)
+    guide = Guide(job)
+    assert guide.spoken_el(part["id"]) == "πάτο του συρταριού"
+    say = sentences(Emitted("wrong_part", 3, 4, expected_id=other["id"], observed_id=part["id"]), guide)
+    assert say["el"].startswith("Κρατάς πάτο του συρταριού. Το βήμα 3 θέλει αριστερό πλαϊνό")

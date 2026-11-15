@@ -45,8 +45,11 @@ class Guide:
         extra = from_plan.get(key, {})
         name = str(entry.get("name") or key)
         length = extra.get("length_mm") or (extra.get("params") or {}).get("length")
+        # The Greek name: the plan's, else the manifest's own `names.el` (a job folder published without its plan,
+        # like `drawer`, had none, so its corrections said "another part" instead of naming it)
+        greek = entry.get("el") or extra.get("el") or (entry.get("names") or {}).get("el")
         self.items[key] = {"id": key, "kind": kind, "name": name, "short": str(entry.get("short") or name).lower(),
-                           "el": entry.get("el") or extra.get("el"), "hw_kind": entry.get("kind") or extra.get("kind"),
+                           "el": greek, "hw_kind": entry.get("kind") or extra.get("kind"),
                            "length": length if isinstance(length, (int, float)) else None}
 
     def stale(self) -> bool:
