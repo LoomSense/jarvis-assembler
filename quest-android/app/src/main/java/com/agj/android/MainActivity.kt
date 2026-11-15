@@ -1101,11 +1101,11 @@ class MainActivity : AppSystemActivity() {
     val phase = actionCoach.phase
     // BASE-IN-PLACE: the base part already lies where it should (the detector holds it, close by, still for 2.5 s):
     // its action is done without anyone touching it
-    // …but not against the wearer: after Back or Repeat brought the step up, only a part that was put down since
-    // counts (on the headset every Back to step 1 was answered with step 2 six seconds later)
+    // …but never against the wearer: when Back, Repeat or the voice brought the step up, it ends as any other action
+    // does (a hand at the part and away, the server, Next). On the headset every Back to step 1 was answered with
+    // step 2 six seconds later
     if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing && curStep == world.basePart?.step &&
-        coachAct()?.partId == world.basePart?.partId && world.baseInPlace(now) &&
-        (!baseEntryByWearer || (world.baseStillSinceMs ?: 0L) > baseEntryMs)) {
+        coachAct()?.partId == world.basePart?.partId && !baseEntryByWearer && world.baseInPlace(now)) {
       coachApply(actionCoach.inPlace(now), source = "device")
       if (actionCoach.phase == com.agj.android.ui.CoachPhase.DONE) return
     }
