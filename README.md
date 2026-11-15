@@ -23,6 +23,21 @@ make tunnel    # public HTTPS URL for phones and the headset (cloudflared)
 
 `make smoke` prints a job id. Its files are under `jobs/<job_id>/` and at `/files/<job_id>/…`.
 
+## Try it (demo host on a Mac)
+
+The demo runs on one Mac (boxd sign-ups were closed): `deploy/mac_host.sh` in the `.demo-host/` worktree keeps it awake, serves `main`, and opens a public HTTPS URL. The URL is in `.demo-host/jobs/_host/url.txt`; the demo key is `DEMO_KEY` in `.env`. Update it to the latest `main` with `deploy/redeploy_mac.sh`.
+
+| What | Open |
+|---|---|
+| Phase 1 guide, KNAGGLIG box | `<URL>/?key=<KEY>&job=1115-0453-7ca85e` |
+| Phase 1 guide, MARKUS office chair | `<URL>/?key=<KEY>&job=1115-0505-4dcc90` |
+| Same in English | add `&lang=en` |
+| Quest 3 (Meta Quest Browser) | add `&mode=xr` |
+| Build a guide from a PDF | `eval/smoke.sh <URL> <KEY> <guide.pdf>`, or the upload screen at `/?mode=build` once it lands |
+| Live check without a camera | `eval/phase2/replay.py --job 1115-0453-7ca85e --step 6 --base http://127.0.0.1:8000 <frames folder>` |
+
+Known guides (KNAGGLIG, LACK side table, MARKUS) build in about a minute from their hand-checked or saved plans. Any other PDF needs the build agent: start the host with `AGJ_BUILD_AGENT=claude` (about 10 minutes and $2–3 per guide).
+
 ## Layout
 
 | Folder | What |
