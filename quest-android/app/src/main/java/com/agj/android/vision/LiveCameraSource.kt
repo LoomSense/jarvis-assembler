@@ -86,6 +86,8 @@ class LiveCameraSource(
   private val busy = AtomicBoolean(false)
   private var index = 0L
   private var firstLogged = false
+  private var poseLogged = false
+  private var framesWithoutPose = 0
 
   // pooled plane copies (frames are processed one at a time on the camera thread)
   private var yBuf = ByteArray(0)
@@ -281,6 +283,18 @@ class LiveCameraSource(
               }
             },
         )
+    // The first frame often comes before the head-pose buffer has samples: log when the camera pose first exists
+    // (or that it never does), since marker tracking needs it.
+    if (!poseLogged) {
+      if (world != null) {
+        poseLogged = true
+        Agq.log.event("camera_pose", mapOf("frame" to index - 1, "frames_without_pose" to framesWithoutPose,
+            "head_samples" to (heads?.size() ?: 0), "cam_p" to world.t, "head_p" to head?.t))
+      } else if (++framesWithoutPose == 300) {
+        Agq.log.error("camera_pose", "no head pose for the first 300 frames (head_samples ${heads?.size() ?: 0}, " +
+            "lens pose ${headFromCamera != null})")
+      }
+    }
     if (!firstLogged) {
       firstLogged = true
       Agq.log.event(
