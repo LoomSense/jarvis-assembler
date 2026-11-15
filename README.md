@@ -23,13 +23,6 @@ Gen AI Summit Hackathon, Athens, 14–15 Nov 2026 · Try it: <https://agj.boxd.s
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) Every model key stays on the server.
 
-## More
-
-- For the judges, what was measured on the headset: [docs/SUBMISSION.md](docs/SUBMISSION.md)
-- Routes, MCP tools, command line, deploy: [docs/API.md](docs/API.md)
-- Status, plan, who did what: [docs/HANDOFF.md](docs/HANDOFF.md), [docs/PLAN.md](docs/PLAN.md), [docs/PROGRESS.md](docs/PROGRESS.md)
-- What we did not build ourselves: [CREDITS.md](CREDITS.md)
-
 ## For other agents
 
 Any agent can use it through an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file. For example, a furniture shop's customer-support agent gets "I am stuck on step 4 of my wardrobe", finds that product's guide, and answers with the exact step in 3D and how to undo the mistake, with no person on the line.
