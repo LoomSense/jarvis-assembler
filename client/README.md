@@ -68,7 +68,8 @@ The page loads `/files/<job>/manifest.json`, then the GLB beside it. In dev and 
 | `job=<id>` | The job to show. Required in the built page. In dev it defaults to `local-fresh`; `?job=` (empty) shows the page without a guide. Without a job, on the real server, the page says so in one line and offers the build screen. |
 | `key=<demo key>` | Repeated on every `/files/` request. Never stored. |
 | `lang=el\|en` | Language. Default `el`. The switch in the corner rewrites this parameter. |
-| `step=<n>` | Open at the start of step `n` (1-based) instead of at the first action. |
+| `step=<n>` | Open at the start of step `n` (1-based) instead of at the first action: everything before it is done, and its first action plays by itself. The camera guide (`mode=live`) sends the person here with it. |
+| `quest=1` | Show the Quest entry in the corner even where WebXR cannot be checked. |
 | `at=<n>` | Debug: open with action `n` (0-based) already done. |
 | `material=<name>` | Debug: dress the boards as another product would arrive: `white`, `black`, `grey`, `oak`, `walnut`, `steel`, `plastic`. |
 | `glb=plain` | Debug: try the plain GLB before the packed one. |
@@ -84,11 +85,19 @@ The page loads `/files/<job>/manifest.json`, then the GLB beside it. In dev and 
 
 - **The row at the top.** One hovering copy per part id and per hardware code, with the number still in the box under it and, for hardware, its code. A kind that runs out leaves the row and the others close ranks.
 - **The piece between the buttons.** The kind the current action uses, as large as fits. A screw is drawn large enough to read the cross in its head.
-- **One line of words.** A screw shows its code and which one it is of how many in this step (`108560  3/8`). A board shows its short name. A turn of the whole assembly shows two or three words. The end shows one word. A screen reader gets the full sentence.
-- **Two round buttons**, previous and next, and the arrow keys. Next during an animation finishes the action on screen at once and starts the next one. Previous sends the piece back up to the row (a turn runs backwards).
+- **Opening that piece.** A tap on it brings it large to the middle of the screen: a drag turns it any way (it turns slowly by itself until it is taken), the wheel sizes it, and a tap, Escape or the corner button puts it back. The line of words then shows its full name and code.
+- **One line of words.** A screw shows its code and which one it is of how many in this step (`108560  3/8`). A board shows its short name. A turn of the whole assembly shows two or three words. A note, a screw that is only tightened and a part that is moved again show the first sentence of the manifest's own text. The end shows one word. A screen reader gets the full sentence.
+- **Two round buttons**, previous and next, and the arrow keys. Next during an animation finishes the action on screen at once and starts the next one. Previous sends the piece back up to the row (a turn runs backwards). At the end Next becomes a tick on a lit disc: it leads to the guide's ready screen (`?mode=ready&job=`).
+- **The way out**, a ring in the top left corner: back to where the person was before the steps (the ready screen, the camera guide, the build screen), or to the ready screen when the page was opened by its address.
+- **The other ways to build**, beside the language switch (`src/guide/ar.ts`): with the camera (`mode=live`, at this step), the Quest where an immersive session can open, and on an iPhone or iPad "on your table". Icons alone on a phone. The app's "my guides / new guide" pills are not on this screen.
+- **A close view for screws.** While a screw goes in or is tightened the camera comes in on its hole (the screw, the tool and some wood around it stay in view) and steps back for the next part. Two soft dark bands then keep the row and the piece between the buttons readable.
 - **A hairline along the bottom edge**: how far through the actions, or, while loading, how much of the model has arrived.
 - **A small azure mark** where a board will sit, while it is on its way. A screw has the model's own ring at its hole.
-- **Live guidance**, where the server can be reached: one quiet round control in the top left corner, the counterpart of the language switch. See [Live guidance](#live-guidance).
+- **Live guidance**, where the server can be reached: one quiet round control at the top left, beside the way out. See [Live guidance](#live-guidance).
+
+**The order of the actions.** The page plays a step's actions in the manifest's order, with one exception (`StepPlayer.playOrder` in `src/viewer/steps.ts`): when a step puts on two or more parts and then drives the screws, each screw follows the last of those parts it ends in. So a chair gets one arm, its two screws, then the other arm, not both arms and then four screws. A screw that passes through two of the parts waits for both. The manifest and the clip are not changed: the player shows each piece by its place in the played order and puts the finished ones at their last key.
+
+**Scale tracks.** Step clips of newer GLBs carry two-key scale tracks for parts and screws (1 for the piece of the step's first action, 0.0001 for the others). The page hides and shows with `visible`, so `prepareModel` drops them; played, they shrank a screw to nothing as soon as it was driven.
 
 The frame loop never stops and the orbit controls are never disabled: a press always takes the camera and cancels any camera move. With `prefers-reduced-motion` nothing drifts, pieces do not fall or rise, the camera does not move by itself and the finished piece does not turn; the insertion itself still plays.
 

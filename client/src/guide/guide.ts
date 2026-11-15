@@ -20,6 +20,12 @@ export interface GuidePage {
   progress: HTMLElement
   /** the group inside the seat mark's svg */
   seat: SVGGElement
+  /** the room (#stage): it is `looking` while a piece is open large */
+  stage: HTMLElement
+  /** over the piece to pick up: a tap opens it large, to turn by hand */
+  look: HTMLButtonElement
+  /** fills the screen while a piece is open: a drag turns the piece, a tap closes it */
+  pad: HTMLElement
 }
 
 export interface GuideOptions {
@@ -30,8 +36,12 @@ export interface GuideOptions {
   lang: Lang
   /** open with this beat finished instead of playing the first one (0-based) */
   openAt: number | null
+  /** then play the beat after it by itself, as the ordinary opening plays the first: the page arrives in that step */
+  playOn: boolean
   /** debug: `?material=white` and the like, see materials.ts */
   material: string | null
+  /** the walk is over and the person pressed the tick that Next has become */
+  onDone: () => void
 }
 
 /** Where the walk is, in the manifest's own numbers: the step's `n` and the 0-based index into its `actions`. */
@@ -60,6 +70,8 @@ export interface Guide {
   setHeld(held: { verdict: 'right' | 'wrong'; key: string | null } | null): void
   /** Live guidance: the step looks finished. A second ring on Next, nothing more: the person decides. */
   cueNext(on: boolean): void
+  /** Put away the piece that is open large. False when none was open. */
+  closeLook(): boolean
   /** for the console and the check scripts */
   debug: Record<string, unknown>
 }
@@ -180,6 +192,8 @@ export function startGuide(o: GuideOptions): Guide {
       const v = (track as unknown as { createInterpolant(): { evaluate(t: number): ArrayLike<number> } }).createInterpolant().evaluate(t)
       obj[propertyName].set(v[0], v[1], v[2])
     }
+    // a step played out of its clip's order: the player puts the pieces that are done back where they belong
+    if (player.steps[step]?.rank) player.apply(step, time, action)
   }
   const kinds: Kind[] = []
   /** live guidance: what the hand holds, and how far the lamp over the piece to pick up is lifted for it */
@@ -193,6 +207,15 @@ export function startGuide(o: GuideOptions): Guide {
   stage.trayScene.add(crispHolder)
   let crispKind: Kind | null = null
   let crispIn = 1
+  /** how the piece between the buttons is turned right now */
+  const crispQuat = new Quaternion()
+  /**
+   * The piece between the buttons, opened large in the middle of the screen: `k` runs 0..1 as it comes up,
+   * `quat` is how the person has turned it, `zoom` their wheel.
+   */
+  const look = { on: false, k: 0, quat: new Quaternion(), touched: false, zoom: 1, lit: false }
+  const lookSlot = new Vector3()
+  let lookPx = 320
   let phone = false
   let rowPitch = 148
   let rowY = 80
@@ -351,6 +374,15 @@ export function startGuide(o: GuideOptions): Guide {
     stage.trayPoint(w / 2, crispY, crispSlot)
     crispHolder.position.copy(crispSlot)
     stage.aimCrisp(crispSlot, 128 * u)
+    // the tap that opens the piece large, and where it then hangs
+    const lw = phone ? 172 : 204
+    const lh = phone ? 96 : 104
+    page.look.style.left = `${w / 2 - lw / 2}px`
+    page.look.style.top = `${crispY - lh / 2}px`
+    page.look.style.width = `${lw}px`
+    page.look.style.height = `${lh}px`
+    stage.trayPoint(w / 2, h * 0.47, lookSlot)
+    lookPx = Math.min(w * 0.62, h * 0.46)
   }
 
   /** Centre the kinds that are still in the box along the top row. */
@@ -371,9 +403,15 @@ export function startGuide(o: GuideOptions): Guide {
     const still = reduced()
     const t = still ? 0 : time
     const u = stage.trayUnit
+    look.k = still ? (look.on ? 1 : 0) : MathUtils.clamp(look.k + (look.on ? dt : -dt) / 0.34, 0, 1)
+    // close on a screw, the assembly runs up behind the row: a soft dark band keeps the row readable
+    if (leaving && tween.k >= 0.7) leaving = false
+    const closeUp = near || leaving ? 1 : 0
+    stage.shade = still ? closeUp : stage.shade + (closeUp - stage.shade) * (1 - Math.exp(-dt * 5))
+    const open = easeInOut(look.k)
     for (const k of kinds) {
       const s = k.stock
-      s.holder.visible = k.left > 0 && !k.held
+      s.holder.visible = k.left > 0 && !k.held && open < 0.98 // the row steps aside for a piece opened large
       if (k.left > 0 || Number.isNaN(k.x)) {
         const before = k.x
         k.x = still || Number.isNaN(k.x) ? k.xTarget : k.x + (k.xTarget - k.x) * (1 - Math.exp(-dt * 5))
@@ -397,7 +435,7 @@ export function startGuide(o: GuideOptions): Guide {
         qb.setFromAxisAngle(Z, 0.07 * Math.sin(t * 0.26 + k.phase * 1.3))
         qa.premultiply(qb)
       }
-      poseDisplay(s, qa, s.scale)
+      poseDisplay(s, qa, s.scale * Math.max(0.001, 1 - open)) // never nothing: a piece may leave from here this very frame
     }
 
     crispIn = Math.min(1, crispIn + dt / 0.3)
@@ -424,8 +462,42 @@ export function startGuide(o: GuideOptions): Guide {
         qa.setFromAxisAngle(Y, -0.38 + 0.2 * Math.sin(t * 0.4))
         qa.multiply(qb)
       }
-      poseDisplay(c, qa, c.scale * grow)
+      crispQuat.copy(qa)
+      let size = c.scale * grow
+      if (look.k > 0) {
+        // until the person takes it, it turns slowly by itself: this is a thing to turn
+        if (look.on && !look.touched && !still) look.quat.premultiply(qb.setFromAxisAngle(Y, dt * 0.45))
+        qa.slerp(look.quat, open)
+        size = MathUtils.lerp(size, (lookPx / k.length) * u * look.zoom, open)
+      }
+      poseDisplay(c, qa, size)
     }
+    if (look.k > 0 || look.lit) {
+      crispHolder.position.lerpVectors(crispSlot, lookSlot, open)
+      stage.aimCrisp(crispHolder.position, MathUtils.lerp(128, lookPx * 0.62 * look.zoom, open) * u)
+      stage.veil = 0.9 * open
+      look.lit = look.k > 0
+    }
+  }
+
+  function openLook(): void {
+    if (!crispKind || look.on) return
+    look.on = true
+    look.touched = false
+    look.zoom = 1
+    look.quat.copy(crispQuat)
+    page.stage.classList.add('looking')
+    page.pad.hidden = false
+    describe()
+  }
+
+  function closeLook(): boolean {
+    if (!look.on) return false
+    look.on = false
+    page.stage.classList.remove('looking')
+    page.pad.hidden = true
+    describe()
+    return true
   }
 
   // ------------------------------------------------------------------ the screwdriver
@@ -451,9 +523,11 @@ export function startGuide(o: GuideOptions): Guide {
   for (const st of player.steps) {
     if (st.index === player.finishIndex) beats.push({ step: st.index, k: 0, a: null, t0: 0, t1: st.duration }) // the closing turn, then "done"
     else if (!st.actions.length) beats.push({ step: st.index, k: 0, a: null, t0: 0, t1: st.duration })
-    else for (const a of st.actions) beats.push({ step: st.index, k: a.index, a, t0: a.t0, t1: a.t1 })
+    else for (const a of st.sequence) beats.push({ step: st.index, k: a.index, a, t0: a.t0, t1: a.t1 })
   }
   const closing = (b: Beat) => b.step === player.finishIndex
+  /** The piece a beat brings in from the box. A screw that is only tightened, or a part moved again, is not one. */
+  const brought = (b: Beat | undefined) => (b?.a?.fresh ? b.a.node : null)
   /** for a step without actions: the kinds its clip brings in, one entry per piece */
   const broughtIn = new Map<number, Kind[]>()
   {
@@ -612,7 +686,12 @@ export function startGuide(o: GuideOptions): Guide {
       length += text.length
     }
     const kind = a?.node ? kindOf.get(a.node) : undefined
-    if (a && a.type === 'fasten') {
+    if (look.on && crispKind) {
+      // the piece is open large: its full name, and its code
+      show(crispKind.name)
+      if (crispKind.code) show(crispKind.code, 'of')
+      say(`${crispKind.name}${crispKind.code ? ` ${crispKind.code}` : ''}`)
+    } else if (a && a.type === 'fasten') {
       const code = a.raw.code ?? kind?.code ?? ''
       show(code || (kind?.name ?? ''))
       show(`${a.screwIndex}/${a.screwTotal}`, 'of')
@@ -624,10 +703,15 @@ export function startGuide(o: GuideOptions): Guide {
           .replace('{n}', String(a.screwTotal))
           .trim(),
       )
-    } else if (a && a.node) {
+    } else if (a && a.node && a.fresh) {
       const name = kind?.name ?? ''
       show(name)
       say(name)
+    } else if (a && a.type !== 'turn') {
+      // a note, a screw to tighten, a part moved again: the manifest's own sentence, as far as its first stop
+      const text = firstSentence(lang, a.raw.text) || kind?.name || firstSentence(lang, { [lang]: localise(lang, manifest.steps[b.step]?.title) })
+      show(text)
+      say(text)
     } else if (!a && !closing(b)) {
       // a step without actions: the manifest's own name for it is all there is to say
       const title = firstSentence(lang, { [lang]: localise(lang, manifest.steps[b.step]?.title) })
@@ -654,7 +738,7 @@ export function startGuide(o: GuideOptions): Guide {
     const b = beats[cur]
     const used = new Map<Kind, number>()
     for (let i = 0; i <= cur; i++) {
-      const node = beats[i].a?.node
+      const node = brought(beats[i])
       const k = node ? kindOf.get(node) : undefined
       if (k) used.set(k, (used.get(k) ?? 0) + 1)
       if (!beats[i].a) for (const each of broughtIn.get(beats[i].step) ?? []) used.set(each, (used.get(each) ?? 0) + 1)
@@ -667,14 +751,19 @@ export function startGuide(o: GuideOptions): Guide {
     }
     flowDue = !flow
     if (flow) flowRow()
-    const kind = b?.a?.node ? (kindOf.get(b.a.node) ?? null) : null
+    const fresh = brought(b)
+    const kind = fresh ? (kindOf.get(fresh) ?? null) : null
     if (kind !== crispKind) {
       crispKind = kind
       crispIn = 0
     }
+    page.look.hidden = !crispKind
     describe()
     page.prev.setAttribute('aria-disabled', String(cur <= 0))
-    page.next.setAttribute('aria-disabled', String(cur >= beats.length - 1))
+    // at the end Next is not dead: it becomes a tick, the way out
+    page.next.setAttribute('aria-disabled', 'false')
+    page.next.classList.toggle('done', cur >= beats.length - 1)
+    labelNext()
     page.progress.style.setProperty('--p', String((cur + 1) / beats.length))
     page.progress.setAttribute('aria-valuenow', String(cur + 1))
     const at = place()
@@ -696,9 +785,14 @@ export function startGuide(o: GuideOptions): Guide {
   const placeListeners: ((place: Place) => void)[] = []
   let told: Place = { step: Number.NaN, action: null }
 
+  function labelNext(): void {
+    page.next.setAttribute('aria-label', cur >= beats.length - 1 ? WORDS[lang].finish : WORDS[lang].next)
+    page.look.setAttribute('aria-label', crispKind ? `${WORDS[lang].look}: ${crispKind.name}` : WORDS[lang].look)
+  }
+
   function setWords(): void {
     page.prev.setAttribute('aria-label', WORDS[lang].prev)
-    page.next.setAttribute('aria-label', WORDS[lang].next)
+    labelNext()
     page.stock.setAttribute('aria-label', WORDS[lang].stock)
     page.progress.setAttribute('aria-label', WORDS[lang].progress)
     for (const k of kinds) {
@@ -711,14 +805,16 @@ export function startGuide(o: GuideOptions): Guide {
   // ------------------------------------------------------------------ forward
 
   function begin(i: number): void {
+    closeLook()
     finishNow()
     const before = cur < 0 ? -1 : beats[cur].step
     cur = MathUtils.clamp(i, 0, beats.length - 1)
     const b = beats[cur]
     stage.controls.autoRotate = false
-    if (b.step !== before || !b.a || b.a.type === 'turn') aimCamera(b, before < 0)
+    // a screw is watched from close by; anything else from where the whole step is in view
+    if (!aimScrew(b, before < 0, b.step !== before) && (near || b.step !== before || !b.a || b.a.type === 'turn')) aimCamera(b, before < 0)
 
-    const node = b.a?.node ?? null
+    const node = brought(b)
     const kind = node ? (kindOf.get(node) ?? null) : null
     // a board gets a small mark where it will sit; a screw has the model's own ring at its hole
     seat.on = false
@@ -770,7 +866,7 @@ export function startGuide(o: GuideOptions): Guide {
       clipTime = Math.min(b.t1, clipTime + dt)
       pose(b.step, clipTime, b.a ? b.k : 0)
       const kind = b.a?.node ? kindOf.get(b.a.node) : undefined
-      if (b.a?.type === 'fasten' && b.a.node && kind?.driven) rideScrew(b.a.node, easeOut(Math.min(1, phaseTime / 0.16)))
+      if ((b.a?.type === 'fasten' || b.a?.type === 'tighten') && b.a.node && kind?.driven) rideScrew(b.a.node, easeOut(Math.min(1, phaseTime / 0.16)))
       if (clipTime >= b.t1) {
         stateAtEnd(b)
         phase = 'idle'
@@ -813,8 +909,9 @@ export function startGuide(o: GuideOptions): Guide {
   function back(): void {
     if (phase === 'rise' || phase === 'rewind') finishNow()
     if (cur <= 0) return
+    closeLook()
     const b = beats[cur]
-    const node = b.a?.node ?? null
+    const node = brought(b)
     const kind = node ? (kindOf.get(node) ?? null) : null
     // where the piece is right now, if it was still on its way
     const moving = phase === 'fly' || phase === 'clip'
@@ -829,7 +926,7 @@ export function startGuide(o: GuideOptions): Guide {
     cur -= 1
     const pb = beats[cur]
     const wasGone = !!kind && kind.left === 0
-    if (pb.step !== b.step) aimCamera(pb, false)
+    if (!aimScrew(pb, false, pb.step !== b.step) && (near || pb.step !== b.step)) aimCamera(pb, false)
     if (reduced()) {
       stateAtEnd(pb)
       syncPage()
@@ -869,7 +966,11 @@ export function startGuide(o: GuideOptions): Guide {
 
   // ------------------------------------------------------------------ camera
 
-  const tween = { k: 1, fromTarget: new Vector3(), toTarget: new Vector3(), from: new Spherical(), to: new Spherical() }
+  const tween = { k: 1, seconds: 1.1, fromTarget: new Vector3(), toTarget: new Vector3(), from: new Spherical(), to: new Spherical() }
+  /** the camera has come in on a screw; the next beat that is not about one steps back to the whole step */
+  let near = false
+  /** it is on its way back out from a screw: until it is most of the way, the picture is still a close one */
+  let leaving = false
   let holding = false
   stage.controls.addEventListener('start', () => {
     holding = true
@@ -904,6 +1005,8 @@ export function startGuide(o: GuideOptions): Guide {
     dir: Vector3 | null
   }
   const framings: Framing[] = []
+  /** per screw action: what to keep in view from close by, and the way out of its hole */
+  const zooms = new Map<ActionInfo, { points: Vector3[]; out: Vector3 }>()
   const reachBox = new Box3()
   /** where along a turn the assembly is measured, so its highest corner on the way is inside the frame too */
   const TURN_SAMPLES = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
@@ -929,6 +1032,8 @@ export function startGuide(o: GuideOptions): Guide {
       reachBox.union(player.bounds())
       boards(final)
       points.push(...final)
+      /** half the diagonal of the finished step: how much wood to keep around a hole seen from close by */
+      const span = final.length ? new Box3().setFromPoints(final).getSize(new Vector3()).length() / 2 : 0.3
       let dir: Vector3 | null = null
       if (st.index === player.finishIndex) {
         for (const j of TURN_SAMPLES) {
@@ -956,14 +1061,23 @@ export function startGuide(o: GuideOptions): Guide {
           pose(st.index, a.t0, a.index)
           model.scene.updateMatrixWorld(true)
           corners(kind.box, a.node.matrixWorld, points)
-          if (a.type !== 'fasten') continue
+          if ((a.type !== 'fasten' && a.type !== 'tighten') || !kind.hardware) continue
           const shape = model.fastener(a.node)
-          const axis = va.copy(shape.axis).transformDirection(a.node.matrixWorld)
+          const axis = shape.axis.clone().transformDirection(a.node.matrixWorld)
           out.sub(axis)
+          // from close by: the screw before it goes in, the tool on it, and the wood around its hole
+          const close: Vector3[] = []
+          corners(kind.box, a.node.matrixWorld, close)
           if (kind.driven) {
             const end = vb.copy(shape.head).applyMatrix4(a.node.matrixWorld).addScaledVector(axis, -TOOL_LENGTH)
             corners(box.setFromCenterAndSize(end, vc.setScalar(TOOL_RADIUS * 2)), null, points)
+            corners(box, null, close)
           }
+          pose(st.index, a.t1, a.index)
+          model.scene.updateMatrixWorld(true)
+          const hole = shape.head.clone().applyMatrix4(a.node.matrixWorld)
+          corners(box.setFromCenterAndSize(hole, vc.setScalar(2 * Math.max(2.2 * kind.length, 0.34 * span))), null, close)
+          zooms.set(a, { points: close, out: axis.negate() })
         }
         dir = viewDir(st.index)
         // The guide's view can have the screw holes on the far side. Then look from outside the face the screws
@@ -989,7 +1103,13 @@ export function startGuide(o: GuideOptions): Guide {
    * screen; by default the two bands of the tray), looking along `dir`.
    */
   function frameCamera(points: Vector3[], dir: Vector3, immediate: boolean, top = insetTop, bottom = stage.height - insetBottom): void {
-    if (!points.length) return
+    const view = solveView(points, dir, top, bottom)
+    if (view) moveCamera(view, immediate)
+  }
+
+  /** Where the camera must look (`centre`) and stand (`off`, from that point) to fit `points` so. */
+  function solveView(points: Vector3[], dir: Vector3, top = insetTop, bottom = stage.height - insetBottom): { centre: Vector3; off: Vector3 } | null {
+    if (!points.length) return null
     const { width, height } = stage
     const tanFull = Math.tan(MathUtils.degToRad(FOV) / 2)
     const axisY = height / 2 + stage.shiftY // where the camera's axis meets the screen
@@ -1046,18 +1166,54 @@ export function startGuide(o: GuideOptions): Guide {
       dist = fit()
     }
     dist = MathUtils.clamp(dist * 1.04, stage.controls.minDistance, stage.controls.maxDistance)
+    return { centre, off: off.multiplyScalar(dist) }
+  }
 
+  /** Take the camera to a view, in `seconds`, or at once. */
+  function moveCamera(view: { centre: Vector3; off: Vector3 }, immediate: boolean, seconds = 1.1): void {
     const controls = stage.controls
     tween.fromTarget.copy(controls.target)
     tween.from.setFromVector3(va.copy(stage.camera.position).sub(controls.target))
-    tween.toTarget.copy(centre)
-    tween.to.setFromVector3(off.multiplyScalar(dist))
+    tween.toTarget.copy(view.centre)
+    tween.to.setFromVector3(view.off)
     const d = tween.to.theta - tween.from.theta
     if (d > Math.PI) tween.to.theta -= 2 * Math.PI
     if (d < -Math.PI) tween.to.theta += 2 * Math.PI
     if (holding && !immediate) return // the person is turning it: leave the camera in their hand
+    tween.seconds = seconds
     tween.k = immediate || reduced() ? 1 : 0
     if (tween.k === 1) placeCamera(1)
+  }
+
+  /**
+   * A screw going in, or being tightened, is watched from close by: its hole with some wood around it, the screw
+   * before it goes in and the tool. From the side the person is looking from, unless the hole faces away from it.
+   * False when the beat is not about a screw, or the close view would be no closer than the whole step.
+   */
+  function aimScrew(b: Beat, immediate: boolean, newStep: boolean): boolean {
+    const z = b.a ? zooms.get(b.a) : undefined
+    if (!z) return false
+    const drawn = newStep ? framings[b.step].dir : null // a new step starts from the side the guide draws it from
+    const toCamera = drawn
+      ? drawn.clone().negate()
+      : tween.k < 1
+        ? new Vector3().setFromSpherical(tween.to).normalize() // on its way somewhere: from where it will be
+        : stage.camera.position.clone().sub(stage.controls.target).normalize()
+    let dir = toCamera.clone().negate()
+    if (toCamera.dot(z.out) < 0.25) {
+      const side = toCamera.clone().addScaledVector(z.out, -toCamera.dot(z.out))
+      if (side.lengthSq() < 1e-3) side.set(0, 1, 0).addScaledVector(z.out, -z.out.y)
+      if (side.lengthSq() < 1e-3) side.set(1, 0, 0)
+      side.normalize()
+      dir = z.out.clone().multiplyScalar(0.72).addScaledVector(side, 0.69).normalize().negate()
+    }
+    const tight = solveView(z.points, dir)
+    const whole = solveView(framings[b.step].points, dir)
+    if (!tight || (whole && tight.off.length() > 0.8 * whole.off.length())) return false
+    moveCamera(tight, immediate, 0.8)
+    near = true
+    leaving = false
+    return true
   }
 
   /**
@@ -1078,12 +1234,14 @@ export function startGuide(o: GuideOptions): Guide {
 
   function tickCamera(dt: number): void {
     if (tween.k >= 1) return
-    tween.k = Math.min(1, tween.k + dt / 1.1)
+    tween.k = Math.min(1, tween.k + dt / tween.seconds)
     placeCamera(tween.k)
   }
 
   /** The whole of the beat's step in view, from the side the guide draws it. */
   function aimCamera(b: Beat, immediate: boolean): void {
+    leaving = near && !immediate
+    near = false
     const f = framings[b.step]
     let dir = f.dir
     if (!dir) {
@@ -1096,6 +1254,8 @@ export function startGuide(o: GuideOptions): Guide {
 
   /** The work is done: nothing is left in the row or between the buttons, so the finished piece takes their room. */
   function aimFinished(immediate: boolean): void {
+    leaving = near && !immediate
+    near = false
     const dir = stage.controls.target.clone().sub(stage.camera.position).normalize()
     dir.y = -0.45
     dir.normalize()
@@ -1158,6 +1318,7 @@ export function startGuide(o: GuideOptions): Guide {
     const size = reachBox.getSize(new Vector3())
     // the disc sits under everything the assembly ever covers
     stage.setFocus(new Vector3(centre.x, reachBox.min.y, centre.z), Math.hypot(size.x, size.z) * 0.5 * 1.12)
+    stage.controls.minDistance *= 0.3 // close enough to watch one screw go in
   }
   stage.scene.add(model.scene)
   page.progress.setAttribute('aria-valuemax', String(beats.length))
@@ -1188,13 +1349,56 @@ export function startGuide(o: GuideOptions): Guide {
     layout()
     if (holding) return
     if (finished()) aimFinished(true)
-    else if (cur >= 0) aimCamera(beats[cur], true)
+    else if (cur >= 0 && !aimScrew(beats[cur], true, false)) aimCamera(beats[cur], true)
   })
-  page.next.addEventListener('click', next)
+  page.next.addEventListener('click', () => {
+    if (cur < beats.length - 1) return next()
+    // the last beat: a press during the closing turn ends it, a press after it is the way out
+    if (phase !== 'idle') finishNow()
+    else o.onDone()
+  })
   page.prev.addEventListener('click', back)
+
+  // ---- the piece opened large: a drag turns it, the wheel sizes it, a tap or Escape puts it away
+  page.look.addEventListener('click', openLook)
+  let drag: { id: number; x: number; y: number; moved: number; at: number } | null = null
+  page.pad.addEventListener('pointerdown', (e) => {
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, at: performance.now() }
+    page.pad.setPointerCapture(e.pointerId)
+  })
+  page.pad.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.x
+    const dy = e.clientY - drag.y
+    drag.x = e.clientX
+    drag.y = e.clientY
+    drag.moved += Math.hypot(dx, dy)
+    if (drag.moved < 4) return
+    look.touched = true
+    // about the screen's own axes, so the piece follows the finger whichever way it already faces
+    look.quat.premultiply(qb.setFromAxisAngle(Y, dx * 0.011)).premultiply(qb.setFromAxisAngle(X, dy * 0.011)).normalize()
+  })
+  page.pad.addEventListener('pointerup', (e) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const tap = drag.moved < 6 && performance.now() - drag.at < 500
+    drag = null
+    if (tap) closeLook()
+  })
+  page.pad.addEventListener('pointercancel', () => (drag = null))
+  page.pad.addEventListener(
+    'wheel',
+    (e) => {
+      e.preventDefault()
+      look.zoom = MathUtils.clamp(look.zoom * Math.exp(-e.deltaY * 0.0012), 0.5, 2.2)
+    },
+    { passive: false },
+  )
+
   window.addEventListener('keydown', (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return
-    if (e.key === 'ArrowRight') {
+    if (e.key === 'Escape') {
+      if (closeLook()) e.preventDefault()
+    } else if (e.key === 'ArrowRight') {
       e.preventDefault()
       next()
     } else if (e.key === 'ArrowLeft') {
@@ -1207,6 +1411,8 @@ export function startGuide(o: GuideOptions): Guide {
     begin(o.openAt)
     finishNow()
     syncPage()
+    const opened = cur
+    if (o.playOn) window.setTimeout(() => cur === opened && phase === 'idle' && next(), reduced() ? 0 : 700)
   } else {
     // the one moment that plays by itself: the row is seen whole, then the first piece comes down
     aimCamera(beats[0], true)
@@ -1243,7 +1449,15 @@ export function startGuide(o: GuideOptions): Guide {
     cueNext(on) {
       page.next.classList.toggle('cue', on)
     },
+    closeLook,
     debug: {
+      openLook,
+      get looking() {
+        return look.on
+      },
+      get near() {
+        return near
+      },
       stage,
       player,
       next,
@@ -1286,6 +1500,7 @@ export function startGuide(o: GuideOptions): Guide {
         for (const [node, kind] of kindOf) {
           if (!node.visible || node === flying) continue // a piece between the row and the disc crosses the bands by design
           if (kind.hardware && node !== beats[cur]?.a?.node) continue
+          if ((near || leaving) && !kind.hardware) continue // close on a screw: the boards run out of the picture by design
           for (let i = 0; i < 8; i++) {
             see(va.set(i & 1 ? kind.box.max.x : kind.box.min.x, i & 2 ? kind.box.max.y : kind.box.min.y, i & 4 ? kind.box.max.z : kind.box.min.z).applyMatrix4(node.matrixWorld))
           }
