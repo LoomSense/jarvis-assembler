@@ -18,9 +18,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from server.auth import require_key, ws_has_key
 from server.perception import locate as locator
+from server.perception import pile
 from server.perception.config import ROLES
 from server.perception.decider import DecisionError
 from server.perception.guide import Guide
@@ -111,6 +113,59 @@ class LocateBody(BaseModel):
 
 
 LOCATE_STATUS = {"auth": 503, "billing": 503, "rate_limit": 429, "timeout": 504}
+
+
+class PartsBody(BaseModel):
+    image: str = Field(min_length=4, max_length=MAX_IMAGE_BYTES * 4 // 3 + 64)   # base64 JPEG, no data: prefix
+    want: list[str | int] | None = Field(default=None, max_length=pile.MAX_WANT)  # part ids and hardware codes
+    step: int | None = None
+    lang: Literal["en", "el"] = "en"
+
+
+def _wanted(guide: Guide, cat: dict, body: PartsBody, request: Request, job_id: str) -> tuple[list[str], int | None]:
+    """The items to look for, and the step they came from (None when `want` was given without a step).
+    Default: the parts and hardware of `step`, else of the step the job's displays last reported, else of step 1."""
+    if body.step is not None and guide.step(body.step) is None:
+        raise HTTPException(422, f"step must be one of {guide.order}")
+    if body.want:
+        wanted = list(dict.fromkeys(str(w).strip() for w in body.want if str(w).strip()))
+        unknown = [w for w in wanted if w not in cat]
+        if unknown:
+            raise HTTPException(422, f"unknown part ids or hardware codes: {', '.join(unknown[:8])}")
+        return wanted, body.step
+    step = body.step
+    if step is None:
+        reg = getattr(request.app.state, "perception", None)
+        session = reg.sessions.get(job_id) if reg is not None else None
+        pos = session.position if session is not None else None
+        step = pos["step"] if pos and guide.step(pos.get("step")) is not None else guide.order[0]
+    return [i for i in pile.step_items(guide, step) if i in cat][:pile.MAX_WANT], step
+
+
+@router.post("/api/perception/{job_id}/parts", dependencies=[Depends(require_key)])
+async def parts(job_id: str, body: PartsBody, request: Request) -> dict:
+    """Where the wanted parts and hardware lie in the picture: `{found: [{id, kind, box_2d, confidence, label}],
+    missing, message, step, latency_ms, model, simulated}`. `box_2d` is [ymin, xmin, ymax, xmax], 0-1000.
+    404 unknown job, 409 no manifest yet, 422 bad image, unknown item or step."""
+    job = request.app.state.store.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job")
+    try:
+        guide = Guide(job.dir)
+    except ValueError as e:
+        raise HTTPException(409, f"This job cannot be assembled yet: {e}") from None
+    jpeg = read_image(body.image)
+    cat = pile.catalogue(guide)
+    wanted, step = _wanted(guide, cat, body, request, job_id)
+    if simulate(request):
+        return pile.simulated(guide, wanted, body.lang, step, cat)
+    os.environ.setdefault("GEMINI_API_KEY", request.app.state.settings.gemini_api_key)   # pipeline.check reads it there
+    try:
+        return await run_in_threadpool(pile.find, guide, jpeg, wanted, body.lang, step, cat)
+    except RuntimeError as e:
+        text = str(e)
+        status = 429 if " 429:" in text else 503 if any(f" {c}:" in text for c in (401, 403)) else 502
+        raise HTTPException(status, f"The vision model did not answer: {text[:200]}") from None
 
 
 @router.post("/api/perception/{job_id}/locate", dependencies=[Depends(require_key)])

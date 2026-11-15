@@ -292,9 +292,9 @@ make smoke
 - Without `--base` it runs the app in-process; with `--base http://localhost:8000` it uses the running server.
 - It refuses to write a run when the server is simulated, unless `--allow-simulated` is given.
 
-## One-picture endpoints: identify and locate [added Sun 15 Nov]
+## One-picture endpoints: identify, locate and parts [added Sun 15 Nov]
 
-Two plain REST calls for the moment before guidance starts: which product is this, and how far along is it. Both need the demo key. Body: `{"image": "<base64 JPEG, no data: prefix>", "lang": "en"|"el"}` (`lang` optional, default `en`), at most 2 MB decoded. A missing, non-base64, non-JPEG or unreadable image is 422; a larger one 413.
+Three plain REST calls: which product is this, how far along is it (both before guidance starts), and where the next parts lie in the pile. All need the demo key. Body: `{"image": "<base64 JPEG, no data: prefix>", "lang": "en"|"el"}` (`lang` optional, default `en`), at most 2 MB decoded. A missing, non-base64, non-JPEG or unreadable image is 422; a larger one 413.
 
 **`POST /api/identify`** (`server/identify.py`, `server/routes/identify.py`): a flat-pack box, a label, a finished piece or loose parts.
 ```json
@@ -322,7 +322,24 @@ Two plain REST calls for the moment before guidance starts: which product is thi
 - 404 unknown job, 409 no manifest yet (the socket's 4404 and 4409).
 - Measured (real calls on the MALM drawer's own renders, not photos): step 1, 5 and 7 renders → `done_through` 1, 5, 7. 0.75 to 1.5 s for 7 requests.
 
-**Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, neither calls a model and both say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`.
+**`POST /api/perception/{job_id}/parts`** (`server/perception/pile.py`, route in `routes.py`): find the part in the pile, so a headset can highlight what to pick up next.
+```json
+{"image": "<base64 JPEG>", "want": ["drawer_side_left", "120076"], "step": 2, "lang": "el"}
+```
+```json
+{"found": [{"id": "drawer_side_left", "kind": "part", "box_2d": [83, 47, 300, 452], "confidence": 0.99, "label": "Αριστερό πλαϊνό"}],
+ "missing": ["120076"], "message": "Αριστερό πλαϊνό: πάνω αριστερά.", "step": 2,
+ "latency_ms": 4175, "model": "gemini-4-hydrogen", "simulated": false}
+```
+- `want` (optional, at most 12, part ids and hardware codes, codes may be numbers): what to look for. Without it: the step's `pickParts` then its hardware codes, for `step` if given, else the step a display last reported on the socket (`GET .../position`), else the first step. `step` is echoed (null when `want` was given without one). An unknown id or a step not in the guide is 422.
+- `box_2d` is Gemini's own convention: `[ymin, xmin, ymax, xmax]`, integers 0–1000, normalised to the picture sent (scale by the picture's height and width). To draw it in the headset, unproject the box centre with the camera intrinsics of that frame.
+- `label` is the short name in `lang` (Greek from the manifest's `names.el`, article dropped), with ` · <code>` for hardware. `message` is one sentence about the first wanted item found and where it lies (thirds of the picture: "at the top left", "κάτω δεξιά"); when none is found it asks to see more of the parts; a step with nothing to pick says so and calls no model.
+- One `gemini-4-hydrogen` call (thinking `low`, JSON schema with the wanted labels as an enum) per 6 wanted items, in parallel when there are more: the frame (long edge 1280), then each wanted item's `renders/part-<id>-shaded.png` (the manifest's `thumb`), cropped to the object, labelled; then up to 4 **look-alikes not wanted** (hardware of the same kind, the mirrored left/right part), labelled "NOT wanted". The text gives each item's name, kind, count in the box and size: the plan's length or dimensions, else an estimate from the render's own scale (`renders/parts.json` `px_per_mm`), so a long and a short screw differ in the prompt.
+- **No invented boxes.** An item goes to `missing` when the model says it is not visible, its confidence is below 0.25, or its box is malformed or thinner than 2 units. Boxes are clamped to 0–1000 and put in min/max order in the server. One box per item: the instance easiest to pick up, or the small heap for hardware lying together.
+- A model failure is 502 (429 when the model is rate limited, 503 when the key is refused). 404 unknown job, 409 no manifest yet.
+- Measured (real calls, Sun 15 Nov, from a laptop): the MALM drawer's own part renders pasted at known places on a plain background (1280×960, not a photo). IoU with the pasted boxes: side panel left 0.99, right 0.95–0.98, drawer front 0.99, runner 0.94–0.95, back 0.91, cam bolt 0.94–0.95, small screw 0.93, cam lock 0.67–0.69 (box a little short). With only the right side panel and the left runner in view, the left panel and the right runner were reported `missing`, not boxed on their mirror twins; an absent plastic pin was `missing`. 4.2 to 5.8 s per call (3–4 items). Real photos, hands and clutter are **not measured yet**.
+
+**Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, none of these calls a model and all say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`; parts boxes the first wanted item at `[350, 350, 650, 650]`, confidence 0.5, puts the rest in `missing`, and says `model: null`.
 
 ## Voice endpoint for the native headset apps [added Sun 15 Nov]
 
