@@ -759,7 +759,7 @@ object PanelPose {
    * ([PanelParams.minContrast]) and from the ring's strip on each of its four sides. [PanelMath.resolveRects] then
    * leaves one rectangle per real thing. Stateless, thread-safe; [detect] is not touched by it.
    */
-  fun findRects(bgr: Mat, k0: Intrinsics, tableFromCamera: DoubleArray, p: PanelParams = PanelParams(), g: RectGates = RectGates(), t0: Long = System.nanoTime()): RectsResult {
+  fun findRects(bgr: Mat, k0: Intrinsics, tableFromCamera: DoubleArray, p: PanelParams = PanelParams(), g: RectGates = RectGates(), t0: Long = System.nanoTime(), cue: RectCue? = null): RectsResult {
     val size = intArrayOf(bgr.cols(), bgr.rows())
     fun done(reason: String, rects: List<FoundRect> = emptyList(), candidates: Int = 0) = RectsResult(rects, reason, (System.nanoTime() - t0) / 1e6, candidates, size)
     val k = k0.scaledTo(bgr.cols(), bgr.rows())
@@ -961,7 +961,10 @@ object PanelPose {
           }
         }
       }
-      return done(PanelMath.REASON_OK, PanelMath.resolveRects(found, g), found.size)
+      val rects = PanelMath.resolveRects(found, g)
+      // BOARD-CUE: each rectangle that is left is scored on the same rectified lightness: face up, which way round, which board
+      if (cue != null) for (r in rects) r.cue = cue.score(labBytes, 3, valid, n, v.x0, v.y0, v.s, r)
+      return done(PanelMath.REASON_OK, rects, found.size)
     } finally {
       mats.forEach { it.release() }
     }
@@ -1020,6 +1023,9 @@ class FoundRect(
     val cornersTable: DoubleArray,
     val topM: Double,
 ) {
+  /** BOARD-CUE: how the board lies ([BoardCue]); null = not scored (no guide, or the size is no board's). */
+  var cue: BoardCueResult? = null
+
   /** Is the TABLE point ([px], [py]) inside the rectangle? */
   fun contains(px: Double, py: Double): Boolean {
     val dx = px - x
@@ -1301,7 +1307,7 @@ class PanelPoseTracker(
                   sink!!(RectsResult(emptyList(), "image did not decode", (System.nanoTime() - t0) / 1e6), wt)
                 } else {
                   if (look) onResult(PanelPose.detect(bgr, k, tc, prev, p!!, t0), wt, clockMs(), t)
-                  sink!!(PanelPose.findRects(bgr, k, tc, rectParams), wt)
+                  sink!!(PanelPose.findRects(bgr, k, tc, rectParams, cue = BoardCueHub.scorer), wt) // BOARD-CUE
                 }
               } finally {
                 bgr.release()

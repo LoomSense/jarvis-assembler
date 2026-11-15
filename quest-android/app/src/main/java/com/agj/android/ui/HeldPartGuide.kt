@@ -72,6 +72,9 @@ class HeldPartGuide(
 ) {
   val badge = VerdictBadgeModel()
   val pickLabel = LabelModel()
+
+  /** BOARD-CUE: the face that is up on the board to take (world/FlatParts.kt), for the pill and the spoken prompt; null = not known. */
+  var boardLook: () -> com.agj.android.vision.FaceLook? = { null }
   var reducedMotion = false
     set(v) {
       field = v
@@ -385,7 +388,10 @@ class HeldPartGuide(
   /** The name pill above the pick marker of the part to take (above the chevron), turned to the wearer. */
   private fun showPick(t: PickTarget?, headPose: Pose3?) {
     val l = label
-    val info = if (t != null && l != null) LabelInfo(PickPrompt.pill(t, l), GhostState.NEXT, false) else null
+    // BOARD-CUE: a board found by its rectangle also says how it lies ("Αριστερό πλαϊνό · ράγα πάνω")
+    val look = if (t?.method == com.agj.android.world.FlatParts.METHOD) boardLook() else null
+    val pill = if (t != null && l != null) PickPrompt.pill(t, l).let { p -> if (look != null) p.copy(code = com.agj.android.world.BoardWords.short(look, lang())) else p } else null
+    val info = pill?.let { LabelInfo(it, GhostState.NEXT, false) }
     if (pickLabel.info != info) pickLabel.info = info
     val e = pickE ?: return
     if (t == null || info == null || headPose == null) {
@@ -422,7 +428,9 @@ class HeldPartGuide(
       prompted = true
       val bearing = PickPrompt.bearing(headPose, best.worldPos)
       val whereText = s(bearing)
-      say(PickPrompt.line(lang(), l.name, whereText), HeldSpeech.PROMPT)
+      // BOARD-CUE: "Πάρε: Αριστερό πλαϊνό, αριστερά σου. Το βλέπω με τη ράγα προς τα πάνω."
+      val look = if (best.method == com.agj.android.world.FlatParts.METHOD) boardLook() else null
+      say(listOfNotNull(PickPrompt.line(lang(), l.name, whereText), look?.let { com.agj.android.world.BoardWords.seen(it, lang()) }).joinToString(" "), HeldSpeech.PROMPT)
       log.event(
           "pick_prompt",
           mapOf("part" to expected, "name" to l.name, "position" to whereText, "bearing" to bearing.removePrefix("where").lowercase(),

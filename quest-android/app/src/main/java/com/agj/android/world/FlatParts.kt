@@ -5,7 +5,15 @@ import com.agj.android.core.Pose3
 import com.agj.android.core.Vec3
 import com.agj.android.guide.ActionKind
 import com.agj.android.guide.Assembly
+import com.agj.android.guide.Guide
 import com.agj.android.guide.GuideAction
+import com.agj.android.vision.BoardCue
+import com.agj.android.vision.BoardCueHub
+import com.agj.android.vision.BoardCueResult
+import com.agj.android.vision.CueVote
+import com.agj.android.vision.FaceLook
+import com.agj.android.vision.KindCue
+import com.agj.android.vision.RectCue
 import com.agj.android.vision.PanelConsensus
 import com.agj.android.vision.RectsResult
 import kotlin.math.abs
@@ -195,7 +203,50 @@ class LitPart(
     val ageMs: Long,
     /** 1, fading to 0 over the last [FlatPartsConfig.fadeMs] before it stops being live. */
     val opacity: Float,
+    /** BOARD-CUE: the face that is up, the board it is (part id) and whether its own length axis points against the corners' order; null = not known. */
+    val look: FaceLook? = null,
+    val which: String? = null,
+    val turned: Boolean? = null,
 )
+
+/** BOARD-CUE: the words for how a board lies (the label's second part, the coach's hint). */
+object BoardWords {
+  fun face(look: FaceLook, lang: String): String =
+      if (lang == "el")
+          when (look) {
+            FaceLook.RAIL -> "με τη ράγα προς τα πάνω"
+            FaceLook.GROOVE -> "με το αυλάκι προς τα πάνω"
+            FaceLook.HOLES -> "με τις τρύπες προς τα πάνω"
+          }
+      else
+          when (look) {
+            FaceLook.RAIL -> "rail side up"
+            FaceLook.GROOVE -> "groove side up"
+            FaceLook.HOLES -> "holes up"
+          }
+
+  /** The pill above the board to take: "ράγα πάνω" (short: the pill is one line). */
+  fun short(look: FaceLook, lang: String): String =
+      if (lang == "el")
+          when (look) {
+            FaceLook.RAIL -> "ράγα πάνω"
+            FaceLook.GROOVE -> "αυλάκι πάνω"
+            FaceLook.HOLES -> "τρύπες πάνω"
+          }
+      else
+          when (look) {
+            FaceLook.RAIL -> "rail up"
+            FaceLook.GROOVE -> "groove up"
+            FaceLook.HOLES -> "holes up"
+          }
+
+  /** Spoken after "Πάρε: …, αριστερά σου.": what the app sees of the board as it lies. */
+  fun seen(look: FaceLook, lang: String): String =
+      if (lang == "el") "Το βλέπω ${face(look, lang)}." else "I see it ${face(look, lang)}."
+
+  /** "This is the right side panel, take the other one." [name]: the board that is seen (lower case, as in the manifest). */
+  fun other(name: String, lang: String): String = if (lang == "el") "Αυτό είναι το $name, πάρε το άλλο." else "This is the $name. Take the other one."
+}
 
 /**
  * See the file comment. Thread-safe: [onRects] / [update] come from the detector's thread, [setAction] and the
@@ -206,7 +257,9 @@ class FlatParts(
     private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 },
     val cfg: FlatPartsConfig = FlatPartsConfig(),
 ) {
-  private class Meas(val x: Float, val y: Float, val z: Float, val yaw: Double, val l: Double, val w: Double, val rectness: Double, val contrast: Double)
+  private class Meas(val x: Float, val y: Float, val z: Float, val yaw: Double, val l: Double, val w: Double, val rectness: Double, val contrast: Double,
+      /** BOARD-CUE: this sighting's cue, and the WORLD yaw of the board's own +length axis when the cue says which way round. */
+      val cue: BoardCueResult? = null, val heading: Double? = null)
 
   private class Track(val key: Int) {
     val m = ArrayDeque<Meas>()
@@ -214,6 +267,21 @@ class FlatParts(
     var lastMs = 0L
     var kind: BoardKind? = null
     var index = -1
+
+    // BOARD-CUE: how it lies; each is taken (or changed) after three agreeing sightings in a row
+    val look = CueVote<FaceLook>()
+    val which = CueVote<String>()
+    val heading = CueVote<Double>(same = { a, b -> abs(atan2(sin(a - b), cos(a - b))) < Math.PI / 3 })
+    var fresh: Meas? = null
+
+    fun resetCue() {
+      look.reset()
+      which.reset()
+      heading.reset()
+    }
+
+    /** The board's own +length axis points against [yaw] (the corners' order); null = not known. */
+    fun turned(): Boolean? = heading.value?.let { h -> cos(h - yaw) < 0 }
 
     fun med(f: (Meas) -> Double): Double = PanelConsensus.median(m.map(f))
 
@@ -268,9 +336,10 @@ class FlatParts(
       g.addedAt[node]?.let { (s, ai) -> (stepIndex[s] ?: 0) * 1000 + ai } to geo.positions
     } ?: emptyList()
     setBoards(if (a == null) emptyList() else FlatBoards.of(a, cfg))
+    val cueLog = if (g != null) buildCues(g) else null // BOARD-CUE: every way each board can lie, from the meshes
     log.event("flat_parts", mapOf("boards" to boards.map { mapOf("part" to it.partId, "node" to it.node,
         "length_mm" to Math.round(it.lengthM * 1000), "width_mm" to Math.round(it.widthM * 1000), "thick_mm" to Math.round(it.thickM * 1000)) },
-        "kinds" to kinds.map { it.name }))
+        "kinds" to kinds.map { it.name }, "board_cue" to cueLog))
   }
 
   /** The boards to tell apart (tests give them directly; the app goes through [setAssembly]). */
@@ -282,6 +351,7 @@ class FlatParts(
     needed = null
     litKey = null
     wanted = kinds.isNotEmpty()
+    setCues(emptyMap()) // BOARD-CUE: the cue belongs to a guide's meshes ([setAssembly])
   }
 
   /** The action shown now: its board (a `place` of one) is the one to light; boards placed before it are not looked for. */
@@ -348,7 +418,8 @@ class FlatParts(
         val c = worldFromTable.transform(Vec3(f.x.toFloat(), f.y.toFloat(), f.topM.toFloat()))
         val d = worldFromTable.q.rotate(Vec3(cos(f.yaw).toFloat(), sin(f.yaw).toFloat(), 0f))
         val yaw = atan2(d.z.toDouble(), d.x.toDouble())
-        val meas = Meas(c.x, c.y, c.z, yaw, f.lengthM, f.widthM, f.rectness, f.contrast)
+        val cue = f.cue // BOARD-CUE
+        val meas = Meas(c.x, c.y, c.z, yaw, f.lengthM, f.widthM, f.rectness, f.contrast, cue, cue?.turned?.let { if (it) yaw + Math.PI else yaw })
         if (assembly != null) {
           val one = Track(0).also { it.m.addLast(meas) }
           if (FlatMatch.overlaps(one.corners(), assembly)) {
@@ -365,8 +436,10 @@ class FlatParts(
           // its size is measured afresh, not mixed with the old one
           t.m.clear()
           t.seen = 0
+          t.resetCue() // BOARD-CUE
         }
         t.m.addLast(meas)
+        t.fresh = meas // BOARD-CUE
         while (t.m.size > cfg.window) t.m.removeFirst()
         t.seen++
         t.lastMs = nowMs
@@ -377,8 +450,20 @@ class FlatParts(
     if (assembly != null) tracks.removeAll { FlatMatch.overlaps(it.corners(), assembly) }
     for (t in tracks) {
       val k = FlatMatch.classify(t.l, t.w, kinds, cfg)
-      if (k !== t.kind) t.index = -1
+      if (k !== t.kind) {
+        t.index = -1
+        t.resetCue() // BOARD-CUE
+      }
       t.kind = k
+      // BOARD-CUE: this pass's sighting votes on how the board lies (a sighting scored as another kind does not)
+      val m = t.fresh
+      t.fresh = null
+      if (m != null) {
+        val cue = m.cue?.takeIf { k != null && it.kind.name == k.name }
+        t.look.add(cue?.look)
+        t.which.add(cue?.board?.let { cue.kind.boards[it] })
+        t.heading.add(if (cue != null) m.heading else null)
+      }
     }
     // identical boards: each rectangle of a kind keeps its index while it is followed; new ones take the free ones by position
     for (k in kinds) {
@@ -399,7 +484,7 @@ class FlatParts(
       fun mm(v: Double) = Math.round(v * 1000)
       fun fields(t: Track): Map<String, Any?> =
           mapOf("length_mm" to mm(t.l), "width_mm" to mm(t.w), "rectness" to Math.round(t.med { it.rectness } * 1000) / 1000.0,
-              "contrast" to Math.round(t.med { it.contrast } * 10) / 10.0, "n" to t.seen, "pos_m" to t.center())
+              "contrast" to Math.round(t.med { it.contrast } * 10) / 10.0, "n" to t.seen, "pos_m" to t.center()) + cueFields(t) // BOARD-CUE
       log.event(
           "flat_parts",
           mapOf(
@@ -408,6 +493,7 @@ class FlatParts(
               "ms" to Math.round(r.ms * 10) / 10.0,
               "candidates" to r.candidates,
               "parts" to live.filter { it.kind != null }.map { mapOf("part" to it.kind!!.name, "index" to it.index) + fields(it) },
+              "cue_ms" to Math.round(r.rects.sumOf { it.cue?.ms ?: 0.0 } * 100) / 100.0, // BOARD-CUE: what the cue added to this pass
               "unknown" to
                   live.filter { it.kind == null }.map { t ->
                     val near = kinds.minByOrNull { FlatMatch.distance(t.l, t.w, it, cfg) }
@@ -430,8 +516,13 @@ class FlatParts(
   /** The live rectangle of the needed kind nearest to the assembly; null when there is none, or more than the kind has boards. */
   private fun choose(nowMs: Long): Track? {
     val kind = kindOf(needed?.takeIf { !placed(it) }) ?: return null
-    val c = tracks.filter { it.kind === kind && it.seen >= cfg.minSeen && nowMs - it.lastMs <= cfg.liveMs }
-    if (c.isEmpty() || c.size > kind.boards.size) return null // one of them is not this board: light none
+    val all = tracks.filter { it.kind === kind && it.seen >= cfg.minSeen && nowMs - it.lastMs <= cfg.liveMs }
+    if (all.isEmpty() || all.size > kind.boards.size) return null // one of them is not this board: light none
+    // BOARD-CUE: a rectangle told to be the needed board is the one; a rectangle told to be another board never is.
+    // Nothing told apart: every rectangle of the kind, as before.
+    val want = needed?.partId
+    val c = all.filter { it.which.value == want }.ifEmpty { all.filter { it.which.value == null } }
+    if (c.isEmpty()) return null
     val held = c.firstOrNull { it.key == litKey }
     val at = assemblyPos ?: return held ?: c.minByOrNull { it.index }
     val best = c.minByOrNull { flat(it.x - at.x, it.z - at.z) }!!
@@ -445,7 +536,101 @@ class FlatParts(
     val t = choose(nowMs) ?: return null
     val age = nowMs - t.lastMs
     val left = cfg.liveMs - age
-    return LitPart(t.key, n.partId, t.index, t.center(), t.corners(), t.l, t.w, age, if (left >= cfg.fadeMs) 1f else (left.toFloat() / cfg.fadeMs).coerceIn(0f, 1f))
+    return LitPart(t.key, n.partId, t.index, t.center(), t.corners(), t.l, t.w, age, if (left >= cfg.fadeMs) 1f else (left.toFloat() / cfg.fadeMs).coerceIn(0f, 1f),
+        t.look.value, t.which.value, t.turned()) // BOARD-CUE
+  }
+
+  // ---- BOARD-CUE ----
+
+  private var cues: Map<String, KindCue> = emptyMap()
+
+  /**
+   * The hypotheses of every kind of board, from the guide's meshes (and the hardware that sits in the boards). Returns
+   * what goes into the log: per kind and hypothesis the board, the face (0 / 1), what it shows, turned or not, the
+   * pixels of its long features away from the edges and at an edge, and the number of its small features.
+   */
+  private fun buildCues(g: Guide): Map<String, Any?> {
+    val hw = g.parts.filterKeys { it.startsWith("hw_") }.values.map { it.positions to it.indices }
+    val t0 = System.nanoTime()
+    val made = LinkedHashMap<String, KindCue>()
+    for (k in kinds) {
+      val meshes = k.boards.mapNotNull { b -> g.parts[b.node]?.let { BoardCue.BoardMesh(b.partId, it.positions, it.indices, g.finalPoses[b.node] ?: Pose3.IDENTITY) } }
+      if (meshes.size != k.boards.size) continue
+      val kc = runCatching { BoardCue.kind(k.name, meshes, hw) }.getOrNull() ?: continue
+      if (kc.lies.isNotEmpty()) made[k.name] = kc
+    }
+    setCues(made)
+    return mapOf("ms" to Math.round((System.nanoTime() - t0) / 1e5) / 10.0,
+        "kinds" to made.map { (name, kc) -> mapOf("kind" to name, "lies" to kc.lies.map { listOf(kc.boards[it.board], it.face, it.look.name.lowercase(), it.turned, it.template.interiorPx, it.template.edgePx, it.template.smallGroups) }) })
+  }
+
+  /** The cue's hypotheses per kind name (tests give them directly), and the detector's scorer with them. */
+  @Synchronized
+  fun setCues(c: Map<String, KindCue>) {
+    cues = c
+    BoardCueHub.scorer = if (c.isEmpty()) null else scorer()
+  }
+
+  /** Scores a found rectangle as the kind its own size says (the same rule as the labels). Null: no kind, or the kind has no features. */
+  @Synchronized
+  fun scorer(): RectCue {
+    val ks = kinds
+    val c = cues
+    return RectCue { light, stride, valid, n, x0, y0, s, r ->
+      val k = FlatMatch.classify(r.lengthM, r.widthM, ks, cfg) ?: return@RectCue null
+      val kc = c[k.name] ?: return@RectCue null
+      BoardCue.score(kc, light, stride, valid, n, x0, y0, s, r.x, r.y, r.yaw)
+    }
+  }
+
+  private fun cueFields(t: Track): Map<String, Any?> {
+    val c = t.m.lastOrNull()?.cue ?: return emptyMap()
+    fun r1(v: Double) = if (v.isNaN()) null else Math.round(v * 10) / 10.0
+    return mapOf(
+        "face" to t.look.value?.name?.lowercase(),
+        "which" to t.which.value,
+        "turned" to t.turned(),
+        "heading_deg" to t.heading.value?.let { Math.round(Math.toDegrees(it)) },
+        "cue" to mapOf(
+            "decided" to c.decided,
+            "face" to c.look?.name?.lowercase(),
+            "which" to c.board?.let { c.kind.boards[it] },
+            "turned" to c.turned,
+            // per hypothesis: board, face up, turned by 180°, how much darker (8-bit L) its long features away from the
+            // edges, its long features at an edge and its small ones are than the face round them
+            "scores" to c.kind.lies.indices.map { i -> c.kind.lies[i].let { l -> listOf(c.kind.boards[l.board], l.look.name.lowercase(), l.turned, r1(c.long[i]), r1(c.edge[i]), r1(c.small[i])) } },
+            "ms" to Math.round(c.ms * 100) / 100.0,
+        ),
+    )
+  }
+
+  /**
+   * What the app sees of the lit board, for the label: "Αριστερό πλαϊνό · με τη ράγα προς τα πάνω". The board's name
+   * only when the kind has one board or the cue told which it is; null while the face is not known.
+   */
+  @Synchronized
+  fun describe(lang: String, nowMs: Long = clockMs()): String? {
+    val n = needed ?: return null
+    val t = choose(nowMs) ?: return null
+    val look = t.look.value ?: return null
+    val b = t.which.value?.let { id -> boards.firstOrNull { it.partId == id } } ?: n.takeIf { (kindOf(it)?.boards?.size ?: 0) == 1 }
+    val face = BoardWords.face(look, lang)
+    val name = b?.let { it.names[if (lang == "el") "el" else "en"] ?: it.names["en"] ?: it.partId } ?: return face.replaceFirstChar { it.uppercaseChar() }
+    return name.replaceFirstChar { it.uppercaseChar() } + " · " + face
+  }
+
+  /**
+   * One line the coach can speak when every board of the needed kind in view is told to be ANOTHER board
+   * ("Αυτό είναι το δεξί πλαϊνό, πάρε το άλλο."); null otherwise (also while nothing is told apart).
+   */
+  @Synchronized
+  fun hint(lang: String, nowMs: Long = clockMs()): String? {
+    val n = needed?.takeIf { !placed(it) } ?: return null
+    val kind = kindOf(n) ?: return null
+    val c = tracks.filter { it.kind === kind && it.seen >= cfg.minSeen && nowMs - it.lastMs <= cfg.liveMs }
+    if (c.isEmpty() || c.size > kind.boards.size || c.any { it.which.value == null || it.which.value == n.partId }) return null
+    val other = boards.firstOrNull { it.partId == c.first().which.value } ?: return null
+    return BoardWords.other(other.names[if (lang == "el") "el" else "en"] ?: other.names["en"] ?: other.partId, lang)
   }
 
   /**

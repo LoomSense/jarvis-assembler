@@ -298,6 +298,7 @@ class MainActivity : AppSystemActivity() {
     side.caption = s("cameraOff")
     // HELD-PART: the "Έλεγχος" button on the ΠΑΡΕ card checks the part in the hand now
     held.reducedMotion = params.reducedMotion
+    held.boardLook = { world.boardLook() } // BOARD-CUE: which face of the board to take is up
     side.onPress = { sounds.play(Sounds.Cue.TICK) }
     side.onCheck = { held.check("card") }
     if (params.hud) preview = CameraPreviewFeed(scope, side)
