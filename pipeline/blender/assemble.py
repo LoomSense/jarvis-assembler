@@ -8,6 +8,11 @@ time, in the guide's order. A step becomes a list of actions:
     turn     the whole assembly is turned the way the guide draws it for this step
     place    one part is picked up and moved into position
     fasten   one screw goes to its hole, then turns as it is driven in
+    join     a sub-assembly built beside the main assembly is lifted and set in its place
+
+A sub-assembly (plan `subassemblies`, built with `"into"`, joined with an add that names `"subassembly"`) is
+built next to the main assembly, turned the way the guide draws it while it is built, then moved as one piece.
+All pieces stay children of the root `assembly`; a staged piece is keyed at its staged pose.
 
 Writes <out>/walkthrough.glb, manifest.json, scene.blend and renders/*.png.
 The GLB's first animation, `walkthrough`, plays every action of every step in
@@ -25,12 +30,16 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 
 plan_path, parts_dir, place_path, out = map(Path, sys.argv[sys.argv.index("--") + 1:][:4])
 plan = json.loads(plan_path.read_text())
-placed = json.loads(place_path.read_text())["instances"]
+placements = json.loads(place_path.read_text())
+placed = placements["instances"]
+subs = placements.get("subassemblies", {})
+SUBDEFS = {g["id"]: g for g in plan.get("subassemblies", [])}
 (out / "renders").mkdir(parents=True, exist_ok=True)
 MM = 0.001
 FPS = 24
 # frames per action
-TURN_F, PLACE_F, GAP_F = 34, 30, 6
+TURN_F, PLACE_F, GAP_F, JOIN_F = 34, 30, 6, 48
+SAMPLES = 8                                         # keys per staged turn or join, so a sub-assembly moves rigidly
 APPROACH_F, DRIVE_F, TURNS = 10, 18, 2.5           # a screw: fly to the hole, then drive in while turning
 STEP_HOLD_F = 16
 PLACE_TRAVEL, SCREW_CLEAR = 0.20, 0.07             # metres
@@ -116,26 +125,89 @@ bpy.context.view_layer.update()
 REST = {i: (o.location.copy(), o.rotation_quaternion.copy()) for i, o in objs.items()}
 
 
+def metres(rows):
+    M = Matrix(rows)
+    M.translation = M.translation * MM
+    return M
+
+
+FINAL = {i: metres(pl["matrix_mm"]) for i, pl in placed.items()}            # in the root's frame, when finished
+GROUP_OF = {i: pl.get("subassembly") for i, pl in placed.items()}
+HOME = {i: metres(pl["local_mm"]) if GROUP_OF[i] else FINAL[i] for i, pl in placed.items()}  # in its own frame
+GM = {g: metres(v["matrix_mm"]) for g, v in subs.items()}                   # sub-assembly frame -> root frame
+
+
 def local_points(instances):
-    return [objs[i].matrix_local @ Vector(c) for i in instances for c in objs[i].bound_box]
+    return [FINAL[i] @ Vector(c) for i in instances for c in objs[i].bound_box]
 
 
 ALL = local_points(objs)
 CENTRE = sum(ALL, Vector()) / len(ALL)
+R_MAIN = max((p - CENTRE).length for p in ALL)
+GPTS = {g: [HOME[i] @ Vector(c) for i in v["instances"] for c in objs[i].bound_box] for g, v in subs.items()}
+GCENTRE = {g: sum(pts, Vector()) / len(pts) for g, pts in GPTS.items()}
+GRADIUS = {g: max((q - GCENTRE[g]).length for q in pts) for g, pts in GPTS.items()}
 
 
 def root_pose(rot_deg, instances):
     """Root transform that turns the assembly and rests the given pieces on the floor (z = 0)."""
     e = Euler([math.radians(a) for a in rot_deg], "XYZ")
     R = e.to_matrix()
-    pts = [R @ p for p in local_points(instances)]
+    pts = [R @ p for p in local_points(instances or list(objs))]
     c = R @ CENTRE
     return e, Vector((CENTRE.x - c.x, CENTRE.y - c.y, -min(p.z for p in pts)))
+
+
+def root_matrix(rs):
+    """rs = (rotation in degrees, instances resting on the floor): the root's world matrix."""
+    e, loc = root_pose(*rs)
+    return Matrix.Translation(loc) @ e.to_matrix().to_4x4()
+
+
+def stage_world(g, rot):
+    """World matrix of a sub-assembly while it is built: beside the main assembly, turned by `rot`
+    (degrees, or a Quaternion), resting on the floor."""
+    q = rot if isinstance(rot, Quaternion) else Euler([math.radians(a) for a in rot], "XYZ").to_quaternion()
+    R = q.to_matrix().to_4x4()
+    low = min((R @ (p - GCENTRE[g])).z for p in GPTS[g])
+    T = Vector((CENTRE.x + R_MAIN + GRADIUS[g] + 0.08, CENTRE.y, -low))
+    return Matrix.Translation(T) @ R @ Matrix.Translation(-GCENTRE[g])
+
+
+def stage_local(g, rot, rs):
+    return root_matrix(rs).inverted() @ stage_world(g, rot)
+
+
+def pose_of(inst, st, rs, home=None):
+    """Matrix (root frame) of a piece in state `st` ({"grot": {g: rot}, "joined": set}) under root state `rs`."""
+    M = HOME[inst] if home is None else home
+    g = GROUP_OF[inst]
+    if not g:
+        return M
+    if g in st["joined"]:
+        return GM[g] @ M
+    return stage_local(g, st["grot"][g], rs) @ M
+
+
+LASTQ = {}
+
+
+def key_matrix(o, M, frame):
+    loc, q, _ = M.decompose()
+    if o.name in LASTQ:
+        q.make_compatible(LASTQ[o.name])
+    LASTQ[o.name] = q.copy()
+    o.location, o.rotation_quaternion = loc, q
+    o.keyframe_insert("location", frame=frame)
+    o.keyframe_insert("rotation_quaternion", frame=frame)
 
 
 # --- actions: what a person does, one thing at a time, in the guide's order -----------------------------
 def text_for(kind, d, i=0, n=0, first=False):
     name, el = d.get("short", d["name"]).lower(), d.get("el", d["name"])
+    if kind == "join":
+        return {"en": f"Take the {name} you built and put it in place here.",
+                "el": f"Πάρε {el} που έφτιαξες και βάλε {d.get('el_pron', 'το')} στη θέση που φαίνεται."}
     if kind == "fasten":
         code = d["code"]
         return {"en": f"Take a {name} ({code}) and screw it in here. Screw {i} of {n}.",
@@ -146,25 +218,69 @@ def text_for(kind, d, i=0, n=0, first=False):
             "el": f"Πάρε {el} και βάλε {d.get('el_pron', 'το')} στη θέση που φαίνεται."}
 
 
-steps_actions, shown, prev_rot = [], [], None
+def is_join(a):
+    return "subassembly" in a and "instance" not in a
+
+
+steps_actions, shown, shown_main, prev_rot = [], [], [], None
+gshown = {g: [] for g in SUBDEFS}
+grot, joined = {}, set()
+root_ref = None                                      # the root state the walkthrough is keyed with right now
+
+
+def snapshot():
+    return {"grot": {g: list(r) for g, r in grot.items()}, "joined": set(joined)}
+
+
 for step in plan["steps"]:
+    g_step = step.get("subassembly")
     rot = step.get("assembly_rotation_deg", [0, 0, 0])
+    rm = prev_rot if (g_step and prev_rot is not None) else ([0, 0, 0] if g_step else rot)
     acts, f = [], 1
     adds = step["add"]
-    part_adds = [a for a in adds if placed[a["instance"]]["kind"] == "part"]
-    hw_adds = [a for a in adds if placed[a["instance"]]["kind"] == "hardware"]
-    if prev_rot is not None and rot != prev_rot and shown:
-        acts.append({"type": "turn", "f0": f, "f1": f + TURN_F, "from": prev_rot, "to": rot, "on": list(shown),
+    part_adds = [a for a in adds if is_join(a) or placed[a["instance"]]["kind"] == "part"]
+    hw_adds = [a for a in adds if not is_join(a) and placed[a["instance"]]["kind"] == "hardware"]
+    st_before = snapshot()
+    staged_now = [i for g in gshown if g not in joined for i in gshown[g]]
+    clip_before = clip_after = None
+    if g_step:
+        if gshown.get(g_step) and grot.get(g_step) is not None and grot[g_step] != rot:
+            acts.append({"type": "turn", "group": g_step, "f0": f, "f1": f + TURN_F, "from": grot[g_step], "to": rot,
+                         "on": list(gshown[g_step]), "rs": root_ref,
+                         "text": step.get("turn_text", {"en": "Turn it as the guide shows.",
+                                                        "el": "Γύρισέ το όπως δείχνει ο οδηγός."})})
+            f += TURN_F + GAP_F
+        grot[g_step] = list(rot)
+    elif prev_rot is not None and rot != prev_rot and shown_main:
+        acts.append({"type": "turn", "f0": f, "f1": f + TURN_F, "from": prev_rot, "to": rot, "on": list(shown_main),
+                     "staged": staged_now, "rs0": root_ref, "rs1": (rot, list(shown_main)),
                      "text": step.get("turn_text", {"en": "Turn the assembly as the guide shows.",
                                                     "el": "Γύρισε την κατασκευή όπως δείχνει ο οδηγός."})})
+        clip_before, clip_after = (prev_rot, list(shown_main)), (rot, list(shown_main))
+        root_ref = (rot, list(shown_main))
         f += TURN_F + GAP_F
+    for a in adds:
+        if a.get("into"):
+            grot.setdefault(a["into"], [0, 0, 0])
+    st = snapshot()
     for a in part_adds:
+        if is_join(a):
+            g = a["subassembly"]; d = SUBDEFS.get(g, {"name": g})
+            acts.append({"type": "join", "group": g, "f0": f, "f1": f + JOIN_F, "st": st, "rs": root_ref,
+                         "text": text_for("join", d)})
+            f += JOIN_F + GAP_F
+            continue
         inst = a["instance"]; d = defs[inst.split("#")[0]]
-        if a.get("base"):
+        if a.get("base") and not a.get("into"):
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "base": True, "text": text_for("place", d, first=True)})
             f += 8 + GAP_F
+        elif a.get("base"):
+            acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "gbase": True, "st": st, "rs": root_ref,
+                         "text": text_for("place", d, first=True)})
+            f += 8 + GAP_F
         else:
-            acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + PLACE_F, "text": text_for("place", d)})
+            acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + PLACE_F, "st": st, "rs": root_ref,
+                         "text": text_for("place", d)})
             f += PLACE_F + GAP_F
     counts = {}
     for a in hw_adds:
@@ -172,15 +288,36 @@ for step in plan["steps"]:
     seen = {}
     for a in hw_adds:
         inst = a["instance"]; code = inst.split("#")[0]; seen[code] = seen.get(code, 0) + 1
-        acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F,
+        acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F, "st": st, "rs": root_ref,
                      "text": text_for("fasten", defs[code], seen[code], counts[code])})
         f += APPROACH_F + DRIVE_F + GAP_F
-    shown += [a["instance"] for a in adds]
-    steps_actions.append({"step": step, "rot": rot, "acts": acts, "frames": f + STEP_HOLD_F, "shown": list(shown)})
-    prev_rot = rot
+    for a in adds:
+        if is_join(a):
+            g = a["subassembly"]; joined.add(g); shown_main += gshown.get(g, [])
+        elif a.get("into"):
+            gshown.setdefault(a["into"], []).append(a["instance"])
+        else:
+            shown_main.append(a["instance"])
+        if not is_join(a):
+            shown.append(a["instance"])
+    if root_ref is None and shown_main:
+        root_ref = (rm, list(shown_main))
+    clip_after = clip_after or (rm, list(shown_main))
+    for a in acts:                                    # actions keyed before the first main piece existed
+        if a.get("rs") is None and (a["type"] != "turn" or a.get("group")):
+            a["rs"] = root_ref or clip_after
+    steps_actions.append({"step": step, "rot": rm, "grot": list(rot) if g_step else None, "group": g_step,
+                          "acts": acts, "frames": f + STEP_HOLD_F, "shown": list(shown), "shown_main": list(shown_main),
+                          "st_before": st_before, "st": snapshot(), "staged_before": staged_now,
+                          "clip_before": clip_before or clip_after, "clip_after": clip_after})
+    if not g_step:
+        prev_rot = rot
+    elif prev_rot is None:
+        prev_rot = rm
 final_turn = None
-if prev_rot != [0, 0, 0]:
-    final_turn = {"type": "turn", "f0": 1, "f1": 1 + TURN_F, "from": prev_rot, "to": [0, 0, 0], "on": list(shown),
+if prev_rot not in (None, [0, 0, 0]):
+    final_turn = {"type": "turn", "f0": 1, "f1": 1 + TURN_F, "from": prev_rot, "to": [0, 0, 0], "on": list(shown_main),
+                  "staged": [], "rs0": root_ref, "rs1": ([0, 0, 0], list(shown_main)),
                   "text": plan.get("final_turn_text", {"en": "Turn it the right way up.", "el": "Γύρισέ το στην κανονική θέση."})}
 
 
@@ -206,11 +343,101 @@ def key_marker(inst, f0, f1, approach):
     marker.scale = HIDDEN
 
 
-def key_action(a, off):
+def key_marker_at(M, f0, f1):
+    loc, q, _ = M.decompose()
+    marker.location, marker.rotation_quaternion = loc, q
+    for f in (f0, f1):
+        marker.keyframe_insert("location", frame=f); marker.keyframe_insert("rotation_quaternion", frame=f)
+    marker.scale = HIDDEN
+    if f0 - 1 >= 1:
+        marker.keyframe_insert("scale", frame=f0 - 1)
+    marker.keyframe_insert("scale", frame=f1 + 1)
+    marker.scale = (1.9, 1.9, 1.9); marker.keyframe_insert("scale", frame=f0)
+    marker.scale = (1, 1, 1); marker.keyframe_insert("scale", frame=f0 + APPROACH_F); marker.keyframe_insert("scale", frame=f1)
+    marker.scale = HIDDEN
+
+
+def lerp_matrix(A, B, u):
+    la, qa, _ = A.decompose(); lb, qb, _ = B.decompose()
+    return Matrix.Translation(la.lerp(lb, u)) @ qa.slerp(qb, u).to_matrix().to_4x4()
+
+
+def staged_matrices(a, rs):
+    """Start and end matrices of a place or fasten on a piece that is not in the main assembly yet."""
+    inst = a["inst"]; H = HOME[inst]
+    approach = Vector(placed[inst]["approach"])
+    S = stage_local(GROUP_OF[inst], a["st"]["grot"][GROUP_OF[inst]], rs)
+    return S, H, approach
+
+
+def key_group_action(a, off, rs, clip=False):
+    """place / fasten on a staged piece, a staged turn, or a join. `rs` is the root state in this clip."""
+    f0, f1 = a["f0"] + off, a["f1"] + off
+    if a["type"] == "turn":                                  # turn the sub-assembly being built
+        g = a["group"]
+        qa = Euler([math.radians(x) for x in a["from"]], "XYZ").to_quaternion()
+        qb = Euler([math.radians(x) for x in a["to"]], "XYZ").to_quaternion()
+        Rinv = root_matrix(rs).inverted()
+        for k in range(SAMPLES + 1):
+            u = k / SAMPLES; fr = f0 + round(u * (f1 - f0))
+            S = Rinv @ stage_world(g, qa.slerp(qb, 0.5 - 0.5 * math.cos(math.pi * u)))
+            for i in a["on"]:
+                key_matrix(objs[i], S @ HOME[i], fr)
+        return
+    if a["type"] == "join":
+        g = a["group"]
+        A = stage_local(g, a["st"]["grot"][g], rs)
+        B = GM[g]
+        Bh = Matrix.Translation(Vector(subs[g]["approach"]) * PLACE_TRAVEL * 1.5) @ B
+        for k in range(SAMPLES + 1):
+            u = k / SAMPLES; fr = f0 + round(u * (f1 - f0))
+            M = lerp_matrix(A, Bh, min(1, u / 0.65)) if u <= 0.65 else lerp_matrix(Bh, B, (u - 0.65) / 0.35)
+            for i in subs[g]["instances"]:
+                key_matrix(objs[i], M @ HOME[i], fr)
+                if clip and k == 0 and f0 > 1:
+                    key_matrix(objs[i], M @ HOME[i], 1)
+        return
+    o = objs[a["inst"]]
+    S, H, approach = staged_matrices(a, rs)
+    if a["type"] == "place":
+        start = H if a.get("gbase") else Matrix.Translation(approach * PLACE_TRAVEL) @ H
+        if clip and f0 > 1:
+            key_matrix(o, S @ start, 1)
+        key_matrix(o, S @ start, f0); key_matrix(o, S @ H, f1)
+        return
+    length = info[placed[a["inst"]]["part"]]["params"].get("length", 30) * MM
+    key_marker_at(S @ Matrix.Translation(approach * 0.0015) @ Matrix.Translation(H.translation)
+                  @ Vector((0, 0, 1)).rotation_difference(approach).to_matrix().to_4x4(), f0, f1)
+    fd = f0 + APPROACH_F
+    hq = H.to_quaternion(); quarters = int(TURNS * 4)
+
+    def at(offset, turns_left):
+        return S @ Matrix.Translation(H.translation + approach * offset) @ (hq @ Quaternion((0, 0, 1), -math.pi / 2 * turns_left)).to_matrix().to_4x4()
+
+    if clip and f0 > 1:
+        key_matrix(o, at(length + SCREW_CLEAR, quarters), 1)
+    key_matrix(o, at(length + SCREW_CLEAR, quarters), f0)
+    for q in range(quarters + 1):
+        key_matrix(o, at(length * (1 - q / quarters), quarters - q), fd + round(q * DRIVE_F / quarters))
+
+
+def key_staged(instances, st, rs, frame):
+    for i in instances:
+        key_matrix(objs[i], pose_of(i, st, rs), frame)
+
+
+def key_action(a, off, clip=False, rs_clip=None):
     """Insert the keyframes of one action, shifted by `off` frames."""
     f0, f1 = a["f0"] + off, a["f1"] + off
-    if a["type"] == "turn":
+    if a["type"] == "turn" and not a.get("group"):
         key_root(f0, a["from"], a["on"]); key_root(f1, a["to"], a["on"])
+        if a.get("staged"):                              # pieces of a sub-assembly lying beside: keep them still
+            st = a.get("st_for_staged")
+            rs0, rs1 = (rs_clip if clip else (a["rs0"], a["rs1"]))
+            key_staged(a["staged"], st, rs0, f0); key_staged(a["staged"], st, rs1, f1)
+        return
+    if a["type"] in ("turn", "join") or (a["type"] in ("place", "fasten") and GROUP_OF[a["inst"]] and GROUP_OF[a["inst"]] not in a["st"]["joined"]):
+        key_group_action(a, off, rs_clip[1] if clip and rs_clip else a["rs"], clip)
         return
     o = objs[a["inst"]]; pl = placed[a["inst"]]
     loc, quat = REST[a["inst"]]
@@ -249,15 +476,32 @@ def push(track):
     marker.scale = HIDDEN
 
 
+for sa in steps_actions:                                # the state the staged pieces keep during a main turn
+    for a in sa["acts"]:
+        if a["type"] == "turn" and not a.get("group"):
+            a["st_for_staged"] = sa["st_before"]
+if final_turn:
+    final_turn["st_for_staged"] = {"grot": {}, "joined": set(SUBDEFS)}
+
+
+def main_piece(a):
+    return a["type"] in ("place", "fasten") and not (GROUP_OF[a["inst"]] and GROUP_OF[a["inst"]] not in a["st"]["joined"]) \
+        if "st" in a else a["type"] in ("place", "fasten")
+
+
 # one clip per step
 for sa in steps_actions:
-    if not any(a["type"] == "turn" for a in sa["acts"]):
-        key_root(1, sa["rot"], sa["shown"])                  # every clip states the assembly's orientation
+    rs_clip = (sa["clip_before"], sa["clip_after"])
+    if not any(a["type"] == "turn" and not a.get("group") for a in sa["acts"]):
+        key_root(1, *sa["clip_after"])                       # every clip states the assembly's orientation
     if any(a["type"] == "fasten" for a in sa["acts"]):
         marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
+    acting = {a.get("inst") for a in sa["acts"]} | {i for a in sa["acts"] if a["type"] == "join" for i in subs[a["group"]]["instances"]} \
+        | {i for a in sa["acts"] if a["type"] == "turn" and a.get("group") for i in a["on"]}
+    key_staged([i for i in sa["staged_before"] if i not in acting], sa["st_before"], sa["clip_before"], 1)
     for a in sa["acts"]:
-        key_action(a, 0)
-        if a["type"] != "turn" and not a.get("base") and a["f0"] > 1:
+        key_action(a, 0, clip=True, rs_clip=rs_clip)
+        if main_piece(a) and not a.get("base") and a["f0"] > 1:
             # Hold the start pose from frame 1. The exporter slides each object's keys to time zero on its
             # own, so without this key every piece of the step moved at once at the start of the clip.
             o = objs[a["inst"]]
@@ -270,12 +514,12 @@ for sa in steps_actions:
 
 # the whole guide in one clip
 cursor, timeline = 0, []
-key_root(1, steps_actions[0]["rot"], steps_actions[0]["shown"])
+key_root(1, *steps_actions[0]["clip_after"])
 marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
 for sa in steps_actions:
     for a in sa["acts"]:
         key_action(a, cursor)
-        if a["type"] != "turn" and not a.get("base"):
+        if a["type"] in ("place", "fasten") and not a.get("base"):
             o = objs[a["inst"]]; f0 = a["f0"] + cursor
             o.scale = HIDDEN; o.keyframe_insert("scale", frame=1)
             if f0 - 1 > 1:
@@ -294,10 +538,20 @@ scene.frame_start, scene.frame_end = 1, TOTAL_FRAMES
 
 
 # --- cameras: one per step, orthographic like the guide's drawings ---------------------------------------
-def make_camera(name, instances, rot, az, el):
-    e, loc = root_pose(rot, instances)
-    Mr = Matrix.Translation(loc) @ e.to_matrix().to_4x4()
-    pts = [Mr @ p for p in local_points(instances)]
+def step_points(sa):
+    """World points the step's camera frames: the sub-assembly being built, or the main assembly."""
+    Mr = root_matrix(sa["clip_after"])
+    if sa["group"]:
+        return [Mr @ pose_of(i, sa["st"], sa["clip_after"]) @ Vector(c) for i in sa["shown"] if GROUP_OF[i] == sa["group"]
+                for c in objs[i].bound_box]
+    return [Mr @ p for p in local_points(sa["shown_main"] or sa["shown"])]
+
+
+def make_camera(name, instances, rot, az, el, pts=None):
+    if pts is None:
+        e, loc = root_pose(rot, instances)
+        Mr = Matrix.Translation(loc) @ e.to_matrix().to_4x4()
+        pts = [Mr @ p for p in local_points(instances)]
     lo = Vector([min(p[k] for p in pts) for k in range(3)]); hi = Vector([max(p[k] for p in pts) for k in range(3)])
     centre = (lo + hi) / 2
     a, e2 = math.radians(az), math.radians(el)
@@ -324,13 +578,29 @@ steps_out, cams = [], {}
 for sa, tl in zip(steps_actions, timeline):
     step = sa["step"]; n = step["n"]
     az, el = step.get("view_az_el_deg", (-55, 28))
-    cam, centre = make_camera(f"cam_step_{n:02d}", sa["shown"], sa["rot"], az, el)
+    cam, centre = make_camera(f"cam_step_{n:02d}", None, None, az, el, pts=step_points(sa))
     cams[n] = cam
-    added = [a["instance"] for a in step["add"]]
+    added = [a["instance"] for a in step["add"] if "instance" in a]
+    joins = [a["subassembly"] for a in step["add"] if is_join(a)]
     actions = []
     for a in sa["acts"]:
-        item = {"type": a["type"], "text": a["text"], "t0_s": round((a["f0"] - 1) / FPS, 3), "t1_s": round((a["f1"] - 1) / FPS, 3)}
-        if a["type"] != "turn":
+        item = {"type": "place" if a["type"] == "join" else a["type"], "text": a["text"],
+                "t0_s": round((a["f0"] - 1) / FPS, 3), "t1_s": round((a["f1"] - 1) / FPS, 3)}
+        if a["type"] == "join":
+            g = a["group"]
+            item.update({"subassembly": g, "node": nodes[subs[g]["instances"][0]], "nodes": [nodes[i] for i in subs[g]["instances"]],
+                         "target_m": [round(v, 4) for v in GM[g].translation], "from_dir": subs[g]["approach"]})
+        elif a["type"] == "turn" and a.get("group"):
+            item.update({"subassembly": a["group"], "rotation_deg": a["to"]})
+        elif a["type"] != "turn" and GROUP_OF[a["inst"]] and GROUP_OF[a["inst"]] not in a["st"]["joined"]:
+            pid = a["inst"].split("#")[0]
+            item.update({"node": nodes[a["inst"]], "partId": pid, "subassembly": GROUP_OF[a["inst"]],
+                         "target_m": [round(v, 4) for v in pose_of(a["inst"], a["st"], sa["clip_after"]).translation],
+                         "from_dir": list((pose_of(a["inst"], a["st"], sa["clip_after"]).to_3x3() @ HOME[a["inst"]].to_3x3().inverted()
+                                           @ Vector(placed[a["inst"]]["approach"])).normalized())})
+            if a["type"] == "fasten":
+                item["code"] = pid
+        elif a["type"] != "turn":
             pid = a["inst"].split("#")[0]
             item.update({"node": nodes[a["inst"]], "partId": pid, "target_m": target_of(a["inst"]),
                          "from_dir": placed[a["inst"]]["approach"]})
@@ -343,7 +613,11 @@ for sa, tl in zip(steps_actions, timeline):
         "n": n, "clip": f"step_{n:02d}" if sa["acts"] else None, "title": step["title"], "pose": step.get("pose", "upright"),
         "assemblyRotationDeg": sa["rot"], "actions": actions,
         "visible": [nodes[i] for i in sa["shown"]],
-        "moving": [nodes[i] for i in added if not next(a for a in step["add"] if a["instance"] == i).get("base")],
+        "moving": [nodes[i] for i in added if not next(a for a in step["add"] if a.get("instance") == i).get("base")]
+                  + [nodes[i] for g in joins for i in subs[g]["instances"]],
+        "subassembly": sa["group"], "subassemblyRotationDeg": sa["grot"], "joins": joins,
+        "stagedPoses": {nodes[i]: [[round(v, 6) for v in row] for row in pose_of(i, sa["st"], sa["clip_after"])]
+                        for i in sa["shown"] if GROUP_OF[i] and GROUP_OF[i] not in sa["st"]["joined"]},
         "pickParts": sorted({i.split("#")[0] for i in added if placed[i]["kind"] == "part"}),
         "hardware": [{"code": c, "qty": q} for c, q in step.get("hardware_used", {}).items()],
         "flipWholeAssembly": step.get("flip_whole_assembly", False),
@@ -363,6 +637,9 @@ manifest = {
                   "color": [round(c, 3) for c in MATERIALS[f"hw_{h['code']}"][0][:3]],
                   "nodes": [n for i, n in nodes.items() if i.split("#")[0] == h["code"]]} for h in plan["hardware"]],
     "steps": steps_out, "flags": plan.get("flags", []),
+    "subassemblies": [{"id": g, "name": d.get("name", g), "short": d.get("short", d.get("name", g)),
+                       "nodes": [nodes[i] for i in subs.get(g, {}).get("instances", [])],
+                       "joinStep": subs.get(g, {}).get("step")} for g, d in SUBDEFS.items()],
 }
 (out / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
 
@@ -416,9 +693,11 @@ def base_colour(inst):
 
 
 for sa, s in zip(steps_actions, steps_out):
-    root.rotation_euler, root.location = root_pose(sa["rot"], sa["shown"])
+    root.rotation_euler, root.location = root_pose(*sa["clip_after"])
     for inst, o in objs.items():
-        o.hide_render = nodes[inst] not in s["visible"]
+        o.matrix_local = pose_of(inst, sa["st"], sa["clip_after"]) if nodes[inst] in s["stagedPoses"] else FINAL[inst]
+        # a step that builds a sub-assembly shows only it, as the guide draws it; other steps hide what lies beside
+        o.hide_render = nodes[inst] not in s["visible"] or ((GROUP_OF[inst] != sa["group"]) if sa["group"] else nodes[inst] in s["stagedPoses"])
         o.color = ACCENT if nodes[inst] in s["moving"] else base_colour(inst)
     scene.camera = cams[s["n"]]
     scene.render.filepath = str(out / "renders" / f"step_{s['n']:02d}.png")
@@ -429,6 +708,7 @@ root.rotation_euler, root.location = root_pose([0, 0, 0], list(objs))
 az, el = plan.get("cover_view_az_el_deg", (-125, 25))
 cover_cam, _ = make_camera("cam_cover", list(objs), [0, 0, 0], az, el)
 for inst, o in objs.items():
+    o.matrix_local = FINAL[inst]
     o.hide_render = False
     o.color = base_colour(inst)
 scene.camera = cover_cam

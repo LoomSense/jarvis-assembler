@@ -73,6 +73,10 @@ A ready-made sample is in `eval/golden/knagglig/out/` (GLB, packed GLB and manif
 
 It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipeline, with part scripts in the sandbox), and lets it repeat until the build passes. KNAGGLIG took 438 s and $2.12. The server uses it when `AGJ_BUILD_AGENT=claude` is in its environment.
 
+## Sub-assemblies
+
+A plan can build a group of parts on its own and attach it later as one piece, as guides do with a seat unit, a drawer or a door (plan `subassemblies`; schema in `agent/BRIEF.md`). `assemble/placement.py` places those parts in the group's own frame and, at the joining step, solves where the whole group sits; `placements.json` gets `local_mm` per piece and a `subassemblies` block. In the animation the group is built beside the main assembly, turned as the guide draws it, then lifted and set in place in one move. The manifest gains, per step, `subassembly` (the group the step works on, or null), `subassemblyRotationDeg`, `joins` and `stagedPoses` (node → 4×4 matrix in the `assembly` frame, metres, for pieces still lying beside), and a top-level `subassemblies` list with `joinStep`. A joining action has type `place`, `subassembly`, `node` (its first piece) and `nodes`. Viewers that ignore these fields still play the clips correctly.
+
 ## Not done yet
 
 - `pipeline.run` still builds parts in its own process. Scripts a model wrote should go through `pipeline/cad/sandbox.py` (`sandbox.run_part`, same result as `harness.build_part`, about 1.9 s per part): the build loop (AGT-05) has to call it. On Linux it limits time, memory and file size but not network or file access.

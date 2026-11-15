@@ -89,8 +89,23 @@ done = []
 for k, s in enumerate(manifest["steps"]):
     if MODE == "before" and not k:
         continue
-    shown = [o for o in pieces if o.name in (manifest["steps"][k - 1]["visible"] if MODE == "before" else s["visible"])]
-    root.rotation_euler, root.location = root_pose(s["assemblyRotationDeg"], shown)
+    src = manifest["steps"][k - 1] if MODE == "before" else s
+    shown = [o for o in pieces if o.name in src["visible"]]
+    staged = s.get("stagedPoses") or {}                    # pieces of a sub-assembly still built beside the main one
+    for o in pieces:
+        if o.name in staged:
+            o.matrix_local = Matrix(staged[o.name])
+        else:
+            M = Matrix(placed[o["instance"]]["matrix_mm"]); M.translation = M.translation * 0.001
+            o.matrix_local = M
+    main = [o for o in pieces if o.name in s["visible"] and o.name not in staged]   # what the root rests on, as in assemble.py
+    if s.get("subassembly"):                                # the guide draws only the sub-assembly being built
+        shown = [o for o in shown if o.name in staged]
+    else:
+        shown = [o for o in shown if o.name not in staged]
+    if not shown:
+        continue
+    root.rotation_euler, root.location = root_pose(s["assemblyRotationDeg"], main or shown)
     for o in pieces:
         o.hide_render = o not in shown
         o.color = o.data.materials[0].diffuse_color if o.data.materials else (0.8, 0.8, 0.8, 1)
