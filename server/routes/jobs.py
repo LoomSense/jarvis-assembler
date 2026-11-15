@@ -8,7 +8,9 @@ import re
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
+from server import photos
 from server.auth import require_key
 from server.jobs import STAGES, Job
 from server.orchestrator.stages import validate_plan
@@ -40,23 +42,53 @@ def summary(job: Job, request: Request) -> dict:
     s = job.status()
     out = {"job_id": job.id, "stage": s.get("stage"), "status": s.get("status"),
            "progress": s.get("progress", 0.0), "last_seq": request.app.state.store.log(job).last_seq,
-           "title": s.get("title"), "filename": s.get("filename"), "created": s.get("created")}
+           "title": s.get("title"), "filename": s.get("filename"), "created": s.get("created"),
+           "source": s.get("source", "pdf")}
     if s.get("error"):
         out["error"] = s["error"]
     return out
 
 
 @router.post("/api/jobs")
-async def create_job(request: Request, file: UploadFile = File(...), size: str | None = Form(None)) -> dict:
-    """`size`: optional overall size typed by the person, e.g. "62 x 60 x 135 cm". Guides print no dimensions, so this
+async def create_job(request: Request, file: UploadFile | None = File(None),
+                     pages: list[UploadFile] | None = File(None), size: str | None = Form(None)) -> dict:
+    """The guide is either a PDF in `file`, or photos of its pages (JPEG, PNG, WebP, HEIC when supported) in the
+    repeated field `pages`, in page order; one photo may also come in `file`. Photos become guide.pdf (server/photos.py).
+    `size`: optional overall size typed by the person, e.g. "62 x 60 x 135 cm". Guides print no dimensions, so this
     is what gives the model its true scale (needed for the headset); without it every size is an estimate."""
     limit = request.app.state.settings.max_upload_mb * 1024 * 1024
-    data = await file.read(limit + 1)
-    if len(data) > limit:
-        raise HTTPException(413, f"The guide is larger than {limit // (1024 * 1024)} MB")
-    if b"%PDF-" not in data[:1024]:
-        raise HTTPException(415, "The guide must be a PDF file")
-    job = request.app.state.store.create(data, file.filename or "guide.pdf")
+    uploads = ([file] if file is not None else []) + list(pages or [])
+    if not uploads:
+        raise HTTPException(422, "Send the guide as a PDF in `file` or photos of its pages in `pages`")
+    if len(uploads) > photos.MAX_PHOTOS:
+        raise HTTPException(422, f"Send at most {photos.MAX_PHOTOS} photos; got {len(uploads)}")
+    blobs, total = [], 0
+    for up in uploads:
+        data = await up.read(limit + 1 - total)
+        total += len(data)
+        if total > limit:
+            raise HTTPException(413, f"The upload is larger than {limit // (1024 * 1024)} MB")
+        blobs.append(data)
+    is_pdf = [b"%PDF-" in data[:1024] for data in blobs]
+    if any(is_pdf) and len(blobs) > 1:
+        raise HTTPException(422, "Send either one guide PDF or photos of its pages, not both")
+
+    if is_pdf[0]:
+        job = request.app.state.store.create(blobs[0], file.filename or "guide.pdf")
+        job.set_status(source="pdf")
+    else:
+        if file is not None and photos.sniff(blobs[0]) is None:
+            raise HTTPException(415, "The guide must be a PDF file or photos of its pages")
+        try:
+            pdf, kinds, flattened = await run_in_threadpool(photos.to_pdf, blobs)
+        except photos.PhotoError as e:
+            raise HTTPException(e.status, str(e))
+        name = (uploads[0].filename or "photos") if len(uploads) == 1 else f"{len(uploads)} photos"
+        job = request.app.state.store.create(pdf, name)
+        (job.dir / "photos").mkdir(exist_ok=True)
+        for i, (data, kind) in enumerate(zip(blobs, kinds), start=1):
+            (job.dir / "photos" / f"page-{i:03d}.{kind}").write_bytes(data)
+        job.set_status(source="photos", pages_uploaded=len(blobs), pages_flattened=flattened)
     size = (size or "").strip()[:120]
     if size:
         (job.dir / "facts.txt").write_text(

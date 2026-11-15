@@ -56,9 +56,9 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 
 | Method | Path | Request → Response |
 |---|---|---|
-| POST | `/api/jobs` | multipart `file=guide.pdf`, optional `size` ("62 x 60 x 135 cm") → `{job_id, stage: "ingesting"}` |
+| POST | `/api/jobs` | multipart `file=guide.pdf`, or photos of the pages as repeated `pages` (JPEG, PNG, WebP; in page order; one photo may go in `file`), optional `size` ("62 x 60 x 135 cm") → `{job_id, stage: "ingesting"}`; 413 too large, 415 not a PDF/image, 422 PDF and photos mixed or over 60 photos |
 | GET | `/api/jobs` | → `{jobs: [...]}`, newest first |
-| GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title}` |
+| GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title, source}` (`source`: `pdf` or `photos`) |
 | GET | `/api/jobs/{id}/events` | SSE stream of events; resumes from `Last-Event-ID` or `?since=<seq>` |
 | GET | `/api/jobs/{id}/events/poll?since=<seq>&wait=20` | → `{events: [...], last_seq}`; long-poll fallback for the stream above |
 | GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
@@ -67,6 +67,8 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/files/{id}/{path}` | a file from the job folder: `walkthrough.glb`, `manifest.json`, `pages/…`, `renders/…`, `refs/…` |
 | POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model, api_version}` (one per 10 s per address) |
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
+
+**Photo uploads.** Without a PDF, a person can photograph the paper guide: `server/photos.py` turns each photo upright, finds and flattens the page, cleans it to black on white and writes them as `guide.pdf` (one page per photo, ≤ 60 photos, ≤ 25 MB each), keeping the originals in `photos/page-001.jpg` …; the rest of the pipeline is unchanged.
 
 **Job state.** `stage` is one of `ingest`, `extract_plan`, `await_approval`, `parts`, `place`, `steps`, `refs`, `export`, `done`. `status` is one of `queued`, `running`, `waiting_approval`, `done`, `error`. The same stage names appear in every event and in `retry`.
 
