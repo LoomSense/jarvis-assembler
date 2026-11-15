@@ -27,6 +27,9 @@ if (mode === 'xr') {
   // The workbench: one guide ready to open (`?mode=ready&job=`), or its shelf of boxes (`?mode=shelf`).
   void import('./home/home').then((m) => m.startHome(app))
   void import('./nav').then((m) => m.mountNav('ready'))
+} else if (mode === 'live') {
+  // Build with the camera: the phone watches the real parts, says what it sees and what to do next, as it happens.
+  void import('./live/live').then((m) => m.startLive(app))
 } else if (mode === 'build') {
   // Drop a flat-pack guide (PDF), watch the agent build the 3D guide, approve its plan, open the result.
   void import('./build/overview').then((m) => {
@@ -39,5 +42,6 @@ if (mode === 'xr') {
   // Its styles arrive with its code, and src/guide/page.ts shows it then.
   app.append(document.querySelector<HTMLTemplateElement>('#guide-page')!.content)
   void import('./guide/page').then((m) => m.startGuidePage())
+  void import('./guide/ar').then((m) => m.startTableAR())
   void import('./nav').then((m) => m.mountNav('guide'))
 }

@@ -20,6 +20,8 @@ from server.settings import ROOT, Settings
 
 PROMPT_FILE = ROOT / "prompts" / "live_voice.md"
 PROMPT_VERSION = "live_voice.md@1"
+COACH_FILE = ROOT / "prompts" / "live_coach.md"          # the coach that sees the camera (mode "see")
+COACH_VERSION = "live_coach.md@1"
 API_VERSIONS = ("v1beta", "v1alpha")     # PLAN says v1beta; SDK 3.3 documents token creation as v1alpha
 
 _NO_ARGS = {"type": "object", "properties": {}}
@@ -68,10 +70,36 @@ def system_instruction(job: Job) -> str:
     return PROMPT_FILE.read_text(encoding="utf-8").replace("{guide}", guide_context(job))
 
 
-async def mint(settings: Settings, job: Job) -> dict:
+def coach_context(job: Job) -> str:
+    """The guide for the coach that sees: every step with its actions in order, in the guide's own words."""
+    try:
+        m = json.loads(job.manifest.read_text())
+    except (OSError, json.JSONDecodeError):
+        return "The guide is not built yet."
+    lines = [f"Product: {m.get('title', 'unknown')}. {len(m.get('steps', []))} steps."]
+    parts = "; ".join(f"{p.get('name', p['id'])} (x{p.get('count', 1)})" for p in m.get("parts", []))
+    hardware = "; ".join(f"{h.get('code')} {h.get('name', '')} (x{h.get('count', '?')})" for h in m.get("hardware", []))
+    lines += [f"Parts: {parts}.", f"Hardware: {hardware}."]
+    for s in m.get("steps", []):
+        page = (s.get("cite") or {}).get("page", "?")
+        lines.append(f"Step {s['n']} (guide page {page}): {s.get('title', '')}")
+        for k, a in enumerate(s.get("actions", []), start=1):
+            text = (a.get("text") or {}).get("en")
+            if text:
+                lines.append(f"  {k}. {text}")
+    return "\n".join(lines)[:12000]
+
+
+def coach_instruction(job: Job, lang: str) -> str:
+    return (COACH_FILE.read_text(encoding="utf-8").replace("{guide}", coach_context(job))
+            .replace("{language}", "Greek" if lang == "el" else "English"))
+
+
+async def mint(settings: Settings, job: Job, mode: str = "voice", lang: str = "en") -> dict:
     """Create the token. Raises RuntimeError with a message that is safe to show (never contains the key)."""
     now = dt.datetime.now(dt.timezone.utc)
     expires = now + dt.timedelta(minutes=30)
+    see = mode == "see"                                # the model is sent camera pictures and coaches from them
     config = types.CreateAuthTokenConfig(
         uses=1,
         expire_time=expires,
@@ -81,8 +109,10 @@ async def mint(settings: Settings, job: Job) -> dict:
             model=settings.live_model,
             config=types.LiveConnectConfig(
                 response_modalities=[types.Modality.AUDIO],
-                system_instruction=system_instruction(job),
+                system_instruction=coach_instruction(job, lang) if see else system_instruction(job),
                 tools=TOOLS,
+                # the coach's words are also shown on the screen, and the person's are logged by the page
+                output_audio_transcription=types.AudioTranscriptionConfig() if see else None,
                 context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),
                 realtime_input_config=types.RealtimeInputConfig(
                     automatic_activity_detection=types.AutomaticActivityDetection(
@@ -97,7 +127,7 @@ async def mint(settings: Settings, job: Job) -> dict:
         try:
             token = await client.aio.auth_tokens.create(config=config)
             return {"token": token.name, "expires_at": expires.isoformat(), "model": settings.live_model,
-                    "api_version": version, "prompt_version": PROMPT_VERSION}
+                    "api_version": version, "prompt_version": COACH_VERSION if see else PROMPT_VERSION, "mode": "see" if see else "voice"}
         except Exception as e:                        # noqa: BLE001 - try the next API version, then report
             errors.append(f"{version}: {type(e).__name__}: {str(e)[:200]}")
     raise RuntimeError("Gemini refused to create a Live token (" + " | ".join(errors) + ")")
