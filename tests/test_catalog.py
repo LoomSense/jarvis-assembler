@@ -163,3 +163,16 @@ def test_fetch_refuses_what_is_not_a_pdf(tmp_path):
     assert not (tmp_path / "90289172.pdf").exists()
     with pytest.raises(FetchError):
         fetch_ikea_guide("123.456.78", tmp_path, client=_ikea(FAKE_PDF, []))
+
+
+def test_links_from_other_ikea_shops_give_the_article_number():
+    from server.fetch_guide import normalize_article
+    assert normalize_article("https://www.ikea.gr/el/products/kathismata/karekles-grafeiou/markus-karekla-grafeiou-90289172/") == "90289172"
+    assert normalize_article("https://www.ikea.gr/el/products/markus/902.891.72") == "90289172"
+    assert normalize_article("https://example.com/markus-90289172/") is None
+
+
+def test_a_query_that_names_several_guides_is_not_opened_blindly(client):
+    r = client.post("/api/catalog/open", json={"q": "a"})
+    assert r.status_code == 409
+    assert len(r.json()["detail"]["items"]) > 1

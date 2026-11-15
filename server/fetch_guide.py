@@ -49,7 +49,16 @@ def normalize_article(text: str) -> str | None:
     if m:
         return m.group(1).lower()
     m = ARTICLE_RE.match(text)
-    return (m.group(1).lower() + m.group(2) + m.group(3) + m.group(4)) if m else None
+    if m:
+        return m.group(1).lower() + m.group(2) + m.group(3) + m.group(4)
+    # a product link from another IKEA shop (ikea.gr is run separately and has its own addresses): the article
+    # number is in the link, as 8 digits or dotted like 902.891.72; the last one is the product's own
+    if re.match(r"^https?://([a-z0-9-]+\.)*ikea\.[a-z.]+/", text, re.I):
+        found = re.findall(r"(?<!\d)(s?)(\d{3})[.\-]?(\d{3})[.\-]?(\d{2})(?!\d)", text, re.I)
+        if found:
+            s, a, b, c = found[-1]
+            return s.lower() + a + b + c
+    return None
 
 
 def product_page_url(text: str) -> str | None:
