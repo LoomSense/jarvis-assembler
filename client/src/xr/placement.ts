@@ -62,6 +62,14 @@ export class Placement {
   private raycaster = new THREE.Raycaster();
   private v1 = new THREE.Vector3();
   private v2 = new THREE.Vector3();
+  private outline = new THREE.LineLoop(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.8 }),
+  );
+  private front = new THREE.Mesh(
+    new THREE.CircleGeometry(0.02, 3).rotateX(-Math.PI / 2).rotateY(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.8, depthWrite: false }),
+  );
 
   constructor(
     private camera: THREE.Camera,
@@ -74,30 +82,30 @@ export class Placement {
     );
     this.reticle.visible = false;
 
-    // Plate: footprint outline + front marker + a faint fill that is also the drag handle.
+    this.plateHit = new THREE.Mesh(
+      new THREE.BufferGeometry(),
+      new THREE.MeshBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.06, depthWrite: false }),
+    );
+    this.plateRoot.add(this.outline, this.front, this.plateHit);
+    this.setFootprint(footprint);
+    this.plateRoot.visible = false;
+  }
+
+  /** Plate outline, front marker and drag handle for a product's footprint (again when another job is loaded). */
+  setFootprint(footprint: { x: number; z: number }): void {
     const m = 0.03;
     const hx = footprint.x / 2 + m;
     const hz = footprint.z / 2 + m;
-    const outline = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-hx, 0.001, -hz),
-        new THREE.Vector3(hx, 0.001, -hz),
-        new THREE.Vector3(hx, 0.001, hz),
-        new THREE.Vector3(-hx, 0.001, hz),
-      ]),
-      new THREE.LineBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.8 }),
-    );
-    const front = new THREE.Mesh(
-      new THREE.CircleGeometry(0.02, 3).rotateX(-Math.PI / 2).rotateY(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.8, depthWrite: false }),
-    );
-    front.position.set(0, 0.001, hz + 0.03);
-    this.plateHit = new THREE.Mesh(
-      new THREE.PlaneGeometry(hx * 2, hz * 2).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: AG_XR.accent, transparent: true, opacity: 0.06, depthWrite: false }),
-    );
-    this.plateRoot.add(outline, front, this.plateHit);
-    this.plateRoot.visible = false;
+    this.outline.geometry.dispose();
+    this.outline.geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-hx, 0.001, -hz),
+      new THREE.Vector3(hx, 0.001, -hz),
+      new THREE.Vector3(hx, 0.001, hz),
+      new THREE.Vector3(-hx, 0.001, hz),
+    ]);
+    this.front.position.set(0, 0.001, hz + 0.03);
+    this.plateHit.geometry.dispose();
+    this.plateHit.geometry = new THREE.PlaneGeometry(hx * 2, hz * 2).rotateX(-Math.PI / 2);
   }
 
   async onSessionStart(session: XRSession): Promise<void> {
@@ -344,6 +352,20 @@ export class Placement {
     this.plateRoot.rotateY(THREE.MathUtils.degToRad(degrees));
     this.dropAnchor();
     this.wantAnchor = true;
+  }
+
+  /**
+   * Put the plate at a computed pose (the two-corner snap, register.ts) and anchor it there.
+   * In a session a new anchor is made on the next frame; in the preview it is just moved.
+   */
+  setPose(pos: THREE.Vector3, yaw: number): void {
+    this.dragOffset = null;
+    this.plateRoot.position.copy(pos);
+    this.plateRoot.quaternion.setFromAxisAngle(UP, yaw);
+    this.plateRoot.visible = true;
+    this.placed = true;
+    this.dropAnchor();
+    if (this.session) this.wantAnchor = true;
   }
 
   /** Desktop preview only: put the plate somewhere without a session. */

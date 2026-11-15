@@ -19,8 +19,8 @@ import { makeBackPlate } from './panels';
 // It is drawn by the session's own renderer into a texture (a render target), then shown on a plane: no second
 // renderer, no second WebGL context.
 
-const W = 0.34; // metres
-const H = 0.255;
+const W = 0.425; // metres (0.34 x 0.255 before the +25 % of Sun 15 Nov)
+const H = 0.319;
 const WORDS_H = 0.045;
 const RT_W = 1024;
 const RT_H = Math.round((RT_W * (H - WORDS_H)) / W);

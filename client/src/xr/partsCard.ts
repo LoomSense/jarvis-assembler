@@ -16,11 +16,11 @@ import { displayName as pageName } from '../i18n';
 
 const CW = 560;
 const CH = 470;
-export const CARD_W = 0.17;
+export const CARD_W = 0.2125; // 0.17 before the +25 % of Sun 15 Nov, in proportion with the step panel
 export const CARD_H = (CARD_W * CH) / CW;
 const PAD = 36;
 const WELL = { y: 36, h: 300 };
-const MODEL_M = 0.075;
+const MODEL_M = 0.094;
 const REV_PER_S = 0.18;
 
 /** Every part of the product with its total count, in guide order (hardware by code). */
@@ -196,7 +196,7 @@ export function makeTag(): { sprite: THREE.Sprite; set(text: string): void } {
   sprite.visible = false;
   let last = '';
   const H = 96;
-  const heightM = 0.03;
+  const heightM = 0.05; // name tags, about 5 cm tall
   return {
     sprite,
     set(text: string) {

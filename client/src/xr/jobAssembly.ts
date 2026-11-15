@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DemoPart, DemoProduct, DemoStep, Vec3 } from './demoAssembly';
+import { apiBase } from '../api';
 
 // Loads a job made by the 3D pipeline (pipeline/README.md, PLAN §4.3): manifest.json plus
 // walkthrough(.packed).glb, served at /files/<job>/ (the server's route; the dev server
@@ -53,7 +54,7 @@ const toGltf = ([x, y, z]: Vec3): THREE.Vector3 => new THREE.Vector3(x, z, -y);
 const hex = ([r, g, b]: [number, number, number]) => `#${new THREE.Color(r, g, b).getHexString()}`;
 
 export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
-  const base = `/files/${encodeURIComponent(id)}/`;
+  const base = `${apiBase()}/files/${encodeURIComponent(id)}/`; // the server's address in development with ?api=
   const q = key ? `?key=${encodeURIComponent(key)}` : '';
   const res = await fetch(`${base}manifest.json${q}`);
   if (!res.ok) throw new Error(`No manifest for job "${id}" (${res.status})`);

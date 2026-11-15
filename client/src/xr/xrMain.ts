@@ -20,6 +20,8 @@ import { Media } from './media';
 import { AG_XR } from './palette';
 import { StepPanel, type PanelButton, type PanelContent } from './panels';
 import { Placement, type Pointer } from './placement';
+import { CornerSnap, type SnapEvent } from './register';
+import { ScanFlow, type LocateResult } from './scan';
 import { PlaneVisuals, arSupported, grantedFeatures, startAR } from './session';
 import '../styles/xr.css';
 
@@ -28,19 +30,24 @@ import '../styles/xr.css';
  * Outside a headset the same page is a desktop preview: orbit with the mouse, click the
  * panel buttons, keys 1–5 switch the ghost state, arrow keys change step.
  *
- * Flow in the headset: place (pinch on the table) → align (drag/rotate the plate onto
- * the real base) → guide (ghost of the next part, Back / Repeat / Next).
+ * Flow in the headset: (scan: identify the product, load its guide, find the step) → place (pinch on the table)
+ * → align (touch two corners of the real object; drag/rotate as the fallback) → guide (ghost of the next part,
+ * Back / Next / Where am I?).
  */
-type Mode = 'preview' | 'place' | 'align' | 'guide' | 'done';
+type Mode = 'preview' | 'place' | 'align' | 'drag' | 'scan' | 'guide' | 'done';
 
 const params = new URLSearchParams(location.search);
-const SHOW_HANDS = params.get('hands') !== '0';
+// Hand joint spheres only with `?hands=1` (off by default since Sun 15 Nov).
+const SHOW_HANDS = params.get('hands') === '1';
 // `?sim=1`: no real furniture. Placed parts are drawn solid, the plate goes on any empty
 // surface, and a "Show mistake" button plays the wrong-part warning (stand-in for perception).
 // `?product=lack|knagglig` picks the demo product; simulation defaults to the LACK side table.
 const SIMULATE = params.get('sim') === '1';
 // `?job=<id>`: a job built by the 3D pipeline (manifest + GLB at /files/<id>/), loaded in startXR.
-const JOB = params.get('job');
+let JOB = params.get('job');
+// `?scan=1`: start with the scan (camera → identify → guide → step). The Scan button does the same at any time.
+const SCAN = params.get('scan') === '1';
+const HEADSET = /OculusBrowser|Quest/i.test(navigator.userAgent);
 let PRODUCT: DemoProduct = PRODUCTS[(params.get('product') ?? (SIMULATE ? 'lack' : 'knagglig')) as keyof typeof PRODUCTS] ?? PRODUCTS.knagglig;
 let FOOTPRINT = PRODUCT.footprint;
 let PRODUCT_NAME = LANG === 'el' ? PRODUCT.nameEl : PRODUCT.name;
@@ -58,7 +65,7 @@ const SKIP_LABEL = LANG === 'el' ? 'Παράλειψη' : 'Skip';
 const CAMERA_LABEL = LANG === 'el' ? 'Κάμερα' : 'Camera';
 // Live guidance (live.ts): on with a job unless `?live=0`. `?auto=1` lets a step the server sees finished move on by
 // itself; otherwise Next is only cued. The server is this page's origin; `?api=<base>` in development builds only.
-const LIVE = !!JOB && params.get('live') !== '0';
+const LIVE = params.get('live') !== '0'; // with a job
 const AUTO_ADVANCE = params.get('auto') === '1';
 const API = (import.meta.env.DEV && params.get('api')) || String(import.meta.env.VITE_API_URL ?? '');
 
@@ -96,6 +103,11 @@ export async function startXR(root: HTMLElement): Promise<void> {
     const { installEmulator } = await import('./emu');
     Object.assign(window, { __xrDevice: await installEmulator(params.get('emu') !== 'bare', params.get('room') || 'home_office') });
   }
+  // Development only: `?mock=scan|scan-build|scan-none` answers the scan's server calls with a script (scanMock.ts).
+  if (import.meta.env.DEV && params.get('mock')?.startsWith('scan')) {
+    const { installScanMock } = await import('./scanMock');
+    installScanMock(params.get('mock')!, params);
+  }
   if (JOB) {
     try {
       PRODUCT = await loadJob(JOB, params.get('key') ?? undefined);
@@ -105,7 +117,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       console.error('[xr] could not load job, using the built-in demo', err);
     }
   }
-  PANEL_ON_PLATE.pos.x = FOOTPRINT.x / 2 + 0.26;
+  PANEL_ON_PLATE.pos.x = FOOTPRINT.x / 2 + StepPanel.WIDTH / 2 + 0.06;
 
   // ---------- renderer, scene ----------
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -158,17 +170,19 @@ export async function startXR(root: HTMLElement): Promise<void> {
   // ---------- world content ----------
   const planes = new PlaneVisuals();
   const placement = new Placement(camera, planes, FOOTPRINT);
-  const assembly = new AssemblyView(PRODUCT.steps, { solidPlaced: SIMULATE, finish: PRODUCT.finish, lang: LANG });
+  const makeAssembly = () => new AssemblyView(PRODUCT.steps, { solidPlaced: SIMULATE, finish: PRODUCT.finish, lang: LANG });
+  // `let`: a scan can load another job after the start (useProduct below)
+  let assembly = makeAssembly();
   const panel = new StepPanel();
 
   // ---------- before-you-start screens and saved progress ----------
   // Tips the guide draws before step 1, then a parts check, then the steps.
-  const TIPS = PRODUCT.tips ?? [];
-  const PARTS = inventory(PRODUCT.steps);
+  let TIPS = PRODUCT.tips ?? [];
+  let PARTS = inventory(PRODUCT.steps);
   let prepIndex = 0; // 0..TIPS.length-1 = tip screens, TIPS.length = parts check
   let prepDone = false;
   let missingInfo = false;
-  const SAVE_KEY = `ag-xr-progress:${PRODUCT.id}`;
+  let SAVE_KEY = `ag-xr-progress:${PRODUCT.id}`;
   function saveProgress(): void {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ step: assembly.stepIndex, action: assembly.actionIndex, prepDone }));
@@ -193,7 +207,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
     return `${lead}. ${text.instruction}`;
   }
   // Every line the voice will read, fetched ahead so each step speaks without a wait.
-  {
+  function prefetchLines(): void {
     const lines: string[] = TIPS.map((tip) => {
       const x = LANG === 'el' ? tip.el : tip.en;
       return `${x.title}. ${x.body}`;
@@ -203,17 +217,21 @@ export async function startXR(root: HTMLElement): Promise<void> {
     });
     void prefetch(lines);
   }
-  try {
-    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null') as { step: number; action: number; prepDone: boolean } | null;
-    if (saved) {
-      prepDone = saved.prepDone;
-      if (saved.step > 0 || saved.action > 0) {
-        assembly.setStep(saved.step, saved.action);
+  prefetchLines();
+  function restoreProgress(): void {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null') as { step: number; action: number; prepDone: boolean } | null;
+      if (saved) {
+        prepDone = saved.prepDone;
+        if (saved.step > 0 || saved.action > 0) {
+          assembly.setStep(saved.step, saved.action);
+        }
       }
+    } catch {
+      /* no saved progress */
     }
-  } catch {
-    /* no saved progress */
   }
+  restoreProgress();
   // Continue where the person was on another device: the job's perception session remembers the last step and
   // action a display reported (the guide page with live guidance on, or this headset). Applied when it arrives,
   // unless the wearer has already moved; the local save above stays the fallback.
@@ -254,16 +272,34 @@ export async function startXR(root: HTMLElement): Promise<void> {
     return { step: s, action: (i < 0 ? 0 : i) + (step.turn ? 1 : 0) };
   }
   // Parts card to the right of the step panel, top-aligned, same tilt (it is the panel's child).
-  const card = new PartsCard(PRODUCT.steps, PRODUCT.finish);
-  card.position.set(StepPanel.WIDTH / 2 + 0.014 + CARD_W / 2, StepPanel.HEIGHT / 2 - CARD_H / 2, 0);
-  panel.add(card);
-  if (import.meta.env.DEV) Object.assign(window, { __xrCard: card, __xrGuide: () => guideWindow, __xrAssembly: assembly, __xrButton: (id: string) => onButton(id), __xrPanel: panel });
+  function makeCard(): PartsCard {
+    const c = new PartsCard(PRODUCT.steps, PRODUCT.finish);
+    c.position.set(StepPanel.WIDTH / 2 + 0.014 + CARD_W / 2, StepPanel.HEIGHT / 2 - CARD_H / 2, 0);
+    panel.add(c);
+    return c;
+  }
+  let card = makeCard();
+  if (import.meta.env.DEV)
+    Object.assign(window, {
+      __xrCard: () => card,
+      __xrGuide: () => guideWindow,
+      __xrAssembly: () => assembly,
+      __xrButton: (id: string) => onButton(id),
+      __xrPanel: panel,
+      __xrPlate: () => placement.plateRoot,
+      __xrSnap: () => snap,
+      __xrScan: () => scan,
+      __xrMode: () => mode,
+    });
   // «Οδηγίες» in the session: the guide page's view of the step, in a window beside the parts card (guideWindow.ts).
   // Outside a session the button opens the guide page itself.
   let guideWindow: GuideWindow | null = null;
-  if (JOB) {
-    GuideWindow.load(JOB, params.get('key'), LANG, renderer)
+  function loadGuideWindow(): void {
+    if (!JOB) return;
+    const job = JOB;
+    GuideWindow.load(job, params.get('key'), LANG, renderer)
       .then((w) => {
+        if (job !== JOB) return; // another job was loaded meanwhile
         guideWindow = w;
         w.position.set(StepPanel.WIDTH / 2 + 0.028 + CARD_W + GUIDE_WINDOW_W / 2, StepPanel.HEIGHT / 2 - GUIDE_WINDOW_H / 2, 0);
         panel.add(w);
@@ -271,6 +307,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       })
       .catch((err) => console.warn('[xr] the guide window could not load; «Οδηγίες» opens the page only', err));
   }
+  loadGuideWindow();
   function openGuide(): void {
     if (renderer.xr.isPresenting && guideWindow) {
       guideWindow.visible = !guideWindow.visible;
@@ -309,10 +346,31 @@ export async function startXR(root: HTMLElement): Promise<void> {
   placement.plateRoot.add(assembly);
   scene.add(planes, placement.reticle, placement.plateRoot);
 
+  // Once the plate is snapped to the real object (two corners), the panel stands beside that object.
+  let registered = false;
   function panelOnPlate(): void {
     placement.plateRoot.add(panel);
+    if (registered) return panelByObject();
     panel.position.copy(PANEL_ON_PLATE.pos);
     panel.rotation.copy(PANEL_ON_PLATE.rot);
+  }
+
+  /**
+   * The panel next to the real object: to its right, its near edge 6 cm from the object's edge, a little behind
+   * the object's middle, its centre 0.15 m above the object's top; turned once to face the wearer and tilted back.
+   * Again after every snap and every turn (the object's height changes with its pose).
+   */
+  function panelByObject(): void {
+    const box = assembly.builtBox(new THREE.Box3());
+    if (box.isEmpty()) return;
+    placement.plateRoot.add(panel);
+    panel.position.set(box.max.x + 0.06 + StepPanel.WIDTH / 2, box.max.y + 0.15, (box.min.z * 3 + box.max.z) / 4);
+    placement.plateRoot.updateMatrixWorld(true);
+    const at = panel.getWorldPosition(new THREE.Vector3());
+    const head = camera.getWorldPosition(new THREE.Vector3()); // follows the headset in a session
+    const yaw = Math.atan2(head.x - at.x, head.z - at.z);
+    const world = new THREE.Quaternion().setFromEuler(new THREE.Euler(PANEL_ON_PLATE.rot.x, yaw, 0, 'YXZ'));
+    panel.quaternion.copy(placement.plateRoot.quaternion.clone().invert().multiply(world));
   }
 
   // ---------- controllers and hands ----------
@@ -389,9 +447,10 @@ export async function startXR(root: HTMLElement): Promise<void> {
     refreshPanel();
   }
   let advancing = false; // Next was pressed: green, fade, then the next ghost
-  const live = LIVE
+  const makeLive = (): Live | null =>
+    LIVE && JOB
     ? new Live({
-        job: JOB!,
+        job: JOB,
         key: params.get('key'),
         apiBase: API || undefined,
         lang: LANG,
@@ -404,6 +463,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
         },
       })
     : null;
+  let live = makeLive();
   if (import.meta.env.DEV) Object.assign(window, { __xrLive: () => live });
 
   /** How far a hand is along the wearer's right, metres (turning the guide window's assembly). */
@@ -467,6 +527,255 @@ export async function startXR(root: HTMLElement): Promise<void> {
     o.stop(audio.currentTime + 0.06);
   }
 
+  // ---------- another job after the start (the scan) ----------
+  /** Free a removed subtree's GPU memory (geometries, materials, their textures). */
+  function disposeTree(root: THREE.Object3D): void {
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+      for (const mat of mats) {
+        (mat as THREE.MeshBasicMaterial).map?.dispose();
+        mat.dispose();
+      }
+    });
+  }
+
+  /**
+   * Swap a product in after the start: a new assembly view, parts card and guide window, the plate's size for its
+   * footprint, its tips and saved progress, and live guidance for its job. The plate stays where it is.
+   */
+  function useProduct(p: DemoProduct, job: string | null): void {
+    PRODUCT = p;
+    FOOTPRINT = p.footprint;
+    PRODUCT_NAME = LANG === 'el' ? p.nameEl : p.name;
+    JOB = job;
+    PANEL_ON_PLATE.pos.x = FOOTPRINT.x / 2 + StepPanel.WIDTH / 2 + 0.06;
+    registered = false; // another object: snap again
+
+    const oldAssembly = assembly;
+    assembly = makeAssembly();
+    assembly.add(tag.sprite); // moves the tag out of the old view
+    tag.sprite.visible = false;
+    placement.plateRoot.remove(oldAssembly);
+    placement.plateRoot.add(assembly);
+    disposeTree(oldAssembly);
+
+    panel.remove(card);
+    disposeTree(card);
+    card = makeCard();
+
+    if (guideWindow) {
+      panel.remove(guideWindow);
+      disposeTree(guideWindow);
+      guideWindow = null;
+    }
+    loadGuideWindow();
+
+    TIPS = p.tips ?? [];
+    PARTS = inventory(p.steps);
+    SAVE_KEY = `ag-xr-progress:${p.id}`;
+    prepIndex = 0;
+    prepDone = false;
+    missingInfo = false;
+    restoreProgress();
+    prefetchLines();
+
+    placement.setFootprint(FOOTPRINT);
+    if (panel.parent === placement.plateRoot) panelOnPlate();
+    if (!renderer.xr.isPresenting) framePreview();
+
+    live?.destroy();
+    live = makeLive();
+    if (live && session) {
+      const at = manifestPlace();
+      live.start(at.step, at.action, media.cameraStream ?? scan.cam.stream);
+    }
+    lastContentKey = '';
+    lastPlace = '';
+    console.info('[xr] now guiding', p.name, job ? `(job ${job})` : '');
+  }
+
+  /** Tell live guidance where the assembly view is, if it changed (Next/Back do it through refreshPanel). */
+  let lastPlace = '';
+  function tellLive(): void {
+    const at = manifestPlace();
+    const key = `${at.step}:${at.action}`;
+    if (key === lastPlace) return;
+    lastPlace = key;
+    judge.reset(); // another part: a hand already at its place is reported again
+    live?.setStep(at.step, at.action);
+  }
+
+  // ---------- scan: camera → identify → guide → locate (scan.ts) ----------
+  let scanBack: Mode = 'preview'; // where Cancel goes
+  let scanned = false; // a job came from a scan: after it, place (in a session) and snap to the corners
+  let lead = ''; // said before the next panel's own words (the locate sentence before the step)
+  const scan = new ScanFlow({
+    key: params.get('key'),
+    lang: LANG,
+    get media() {
+      return media;
+    },
+    headset: HEADSET,
+    inSession: () => !!session,
+    onChange: () => refreshPanel(),
+    // the coach's own cards say what identify found; the server's sentence still speaks a retry or an error
+    onSay: (text) => {
+      if (coach && scan.state.phase === 'identifying') return;
+      void say(text, LANG);
+    },
+    loadJob: async (id) => {
+      const p = await loadJob(id, params.get('key') ?? undefined);
+      useProduct(p, id);
+    },
+    onLocated: (r) => located(r),
+  });
+
+  // First-run coach: one card at a time, 1/4 … 4/4, each said once; Skip leaves it.
+  let coach = false;
+  let coachNote = ''; // the locate sentence, kept on card 4
+  const coachSpoken = new Set<number>();
+  function coachCard(): number {
+    const ph = scan.state.phase;
+    if (mode === 'align' || mode === 'place') return 3;
+    if (ph === 'loading' || ph === 'locating') return 2;
+    if (ph === 'identifying' || ph === 'opening' || ph === 'building') return 1;
+    return 0;
+  }
+
+  function startScan(withCoach = true): void {
+    coach = withCoach;
+    coachSpoken.clear();
+    coachNote = '';
+    if (mode !== 'scan') scanBack = mode === 'done' || mode === 'align' || mode === 'drag' ? (session ? 'guide' : 'preview') : mode;
+    snap.stop();
+    if (session && panel.parent !== scene && !placement.placed) placePanelInFront();
+    mode = 'scan';
+    void scan.start();
+  }
+
+  function leaveScan(): void {
+    coach = false;
+    scan.cancel();
+    setMode(scanBack);
+  }
+
+  /** The locate answer (or null when there was none): jump there, say why, then snap to the real object. */
+  function located(r: LocateResult | null): void {
+    movedByWearer = true;
+    prepDone = true;
+    advancing = false;
+    autoGhost = false;
+    const n = r?.next_step;
+    if (Number.isInteger(n) && n! > assembly.stepCount) {
+      lead = r?.message ?? '';
+      finish();
+      return;
+    }
+    if (Number.isInteger(n) && n! >= 1) {
+      const at = fromManifest(n!, null) ?? { step: n! - 1, action: 0 };
+      assembly.setStep(at.step, at.action);
+    }
+    lead = r ? r.message : t('scanLocateFailed');
+    coachNote = lead;
+    tellLive();
+    if (scanned && !SIMULATE) {
+      scanned = false;
+      // in a session the plate must be on the table first; placement.onPlaced then starts the snap. The coach
+      // skips the "pinch on the table" card: the plate goes in front for now, the two corners put it right.
+      if (session && !placement.placed) {
+        placePanelInFront();
+        setMode('place');
+        if (coach) placement.placeFallback();
+      } else beginSnap(false);
+      return;
+    }
+    coach = false;
+    if (registered && panel.parent === placement.plateRoot) panelByObject();
+    setMode(session ? 'guide' : 'preview');
+  }
+
+  // ---------- registration: touch two corners of the real object (register.ts) ----------
+  const snap = new CornerSnap();
+  placement.plateRoot.add(snap.marker);
+  scene.add(snap.ring);
+  let snapAfterTurn = false;
+  let snapNote = ''; // "Corners 52 cm apart, the model is 40 cm. Try again." / "Measured 41 cm · model 40 cm"
+
+  function beginSnap(afterTurn: boolean): void {
+    snapAfterTurn = afterTurn;
+    snapNote = '';
+    snap.start(assembly.builtBox(new THREE.Box3()));
+    setMode('align');
+  }
+
+  function endAlign(): void {
+    snap.stop();
+    snapAfterTurn = false;
+    coach = false;
+    if (registered && panel.parent === placement.plateRoot) panelByObject();
+    setMode(session ? 'guide' : 'preview');
+  }
+
+  const cm = (m: number) => Math.round(m * 100);
+  function onSnap(e: SnapEvent | null): void {
+    if (!e) return;
+    click();
+    if (e.kind === 'corner') {
+      snapNote = '';
+      refreshPanel();
+    } else if (e.kind === 'off') {
+      buzz();
+      snapNote = t('snapOff', { got: cm(e.measured), want: cm(e.model) });
+      refreshPanel();
+      void say(snapNote, LANG);
+    } else {
+      placement.setPose(e.result.pos, e.result.yaw);
+      registered = true;
+      panelOnPlate();
+      chime();
+      lead = t('snapDone');
+      console.info('[xr] snapped: measured', cm(e.result.measured), 'cm, model', cm(e.result.model), 'cm');
+      endAlign();
+    }
+  }
+
+  /** In a session: an index fingertip pressing the panel is not touching a corner. */
+  const nearPanel = (p: THREE.Vector3): boolean => {
+    const local = panel.worldToLocal(p.clone());
+    return Math.abs(local.z) < 0.08 && Math.abs(local.x) < StepPanel.WIDTH / 2 + 0.05 && Math.abs(local.y) < StepPanel.HEIGHT / 2 + 0.05;
+  };
+  function fingertips(): ({ p: THREE.Vector3; r: number } | null)[] {
+    return hands.map((h) => {
+      const tip = h.joints['index-finger-tip'];
+      if (!tip?.visible) return null;
+      return { p: tip.getWorldPosition(new THREE.Vector3()), r: tip.jointRadius ?? 0 };
+    });
+  }
+
+  // ---------- the camera picture on the panel, while scanning ----------
+  const camTex = new THREE.VideoTexture(scan.cam.video);
+  camTex.colorSpace = THREE.SRGBColorSpace;
+  const camView = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: camTex, toneMapped: false, depthWrite: false, transparent: true }));
+  camView.renderOrder = 11;
+  camView.position.set(StepPanel.WELL.x, StepPanel.WELL.y, 0.002);
+  camView.visible = false;
+  panel.add(camView);
+  function updateCamView(): void {
+    const v = scan.cam.video;
+    const show = mode === 'scan' && scan.state.live && scan.cam.ready;
+    camView.visible = show;
+    if (!show) return;
+    // fit the picture inside the well, keeping its shape
+    const inset = 0.008;
+    const w = StepPanel.WELL.w - inset * 2;
+    const h = StepPanel.WELL.h - inset * 2;
+    const aspect = v.videoWidth / v.videoHeight;
+    if (w / h > aspect) camView.scale.set(h * aspect, h, 1);
+    else camView.scale.set(w, w / aspect, 1);
+  }
+
   // ---------- modes and the panel ----------
   let mode: Mode = 'preview';
   let session: XRSession | null = null;
@@ -520,6 +829,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
         title: text.title,
         image: tip.crop,
         buttons: [
+          { id: 'scan', label: t('scan') },
           { id: 'prep-skip', label: SKIP_LABEL },
           { id: 'prep-ok', label: t('gotIt'), primary: true },
         ],
@@ -530,6 +840,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       title: t('checkTitle'),
       body: `${PARTS.length} ${LANG === 'el' ? 'είδη' : 'kinds'} · ${PARTS.reduce((n, p) => n + p.total, 0)} ${LANG === 'el' ? 'κομμάτια' : 'pieces'}`,
       buttons: [
+        { id: 'scan', label: t('scan') },
         { id: 'prep-missing', label: t('missing') },
         { id: 'prep-ok', label: t('haveAll'), primary: true },
       ],
@@ -538,40 +849,133 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
   /** What the voice reads for a panel: the action and its instruction, never diagnostics. */
   function speechOf(c: PanelContent): string {
-    if (mode === 'place' || mode === 'align') return '';
+    if (mode === 'scan' || ((mode === 'align' || mode === 'place') && coach)) {
+      // scan.ts says the server's sentences itself; a coach card is said once
+      const card = coachCard();
+      const ph = scan.state.phase;
+      if (!coach || coachSpoken.has(card) || (mode === 'scan' && ['camera', 'retry', 'error', 'idle'].includes(ph))) return mode === 'scan' ? '' : c.title;
+      coachSpoken.add(card);
+      return card === 1 ? c.title : [c.title, c.body].filter(Boolean).join('. ');
+    }
+    if (mode === 'align' && !SIMULATE) return c.title; // which corner to touch, hands-free
+    if (mode === 'place' || mode === 'align' || mode === 'drag') return '';
     if ((mode === 'guide' || mode === 'preview') && prepDone && assembly.state !== 'wrong') return speechFor(assembly.stepIndex, assembly.actionIndex);
     const lead = c.focus ?? c.title;
     const list = c.chips && !prepDone ? ` ${c.chips.map((x) => x.split(' · ')[0]).join(', ')}.` : '';
     return `${lead}. ${c.body ?? ''}${list}`;
   }
 
+  function scanContent(): PanelContent {
+    const s = scan.state;
+    if (coach && s.phase !== 'error') {
+      const card = coachCard();
+      let title = s.title ?? t('scanCamera');
+      let body = s.body;
+      let meta = '';
+      if (card === 0 && s.phase !== 'retry' && s.phase !== 'camera') {
+        title = t('coachLook');
+        body = undefined;
+      } else if (card === 1) {
+        if (s.phase === 'identifying') title = t('coachIdentifying');
+        meta = s.meta ?? '';
+      } else if (card === 2) {
+        title = t('coachFound', { product: scan.product || PRODUCT_NAME });
+        body = t('coachFinding');
+      }
+      const buttons: PanelButton[] = [{ id: 'scan-cancel', label: t('skip') }];
+      if (s.phase === 'ready' || s.phase === 'retry') buttons.push({ id: 'scan-identify', label: t('identify'), primary: true });
+      return {
+        status: s.phase === 'retry' ? 'unsure' : 'info',
+        meta: [`${card + 1}/4`, meta, s.simulated ? 'sim' : ''].filter(Boolean).join(' · '),
+        progress: { index: card, total: 4 },
+        title,
+        body,
+        video: s.live,
+        foot: footer(),
+        buttons,
+      };
+    }
+    const buttons: PanelButton[] = [{ id: 'scan-cancel', label: t('cancel') }];
+    if (s.phase === 'ready' || s.phase === 'retry') buttons.push({ id: 'scan-identify', label: t('identify'), primary: true });
+    else if (s.phase === 'error') buttons.push({ id: 'scan-again', label: t('tryAgain'), primary: true });
+    return {
+      status: s.phase === 'error' ? 'error' : s.phase === 'retry' ? 'unsure' : 'info',
+      meta: [t('scan'), s.meta, s.simulated ? 'sim' : ''].filter(Boolean).join(' · '),
+      title: s.title ?? t('scanCamera'),
+      body: s.body,
+      video: s.live,
+      foot: footer(),
+      buttons,
+    };
+  }
+
+  /** The corner to touch, or the drag fallback. */
+  function alignContent(): PanelContent {
+    if (SIMULATE || mode === 'drag') {
+      return {
+        status: 'info',
+        meta: t('setup2'),
+        title: SIMULATE ? t('chooseSpot') : t('lineUp'),
+        body: SIMULATE ? t('chooseSpotBody', { product: PRODUCT_NAME }) : t('lineUpBody'),
+        foot: footer(t('pinchHint')),
+        buttons: [
+          { id: 'rot-l', label: '⟲ 5°' },
+          { id: 'rot-r', label: '⟳ 5°' },
+          ...(SIMULATE ? [{ id: 'replace', label: t('replace') }] : [{ id: 'snap-corners', label: t('corners') }]),
+          { id: 'done-align', label: t('done'), primary: true },
+        ],
+      };
+    }
+    const first = snap.corner === 0;
+    if (coach) {
+      return {
+        status: snapNote && first ? 'unsure' : 'info',
+        meta: `4/4 · ${t('snapMeta')}`,
+        progress: { index: 3, total: 4 },
+        title: first ? t('coachCorners') : t('snapRight'),
+        body: first ? t('coachFirst') : session ? t('snapHold') : t('snapClick'),
+        foot: footer(snapNote || coachNote || undefined),
+        buttons: [
+          { id: 'snap-drag', label: t('drag') },
+          { id: 'done-align', label: t('skip'), primary: true },
+        ],
+      };
+    }
+    return {
+      status: snapNote && first ? 'unsure' : 'info',
+      meta: snapAfterTurn ? `${t('snapTurned')} · ${t('snapMeta')}` : `${t('setup2')} · ${t('snapMeta')}`,
+      title: snapAfterTurn && first ? t('snapAgain') : first ? t('snapLeft') : t('snapRight'),
+      body: snapAfterTurn && first ? t('snapLeft') : session ? t('snapHold') : t('snapClick'),
+      foot: footer(snapNote || (session ? t('pinchHint') : undefined)),
+      buttons: [
+        { id: 'snap-drag', label: t('drag') },
+        ...(session ? [{ id: 'replace', label: t('replace') }] : []),
+        { id: 'done-align', label: t('skip'), primary: true },
+      ],
+    };
+  }
+
   function content(): PanelContent {
+    if (mode === 'scan') return scanContent();
     if ((mode === 'guide' || mode === 'preview') && !prepDone) return prepContent();
     const total = assembly.stepCount;
     switch (mode) {
       case 'place':
+        if (coach) return alignContent(); // card 4 while the plate goes down in front
         return {
           status: 'info',
           meta: t('setup1'),
           title: placement.reticleValid ? t('pinchPlace') : t('lookTable'),
           body: placement.reticleValid ? t('pinchPlaceBody') : t('lookTableBody'),
           foot: footer(t('pinchHint')),
-          buttons: [{ id: 'place-front', label: t('placeFront') }],
-        };
-      case 'align':
-        return {
-          status: 'info',
-          meta: t('setup2'),
-          title: SIMULATE ? t('chooseSpot') : t('lineUp'),
-          body: SIMULATE ? t('chooseSpotBody', { product: PRODUCT_NAME }) : t('lineUpBody'),
-          foot: footer(t('pinchHint')),
           buttons: [
-            { id: 'rot-l', label: '⟲ 5°' },
-            { id: 'rot-r', label: '⟳ 5°' },
-            { id: 'replace', label: t('replace') },
-            { id: 'done-align', label: t('done'), primary: true },
+            { id: 'scan', label: t('scan') },
+            { id: 'place-front', label: t('placeFront'), primary: true },
           ],
         };
+      case 'align':
+      case 'drag':
+        return alignContent();
       case 'done':
         return {
           status: 'success',
@@ -596,8 +1000,11 @@ export async function startXR(root: HTMLElement): Promise<void> {
         const status = state === 'correct' || state === 'good' ? 'success' : state === 'wrong' ? 'error' : state === 'unsure' ? 'unsure' : 'info';
         const buttons: PanelButton[] = [{ id: 'back', label: t('back') }];
         if (JOB) buttons.push({ id: 'guide', label: GUIDE_LABEL });
+        if (JOB) buttons.push({ id: 'locate', label: t('whereAmI') });
         buttons.push({ id: 'next', label: assembly.isLast ? t('finish') : t('next'), primary: true, cue: !!live?.view.cue });
-        if (mode === 'guide') buttons.unshift({ id: 'move', label: t('move') });
+        // Move: the two-corner snap again (in the preview, two clicks on the table); Scan when there is room
+        if (mode === 'guide' || !SIMULATE) buttons.unshift({ id: 'move', label: t('move') });
+        if (!JOB) buttons.splice(1, 0, { id: 'scan', label: t('scan') });
         return {
           status,
           title: byHand ? t('notThere') : state === 'wrong' ? t('notThat') : nowWords(step, part, LANG),
@@ -632,19 +1039,14 @@ export async function startXR(root: HTMLElement): Promise<void> {
     panel.setContent(c);
     guideWindow?.follow(assembly.stepIndex, assembly.actionIndex);
     refreshPick();
-    void say(speechOf(c), LANG);
+    const words = speechOf(c);
+    void say(lead && words ? `${lead} ${words}` : lead || words, LANG);
+    if (mode !== 'scan') lead = '';
     if ((mode === 'guide' || mode === 'preview') && prepDone) {
       saveProgress();
-      const at = manifestPlace();
-      const key = `${at.step}:${at.action}`;
-      if (key !== lastPlace) {
-        lastPlace = key;
-        judge.reset(); // another part: a hand already at its place is reported again
-        live?.setStep(at.step, at.action);
-      }
+      tellLive();
     }
   }
-  let lastPlace = '';
 
   function goToStep(i: number): void {
     assembly.setStep(i);
@@ -674,15 +1076,46 @@ export async function startXR(root: HTMLElement): Promise<void> {
         placement.rotate(-5);
         break;
       case 'replace':
+        snap.stop();
+        registered = false;
         placement.reset();
         placePanelInFront();
         setMode('place');
         break;
       case 'done-align':
-        setMode('guide');
+        endAlign();
         break;
       case 'move':
-        setMode('align');
+        if (SIMULATE) setMode('align');
+        else beginSnap(false);
+        break;
+      case 'snap-drag':
+        snap.stop();
+        setMode('drag');
+        break;
+      case 'snap-corners':
+        beginSnap(snapAfterTurn);
+        break;
+      case 'scan':
+        startScan();
+        break;
+      case 'scan-cancel':
+        leaveScan();
+        break;
+      case 'scan-identify':
+        scanned = true;
+        void scan.identify();
+        break;
+      case 'scan-again':
+        void scan.start();
+        break;
+      case 'locate':
+        if (!JOB) break;
+        coach = false;
+        scanBack = session ? 'guide' : 'preview';
+        scanned = false;
+        mode = 'scan';
+        void scan.locate(JOB);
         break;
       case 'back':
         movedByWearer = true;
@@ -725,8 +1158,12 @@ export async function startXR(root: HTMLElement): Promise<void> {
         refreshPanel();
         advanceTimer = window.setTimeout(() => {
           advancing = false;
-          if (assembly.advance()) refreshPanel();
-          else finish();
+          const turned = assembly.isTurn; // the real object was just turned: snap the plate to it again
+          if (!assembly.advance()) finish();
+          else if (turned && !SIMULATE && placement.placed) {
+            tellLive();
+            beginSnap(true);
+          } else refreshPanel();
         }, 650);
         break;
       case 'prep-ok':
@@ -769,7 +1206,10 @@ export async function startXR(root: HTMLElement): Promise<void> {
   placement.onPlaced = (how) => {
     console.info('[xr] plate placed via', how);
     panelOnPlate();
-    setMode(how === 'restored' ? 'guide' : 'align');
+    if (mode === 'scan') return; // the anchor came back while scanning: the scan goes on
+    if (how === 'restored') setMode('guide');
+    else if (SIMULATE) setMode('align');
+    else beginSnap(false);
   };
 
   // ---------- select (pinch / trigger) ----------
@@ -792,7 +1232,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
     if (mode === 'place') {
       if (placement.requestPlace()) click();
-    } else if (mode === 'align' && placement.hitsPlate(ray)) {
+    } else if ((mode === 'align' || mode === 'drag') && placement.hitsPlate(ray)) {
       data.dragging = placement.beginDrag(ray);
     }
   }
@@ -810,12 +1250,12 @@ export async function startXR(root: HTMLElement): Promise<void> {
   }
 
   // ---------- desktop preview input ----------
-  function enterPreview(): void {
+  function enterPreview(refresh = true): void {
     mode = 'preview';
     preview.visible = true;
     placement.placeAt(new THREE.Vector3(0, PREVIEW_TABLE_Y, 0), 0);
     panelOnPlate();
-    refreshPanel();
+    if (refresh) refreshPanel();
   }
 
   const ndc = new THREE.Vector2();
@@ -826,6 +1266,21 @@ export async function startXR(root: HTMLElement): Promise<void> {
     raycaster.setFromCamera(ndc, camera);
     const id = panel.buttonAt(raycaster.intersectObject(panel.mesh, false)[0]);
     if (id) onButton(id);
+    downAt = id ? null : { x: e.clientX, y: e.clientY };
+  });
+
+  // The two-corner snap in the preview: a click (not an orbit drag) on the table top is a touched corner.
+  let downAt: { x: number; y: number } | null = null;
+  const tableTop = new THREE.Plane(new THREE.Vector3(0, 1, 0), -PREVIEW_TABLE_Y);
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (renderer.xr.isPresenting || !downAt || mode !== 'align' || !snap.active) return;
+    const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+    downAt = null;
+    if (moved > 6) return;
+    ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    const p = raycaster.ray.intersectPlane(tableTop, new THREE.Vector3());
+    if (p) onSnap(snap.addPoint(p));
   });
 
   renderer.domElement.addEventListener('pointermove', (e) => {
@@ -871,7 +1326,8 @@ export async function startXR(root: HTMLElement): Promise<void> {
   // The headset's camera for live guidance, asked for here, before the session (a permission prompt inside an
   // immersive session can end it). Optional: without it guidance follows the steps and says it has no camera.
   const cameraBtn = overlay.querySelector<HTMLButtonElement>('.xr-camera')!;
-  cameraBtn.hidden = !live || !navigator.mediaDevices?.getUserMedia;
+  // shown for the scan too: on a Quest its picture comes from this camera (asked for before the session)
+  cameraBtn.hidden = !navigator.mediaDevices?.getUserMedia;
   const media = new Media(/OculusBrowser|Quest/i.test(navigator.userAgent), import.meta.env.DEV && params.get('cam') === 'any', () => {
     const m = media.status;
     if (m.asking) return;
@@ -919,11 +1375,15 @@ export async function startXR(root: HTMLElement): Promise<void> {
       await placement.onSessionStart(session);
       if (!placement.placed) {
         placePanelInFront();
-        setMode('place');
+        if (mode === 'scan') refreshPanel(); // a scan begun on the page goes on in the headset
+        else if (SCAN && !scan.job) startScan();
+        else setMode('place');
       }
       session.addEventListener('end', () => {
         session = null;
         live?.stop();
+        snap.stop();
+        scan.cancel();
         placement.onSessionEnd();
         planes.clearPlanes();
         controls.enabled = true;
@@ -941,7 +1401,8 @@ export async function startXR(root: HTMLElement): Promise<void> {
   });
 
   // ---------- loop ----------
-  enterPreview();
+  enterPreview(!SCAN); // with ?scan=1 the first words are the scan's, not the step's
+  if (SCAN) startScan();
   const targetBox = new THREE.Box3();
   const judgeBox = new THREE.Box3();
   let lastJudge = 0;
@@ -1009,6 +1470,8 @@ export async function startXR(root: HTMLElement): Promise<void> {
       const p = activePointer();
       pointAt(p && !panelHit(p.ray) ? p.ray : null);
 
+      if (mode === 'align' && snap.active) onSnap(snap.update(dt, fingertips(), renderer.xr.getCamera(), nearPanel));
+
       handChecker.update(t, mode === 'guide' ? assembly.targetBox(targetBox) : null);
 
       // The real part's name and size by the hand that holds it, when the camera has named it.
@@ -1040,7 +1503,9 @@ export async function startXR(root: HTMLElement): Promise<void> {
       }
     } else {
       controls.update();
+      snap.update(dt, [], camera, () => true); // the marker's pulse; the corners come from clicks
     }
+    updateCamView();
 
     // Green or red from where the hands are, ten times a second.
     if (JUDGE && t - lastJudge >= 100) {

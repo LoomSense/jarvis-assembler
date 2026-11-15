@@ -44,8 +44,8 @@ export class Media {
     this.onChange()
   }
 
-  /** Ask for the microphone, then the camera. Call from a tap. Never throws. */
-  async request(): Promise<void> {
+  /** Ask for the microphone (unless `mic: false`, the scan needs only the camera), then the camera. Call from a tap. Never throws. */
+  async request(opts: { mic?: boolean } = {}): Promise<void> {
     if (this.status.asking) return
     const md = navigator.mediaDevices
     if (!md?.getUserMedia) {
@@ -54,7 +54,7 @@ export class Media {
     }
     this.set({ asking: true })
 
-    if (!this.micStream) {
+    if (!this.micStream && opts.mic !== false) {
       try {
         this.micStream = await md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
         this.set({ mic: 'on', micLabel: this.micStream.getAudioTracks()[0]?.label ?? '' })

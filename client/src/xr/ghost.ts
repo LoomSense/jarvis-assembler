@@ -474,6 +474,25 @@ export class AssemblyView extends THREE.Group {
     return out;
   }
 
+  /**
+   * What stands on the table right now, in this view's (the plate's) frame, under the current step's pose (the
+   * pose it eases to, not the animated one): the box of every placed part, or of the whole product when nothing
+   * is placed yet. The two-corner snap (register.ts) lines its front-bottom corners up with the real ones.
+   */
+  builtBox(out: THREE.Box3): THREE.Box3 {
+    out.makeEmpty();
+    const all = [...this.where.keys()];
+    const placed = all.filter((p) => this.statusOf(p) === 'placed');
+    const tmp = new THREE.Box3();
+    for (const part of placed.length ? placed : all) {
+      const half = partHalfExtents(part);
+      const c = new THREE.Vector3(...part.pos);
+      out.union(tmp.set(c.clone().sub(half), c.add(half)));
+    }
+    if (!out.isEmpty()) out.applyMatrix4(this.poseMatrix());
+    return out;
+  }
+
   update(dt: number): void {
     this.clock += dt;
     const t = this.clock - this.stateSince;

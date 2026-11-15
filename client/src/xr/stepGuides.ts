@@ -256,7 +256,7 @@ function makeCallout(text: string, n: number, code?: string): THREE.Group {
   document.fonts?.ready.then(draw);
 
   const group = new THREE.Group();
-  const heightM = 0.036;
+  const heightM = 0.05; // callouts about 5 cm tall (0.036 before Sun 15 Nov)
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, depthTest: false, toneMapped: false }));
   sprite.scale.set((heightM * W) / H, heightM, 1);
   sprite.position.y = 0.085;

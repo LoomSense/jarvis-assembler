@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AG_XR, FONT, STATUS_COLOR, type Status } from './palette';
 
-// BRAND.md §5: step panel 0.40 x 0.28 m at 0.8 m, canvas 1024 x 717 px (1 px ≈ 0.39 mm).
+// BRAND.md §5 said 0.40 x 0.28 m; enlarged to 0.50 x 0.35 m (+25 %, user request Sun 15 Nov) at 0.8 m, same 1024 x 717 px canvas (1 px ≈ 0.49 mm), so text and buttons grow with it.
 // Text: meta 28 px (0.7°), body 40 px (1.1°), title 56–64 px (≥ 1.6°). Max 2 lines of instruction.
 // Look: a dark frosted-glass window (soft top sheen, light rim, large continuous corners),
 // text column on the left, the guide drawing on the right as white line art on the glass,
@@ -34,6 +34,8 @@ export interface PanelContent {
   foot?: string;
   /** Guide drawing for this step (URL). Drawn as white line art on the glass. */
   image?: string;
+  /** Keep the drawing's well empty and dark: a live camera picture is laid over it (StepPanel.WELL). */
+  video?: boolean;
   /** Page-control dots at the top right of the text column. */
   progress?: { index: number; total: number };
   /** Pill at the top right, e.g. "Vision paused · say resume". */
@@ -171,8 +173,15 @@ function tracking(ctx: CanvasRenderingContext2D, px: number): void {
 
 /** A world-anchored canvas-texture panel with pinchable buttons on its bottom row. */
 export class StepPanel extends THREE.Group {
-  static readonly WIDTH = 0.4;
-  static readonly HEIGHT = 0.28;
+  static readonly WIDTH = 0.5;
+  static readonly HEIGHT = 0.35;
+  /** The drawing's well in metres, centre and size, in the panel's frame (for the camera picture of the scan). */
+  static readonly WELL = (() => {
+    const k = StepPanel.WIDTH / CW;
+    const x = CW - PAD - IMG_W;
+    const h = CH - PAD - BTN_H - 24 - PAD;
+    return { x: (x + IMG_W / 2 - CW / 2) * k, y: (CH / 2 - (PAD + h / 2)) * k, w: IMG_W * k, h: h * k };
+  })();
 
   readonly mesh: THREE.Mesh;
   private canvas = document.createElement('canvas');
@@ -307,10 +316,16 @@ export class StepPanel extends THREE.Group {
     const btnY = CH - PAD - BTN_H;
     // a drawing that could not be loaded leaves no empty well behind
     const image = c.image && lineArt.get(c.image) !== 'failed' ? c.image : undefined;
-    const colW = CW - PAD * 2 - (image ? IMG_W + COL_GAP : 0);
+    const colW = CW - PAD * 2 - (image || c.video ? IMG_W + COL_GAP : 0);
     let y = PAD + 4;
 
     if (image) this.drawImageWell({ x: CW - PAD - IMG_W, y: PAD, w: IMG_W, h: btnY - PAD - 24 }, image);
+    else if (c.video) {
+      ctx.beginPath();
+      ctx.roundRect(CW - PAD - IMG_W, PAD, IMG_W, btnY - PAD - 24, 36);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fill();
+    }
 
     // Meta row: status shape + "Step 5 of 8 · Page 5", optional badge on the right.
     drawStatusIcon(ctx, c.status, PAD + 15, y + 17, 15);
@@ -458,6 +473,8 @@ export class StepPanel extends THREE.Group {
           ctx.stroke();
         }
         ctx.font = `${b.primary ? 600 : 500} 36px ${FONT}`;
+        // five buttons in a row: a long label shrinks to 30 px (BRAND minimum 28) before it is cut
+        if (ctx.measureText(b.label).width > r.w - 24) ctx.font = `${b.primary ? 600 : 500} 30px ${FONT}`;
         ctx.fillStyle = b.primary ? '#0b0b0d' : AG_XR.textStrong;
         ctx.textAlign = 'center';
         ctx.fillText(wrap(ctx, b.label, r.w - 24, 1)[0] ?? '', r.x + r.w / 2, r.y + r.h / 2 + 13);

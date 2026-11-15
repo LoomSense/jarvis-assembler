@@ -92,6 +92,13 @@ export class Live {
     this.set(OFF);
   }
 
+  /** Close the socket for good (another job was loaded in the headset). */
+  destroy(): void {
+    this.assist?.destroy();
+    this.assist = null;
+    this.set({ ...OFF });
+  }
+
   private set(view: LiveView): void {
     const before = JSON.stringify(this.view);
     this.view = view;

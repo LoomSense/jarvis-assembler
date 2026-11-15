@@ -269,7 +269,21 @@ WebXR needs a secure context. Pick one:
 
 Debug: headset on USB with developer mode, then `chrome://inspect` on the laptop. Without a headset, use Meta's Immersive Web Emulator extension in desktop Chrome.
 
-**Flow in the headset:** look at the table → pinch to place the build plate (hit-test, else detected planes, else "Place in front of me") → drag and turn the plate onto the real base → Done → the ghost of the next part, with Back / Repeat / Next on the panel. The plate is anchored, and persisted across sessions where Quest Browser allows it.
+**Flow in the headset:** look at the table → pinch to place the build plate (hit-test, else detected planes, else "Place in front of me") → touch two corners of the real object (below) → the ghost of the next part, with Move / Back / Instructions / Find step / Next on the panel. The plate is anchored, and persisted across sessions where Quest Browser allows it.
+
+**Scan (`?scan=1`, or the Scan button on the first panels):** a first-run coach, one card at a time with 1/4 … 4/4 dots, each card said once, Skip on every card:
+1. *Look at the object or its box* + **Identify**. The camera is `getUserMedia`: on a Quest only a `facing back` passthrough camera is kept (`media.ts`; it needs the browser's "Headset cameras" permission, best given with the **Camera** button on the page *before* Enter AR, because a permission prompt inside an immersive session can end it); on a phone or laptop the environment camera, else any. A live picture of it fills the drawing's well on the panel. Identify grabs one JPEG (long edge 768 px, quality 0.7).
+2. *Identifying…*: `POST /api/identify {image, lang}`. A `match` opens that job; else a `query` goes to `POST /api/catalog/open {q}`, and while the guide is not ready `GET /api/jobs/{id}` every 3 s shows *Fetching the guide… / Making the steps…* with the stage and percent (plan approval and build errors are said). Neither: *Show the box label or the IKEA sticker*, then Identify again.
+3. *Found: <product> · Finding your step…*: the job is swapped in at runtime (`loadJob` → new assembly view, parts card, guide window, plate size, live-guidance socket), then a fresh frame goes to `POST /api/perception/{job}/locate {image, lang}`; the view jumps to `next_step` action 0 and says `message`. Live guidance is told the new step.
+4. *Touch two corners of the object*, then the normal steps. In a session with no plate yet, the plate goes down in front and the corners put it right.
+
+**Find step** (*Πού είμαι;*) in the step panel runs locate again at any time.
+
+**Registration: the two-corner snap.** The panel asks for the real assembly's front-left bottom corner, then its front-right bottom corner; a pulsing marker shows the corner on the virtual plate. A corner counts when the index fingertip (`index-finger-tip` joint, lowered by its radius) stays within 1 cm for 0.8 s; a ring fills at the fingertip while it holds. From the two points the plate gets its yaw and position (height from the touched points) so that the front-bottom corners of what stands on the plate now (the placed parts under the current step's pose) land on them; a touched width outside 0.6–1.6× the model's is refused with the two numbers. Then a new anchor. After a `turn` action the panel asks to touch the two corners again. Drag / rotate stays as the fallback (**Drag**), and so does Re-place. In the desktop preview two clicks on the table stand in for the two touches. Once snapped, the step panel stands beside the real object: its near edge 6 cm from the object's right edge, its centre 0.15 m above the object's top, turned to face the wearer, again after every snap and turn.
+
+**What this is not.** True realtime 6-DoF tracking of the object is not possible in WebXR on Quest: the page gets no camera intrinsics and no camera pose, so the camera picture cannot be registered to the room. Registration is the two-corner snap plus WebXR anchors; the camera is used only for identify, locate and the live checks. If the object is moved, press **Move** and touch the corners again.
+
+**Sizes (Sun 15 Nov, +25 % on BRAND.md §5):** step panel 0.50 × 0.35 m (same 1024 × 717 canvas, so text and buttons grow with it; a five-button row keeps each button above 6 × 4 cm, and a long label drops from 36 to 30 px before it is cut), parts card 0.2125 m wide, guide window 0.425 × 0.319 m, callouts and name tags 0.05 m tall.
 
 **Desktop preview:** orbit with the mouse, click the panel buttons, keys `1`–`4` switch the ghost state (next / correct / wrong / unsure), `→` presses the screen's main button, `←` goes back. Point the mouse at a part to see its name.
 
@@ -287,7 +301,10 @@ Debug: headset on USB with developer mode, then `chrome://inspect` on the laptop
 | `voice=0` | No speech. Otherwise Gemini TTS via the dev server's `POST /api/tts` (key in the repo-root `.env`, never sent to the browser), falling back to the browser's voice. |
 | `auto=0` | No hands-free confirm (hand held still on the part for 1.5 s = Next). |
 | `debug=1` | Tracking diagnostics (`planes · hit-test · anchor · hands`) in the panel footer: evidence for XR-01. |
-| `hands=0` | Hide the hand joint spheres. |
+| `hands=1` | Show the hand joint spheres (hidden by default). |
+| `scan=1` | Start with the scan and its coach (camera → identify → guide → step → two corners). |
+| `live=0` | No live guidance socket for the job. |
+| `mock=scan\|scan-build\|scan-none` | Development builds only (`scanMock.ts`, not in the production bundle): scripted answers for identify, catalog/open, job status and locate, and a drawn camera when the machine has none. `mockjob=<id>` (default `knagglig`) is the job it answers with, `mockstep=<n>` the step locate answers. In a worktree, run the dev server with `JOBS_DIR=<repo>/jobs` so `/files/<mockjob>/` exists. |
 
 To build a job: `.venv/bin/python -m pipeline.run eval/golden/knagglig/plan.json jobs/knagglig` (needs Blender 5.3 and the pipeline venv, see `pipeline/README.md`). Guide crops for the built-in products: `scripts/demo-crops.sh`, `scripts/lack-crops.sh` (git-ignored: the guides are IKEA's).
 
@@ -295,7 +312,10 @@ To build a job: `.venv/bin/python -m pipeline.run eval/golden/knagglig/plan.json
 
 | File | What |
 |---|---|
-| `src/xr/xrMain.ts` | Scene, input, modes (place → align → guide), panel content |
+| `src/xr/xrMain.ts` | Scene, input, modes (scan → place → align → guide), coach, panel content, swapping a job in at runtime |
+| `src/xr/scan.ts` | Scan flow: camera, JPEG, identify, catalog/open, job polling, locate |
+| `src/xr/register.ts` | Two-corner snap: corner marker, fingertip hold ring, plate pose from two points |
+| `src/xr/scanMock.ts` | Development only: scripted answers for the scan (`?mock=scan…`) |
 | `src/xr/session.ts` | Session features, detected-plane outlines |
 | `src/xr/placement.ts` | Reticle, build plate, drag/rotate, anchors (persistent where supported) |
 | `src/xr/ghost.ts` | Assembly view: steps split into actions, placed / ghost / upcoming parts, poses and turns, insertion loop, badges, screw shapes |
