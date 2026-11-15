@@ -218,7 +218,7 @@ namespace AG.Guide
                     {
                         float k = Mathf.Clamp01((t * (1.2f + delay) - delay) / 1.2f);
                         float e = Ease.OutCubic(k);
-                        tr.localScale = Vector3.one * (2 * r0 * Mathf.Lerp(1f, 1.4f, e)) / Mathf.Max(1e-4f, tr.parent.lossyScale.x);
+                        tr.localScale = Vector3.one * (2 * r0 * Mathf.Lerp(1f, 1.4f, e));   // all parents are unit-scaled
                         mat.SetFloat("_Alpha", k <= 0 ? 0 : 0.9f * (1 - e));
                     }, () => Destroy(tr.gameObject), this);
                 }
@@ -307,12 +307,12 @@ namespace AG.Guide
                 if (em == null) continue;
                 var e = new GameObject("edge_" + mf.name);
                 e.transform.SetParent(v.Edges.transform, false);
-                // same transform as the mesh, relative to the node
-                e.transform.position = mf.transform.position;
-                e.transform.rotation = mf.transform.rotation;
-                e.transform.localScale = Vector3.one;
-                var s = mf.transform.lossyScale; var ps = v.Edges.transform.lossyScale;
-                e.transform.localScale = new Vector3(s.x / Mathf.Max(1e-6f, ps.x), s.y / Mathf.Max(1e-6f, ps.y), s.z / Mathf.Max(1e-6f, ps.z));
+                // same transform as the mesh, relative to the edges container (matrix, not lossyScale: the
+                // assembly may be rotated 180 deg by the step pose, which makes lossyScale report flips)
+                var m = v.Edges.transform.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                e.transform.localPosition = m.GetColumn(3);
+                e.transform.localRotation = m.rotation;
+                e.transform.localScale = m.lossyScale;
                 e.AddComponent<MeshFilter>().sharedMesh = em;
                 e.AddComponent<MeshRenderer>().sharedMaterial = _edgeMat;
             }
@@ -430,6 +430,9 @@ namespace AG.Guide
                 string code = hardware ? info.Id : null;
                 string count = a.CountTotal > 1 ? (_lang == "el" ? $"{a.CountIndex} από {a.CountTotal}" : $"{a.CountIndex} of {a.CountTotal}") : null;
                 _label.Set(name, code, count, amount, Tokens.AccentDeep);
+                // a path or arrow that comes from above would run through the pill: move it to the side
+                bool fromAbove = a.FromDir.HasValue && Vector3.Dot(_root.TransformDirection(a.FromDir.Value), Vector3.up) > 0.6f;
+                _label.SideShift = fromAbove ? -0.09f : 0f;
                 _label.Place(_root, LabelAnchorLocal(), 0.08f, ViewerT());
             }
         }
@@ -476,7 +479,7 @@ namespace AG.Guide
             {
                 var d = Quad("dot", null, _dotMat);
                 d.localPosition = placed[i];
-                d.localScale = Vector3.one * (dotD / 0.44f) / Mathf.Max(1e-6f, _root.lossyScale.x);
+                d.localScale = Vector3.one * (dotD / 0.44f);
                 _dots.Add(d);
                 _dotBaseA.Add(Mathf.Lerp(0.35f, 0.9f, n <= 1 ? 1 : (float)i / (n - 1)));
             }
@@ -628,7 +631,7 @@ namespace AG.Guide
                     float a = (lit ? 1f : _dotBaseA[i]) * _alpha * Mathf.Clamp01(since / 0.35f);
                     _mpb.SetFloat("_Alpha", a);
                     d.GetComponent<MeshRenderer>().SetPropertyBlock(_mpb);
-                    d.localScale = Vector3.one * ((lit ? 0.005f : 0.004f) / 0.44f) / Mathf.Max(1e-6f, _root.lossyScale.x);
+                    d.localScale = Vector3.one * ((lit ? 0.005f : 0.004f) / 0.44f);
                 }
             }
             // turning arrow sweep: 60 deg band every 1.25 s (0.8 Hz)
@@ -683,6 +686,8 @@ namespace AG.Guide
             readonly Transform _dot;
             Transform _frame;
             Vector3 _anchorLocal;
+            /// <summary>Metres to the viewer's right (negative: left), so the pill clears a path that comes from above.</summary>
+            public float SideShift;
             float _lift;
             float _height;
 #if AG_HAS_TMP
@@ -783,6 +788,11 @@ namespace AG.Guide
                 float dist = viewer != null ? Vector3.Distance(viewer.position, anchor) : RefDist;
                 float s = Mathf.Clamp(dist / RefDist, 0.75f, 1.5f);
                 var pillPos = anchor + Vector3.up * (_lift * s + _height * 0.5f * s);
+                if (viewer != null && Mathf.Abs(SideShift) > 0)
+                {
+                    var f = Vector3.ProjectOnPlane(anchor - viewer.position, Vector3.up);
+                    if (f.sqrMagnitude > 1e-6f) pillPos += Vector3.Cross(Vector3.up, f).normalized * SideShift * s;
+                }
                 _pill.position = pillPos;
                 if (viewer != null)
                 {
@@ -790,10 +800,9 @@ namespace AG.Guide
                     if (fwd.sqrMagnitude > 1e-6f) _pill.rotation = Quaternion.LookRotation(fwd, Vector3.up);
                     _dot.rotation = Quaternion.LookRotation(anchor - viewer.position);
                 }
-                var ps = _pill.parent.lossyScale;
-                _pill.localScale = new Vector3(s / Mathf.Max(ps.x, 1e-6f), s / Mathf.Max(ps.y, 1e-6f), s / Mathf.Max(ps.z, 1e-6f));
+                _pill.localScale = Vector3.one * s;   // parents are unit-scaled (never divide by lossyScale: rotations flip it)
                 _dot.position = anchor;
-                _dot.localScale = Vector3.one * (0.003f / 0.5f) * s / Mathf.Max(ps.x, 1e-6f) * 0.5f;
+                _dot.localScale = Vector3.one * 0.003f * s;
                 _line.SetPosition(0, pillPos - Vector3.up * _height * 0.5f * s);
                 _line.SetPosition(1, anchor);
                 _glass.Mat.SetFloat("_Alpha", alpha);
@@ -888,8 +897,7 @@ namespace AG.Guide
                 if (viewer != null) Root.rotation = Quaternion.LookRotation(Root.position - viewer.position, Vector3.up);
                 // UI spring pop 0.85 -> 1.0 (no visible overshoot)
                 float pop = Mathf.Lerp(0.85f, 1f, Mathf.Min(1f, Ease.Spring(Mathf.Clamp01(t / 0.45f))));
-                var ps = Root.parent.lossyScale;
-                Root.localScale = Vector3.one * pop / Mathf.Max(ps.x, 1e-6f);
+                Root.localScale = Vector3.one * pop;
                 float a = 1f;
                 if (_kind == Kind.Check) { a = t < 1.2f ? 1f : 1f - Mathf.Clamp01((t - 1.2f) / 0.3f); if (t > 1.5f) { Hide(); return; } }
                 else if (_kind == Kind.Cross && !reduced && t < 3.6f) a = 0.8f + 0.2f * Mathf.Cos(2 * Mathf.PI * 0.83f * t);   // 0.6..1.0 band, 3 cycles

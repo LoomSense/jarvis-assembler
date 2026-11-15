@@ -193,7 +193,8 @@ namespace AG.UI
             _progressTrack.localPosition = new Vector3(0, top - 0.010f, -0.0004f);
             _progressTrack.localScale = new Vector3(barW, 0.0017f, 1);
             SetProgress(_progress01);
-            float colW = compact ? size.x - 2 * Pad : size.x * 0.6f - 1.5f * Pad;
+            bool hasCrop = _cropMat.GetTexture("_MainTex") != null;
+            float colW = compact || !hasCrop ? size.x - 2 * Pad : size.x * 0.6f - 1.5f * Pad;
             float y = top - Pad - 0.004f;
             _statusShape.localPosition = new Vector3(left + Pad + 0.0045f, y - 0.0062f, -0.0006f);
             _statusShape.localScale = Vector3.one * 0.009f;
@@ -219,12 +220,13 @@ namespace AG.UI
 #endif
                 cx += c.Size.x + 0.008f;
             }
-            // right column: image well
-            bool well = !compact;
+            // right column: image well (only when the step has a drawing; otherwise the text uses the full width)
+            bool well = !compact && hasCrop;
             _well.Go.SetActive(well);
             _crop.gameObject.SetActive(well && _cropMat.GetTexture("_MainTex") != null);
 #if AG_HAS_TMP
             _page.gameObject.SetActive(well);
+            _body.rectTransform.sizeDelta = new Vector2(colW * 10, 0.05f * 10);
 #endif
             if (well)
             {
