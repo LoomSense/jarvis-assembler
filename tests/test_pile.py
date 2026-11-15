@@ -247,11 +247,12 @@ def test_step_mode_answers_every_item_with_both_names_counts_and_all_boxes(clien
     screws = [[700, 700, 720, 730], [740, 700, 760, 730], [800, 760, 1300, 790], [5, 5, 5, 9]]   # the last is not a box
     fake_model(monkeypatch, {"items": [counted("end_slat", slats, 2), counted(SHORT, screws, 5, 0.8)]}, calls)
     out = client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step", "lang": "el"}).json()
-    # one model call, asked for a count and a box per instance
-    assert len(calls) == 1 and calls[0]["wanted"] == ["end_slat", SHORT]
-    props = calls[0]["schema"]["properties"]["items"]["items"]
-    assert {"count", "boxes"} <= set(props["properties"]) and {"count", "boxes"} <= set(props["required"])
-    assert "`count`: how many of that item you can see" in texts(calls[0]["parts"])
+    # one model call for the panel and one for the hardware, each asked for a count and a box per instance
+    assert sorted(c["wanted"] for c in calls) == sorted([["end_slat"], [SHORT]])
+    for call in calls:
+        props = call["schema"]["properties"]["items"]["items"]
+        assert {"count", "boxes"} <= set(props["properties"]) and {"count", "boxes"} <= set(props["required"])
+        assert "`count`: how many of that item you can see" in texts(call["parts"])
     # what the first clients read stays as it was
     assert set(out) == {"found", "missing", "message", "step", "latency_ms", "model", "simulated", "mode", "items", "all_in_view"}
     assert out["found"] == [
@@ -320,3 +321,95 @@ def test_step_mode_simulated(tmp_path, monkeypatch):
     assert out["simulated"] is True and out["model"] is None and out["mode"] == "step" and out["all_in_view"] is False
     assert [(i["id"], i["kind"], i["visible"], i["count_seen"], i["boxes"]) for i in out["items"]] == [
         ("end_slat", "panel", True, 1, [[350, 350, 650, 650]]), (SHORT, "hardware", False, 0, [])]
+
+
+# ---- speed: a request per kind, one item for the current action, a second try for a slow request ------------
+
+def one_each(wanted):
+    return {"items": [counted(w, [[10, 10, 100, 100]], 1) for w in wanted]}
+
+
+def test_step_mode_asks_for_panels_and_hardware_in_separate_requests(client, monkeypatch):
+    calls = []
+    fake_model(monkeypatch, one_each, calls)
+    out = client.post(URL, json={"image": jpeg_b64(), "step": 3, "mode": "step"}).json()
+    assert sorted(c["wanted"] for c in calls) == sorted([["end_slat"], [SHORT]])
+    assert [f["id"] for f in out["found"]] == ["end_slat", SHORT] and [i["id"] for i in out["items"]] == ["end_slat", SHORT]
+    # a look-alike is of the same kind as the item it is mistaken for, so it stays in that item's request
+    text = {tuple(c["wanted"]): texts(c["parts"]) for c in calls}
+    assert f"Look-alike `{LONG}`" in text[(SHORT,)] and f"Look-alike `{LONG}`" not in text[("end_slat",)]
+    # the default mode is one request, as before
+    calls.clear()
+    client.post(URL, json={"image": jpeg_b64(), "step": 3})
+    assert [c["wanted"] for c in calls] == [["end_slat", SHORT]]
+    cat = pile.catalogue(Guide(client.app.state.settings.jobs_dir / "kn-test"))
+    assert pile.chunks(cat, ["end_slat", LONG, "side_panel", SHORT], "step") == [["end_slat", "side_panel"], [LONG, SHORT]]
+    assert pile.chunks(cat, ["end_slat", LONG, "side_panel", SHORT]) == [["end_slat", LONG, "side_panel", SHORT]]
+
+
+def test_action_narrows_the_request_to_the_item_that_action_picks_up(client, monkeypatch):
+    calls = []
+    fake_model(monkeypatch, one_each, calls)
+    body = {"image": jpeg_b64(), "step": 3, "mode": "step"}
+    out = client.post(URL, json={**body, "action": 1}).json()                      # place a plain slat
+    assert [c["wanted"] for c in calls] == [["end_slat"]] and out["action"] == 1
+    assert [i["id"] for i in out["items"]] == ["end_slat"] and out["items"][0]["count_needed"] == 2
+    calls.clear()
+    out = client.post(URL, json={**body, "action": 3, "want": ["end_slat", int(SHORT)]}).json()      # fasten a short screw
+    assert [c["wanted"] for c in calls] == [[SHORT]] and out["action"] == 3 and out["missing"] == []
+    # an action that picks nothing up (the turn), one past the end, one whose item was not asked for: the list stays
+    for action, want in ((0, None), (99, None), (1, [SHORT])):
+        calls.clear()
+        out = client.post(URL, json={**body, "action": action, **({"want": want} if want else {})}).json()
+        assert sorted(w for c in calls for w in c["wanted"]) == sorted(want or ["end_slat", SHORT])
+        assert out["action"] is None
+    assert "action" not in client.post(URL, json=body).json()                      # not sent, not echoed
+    assert client.post(URL, json={**body, "action": -1}).status_code == 422
+    # the default mode takes it as well
+    calls.clear()
+    out = client.post(URL, json={"image": jpeg_b64(), "step": 4, "action": 0}).json()
+    assert [c["wanted"] for c in calls] == [["end_slat_handle"]] and out["action"] == 0 and "items" not in out
+
+
+def test_a_slow_request_is_sent_a_second_time_and_the_first_answer_wins(client, monkeypatch):
+    import time
+    sent = []
+
+    def generate(model, parts, **kw):
+        sent.append(1)
+        if len(sent) == 1:                                                         # the first request hangs
+            time.sleep(0.6)
+            return json.dumps({"items": [item("end_slat", [1, 1, 50, 50])]})
+        return json.dumps({"items": [item("end_slat", [100, 100, 300, 300])]})
+    monkeypatch.setattr(pile.gemini, "generate", generate)
+    monkeypatch.setattr(pile, "HEDGE_AFTER_S", 0.05)
+    out = client.post(URL, json={"image": jpeg_b64(), "want": ["end_slat"]}).json()
+    assert len(sent) == 2 and out["found"][0]["box_2d"] == [100, 100, 300, 300] and out["latency_ms"] < 500
+
+
+def test_a_failed_request_is_not_repeated_and_a_quick_one_is_sent_once(client, monkeypatch):
+    import time
+    sent = []
+
+    def refuse(*a, **k):
+        sent.append(1)
+        raise RuntimeError("gemini-4-hydrogen 500: no")
+    monkeypatch.setattr(pile.gemini, "generate", refuse)
+    assert client.post(URL, json={"image": jpeg_b64(), "want": ["end_slat"]}).status_code == 502 and len(sent) == 1
+    calls = []
+    fake_model(monkeypatch, {"items": [item("end_slat", [100, 100, 300, 300])]}, calls)
+    assert client.post(URL, json={"image": jpeg_b64(), "want": ["end_slat"]}).status_code == 200 and len(calls) == 1
+    # slow, then both tries fail: the error is reported as before
+    sent.clear()
+
+    def slow_refuse(*a, **k):
+        sent.append(1)
+        time.sleep(0.2 if len(sent) == 1 else 0)
+        raise RuntimeError("gemini-4-hydrogen 429: slow down")
+    monkeypatch.setattr(pile.gemini, "generate", slow_refuse)
+    monkeypatch.setattr(pile, "HEDGE_AFTER_S", 0.05)
+    assert client.post(URL, json={"image": jpeg_b64(), "want": ["end_slat"]}).status_code == 429 and len(sent) == 2
+    # switched off: one request, however slow
+    sent.clear()
+    monkeypatch.setattr(pile, "HEDGE_AFTER_S", 0)
+    assert client.post(URL, json={"image": jpeg_b64(), "want": ["end_slat"]}).status_code == 429 and len(sent) == 1

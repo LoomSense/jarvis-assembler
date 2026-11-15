@@ -563,7 +563,7 @@ def test_no_drift_questions_made_for_an_older_job_are_what_the_writer_would_writ
         written = json.loads((guide.dir / "refs" / f"step-{n:02d}-questions.json").read_text())
         made = fallback_pack(guide, n)
         assert made == written, n
-        from_file = build_ask(guide, load_pack(guide, n), shot, codes={LONG, SHORT})
+        from_file = build_ask(guide, load_pack(guide, n, complete=False), shot, codes={LONG, SHORT})   # the file as written
         from_memory = build_ask(guide, type(load_pack(guide, n))(n, "fallback", made), shot, codes={LONG, SHORT})
         assert from_file == from_memory and from_file.inputs == bench.build(guide.dir, n, shot)[0]
 
@@ -674,7 +674,8 @@ def test_sentences_follow_the_voice_rules(guide, tmp_path):
 def test_request_is_the_benchmarked_one_plus_one_question(guide):
     """Step 2 has the two candidate screws. The blocks and questions are `pipeline.perception.request`'s."""
     shot = jpeg()
-    pack = load_pack(guide, 2)
+    pack = load_pack(guide, 2, complete=False)                        # the file as written; the choices the server
+    #                                                                   adds to it are in tests/test_perception_wrong.py
     assert (pack.origin, pack.written_by, pack.parts, pack.hardware) == ("file", "template", (), (LONG,))
     ask = build_ask(guide, pack, shot, codes={LONG})
     inputs, questions = bench.build(guide.dir, 2, shot)
@@ -1175,11 +1176,16 @@ def test_live_path_sends_the_benchmarked_request_through_the_pipelines_client(tm
         assert not any("sim" in m for m in headset.seen)
         job = tmp_path / "jobs" / JOB
     inputs, questions = bench.build(job, 2, shot)                     # what `pipeline.perception.request.ask` sends
-    theirs = body_of(build_ask(Guide(job), load_pack(Guide(job), 2), shot, extra=False))
+    theirs = body_of(build_ask(Guide(job), load_pack(Guide(job), 2, complete=False), shot, extra=False))
     assert theirs["questions"] == questions and len(calls) == 4
     for body in calls:
         assert body["model"] == "gemini-decision-1" and body["input"] == theirs["input"]      # medium, whatever the hint
-        assert {k: v for k, v in body["questions"].items() if k != EXTRA} == questions and EXTRA in body["questions"]
+        sent = {k: v for k, v in body["questions"].items() if k != EXTRA}
+        assert sent == load_pack(Guide(job), 2).pack["questions"] and EXTRA in body["questions"]
+        # the benchmarked questions, except that the two "what is held" choices also offer other steps' items
+        assert {k: v for k, v in sent.items() if not k.endswith("_in_hand")} == {
+            k: v for k, v in questions.items() if not k.endswith("_in_hand")}
+        assert all(set(questions[k]["criteria"]) <= set(sent[k]["criteria"]) for k in sent if k.endswith("_in_hand"))
 
 
 def test_a_refused_key_or_used_up_credit_is_said_plainly_and_asked_again_later(tmp_path, monkeypatch):
@@ -1248,7 +1254,7 @@ def test_session_logs_have_the_eval_shapes(client, tmp_path):
     assert [(f["clip"], f["frame"], f["t"]) for f in frames][:2] == [("d_wrong_hardware", 11, 2.75), ("d_wrong_hardware", 12, 3.0)]
     assert frames[0]["answers"]["hardware_in_hand"][SHORT] == 0.93 and frames[0]["answers"]["right_hardware"] == 0.07
     assert 0 <= frames[0]["answers"]["hands_present"] <= 1 and frames[0]["sim"] is True
-    assert set(frames[0]["answers"]["part_in_hand"]) <= {"end_slat", "hardware_only", "nothing_held", "other"}
+    assert set(frames[0]["answers"]["part_in_hand"]) <= {"end_slat", "end_slat_handle", "hardware_only", "nothing_held", "other"}
     assert [(e["clip"], e["t"], e["event"], e["step"]) for e in events] == [("d_wrong_hardware", 3.5, "wrong_hardware", 2)]
     assert events[0]["latency_ms"] >= 0 and events[0]["observed_id"] == SHORT
     hands = json.loads((folder / "hands.jsonl").read_text().splitlines()[0])

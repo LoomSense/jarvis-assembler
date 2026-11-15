@@ -157,6 +157,9 @@ class SimulatedDecider:
         small = held in ask.hardware or (held in codes and held not in NOT_A_CODE)     # is the held thing hardware
         answers = {}
         for key, question in ask.questions.items():
+            if question.get("type") == "choice" and key not in ("part_in_hand", "hardware_in_hand"):
+                answers[key] = self._way(question, bool(s["orientation_ok"]), yes)     # `wrong_way`
+                continue
             if question.get("type") == "choice":
                 answers[key] = self._choice(key, question, held, small, yes, bool(s["unsure"]))
                 continue
@@ -165,6 +168,16 @@ class SimulatedDecider:
             answers[key] = {"type": "noul", "noul": p, "confidence": max(p, round(1 - p, 3))}
         return {"answers": answers, "simulated": True, "latency_ms": round((time.perf_counter() - t0) * 1000),
                 "usage": {"total_input_tokens": 0, "total_output_tokens": 0, "total_tokens": 0}}
+
+    @staticmethod
+    def _way(question: dict, ok: bool, yes: float) -> dict:
+        """The step's `wrong_way` choice: `ok` while the script says `orientation_ok`, else its first mistake."""
+        options = list(question.get("criteria") or {})
+        wrong = [o for o in options if o not in ("ok", "cannot_tell", "other")]
+        top = wrong[0] if (wrong and not ok) else "ok" if "ok" in options else options[0]
+        rest = [o for o in options if o != top]
+        share = {top: yes, **{o: round((1 - yes) / max(1, len(rest)), 4) for o in rest}}
+        return {"type": "choice", "choice": top, "probabilities": share, "confidence": yes}
 
     @staticmethod
     def _choice(key: str, question: dict, held, small: bool, yes: float, unsure: bool) -> dict:

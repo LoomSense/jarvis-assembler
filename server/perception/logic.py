@@ -25,6 +25,7 @@ Every method takes its time in seconds from any monotonic clock, so a test can r
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, deque
 from dataclasses import dataclass, field
 
@@ -44,7 +45,25 @@ NEVER_SUPPRESSED = ("step_complete", "vision_paused", "vision_resumed", "show_pa
 SILENT = ("vision_paused", "vision_resumed")     # a badge on the screen (§6.5), not speech
 RIGHT_HARDWARE = "right_hardware"                # the question this layer adds to the request
 SCENE_QUESTIONS = ("step_complete", "next_step_part_used", "orientation_ok")   # about the assembly, not the hand
+WRONG_WAY = "wrong_way"                          # optional choice question of a step: WHICH way round is wrong
+WAY_FINE = ("ok", "cannot_tell", "other")        # its answers that name no mistake
 REFUSALS = ("auth", "billing")                   # the API will not answer at all: do not keep asking
+
+
+_SIDE = re.compile(r"(?:^|(?<=[_\-\s]))(?:left|right|l|r)(?=$|[_\-\s])", re.I)
+
+
+def _unsided(part: str) -> str:
+    """A part id without its left/right word: mirror twins give the same string."""
+    return _SIDE.sub("", str(part))
+
+
+def other_steps_sum(probs: dict, parts) -> float:
+    """The probability that a part of another step is held: every part choice that is neither one of this
+    step's `parts` nor the mirror twin of one (a twin is as likely the right part, read wrongly)."""
+    twins = {_unsided(part) for part in parts}
+    return min(1.0, sum(float(v) for k, v in probs.items() if isinstance(v, (int, float))
+                        and k not in SPECIAL and k not in parts and _unsided(k) not in twins))
 
 
 @dataclass(frozen=True)
@@ -61,6 +80,11 @@ class Expect:
     last_step: bool = False
     next_step: int | None = None
     next_page: int | None = None
+    times: tuple = ()                       # (id, n) for what this step uses more than once: 4 cam bolts, 2 dowels
+
+    def uses(self, item: str) -> int:
+        """How many of this part or hardware code the step uses."""
+        return dict(self.times).get(item, 1)
 
     @property
     def now_kind(self) -> str | None:
@@ -314,6 +338,11 @@ class Coach:
         self.hw = Latch(t.hold_enter, t.hold_release)
         self.confirm = {"right_part": Window(), "right_hardware": Window()}
         self.confirmed: set[tuple[str, str]] = set()
+        self.confirm_count: Counter = Counter()     # (kind, id) -> confirmations said on this step
+        self.unseen: dict = {}                      # (kind, id) confirmed -> (when last seen in the hand, frames since)
+        self.again: set[tuple[str, str]] = set()    # re-armed for the next one of the same item
+        self.way = Window()                         # `wrong_way` answers: the mistake named, or None
+        self.way_said: set[str] = set()             # mistakes already said and not yet seen put right
         self.muted: set[str] = set()
         self.said: Counter = Counter()
         self.last_warning: str | None = None
@@ -339,7 +368,11 @@ class Coach:
 
     def set_action(self, expect: Expect) -> None:
         """Another action of the same step: what is right to hold may have changed."""
+        before = self.expect
         self.expect = expect
+        if self.t.reconfirm and before is not None and expect.action is not None and expect.action != before.action:
+            for key in [k for k in self.confirmed if k[1] == expect.action_id]:
+                self._again(key)                         # the display moved on to the next bolt: confirm that one too
         for window in self.confirm.values():
             window.clear()
         w = self.watcher
@@ -347,6 +380,26 @@ class Coach:
             if set(expect.ok_hardware) != w.hardware and "wrong_hardware" in w.votes:
                 w.votes["wrong_hardware"].clear()        # votes cast against what the last action needed
             w.parts, w.hardware = set(expect.parts), set(expect.ok_hardware)
+
+    def _again(self, key: tuple[str, str]) -> None:
+        """A confirmed item may be confirmed once more, while the step still uses more of it than were confirmed."""
+        if self.confirm_count[key] < self.expect.uses(key[1]):
+            self.confirmed.discard(key)
+            self.again.add(key)
+        self.unseen.pop(key, None)
+
+    def _rearm(self, kind: str, vote: str | None, ts: float) -> None:
+        """Bolt 2 of 4 is confirmed like bolt 1 (Sun 15 Nov: on the headset only the first one was). Without an
+        action index from the display, "the next one" is: the confirmed item was not seen in the hand for
+        `reconfirm_after_s`, over at least `reconfirm_frames` frames (driven in, put down, or the hand went away)."""
+        for key in [k for k in self.confirmed if k[0] == kind]:
+            last, frames = self.unseen.get(key, (ts, 0))
+            if vote == key[1]:
+                self.unseen[key] = (ts, 0)
+                continue
+            self.unseen[key] = (last, frames + 1)
+            if frames + 1 >= self.t.reconfirm_frames and ts - last >= self.t.reconfirm_after_s:
+                self._again(key)
 
     def _watcher(self, source: str) -> Watcher:
         """This step's Watcher. Frames from another camera start a new one: earlier votes describe another view."""
@@ -416,6 +469,9 @@ class Coach:
             check = "right_part" if kind == "part" else RIGHT_HARDWARE
             kw.update(expected_id=e.needed(kind), observed_id=observed, p=conf,
                       evidence={f"{kind}_in_hand.{observed}": conf, check: yes_p(raw, check)})
+            probs = answer.get("probabilities")
+            if kind == "part" and self.t.wrong_part_sum and isinstance(probs, dict):
+                kw["evidence"]["part_in_hand.other_steps"] = round(other_steps_sum(probs, e.parts), 3)
             self.confirmed = {c for c in self.confirmed if c[0] != kind}     # the next right pick is confirmed again
         elif name == "flip_needed":
             o = yes_p(raw, "orientation_ok")
@@ -429,6 +485,34 @@ class Coach:
             conf = (raw.get("part_in_hand") or {}).get("confidence")
             kw.update(expected_id=e.needed(e.now_kind or "part"), p=conf, evidence={"part_in_hand.top": conf})
         return self._emit(name, **kw)
+
+    def _wrong_way(self, raw: dict, ts: float, blocked: bool, busy: bool) -> Emitted | None:
+        """`flip_needed` with a `reason`: the step's own `wrong_way` question names one mistake (a choice whose
+        options are the ways this step goes wrong, plus `ok` and `cannot_tell`) in enough frames. The yes/no
+        `orientation_ok` cannot say which mistake it is and separates badly on real frames (the front lying right:
+        0.26-0.92; lying on its face: 0.19). Said once per mistake; again only after frames that say `ok`."""
+        answer = raw.get(WRONG_WAY)
+        if not self.t.wrong_way or not isinstance(answer, dict) or answer.get("choice") is None:
+            return None
+        choice, conf = str(answer["choice"]), float(answer.get("confidence") or 0.0)
+        if blocked:
+            return None                                          # the assembly is not in view: not a vote either way
+        named = choice not in WAY_FINE and choice not in SPECIAL and conf >= self.t.wrong_way_choice
+        self.way.push(ts, choice if named else None)
+        if choice == "ok" and conf >= self.t.wrong_way_choice:
+            fine = [p for _, p in list(self.way.votes)[-self.t.wrong_way_window.m:]]
+            if all(p is None for p in fine):
+                self.way_said.clear()                            # put right (or never wrong): may be said again
+        if not named or busy or choice in self.way_said or "flip_needed" in self.muted:
+            return None
+        need = self.t.wrong_way_window
+        if self.way.agreed(need, ts, self.t.window_max_age_s) != choice or not self._free("flip_needed", ts):
+            return None
+        self.way_said.add(choice)
+        recent = [p for _, p in list(self.way.votes)[-need.m:]]
+        return self._say("flip_needed", ts, reason=choice, p=conf,
+                         evidence={f"{WRONG_WAY}.{choice}": conf, "orientation_ok": yes_p(raw, "orientation_ok")},
+                         votes=f"{recent.count(choice)} of last {len(recent)} frames")
 
     # ---- frames ---------------------------------------------------------------------------------
 
@@ -473,7 +557,39 @@ class Coach:
                 # reaching the threshold (seen with a short screw in hand: right_hardware 0.05, 108560 at 0.51).
                 # Let that code count as seen, so the measured N-of-M window decides the warning.
                 raw = {**raw, "hardware_in_hand": {**raw["hardware_in_hand"], "confidence": w.cfg.choice}}
+        if t.wrong_part_sum:
+            raw = self._wrong_part_sum(raw, w)
         return {k: v for k, v in raw.items() if k not in drop} if drop else raw
+
+    def _wrong_part_sum(self, raw: dict, w: Watcher) -> dict:
+        """A part this step does not use, read from the whole answer instead of its first choice alone.
+
+        Real frames (Sun 15 Nov): the drawer bottom held up during step 3 scored `drawer_bottom` 0.66-0.84 (four
+        of six frames under the 0.75 line) with `right_part` at 0.08-0.27 (three above the 0.15 line); a side
+        panel held up during step 1 scored left 0.47-0.54 and right 0.36-0.43, because the model cannot tell
+        mirror twins apart from a distance. So when the first choice is a part of another step, the
+        probabilities of all such parts are added up, and the frame counts as a confident wrong pick for the
+        Watcher's window when that sum reaches `wrong_part_sum_min` and `right_part` is at `wrong_part_no` or
+        less. A step without parts has no `right_part` question: there the sum must reach the Watcher's own
+        `choice` line. The mirror twin of a part this step uses is left to the Watcher's own rule and is not
+        in the sum: left and right are told apart too badly to be relaxed."""
+        answer = raw.get("part_in_hand") or {}
+        probs, choice = answer.get("probabilities"), answer.get("choice")
+        if not isinstance(probs, dict) or choice not in probs or choice in SPECIAL or choice in w.parts:
+            return raw
+        if _unsided(choice) in {_unsided(part) for part in w.parts} or (yes_p(raw, "hands_present") or 0) < w.cfg.hands:
+            return raw
+        total = other_steps_sum(probs, w.parts)
+        right = yes_p(raw, "right_part")
+        if right is None:
+            if total < w.cfg.choice:
+                return raw
+        elif total < self.t.wrong_part_sum_min or right > self.t.wrong_part_no:
+            return raw
+        out = {**raw, "part_in_hand": {**answer, "confidence": max(total, w.cfg.choice, float(answer.get("confidence") or 0.0))}}
+        if right is not None and right > w.cfg.no:
+            out["right_part"] = {**raw["right_part"], "noul": w.cfg.no}     # a "no" by `wrong_part_no`
+        return out
 
     def _camera_moved(self, raw: dict, ts: float, cfg, out: list) -> bool:
         """With `check_setup`: warnings pause while a fixed camera no longer shows the setup (§6.5)."""
@@ -524,6 +640,11 @@ class Coach:
             if ev is complete or (complete is None and ev["type"] not in self.muted):
                 out.append(self._from_watcher(ev, raw))
 
+        if complete is None:
+            flip = self._wrong_way(raw, ts, blocked, any(e.event in WARNINGS for e in out))
+            if flip is not None:
+                out.append(flip)
+
         # 2. What is in the hand, read as the Watcher reads it: only when hands are in view.
         hands_p = yes_p(raw, "hands_present")
         in_view = (hands_p or 0) >= cfg.hands
@@ -551,12 +672,23 @@ class Coach:
         }
         for name, vote in votes.items():
             self.confirm[name].push(ts, vote)
+        if t.reconfirm:
+            self._rearm("hardware", votes["right_hardware"], ts)
+            self._rearm("part", votes["right_part"], ts)
         if t.confirmations and not out:
             for kind, name, conf in (("hardware", "right_hardware", h_conf), ("part", "right_part", p_conf)):
                 vote = votes[name]
-                if (vote is not None and (kind, vote) not in self.confirmed
-                        and self.confirm[name].agreed(rules.confirm, ts, age) == vote and self._free(name, ts)):
-                    self.confirmed.add((kind, vote))     # once per step, until a correction re-arms it
+                if vote is None or (kind, vote) in self.confirmed or self.confirm[name].agreed(rules.confirm, ts, age) != vote:
+                    continue
+                # the next one of the same item waits for the gap between two utterances only: the 20 s
+                # "same event" rule would swallow a bolt picked up right after the last one
+                free = (name not in self.muted and (w.last_warning is None or ts - w.last_warning >= cfg.global_cooldown_s)
+                        if (kind, vote) in self.again else self._free(name, ts))
+                if free:
+                    self.confirmed.add((kind, vote))     # once per item, until a correction or the next one re-arms it
+                    self.again.discard((kind, vote))
+                    self.confirm_count[(kind, vote)] += 1
+                    self.unseen[(kind, vote)] = (ts, 0)
                     out.append(self._say(name, ts, expected_id=vote, observed_id=vote, p=conf,
                                          evidence={f"{kind}_in_hand.{vote}": conf}))
                     break
