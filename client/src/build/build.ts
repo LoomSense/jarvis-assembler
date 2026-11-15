@@ -20,7 +20,7 @@ import { tr } from '../i18n'
 import { WORDS } from '../guide/words'
 import { follow, type AgentEvent, type Follow } from './stream'
 import { STAGE, bw, fmtSec, say, thoughtPieces, type BuildWord, type Said } from './words'
-import { choose, debounce, openCatalog, openQuery, searchCatalog, sendGuide, type CatalogItem, type Chosen } from './intake'
+import { choose, debounce, openCatalog, openQuery, searchCatalog, searchIkea, sendGuide, type CatalogItem, type Chosen } from './intake'
 
 interface PlanSummary {
   title?: string
@@ -296,6 +296,12 @@ export function startBuild(app: HTMLElement): void {
       const items = await searchCatalog(q, key)
       if (mine !== asked) return
       found = items
+      if (items.length < 5) {
+        drawMatches() // our own guides at once; IKEA's products follow when they come
+        const more = await searchIkea(q, key, items)
+        if (mine !== asked) return
+        found = [...items, ...more]
+      }
     } catch {
       if (mine !== asked) return
       found = []

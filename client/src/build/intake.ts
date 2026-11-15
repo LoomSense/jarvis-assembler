@@ -12,7 +12,7 @@ export interface CatalogItem {
   steps?: number
   parts?: number
   created?: number | null
-  source: 'built' | 'known'
+  source: 'built' | 'known' | 'ikea'
   ready: boolean
   guide?: string
 }
@@ -28,6 +28,26 @@ export async function searchCatalog(q: string, key: string | null, signal?: Abor
   const res = await apiFetch(`/api/catalog?q=${encodeURIComponent(q.trim())}`, key, { signal })
   if (!res.ok) throw res.status
   return ((await res.json()) as { items?: CatalogItem[] }).items ?? []
+}
+
+/**
+ * Products from IKEA's own search (`/api/catalog/ikea`) that the catalog does not have yet, as catalog items to
+ * build: choosing one opens it by article number. A failure gives no items, never an error on the screen.
+ */
+export async function searchIkea(q: string, key: string | null, known: CatalogItem[]): Promise<CatalogItem[]> {
+  if (q.trim().length < 3) return []
+  try {
+    const res = await apiFetch(`/api/catalog/ikea?q=${encodeURIComponent(q.trim())}`, key)
+    if (!res.ok) return []
+    const items = ((await res.json()) as { items?: { name: string; type?: string; article?: string }[] }).items ?? []
+    const have = new Set(known.map((k) => (k.article ?? '').replace(/\D/g, '')).filter(Boolean))
+    return items
+      .filter((i) => i.article && !have.has(i.article.replace(/\D/g, '')))
+      .map((i) => ({ product: i.type ? `${i.name} ${i.type}` : i.name, article: i.article, source: 'ikea' as const, ready: false }))
+      .filter((i, n, all) => all.findIndex((j) => j.product === i.product) === n) // colours of one product share a guide
+  } catch {
+    return []
+  }
 }
 
 /**
