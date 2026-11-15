@@ -96,6 +96,7 @@ export class StepGuides extends THREE.Group {
       if (part.kind === 'screw') this.addRing(part);
     }
     this.callout = makeCallout(label, stepNumber, code);
+    this.callout.visible = false; // the panel says the same thing: no tag over the part
     this.add(this.callout);
   }
 

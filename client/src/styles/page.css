@@ -140,6 +140,12 @@ body {
   text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
 }
 
+/* no guide yet: one line and the way to make one, with the foot of the room to itself */
+#now.bare {
+  max-width: calc(100vw - 32px);
+  font-size: var(--ag-text-body);
+}
+
 #now .of {
   font-weight: 400;
   color: var(--ink-quiet);
@@ -153,7 +159,8 @@ body {
   text-wrap: balance;
 }
 
-#now button {
+#now button,
+#now a {
   pointer-events: auto;
   padding: 10px 2px;
   border: 0;
@@ -216,7 +223,8 @@ body {
 
 .step:focus-visible,
 #lang:focus-visible,
-#now button:focus-visible {
+#now button:focus-visible,
+#now a:focus-visible {
   outline: 2px solid var(--ag-focus-ring);
   outline-offset: 2px;
 }

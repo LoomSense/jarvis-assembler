@@ -19,6 +19,8 @@ export interface PanelButton {
   id: string;
   label: string;
   primary?: boolean;
+  /** live guidance thinks the step is done: a second ring around the button, the wearer decides */
+  cue?: boolean;
 }
 
 export interface PanelContent {
@@ -93,7 +95,10 @@ function getLineArt(url: string, onReady: () => void): HTMLCanvasElement | null 
     lineArt.set(url, cv);
     onReady();
   };
-  img.onerror = () => lineArt.set(url, 'failed');
+  img.onerror = () => {
+    lineArt.set(url, 'failed');
+    onReady();
+  };
   img.src = url;
   return null;
 }
@@ -300,10 +305,12 @@ export class StepPanel extends THREE.Group {
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
     const btnY = CH - PAD - BTN_H;
-    const colW = CW - PAD * 2 - (c.image ? IMG_W + COL_GAP : 0);
+    // a drawing that could not be loaded leaves no empty well behind
+    const image = c.image && lineArt.get(c.image) !== 'failed' ? c.image : undefined;
+    const colW = CW - PAD * 2 - (image ? IMG_W + COL_GAP : 0);
     let y = PAD + 4;
 
-    if (c.image) this.drawImageWell({ x: CW - PAD - IMG_W, y: PAD, w: IMG_W, h: btnY - PAD - 24 }, c.image);
+    if (image) this.drawImageWell({ x: CW - PAD - IMG_W, y: PAD, w: IMG_W, h: btnY - PAD - 24 }, image);
 
     // Meta row: status shape + "Step 5 of 8 · Page 5", optional badge on the right.
     drawStatusIcon(ctx, c.status, PAD + 15, y + 17, 15);
@@ -441,6 +448,13 @@ export class StepPanel extends THREE.Group {
           ctx.fill();
           ctx.lineWidth = 2;
           ctx.strokeStyle = hover ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.10)';
+          ctx.stroke();
+        }
+        if (b.cue) {
+          ctx.beginPath();
+          ctx.roundRect(r.x - 9, r.y - 9, r.w + 18, r.h + 18, BTN_H / 2 + 9);
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = STATUS_COLOR.success;
           ctx.stroke();
         }
         ctx.font = `${b.primary ? 600 : 500} 36px ${FONT}`;

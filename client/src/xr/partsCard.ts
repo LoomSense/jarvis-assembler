@@ -5,21 +5,21 @@ import type { AssemblyView } from './ghost';
 import { partGeometry } from './ghost';
 import { makeBackPlate } from './panels';
 import { HARDWARE_NAMES, displayName } from './stepGuides';
-import { partName, t } from './i18n';
+import { LANG, partName } from './i18n';
+import { displayName as pageName } from '../i18n';
 
-// Glass card beside the step panel (same height, same tilt):
-//   top    — "PICK UP NOW": a turning 3D copy of the part to find next, its name and code;
-//   bottom — "PARTS": every part of the product with its code, how many are in, and ✓.
+// Small glass card beside the step panel (top-aligned, same tilt): a turning 3D copy of the part to find next,
+// and under it its name (a board) or its code (a screw). A turn shows ↻, the end ✓.
+// (The parts list it once had is gone: the panel and this card say only what to pick up now.)
 // Finding the right part in the pile is the hardest moment of flat-pack assembly, so the
 // card shows it before the ghost says "put it here".
 
 const CW = 560;
-const CH = 920;
+const CH = 470;
 export const CARD_W = 0.17;
 export const CARD_H = (CARD_W * CH) / CW;
 const PAD = 36;
-const WELL = { y: 84, h: 236 };
-const ROW_H = 58;
+const WELL = { y: 36, h: 300 };
 const MODEL_M = 0.075;
 const REV_PER_S = 0.18;
 
@@ -48,15 +48,6 @@ export function inventory(steps: DemoStep[]): { name: string; code?: string; tot
   return [...rows.values()];
 }
 
-interface Row {
-  key: string;
-  name: string;
-  code?: string;
-  kind: 'board' | 'screw';
-  total: number;
-  placed: number;
-  current: boolean;
-}
 
 export class PartsCard extends THREE.Group {
   private canvas = document.createElement('canvas');
@@ -68,7 +59,7 @@ export class PartsCard extends THREE.Group {
   private steel = new THREE.MeshStandardMaterial({ color: '#dfe3ea', roughness: 0.4, metalness: 0.25, emissive: '#3a3f48', emissiveIntensity: 0.45 });
 
   constructor(
-    private steps: DemoStep[],
+    _steps: DemoStep[],
     finish?: string,
   ) {
     super();
@@ -94,39 +85,9 @@ export class PartsCard extends THREE.Group {
   refresh(assembly: AssemblyView, done: boolean): void {
     const current = done ? [] : assembly.currentParts;
     this.setModel(current[0]);
-    this.draw(this.rows(assembly, done), done ? '' : assembly.currentLabel, current[0], done);
-  }
-
-  private rows(assembly: AssemblyView, done: boolean): Row[] {
-    const rows = new Map<string, Row>();
-    const cur = new Set(assembly.currentParts);
-    const row = (key: string, init: Omit<Row, 'total' | 'placed' | 'current'>): Row => {
-      let r = rows.get(key);
-      if (!r) rows.set(key, (r = { ...init, total: 0, placed: 0, current: false }));
-      return r;
-    };
-    this.steps.forEach((step, s) => {
-      const modelled = new Map<string, number>();
-      for (const p of step.parts) {
-        const code = p.kind === 'screw' ? p.name : undefined;
-        const r = row(`${p.kind}:${p.name}`, { key: p.name, name: displayName(p), code, kind: p.kind });
-        r.total++;
-        if (done || assembly.statusOf(p) === 'placed') r.placed++;
-        if (cur.has(p)) r.current = true;
-        if (code) modelled.set(code, (modelled.get(code) ?? 0) + 1);
-      }
-      // Hardware the guide counts but the stand-in does not model one by one.
-      const hw = step.hardware;
-      if (hw) {
-        const extra = hw.qty - (modelled.get(hw.code) ?? 0);
-        if (extra > 0) {
-          const r = row(`screw:${hw.code}`, { key: hw.code, name: partName(HARDWARE_NAMES[hw.code] ?? hw.code), code: hw.code, kind: 'screw' });
-          r.total += extra;
-          if (done || s < assembly.stepIndex) r.placed += extra;
-        }
-      }
-    });
-    return [...rows.values()];
+    const part = current[0];
+    const name = !part ? '' : part.kind === 'screw' ? part.name : part.item ? pageName(LANG, part.item) : displayName(part);
+    this.draw(name, part, done);
   }
 
   private setModel(part: DemoPart | undefined): void {
@@ -153,7 +114,7 @@ export class PartsCard extends THREE.Group {
     this.holder.add(mesh);
   }
 
-  private draw(rows: Row[], currentLabel: string, current: DemoPart | undefined, done = false): void {
+  private draw(currentLabel: string, current: DemoPart | undefined, done = false): void {
     const turning = !current && !done; // a turn action: no part to pick up
     const ctx = this.ctx;
     ctx.clearRect(0, 0, CW, CH);
@@ -188,8 +149,6 @@ export class PartsCard extends THREE.Group {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
 
-    // PICK UP NOW
-    label(ctx, current ? t('pickNow') : turning ? currentLabel.toUpperCase() : t('allIn'), PAD, PAD + 26, done ? AG_XR.success : AG_XR.accent);
     ctx.beginPath();
     ctx.roundRect(PAD, WELL.y, textW, WELL.h, 32);
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
@@ -201,66 +160,12 @@ export class PartsCard extends THREE.Group {
       ctx.fillText(turning ? '↻' : '✓', CW / 2, WELL.y + WELL.h / 2 + 42);
       ctx.textAlign = 'left';
     }
-    let y = WELL.y + WELL.h + 52;
     if (current) {
-      ctx.font = `600 40px ${FONT}`;
+      ctx.font = `600 48px ${FONT}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(fit(ctx, currentLabel, textW), PAD, y);
-      y += 38;
-      ctx.font = `400 28px ${FONT}`;
-      ctx.fillStyle = AG_XR.textMeta;
-      if (current.kind === 'screw') ctx.fillText(current.name, PAD, y);
-    }
-
-    // Divider + PARTS
-    y = WELL.y + WELL.h + 120;
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(PAD, y, textW, 2);
-    y += 46;
-    label(ctx, t('parts'), PAD, y, AG_XR.textMeta);
-    y += 18;
-
-    const maxRows = Math.floor((CH - PAD - y) / ROW_H);
-    for (const r of rows.slice(0, maxRows)) {
-      if (r.current) {
-        ctx.beginPath();
-        ctx.roundRect(PAD - 14, y + 4, textW + 28, ROW_H - 8, 20);
-        ctx.fillStyle = 'rgba(158,207,255,0.16)';
-        ctx.fill();
-      }
-      const cy = y + ROW_H / 2;
-      drawIcon(ctx, r.kind, PAD + 18, cy, r.current ? AG_XR.accent : 'rgba(255,255,255,0.7)');
-      const complete = r.placed >= r.total;
-      ctx.font = `${r.current ? 600 : 500} 28px ${FONT}`;
-      ctx.fillStyle = r.current ? '#ffffff' : complete ? 'rgba(255,255,255,0.55)' : AG_XR.text;
-      const right = complete ? 40 : 76;
-      const codeW = r.code ? 96 : 0;
-      ctx.fillText(fit(ctx, r.name, textW - 48 - right - codeW), PAD + 48, cy + 10);
-      if (r.code) {
-        ctx.font = `400 22px ${FONT}`;
-        ctx.fillStyle = AG_XR.textMeta;
-        ctx.textAlign = 'right';
-        ctx.fillText(r.code, PAD + textW - right - 8, cy + 9);
-        ctx.textAlign = 'left';
-      }
-      if (complete) {
-        ctx.beginPath();
-        ctx.arc(PAD + textW - 16, cy, 16, 0, Math.PI * 2);
-        ctx.fillStyle = AG_XR.success;
-        ctx.fill();
-        ctx.font = `700 20px ${FONT}`;
-        ctx.fillStyle = '#0b0b0d';
-        ctx.textAlign = 'center';
-        ctx.fillText('✓', PAD + textW - 16, cy + 7);
-        ctx.textAlign = 'left';
-      } else {
-        ctx.font = `600 26px ${FONT}`;
-        ctx.fillStyle = r.current ? AG_XR.accent : AG_XR.textMeta;
-        ctx.textAlign = 'right';
-        ctx.fillText(`${r.placed}/${r.total}`, PAD + textW, cy + 9);
-        ctx.textAlign = 'left';
-      }
-      y += ROW_H;
+      ctx.textAlign = 'center';
+      ctx.fillText(fit(ctx, currentLabel, textW), CW / 2, WELL.y + WELL.h + 74);
+      ctx.textAlign = 'left';
     }
     this.texture.needsUpdate = true;
   }
@@ -273,41 +178,11 @@ export class PartsCard extends THREE.Group {
   }
 }
 
-function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string): void {
-  ctx.font = `600 24px ${FONT}`;
-  const c = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
-  if ('letterSpacing' in c) c.letterSpacing = '2px';
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  if ('letterSpacing' in c) c.letterSpacing = '0px';
-}
-
 function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
   if (ctx.measureText(text).width <= maxW) return text;
   let s = text;
   while (s && ctx.measureText(`${s}…`).width > maxW) s = s.slice(0, -1);
   return `${s.trimEnd()}…`;
-}
-
-/** Board: a small slab. Screw: a short rod with a head. */
-function drawIcon(ctx: CanvasRenderingContext2D, kind: 'board' | 'screw', cx: number, cy: number, color: string): void {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 3;
-  if (kind === 'board') {
-    ctx.beginPath();
-    ctx.roundRect(cx - 16, cy - 10, 32, 20, 4);
-    ctx.stroke();
-  } else {
-    ctx.beginPath();
-    ctx.roundRect(cx - 16, cy - 3, 28, 6, 3);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(cx + 10, cy - 8, 6, 16, 2);
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 /** Glass name tag, sized to its text, for "what is this part?" when pointing at it. */

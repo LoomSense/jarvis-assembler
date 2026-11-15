@@ -4,12 +4,16 @@ import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { PRODUCTS, type DemoProduct } from './demoAssembly';
 import { loadJob } from './jobAssembly';
 import { AssemblyView, type GhostState } from './ghost';
-import { calloutText, hardwareLabel } from './stepGuides';
+import { calloutText } from './stepGuides';
 import { LANG, t } from './i18n';
 import { CARD_H, CARD_W, PartsCard, inventory, makeTag } from './partsCard';
 import { prefetch, resetSpeech, say } from './speech';
 import { displayName } from './stepGuides';
+import { nowWords } from './nowWords';
+import { GUIDE_WINDOW_H, GUIDE_WINDOW_W, GuideWindow } from './guideWindow';
 import { HandChecker } from './handChecks';
+import { Live } from './live';
+import { Media } from './media';
 import { AG_XR } from './palette';
 import { StepPanel, type PanelButton, type PanelContent } from './panels';
 import { Placement, type Pointer } from './placement';
@@ -43,6 +47,26 @@ const DWELL_S = 1.5;
 // `?debug=1` shows tracking diagnostics in the panel footer instead of the user tips.
 const DEBUG = params.get('debug') === '1';
 const PREVIEW_TABLE_Y = 0.75;
+const GUIDE_LABEL = LANG === 'el' ? 'Οδηγίες' : 'Instructions';
+const SKIP_LABEL = LANG === 'el' ? 'Παράλειψη' : 'Skip';
+const CAMERA_LABEL = LANG === 'el' ? 'Κάμερα' : 'Camera';
+// Live guidance (live.ts): on with a job unless `?live=0`. `?auto=1` lets a step the server sees finished move on by
+// itself; otherwise Next is only cued. The server is this page's origin; `?api=<base>` in development builds only.
+const LIVE = !!JOB && params.get('live') !== '0';
+const AUTO_ADVANCE = params.get('auto') === '1';
+const API = (import.meta.env.DEV && params.get('api')) || String(import.meta.env.VITE_API_URL ?? '');
+
+/** The guide page (src/guide) for the same job at the current step, keeping the key and the language. */
+function guideUrl(step: number): string {
+  const q = new URLSearchParams();
+  if (JOB) q.set('job', JOB);
+  const key = params.get('key');
+  if (key) q.set('key', key);
+  q.set('step', String(step + 1));
+  const lang = params.get('lang');
+  if (lang) q.set('lang', lang);
+  return `${location.pathname}?${q}`;
+}
 
 // Panel beside the work area, in the plate's frame: to the right, above the table,
 // tilted back and turned towards the user (BRAND.md §5).
@@ -54,10 +78,18 @@ const PANEL_ON_PLATE = {
 interface ControllerData {
   source: XRInputSource | null;
   dragging: boolean;
+  /** turning the «Οδηγίες» window's assembly */
+  turning?: boolean;
   line: THREE.Line;
 }
 
 export async function startXR(root: HTMLElement): Promise<void> {
+  // Development only: `?emu=1|bare` emulates a Quest 3 (IWER) with a synthetic room, to try the session on a laptop.
+  // In a production build the condition is the constant false, so neither emu.ts nor iwer is bundled.
+  if (import.meta.env.DEV && params.has('emu')) {
+    const { installEmulator } = await import('./emu');
+    Object.assign(window, { __xrDevice: await installEmulator(params.get('emu') !== 'bare', params.get('room') || 'home_office') });
+  }
   if (JOB) {
     try {
       PRODUCT = await loadJob(JOB, params.get('key') ?? undefined);
@@ -130,7 +162,6 @@ export async function startXR(root: HTMLElement): Promise<void> {
   let prepIndex = 0; // 0..TIPS.length-1 = tip screens, TIPS.length = parts check
   let prepDone = false;
   let missingInfo = false;
-  let resumed = false;
   const SAVE_KEY = `ag-xr-progress:${PRODUCT.id}`;
   function saveProgress(): void {
     try {
@@ -172,16 +203,77 @@ export async function startXR(root: HTMLElement): Promise<void> {
       prepDone = saved.prepDone;
       if (saved.step > 0 || saved.action > 0) {
         assembly.setStep(saved.step, saved.action);
-        resumed = true;
       }
     }
   } catch {
     /* no saved progress */
   }
+  // Continue where the person was on another device: the job's perception session remembers the last step and
+  // action a display reported (the guide page with live guidance on, or this headset). Applied when it arrives,
+  // unless the wearer has already moved; the local save above stays the fallback.
+  let movedByWearer = false;
+  if (JOB) {
+    const url = new URL(`${API.replace(/\/+$/, '')}/api/perception/${encodeURIComponent(JOB)}/position`, location.href);
+    const key = params.get('key');
+    if (key) url.searchParams.set('key', key);
+    fetch(url, { cache: 'no-store' })
+      .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : null))
+      .then((p: { step?: unknown; action?: unknown } | null) => {
+        if (!p || !Number.isInteger(p.step) || movedByWearer) return;
+        const at = fromManifest(p.step as number, Number.isInteger(p.action) ? (p.action as number) : null);
+        if (!at) return;
+        prepDone = true;
+        assembly.setStep(at.step, at.action);
+        console.info('[xr] continuing at step', p.step, 'action', p.action);
+        refreshPanel();
+      })
+      .catch(() => {});
+  }
+
+  /** The manifest's step number and 0-based action for where the assembly view is (live guidance, the server). */
+  function manifestPlace(): { step: number; action: number | null } {
+    const step = PRODUCT.steps[assembly.stepIndex];
+    const n = step?.n ?? assembly.stepIndex + 1;
+    if (assembly.isTurn) return { step: n, action: step?.turnAction ?? null };
+    return { step: n, action: assembly.currentParts[0]?.actionIndex ?? null };
+  }
+  /** The other way round: the assembly view's step and action for a manifest step number and action. */
+  function fromManifest(n: number, action: number | null): { step: number; action: number } | null {
+    const s = PRODUCT.steps.findIndex((st) => st.n === n);
+    if (s < 0) return null;
+    const step = PRODUCT.steps[s];
+    if (action === null || action === step.turnAction) return { step: s, action: 0 };
+    const moving = step.parts.filter((p) => !p.base);
+    const i = moving.findIndex((p) => p.actionIndex === action);
+    return { step: s, action: (i < 0 ? 0 : i) + (step.turn ? 1 : 0) };
+  }
   // Parts card to the right of the step panel, top-aligned, same tilt (it is the panel's child).
   const card = new PartsCard(PRODUCT.steps, PRODUCT.finish);
   card.position.set(StepPanel.WIDTH / 2 + 0.014 + CARD_W / 2, StepPanel.HEIGHT / 2 - CARD_H / 2, 0);
   panel.add(card);
+  if (import.meta.env.DEV) Object.assign(window, { __xrCard: card, __xrGuide: () => guideWindow, __xrAssembly: assembly, __xrButton: (id: string) => onButton(id), __xrPanel: panel });
+  // «Οδηγίες» in the session: the guide page's view of the step, in a window beside the parts card (guideWindow.ts).
+  // Outside a session the button opens the guide page itself.
+  let guideWindow: GuideWindow | null = null;
+  if (JOB) {
+    GuideWindow.load(JOB, params.get('key'), LANG, renderer)
+      .then((w) => {
+        guideWindow = w;
+        w.position.set(StepPanel.WIDTH / 2 + 0.028 + CARD_W + GUIDE_WINDOW_W / 2, StepPanel.HEIGHT / 2 - GUIDE_WINDOW_H / 2, 0);
+        panel.add(w);
+        w.follow(assembly.stepIndex, assembly.actionIndex);
+      })
+      .catch((err) => console.warn('[xr] the guide window could not load; «Οδηγίες» opens the page only', err));
+  }
+  function openGuide(): void {
+    if (renderer.xr.isPresenting && guideWindow) {
+      guideWindow.visible = !guideWindow.visible;
+      guideWindow.follow(assembly.stepIndex, assembly.actionIndex);
+      return;
+    }
+    const url = guideUrl(assembly.stepIndex);
+    if (!window.open(url, '_blank')) location.assign(url);
+  }
   // "What is this?" tag shown above whichever part the pointer or mouse is on.
   const tag = makeTag();
   assembly.add(tag.sprite);
@@ -239,10 +331,44 @@ export async function startXR(root: HTMLElement): Promise<void> {
   }
 
   const handChecker = new HandChecker(hands, camera);
-  handChecker.onSummary = (s) => {
-    // XR-05: send over the perception WebSocket once LIV-01 exists.
-    if (s.seq % 50 === 0) console.debug('[xr] hands', s);
-  };
+  handChecker.onSummary = (s) => live?.sendHands(s); // about ten a second; the module passes them on
+
+  // ---------- live guidance (live.ts): the ghost's own states, the server's sentence, Next cued ----------
+  let liveGhost = false; // the ghost's state was set by live guidance, not by the wearer
+  let advancing = false; // Next was pressed: green, fade, then the next ghost
+  const live = LIVE
+    ? new Live({
+        job: JOB!,
+        key: params.get('key'),
+        apiBase: API || undefined,
+        lang: LANG,
+        autoAdvance: AUTO_ADVANCE,
+        onSay: (text) => void say(text, LANG),
+        onAdvance: () => onButton('next'),
+        onView: (v) => {
+          if (!advancing && (mode === 'guide' || mode === 'preview') && prepDone) {
+            if (v.ghost && assembly.state !== v.ghost) {
+              assembly.setState(v.ghost);
+              liveGhost = true;
+              if (v.ghost === 'wrong') buzz();
+              if (v.ghost === 'correct') chime();
+            } else if (!v.ghost && liveGhost) {
+              assembly.setState('next');
+              liveGhost = false;
+            }
+          }
+          refreshPanel();
+        },
+      })
+    : null;
+  if (import.meta.env.DEV) Object.assign(window, { __xrLive: () => live });
+
+  /** How far a hand is along the wearer's right, metres (turning the guide window's assembly). */
+  function along(c: THREE.XRTargetRaySpace): number {
+    const head = renderer.xr.getCamera();
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(head.getWorldQuaternion(new THREE.Quaternion()));
+    return c.getWorldPosition(new THREE.Vector3()).dot(right);
+  }
 
   function rayOf(c: THREE.XRTargetRaySpace): THREE.Ray {
     raycaster.setFromXRController(c);
@@ -329,12 +455,12 @@ export async function startXR(root: HTMLElement): Promise<void> {
     return tip;
   }
 
+  // The screens before step 1, short: a tip is its title and the guide's drawing; the parts check is one count.
+  // "Skip" leaves them all at once.
   function prepContent(): PanelContent {
-    const meta = t('beforeStart');
     if (missingInfo) {
       return {
         status: 'unsure',
-        meta,
         title: t('missingTitle'),
         body: t('missingBody', { code: PARTS.find((p) => p.code)?.code ?? '' }),
         buttons: [
@@ -348,19 +474,18 @@ export async function startXR(root: HTMLElement): Promise<void> {
       const text = LANG === 'el' ? tip.el : tip.en;
       return {
         status: 'warn',
-        meta: `${meta} · ${t('step', { n: prepIndex + 1, total: TIPS.length, page: tip.page }).split(' · ').pop()}`,
         title: text.title,
-        body: text.body,
         image: tip.crop,
-        buttons: [{ id: 'prep-ok', label: t('gotIt'), primary: true }],
+        buttons: [
+          { id: 'prep-skip', label: SKIP_LABEL },
+          { id: 'prep-ok', label: t('gotIt'), primary: true },
+        ],
       };
     }
     return {
       status: 'info',
-      meta,
       title: t('checkTitle'),
-      body: t('checkBody'),
-      chips: PARTS.map((p) => `${p.total}× ${p.name}${p.code ? ` · ${p.code}` : ''}`),
+      body: `${PARTS.length} ${LANG === 'el' ? 'είδη' : 'kinds'} · ${PARTS.reduce((n, p) => n + p.total, 0)} ${LANG === 'el' ? 'κομμάτια' : 'pieces'}`,
       buttons: [
         { id: 'prep-missing', label: t('missing') },
         { id: 'prep-ok', label: t('haveAll'), primary: true },
@@ -379,7 +504,6 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
   function content(): PanelContent {
     if ((mode === 'guide' || mode === 'preview') && !prepDone) return prepContent();
-    const n = assembly.stepIndex + 1;
     const total = assembly.stepCount;
     switch (mode) {
       case 'place':
@@ -419,34 +543,22 @@ export async function startXR(root: HTMLElement): Promise<void> {
           ],
         };
       default: {
+        // One short line of what to do now, in the guide page's words; Back / Next and «Οδηγίες».
+        // The guide drawing stays on the right while it fits.
         const step = assembly.step;
-        const text = LANG === 'el' && step.el ? step.el : step;
-        // Pipeline jobs carry Greek per action but not per step: in Greek, the action is the title.
-        const labelTitle = LANG === 'el' && !step.el;
         const state = assembly.state;
         const status = state === 'correct' ? 'success' : state === 'wrong' ? 'error' : state === 'unsure' ? 'unsure' : 'info';
-        const buttons: PanelButton[] = [
-          { id: 'back', label: t('back') },
-          SIMULATE ? { id: 'mistake', label: t('mistake') } : { id: 'repeat', label: t('repeat') },
-          { id: 'next', label: assembly.isLast ? t('finish') : t('next'), primary: true },
-        ];
+        const buttons: PanelButton[] = [{ id: 'back', label: t('back') }];
+        if (JOB) buttons.push({ id: 'guide', label: GUIDE_LABEL });
+        buttons.push({ id: 'next', label: assembly.isLast ? t('finish') : t('next'), primary: true, cue: !!live?.view.cue });
         if (mode === 'guide') buttons.unshift({ id: 'move', label: t('move') });
-        const dwellTip =
-          mode === 'guide' && AUTO_CONFIRM
-            ? dwell > 0
-              ? `${t('holdHint')} ${'●'.repeat(Math.ceil((dwell / DWELL_S) * 5)).padEnd(5, '○')}`
-              : t('holdHint')
-            : undefined;
         return {
           status,
-          meta: t('step', { n, total, page: step.page }),
-          progress: { index: n - 1, total },
-          title: state === 'wrong' ? t('notThat') : labelTitle ? assembly.currentLabel : text.title,
+          title: state === 'wrong' ? t('notThat') : nowWords(step, assembly.currentParts[0], LANG),
           image: step.crop || undefined,
-          body: state === 'wrong' ? t('needs', { what: calloutText(step) }) : (assembly.currentText ?? text.instruction),
-          focus: !labelTitle && assembly.actionCount > 1 ? assembly.currentLabel : undefined,
-          chips: step.hardware ? [hardwareLabel(step.hardware.code, step.hardware.qty)] : undefined,
-          foot: footer(resumed ? t('resumed') : mode === 'preview' ? undefined : dwellTip),
+          // a correction or a confirmation from live guidance says the server's own sentence; his own otherwise
+          body: (liveGhost && live?.view.sentence) || (state === 'wrong' ? t('needs', { what: calloutText(step) }) : undefined),
+          foot: footer(live?.view.word ?? undefined),
           buttons,
         };
       }
@@ -465,10 +577,20 @@ export async function startXR(root: HTMLElement): Promise<void> {
     if (key === lastContentKey) return;
     lastContentKey = key;
     panel.setContent(c);
+    guideWindow?.follow(assembly.stepIndex, assembly.actionIndex);
     refreshPick();
     void say(speechOf(c), LANG);
-    if ((mode === 'guide' || mode === 'preview') && prepDone) saveProgress();
+    if ((mode === 'guide' || mode === 'preview') && prepDone) {
+      saveProgress();
+      const at = manifestPlace();
+      const key = `${at.step}:${at.action}`;
+      if (key !== lastPlace) {
+        lastPlace = key;
+        live?.setStep(at.step, at.action);
+      }
+    }
   }
+  let lastPlace = '';
 
   function goToStep(i: number): void {
     assembly.setStep(i);
@@ -509,7 +631,9 @@ export async function startXR(root: HTMLElement): Promise<void> {
         setMode('align');
         break;
       case 'back':
-        resumed = false;
+        movedByWearer = true;
+        advancing = false;
+        liveGhost = false;
         window.clearTimeout(advanceTimer);
         assembly.retreat();
         refreshPanel();
@@ -518,6 +642,9 @@ export async function startXR(root: HTMLElement): Promise<void> {
         assembly.replay();
         resetSpeech();
         void say(speechOf(content()), LANG);
+        break;
+      case 'guide':
+        openGuide();
         break;
       case 'mistake':
         // Stand-in for a `wrong_part` perception event: red dashed ghost for 3 s, then back.
@@ -534,13 +661,16 @@ export async function startXR(root: HTMLElement): Promise<void> {
         break;
       case 'next':
         // Stand-in for `step_complete` from perception: green, fade, then the next ghost.
-        if (assembly.state === 'correct') break; // already advancing
-        resumed = false;
+        if (advancing) break; // already advancing
+        movedByWearer = true;
+        advancing = true;
+        liveGhost = false;
         window.clearTimeout(advanceTimer);
         assembly.setState('correct');
         chime();
         refreshPanel();
         advanceTimer = window.setTimeout(() => {
+          advancing = false;
           if (assembly.advance()) refreshPanel();
           else finish();
         }, 650);
@@ -554,6 +684,11 @@ export async function startXR(root: HTMLElement): Promise<void> {
         }
         refreshPanel();
         break;
+      case 'prep-skip':
+        missingInfo = false;
+        prepDone = true;
+        refreshPanel();
+        break;
       case 'prep-missing':
         missingInfo = true;
         refreshPanel();
@@ -564,7 +699,6 @@ export async function startXR(root: HTMLElement): Promise<void> {
         break;
       case 'restart':
         clearProgress();
-        resumed = false;
         resetSpeech();
         goToStep(0);
         setMode(session ? 'guide' : 'preview');
@@ -590,6 +724,17 @@ export async function startXR(root: HTMLElement): Promise<void> {
     const ray = rayOf(c);
     const id = panel.buttonAt(panelHit(ray));
     if (id) return onButton(id);
+    const inWindow = guideWindow?.hit(ray);
+    if (inWindow === 'close') {
+      guideWindow!.visible = false;
+      click();
+      return;
+    }
+    if (inWindow === 'view') {
+      guideWindow!.beginTurn(along(c));
+      data.turning = true;
+      return;
+    }
 
     if (mode === 'place') {
       if (placement.requestPlace()) click();
@@ -600,6 +745,10 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
   function onSelectEnd(c: THREE.XRTargetRaySpace): void {
     const data = c.userData as ControllerData;
+    if (data.turning) {
+      data.turning = false;
+      guideWindow?.endTurn();
+    }
     if (data.dragging) {
       data.dragging = false;
       placement.endDrag();
@@ -656,11 +805,39 @@ export async function startXR(root: HTMLElement): Promise<void> {
   overlay.innerHTML = `
     <h1>Assembly Guide · XR</h1>
     <p class="xr-status" role="status">Checking WebXR…</p>
+    <button class="xr-guide xr-camera" type="button" hidden>${CAMERA_LABEL}</button>
+    <button class="xr-guide" type="button" hidden>${GUIDE_LABEL}</button>
     <button class="xr-enter" disabled>Enter AR</button>
     <p class="xr-hint">Preview: drag to orbit, click the panel buttons, keys 1–4 change the ghost state, arrows change step.</p>`;
   root.appendChild(overlay);
   const statusEl = overlay.querySelector<HTMLParagraphElement>('.xr-status')!;
   const enterBtn = overlay.querySelector<HTMLButtonElement>('.xr-enter')!;
+  // «Οδηγίες» before the session: the guide page for the same job, at the step the headset is on
+  const guideBtn = overlay.querySelector<HTMLButtonElement>('.xr-guide:not(.xr-camera)')!;
+  // The headset's camera for live guidance, asked for here, before the session (a permission prompt inside an
+  // immersive session can end it). Optional: without it guidance follows the steps and says it has no camera.
+  const cameraBtn = overlay.querySelector<HTMLButtonElement>('.xr-camera')!;
+  cameraBtn.hidden = !live || !navigator.mediaDevices?.getUserMedia;
+  const media = new Media(/OculusBrowser|Quest/i.test(navigator.userAgent), import.meta.env.DEV && params.get('cam') === 'any', () => {
+    const m = media.status;
+    if (m.asking) return;
+    const said: Record<string, string> = {
+      headset: LANG === 'el' ? 'Κάμερα κράνους έτοιμη' : 'Headset camera ready',
+      generic: LANG === 'el' ? 'Κάμερα έτοιμη' : 'Camera ready',
+      'inward-only': LANG === 'el' ? 'Στο λουκέτο, τσέκαρε «Headset cameras»' : 'At the lock icon, tick “Headset cameras”',
+      denied: LANG === 'el' ? 'Χωρίς κάμερα' : 'No camera',
+      missing: LANG === 'el' ? 'Δεν βρέθηκε κάμερα' : 'No camera found',
+      unavailable: LANG === 'el' ? 'Χωρίς κάμερα' : 'No camera',
+    };
+    if (m.asked) statusEl.textContent = said[m.camera] ?? statusEl.textContent;
+    cameraBtn.disabled = m.camera === 'headset' || m.camera === 'generic';
+  });
+  cameraBtn.addEventListener('click', () => {
+    audio ??= new AudioContext(); // the first tap also starts the sound
+    void media.request();
+  });
+  guideBtn.hidden = !JOB;
+  guideBtn.addEventListener('click', () => openGuide());
 
   const supported = await arSupported();
   statusEl.textContent = supported
@@ -674,6 +851,11 @@ export async function startXR(root: HTMLElement): Promise<void> {
     try {
       audio ??= new AudioContext();
       enterBtn.disabled = true;
+      // live guidance starts inside the tap (the voice may begin); with the camera of the bar's button, if any
+      if (live) {
+        const at = manifestPlace();
+        live.start(at.step, at.action, media.cameraStream);
+      }
       session = await startAR(renderer);
       features = grantedFeatures(session);
       console.info('[xr] session started; granted features:', features ?? '(not reported)');
@@ -687,6 +869,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       }
       session.addEventListener('end', () => {
         session = null;
+        live?.stop();
         placement.onSessionEnd();
         planes.clearPlanes();
         controls.enabled = true;
@@ -696,6 +879,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
         enterPreview();
       });
     } catch (err) {
+      live?.stop();
       console.error('[xr] could not start immersive-ar', err);
       statusEl.textContent = `Could not start AR: ${(err as Error).message}`;
       enterBtn.disabled = false;
@@ -718,10 +902,14 @@ export async function startXR(root: HTMLElement): Promise<void> {
       const pointer = activePointer();
       placement.update(frame, ref, pointer);
 
+      let closeHover = false;
       for (const c of controllers) {
         const data = c.userData as ControllerData;
         if (data.dragging) placement.dragTo(rayOf(c));
+        if (data.turning) guideWindow?.turnTo(along(c));
+        if (data.source && guideWindow?.hit(rayOf(c)) === 'close') closeHover = true;
       }
+      guideWindow?.setCloseHover(closeHover);
 
       if (panelNeedsFront) {
         const pose = frame.getViewerPose(ref);
@@ -778,6 +966,8 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
     assembly.update(dt);
     card.update(dt, renderer.xr.isPresenting ? renderer.xr.getCamera() : camera);
+    guideWindow?.tick(dt);
+    guideWindow?.render(renderer);
     renderer.render(scene, camera);
   });
 }

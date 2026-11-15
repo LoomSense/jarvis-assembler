@@ -1299,3 +1299,51 @@ def test_replay_streams_a_clip_through_the_route_and_writes_a_run(client, tmp_pa
     assert score["events_hit"] == 1 and score["false_alarms"] == [] and score["frames_without_label"] == 0
     assert score["questions"]["hardware_in_hand"]["accuracy_when_decided"] == 1.0
     assert score["questions"]["hands_present"]["accuracy_when_decided"] == 1.0
+
+
+def test_position_survives_stop_and_the_last_device_leaving_so_another_device_can_continue(client):
+    path = f"/api/perception/{JOB}/position"
+    assert client.get(path).status_code == 401                        # behind the demo key, like every /api/ route
+    assert client.get(path, params={"key": KEY}).json() == {"job_id": JOB, "step": None, "action": None, "at": None}
+    assert client.get("/api/perception/no-such-job/position", params={"key": KEY}).json()["step"] is None
+    before = int(time.time() * 1000)
+    with client.websocket_connect(url("display")) as ws:              # the phone, with live guidance on
+        phone = Peer(ws)
+        phone.until("status")
+        phone.send(type="start", step=2, action=0)
+        phone.until(lambda m: m["type"] == "status" and m["step"] == 2)
+        phone.send(type="action", index=1)
+        phone.until(lambda m: m["type"] == "status" and m["action"] == 1)
+        phone.send(type="stop")                                       # live guidance off: the session forgets the step
+        phone.until(lambda m: m["type"] == "status" and m["step"] is None)
+    pos = client.get(path, params={"key": KEY}).json()                # the headset asks where to continue
+    assert (pos["step"], pos["action"]) == (2, 1) and pos["at"] >= before
+    with client.websocket_connect(url("display")) as ws:              # it does not make or change a session by reading
+        headset = Peer(ws)
+        assert headset.next()["step"] is None
+        headset.send(type="step", n=3)
+        headset.until(lambda m: m["type"] == "status" and m["step"] == 3)
+    assert client.get(path, params={"key": KEY}).json()["step"] == 3 and client.get(path, params={"key": KEY}).json()["action"] is None
+
+
+def test_clear_no_lets_a_leaning_other_code_warn():
+    """Seen on a stand-in photo of a short screw in hand at step 2 (needs 108363): right_hardware 0.05 and the
+    choice 108560 at only 0.51. A clear "no" plus a lean to another code must still lead to wrong_hardware."""
+    from server.perception import logic as L
+    from server.perception.config import Tuning
+    from pipeline.perception.logic import Watcher
+    pack = {"step": 2, "expects": {"parts": [], "hardware": ["108363"]}}
+    w = Watcher(pack)
+    coach = L.Coach.__new__(L.Coach)
+    coach.expect, coach.t = type("E", (), {"action": None, "last_action": True})(), Tuning()
+    raw = {"right_hardware": {"type": "noul", "noul": 0.05, "confidence": 0.95},
+           "hands_present": {"type": "noul", "noul": 0.93, "confidence": 0.93},
+           "hardware_in_hand": {"type": "choice", "choice": "108560", "confidence": 0.51,
+                                "probabilities": {"108560": 0.51, "other": 0.32, "108363": 0.16, "no_hardware": 0.01}}}
+    rules = coach.t.rules("fixed")
+    out = coach._prefilter(raw, w, rules, False)
+    assert out["hardware_in_hand"]["choice"] == "108560" and out["hardware_in_hand"]["confidence"] >= w.cfg.choice
+    weak = {**raw, "hardware_in_hand": {**raw["hardware_in_hand"], "confidence": 0.3}}
+    assert coach._prefilter(weak, w, rules, False)["hardware_in_hand"]["confidence"] == 0.3     # below the floor
+    unsure = {**raw, "right_hardware": {"type": "noul", "noul": 0.4, "confidence": 0.6}}
+    assert coach._prefilter(unsure, w, rules, False)["hardware_in_hand"]["confidence"] == 0.51  # no clear "no"

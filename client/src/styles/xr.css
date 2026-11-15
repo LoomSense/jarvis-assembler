@@ -44,3 +44,16 @@ canvas { display: block; touch-action: none; }
   cursor: pointer;
 }
 .xr-enter:disabled { opacity: 0.35; cursor: not-allowed; }
+/* «Οδηγίες»: opens the guide page for the same job and step; a quiet glass pill beside Enter AR */
+.xr-guide {
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--ag-space-4);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--ag-radius-pill);
+  background: transparent;
+  color: var(--ag-text, #fff);
+  font: var(--ag-weight-heading) var(--ag-text-small) var(--ag-font);
+  cursor: pointer;
+}
+.xr-guide[hidden] { display: none; }

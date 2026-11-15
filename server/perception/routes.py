@@ -14,9 +14,9 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
-from server.auth import ws_has_key
+from server.auth import require_key, ws_has_key
 from server.perception.config import ROLES
 from server.perception.session import Registry
 
@@ -80,3 +80,18 @@ async def perception(ws: WebSocket, job_id: str) -> None:
         pass
     finally:
         await session.leave(conn)
+
+
+@router.get("/api/perception/{job_id}/position", dependencies=[Depends(require_key)])
+async def position(job_id: str, request: Request) -> dict:
+    """Where the guide of this job last was (step number, 0-based action, epoch ms), or nulls.
+
+    Set by any display that reported a step or an action over the socket (the guide page while live guidance is on,
+    the headset). It survives `stop` and the last device leaving, so the headset can continue where the phone was.
+    Read only: it never makes a session.
+    """
+    reg = getattr(request.app.state, "perception", None)
+    session = reg.sessions.get(job_id) if reg is not None else None
+    pos = session.position if session is not None else None
+    return {"job_id": job_id, "step": pos["step"] if pos else None, "action": pos["action"] if pos else None,
+            "at": pos["at"] if pos else None}

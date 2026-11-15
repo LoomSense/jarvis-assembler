@@ -154,8 +154,10 @@ export function localise(lang: Lang, value: string | Loc | null | undefined): st
 }
 
 /** Short display name of a part or a screw type: the manifest's `short` name, else its `name`. */
-export function displayName(lang: Lang, item: { name?: string | Loc; short?: string | Loc }): string {
-  return capitalise(localise(lang, item.short ?? item.name))
+export function displayName(lang: Lang, item: { name?: string | Loc; short?: string | Loc; names?: Loc }): string {
+  // `names` ({en, el}, written by the build agent since f6c34ee) beats the English-only `short` and the fallback table
+  const own = item.names?.[lang]
+  return capitalise(own || localise(lang, item.short ?? item.name))
 }
 
 // The manifest's fasten texts end with "Screw 3 of 8." The page shows that count as its own chip,

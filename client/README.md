@@ -7,6 +7,7 @@ One page, two experiences. `mode` in the address picks one, and only that one is
 | Address | What it opens | Where it lives |
 |---|---|---|
 | `/` (no `mode`) | [The guide page](#the-guide-page-no-mode) for phone and laptop | `src/guide/`, `src/styles/page.css`, the `<template>` in `index.html` |
+| `/?mode=build` | [The build screen](#the-build-screen-modebuild): drop a guide PDF, watch the agent build the 3D guide, approve its plan, open the result | `src/build/`, `src/styles/build.css` |
 | `/?mode=xr` | [Quest 3 experience `xr`](#quest-3-modexr-plan-60): glass panels, step-by-step guidance, parts card, voice; built-in products or a pipeline job | `src/xr/`, `src/styles/xr.css` |
 
 A second Quest experience built in parallel was dropped on Sun 15 Nov in favour of `src/xr/`; its live-guidance join can be ported later through `src/assist/`.
@@ -56,7 +57,7 @@ The page loads `/files/<job>/manifest.json`, then the GLB beside it. In dev and 
 
 | Parameter | Meaning |
 |---|---|
-| `job=<id>` | The job to show. Required in the built page. In dev it defaults to `local-fresh`. |
+| `job=<id>` | The job to show. Required in the built page. In dev it defaults to `local-fresh`; `?job=` (empty) shows the page without a guide. Without a job, on the real server, the page says so in one line and offers the build screen. |
 | `key=<demo key>` | Repeated on every `/files/` request. Never stored. |
 | `lang=el\|en` | Language. Default `el`. The switch in the corner rewrites this parameter. |
 | `step=<n>` | Open at the start of step `n` (1-based) instead of at the first action. |
@@ -65,7 +66,7 @@ The page loads `/files/<job>/manifest.json`, then the GLB beside it. In dev and 
 | `glb=plain` | Debug: try the plain GLB before the packed one. |
 | `mode=xr` | Open the Quest experience instead of this page (see the top of this file). |
 | `assist=1\|0` | Live guidance: `1` offers its control where it would not be offered (the dev server), `0` leaves it out. |
-| `api=<url>` | Dev only: where the perception socket is, for live guidance. The built page ignores it, because it decides where camera frames go. |
+| `api=<url>` | Dev only: the server to talk to: its files, its jobs and the perception socket for live guidance. The built page ignores it, because it decides where camera frames go. |
 
 `phase` and `speed`, which the first version of the page read, are still parsed by `src/api.ts` but this page ignores them.
 
@@ -229,6 +230,32 @@ The client asked for a bare scene: no sections, no pills, no titles, two buttons
 - The manifest does not carry a part's material. The page reads the name of the GLB material instead, and the pipeline's material table knows only `pine` and `steel` today (any other name gets pine's colour).
 - Only a hardware `kind` of `screw` gets the screwdriver and a thread. Other kinds (dowel, cam lock, nail) fall and seat with the same motion, without a tool.
 - The room is sized from the footprint of the assembly. It was tuned on a crate about 0.4 m long; a wardrobe has not been tried.
+
+## The build screen (`?mode=build`)
+
+What a judge watches: a flat-pack guide (PDF) goes in, the agent reads it and builds the 3D guide, live. The same dark room as the guide page, a single column of light words, the newest line brightest.
+
+1. **Drop or pick.** One round drop target (tap to choose on a phone) and, under it, the recent jobs from `GET /api/jobs`, one per guide: a finished one opens its guide, any other its feed.
+2. **The agent at work.** Every event of `GET /api/jobs/{id}/events`, as it comes: the agent's thoughts as lines, tool calls as compact rows (paths in monospace), the pages and renders it opens as small pictures (a `Looking at <file>.png` is shown from `/files/<id>/agent/<file>`), the images the stages make, a rejected build in orange with the fit problems, then its fix. At the top: the stage and the elapsed time, both from the events. No percentages. The pipeline's fixed sentences are said in Greek (`src/build/words.ts`); the agent's free thoughts stay in its English.
+3. **Approval.** When the job really waits (`approval_required` and `GET /api/jobs/{id}` says `waiting_approval`): the plan in brief (title, kinds of part, pieces, steps, hardware codes and counts, the flags the agent raised) and one round button, Approve.
+4. **Done.** One round button opens the guide page for the job (`/?job=<id>&key=…&lang=…`).
+
+The stream first; if it has said nothing for 4 s while `GET …/events/poll?wait=0` has events it did not bring (a cloudflared quick tunnel buffers SSE), the page closes it and long-polls `…/events/poll?since=<seq>&wait=20` from then on.
+
+| Parameter | Meaning |
+|---|---|
+| `job=<id>` | Show this job's feed (live while it runs, the whole story when it is done). Without it: the drop target. |
+| `key=<demo key>` | Sent on every request (header, or `?key=` for the stream and pictures). Never stored. |
+| `lang=el\|en` | Language. Default `el`; the two letters in the corner switch it, the feed included. |
+| `auto=1` | For a demo: approve the plan by itself 2 s after showing it, and open the guide 2.6 s after it is ready. A job that was already finished when the page opened does not leave by itself. |
+| `transport=poll\|sse` | Debug: start with the long poll, or never leave the stream. |
+| `api=<url>` | Dev only, as above. |
+
+**Without spending on the agent.** `node scripts/build-stub.mjs` serves the job API on port 8788 and replays a recorded run (`jobs/1115-0022-2d4ab6/events.jsonl`, time compressed; it waits for Approve; key `stub`). Open `http://127.0.0.1:5173/?mode=build&api=http://127.0.0.1:8788&key=stub`. `BUFFER_SSE=1` makes its stream silent like a quick tunnel; `FIX=1` adds a rejected build and its fix (a rendering test: the recorded run had none).
+
+**The check.** With two stubs running (`node scripts/build-stub.mjs &` and `PORT=8789 BUFFER_SSE=1 node scripts/build-stub.mjs &`), `node scripts/build-shots.mjs [outDir]` drives Chrome at 1512×864 and 390×844 through drop, upload, feed, approval, done and the guide it opens; then the long-poll fallback with `?auto=1` end to end, English with reduced motion, the recent list, the guide page's empty state, no key and no server. It fails on any console error, page error or failed request.
+
+**Against a real server from the dev page**, the server must allow the dev origin: `CORS_ORIGINS=http://127.0.0.1:5173`. The built page is served by the server itself and needs nothing.
 
 ## Quest 3 (`?mode=xr`, PLAN §6.0)
 

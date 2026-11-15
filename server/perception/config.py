@@ -66,6 +66,7 @@ class Tuning:
     confirmations: bool = True             # say "right part" / "right hardware" once
     ask_right_hardware: bool = True        # one more yes/no question, about the hardware needed now
     hardware_veto: bool = True             # ...whose clear answer overrules a contradicting choice answer
+    hardware_no_floor: float = 0.4         # a clear "not the right one" lets a different code count from this confidence
     step_complete_only_on_last_action: bool = True   # when the display reports actions, wait for the last one
     hold_enter: NofM = NofM(3, 4)          # status: believe "holding X" after 3 of 4 frames name X
     hold_release: NofM = NofM(6, 8)        # status: believe "put down" only after 6 of 8 frames say so

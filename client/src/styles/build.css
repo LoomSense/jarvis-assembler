@@ -1,0 +1,790 @@
+/* The build screen (?mode=build): the same workshop at night as the guide page (page.css is loaded first and
+   gives the ink, the hairlines, the language switch). No surfaces: one warm pool of light, a column of words. */
+
+#build {
+  --col: min(600px, 100vw - 32px);
+  --act-space: 0px;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 46% at 50% 108%, rgba(233, 216, 184, 0.11), transparent 70%),
+    var(--ag-bg);
+}
+
+#build[data-act='approve'],
+#build[data-act='open'] {
+  --act-space: 84px;
+}
+
+#build [hidden] {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- 1. drop or pick */
+
+#drop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  gap: 0;
+}
+
+.target {
+  position: relative;
+  width: min(300px, 72vw);
+  aspect-ratio: 1;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 62%, rgba(233, 216, 184, 0.075), transparent 68%);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color var(--ag-dur-slow) var(--ag-ease),
+    background-color var(--ag-dur-slow) var(--ag-ease),
+    transform var(--ag-dur-slow) var(--ag-ease),
+    box-shadow var(--ag-dur-slow) var(--ag-ease);
+}
+
+.target input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.target:focus-within {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 4px;
+}
+
+.target .ring {
+  display: grid;
+  place-items: center;
+  color: var(--ink-quiet);
+  transition: color var(--ag-dur-slow) var(--ag-ease), transform var(--ag-dur-slow) var(--ag-ease);
+}
+
+.target .word {
+  font-size: var(--ag-text-body);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+
+.target .quiet {
+  font-size: var(--ag-text-label);
+  letter-spacing: 0.12em;
+  color: var(--ink-quiet);
+}
+
+.target:hover,
+#build.over .target {
+  border-color: var(--hair-strong);
+  background-color: rgba(233, 216, 184, 0.03);
+}
+
+.target:hover .ring,
+#build.over .target .ring {
+  color: var(--ink);
+  transform: translateY(-3px);
+}
+
+#build.over .target {
+  transform: scale(1.03);
+  box-shadow: 0 0 80px -10px rgba(233, 216, 184, 0.22);
+}
+
+.target.busy {
+  pointer-events: none;
+  animation: breathe var(--ag-dur-pulse) ease-in-out infinite;
+}
+
+.target.busy .ring {
+  opacity: 0.4;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    border-color: var(--hair);
+  }
+  50% {
+    border-color: var(--hair-strong);
+    box-shadow: 0 0 70px -14px rgba(233, 216, 184, 0.2);
+  }
+}
+
+#drop .note {
+  min-height: 20px;
+  margin: 18px 0 0;
+  font-size: var(--ag-text-small);
+  color: var(--ag-warn);
+  text-align: center;
+}
+
+#recent {
+  width: min(420px, 100%);
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+
+#recent a {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 8px;
+  color: var(--ink-quiet);
+  text-decoration: none;
+  font-size: var(--ag-text-small);
+  transition: color var(--ag-dur-micro) var(--ag-ease);
+}
+
+#recent a:hover,
+#recent a:focus-visible {
+  color: var(--ink);
+}
+
+#recent a:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+#recent .how {
+  font-size: var(--ag-text-label);
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+#recent .how.waiting_approval,
+#recent .how.running {
+  color: var(--warm);
+}
+
+#recent .how.error {
+  color: var(--ag-error);
+}
+
+/* ---------------------------------------------------------------- 2. the agent at work */
+
+#work {
+  position: absolute;
+  inset: 0;
+  transition: opacity 600ms var(--ag-ease);
+}
+
+#build.leaving #work {
+  opacity: 0;
+}
+
+#build.leaving {
+  transition: background 600ms var(--ag-ease);
+}
+
+/* what stage, how long: one quiet line at the top */
+#state {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  height: 22px;
+  margin: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ink-quiet);
+  white-space: nowrap;
+}
+
+#state .stage {
+  color: var(--ink);
+}
+
+#state .clock {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2em;
+}
+
+#state .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warm);
+  box-shadow: 0 0 10px 1px rgba(233, 216, 184, 0.45);
+  animation: dot var(--ag-dur-pulse) ease-in-out infinite;
+}
+
+@keyframes dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+#build[data-ended='done'] #state .dot {
+  animation: none;
+  background: var(--ag-success);
+  box-shadow: none;
+}
+
+#build[data-ended='error'] #state .dot,
+#build.lost #state .dot {
+  animation: none;
+  background: var(--ag-error);
+  box-shadow: none;
+}
+
+/* the column of words; the newest at the bottom, the oldest fading into the dark above */
+#feed {
+  position: absolute;
+  top: calc(44px + env(safe-area-inset-top, 0px));
+  bottom: calc(var(--foot) + var(--act-space));
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 26%);
+  transition: bottom var(--ag-dur-slow) var(--ag-ease);
+}
+
+#feed::-webkit-scrollbar {
+  display: none;
+}
+
+#feed .rows {
+  width: var(--col);
+  margin: auto auto 0;
+  padding: 40vh 0 12px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#feed li {
+  opacity: 0.4;
+  transition: opacity 900ms var(--ag-ease);
+  overflow-wrap: anywhere;
+}
+
+#feed li:nth-last-child(1) {
+  opacity: 1;
+}
+#feed li:nth-last-child(2) {
+  opacity: 0.74;
+}
+#feed li:nth-last-child(3) {
+  opacity: 0.58;
+}
+#feed li:nth-last-child(4) {
+  opacity: 0.48;
+}
+
+#feed li.rise {
+  animation: rise var(--ag-dur-enter) var(--ag-ease) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+#feed li.pulse .strip img:last-child,
+#feed li.pulse .codes code:last-child {
+  animation: arrive 700ms var(--ag-ease) both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+#feed code {
+  font-family: var(--ag-font-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+/* the agent's own words */
+#feed .thought {
+  font-size: var(--ag-text-body);
+  line-height: 1.45;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+#feed .thought > code {
+  margin-left: 0.5em;
+  color: var(--ink-quiet);
+}
+
+/* a long thought keeps to four lines */
+#feed .thought .own {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#feed .thought .w code {
+  font-size: 0.82em;
+}
+
+#feed .thought[data-level='warn']:not(:has(.own))::before,
+#feed .thought[data-level='success']:not(:has(.own))::before,
+#feed .thought[data-level='warn'] .own::before,
+#feed .thought[data-level='success'] .own::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 10px 2px 0;
+  border-radius: 50%;
+  background: var(--ag-unsure);
+  vertical-align: middle;
+}
+
+#feed .thought[data-level='success'] .own::before,
+#feed .thought[data-level='success']::before {
+  background: var(--ag-success);
+}
+
+/* what it does with its tools: compact, quiet */
+#feed .tool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-quiet);
+}
+
+#feed .tool .codes {
+  display: contents;
+}
+
+#feed .tool .codes code {
+  margin-right: 0;
+}
+
+#feed .mark {
+  flex: none;
+  align-self: center;
+  margin-right: -4px;
+}
+
+#feed .ok .mark {
+  color: var(--ag-success);
+}
+
+#feed .fix .mark,
+#feed .fault .mark {
+  color: var(--ag-error);
+}
+
+#feed .ok .w,
+#feed .tool:last-child > .w {
+  color: var(--ink);
+}
+
+#feed .fix .w {
+  color: var(--ag-warn);
+}
+
+#feed .fix .detail {
+  flex-basis: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-quiet);
+  white-space: pre-wrap;
+}
+
+#feed .fault {
+  display: flex;
+  gap: 10px;
+  font-size: var(--ag-text-small);
+  line-height: 1.45;
+  color: var(--ag-error);
+}
+
+/* pictures it opened or made, as they come */
+#feed .strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+}
+
+#feed .strip img {
+  height: 64px;
+  width: auto;
+  border-radius: 5px;
+  border: 1px solid var(--hair);
+  background: #0d0c0a;
+  opacity: 0;
+  transition: opacity 700ms var(--ag-ease);
+}
+
+#feed .strip img.in {
+  opacity: 0.92;
+}
+
+#feed .strip img:last-child.in {
+  opacity: 1;
+}
+
+#feed .picture img {
+  display: block;
+  max-width: 100%;
+  max-height: min(220px, 26vh);
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  background: #0d0c0a;
+  opacity: 0;
+  transition: opacity 900ms var(--ag-ease);
+}
+
+#feed .picture img.in {
+  opacity: 1;
+}
+
+#feed .caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-quiet);
+}
+
+#feed .steps .strip img {
+  height: 66px;
+}
+
+#feed .steps .caption b {
+  font-weight: 500;
+  color: var(--warm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* a stage begins: a short hairline and its name, later how long it took */
+#feed .stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: var(--ag-text-label);
+  letter-spacing: 0.06em;
+  color: var(--warm);
+}
+
+#feed .stage::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--hair-strong);
+}
+
+#feed .stage .took {
+  color: var(--ink-quiet);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+#feed .end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: var(--ag-text-h3);
+  font-weight: 500;
+}
+
+#feed .end .mark {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  color: var(--ag-success);
+}
+
+/* ---------------------------------------------------------------- 3. the plan, briefly */
+
+#feed .plan {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+#feed .plan > .lead,
+#feed .flags > .lead {
+  font-size: var(--ag-text-label);
+  letter-spacing: 0.06em;
+  color: var(--warm);
+}
+
+#feed .plan .title {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+#feed .plan .facts {
+  font-size: var(--ag-text-small);
+  color: var(--ink-quiet);
+}
+
+#feed .hardware {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+#feed .hw {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+}
+
+#feed .hw code {
+  font-size: 13.5px;
+  opacity: 1;
+  min-width: 6.5ch;
+}
+
+#feed .hw b {
+  font-weight: 500;
+  color: var(--warm);
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+}
+
+#feed .hw .w {
+  color: var(--ink-quiet);
+}
+
+#feed .flags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+#feed .flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-quiet);
+}
+
+#feed .flag .mark {
+  margin: 1px 0 0;
+  color: var(--ag-unsure);
+}
+
+/* ---------------------------------------------------------------- the one control at the foot */
+
+#act {
+  position: absolute;
+  left: 50%;
+  bottom: var(--foot);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px 0 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  animation: rise var(--ag-dur-enter) var(--ag-ease) both;
+}
+
+#act .round {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hair-strong);
+  border-radius: 50%;
+  transition:
+    border-color var(--ag-dur-micro) var(--ag-ease),
+    transform var(--ag-dur-micro) var(--ag-ease);
+}
+
+#act .round::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: cue var(--ag-dur-pulse) ease-in-out infinite;
+}
+
+#act:hover .round {
+  border-color: var(--ink);
+}
+
+#act:active .round {
+  transform: scale(0.96);
+}
+
+#act:focus-visible {
+  outline: none;
+}
+
+#act:focus-visible .round {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+#act:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+#act:disabled .round::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* a new guide: the counterpart of the language switch, in the other corner */
+#again {
+  position: absolute;
+  top: calc(2px + env(safe-area-inset-top, 0px));
+  left: calc(4px + env(safe-area-inset-left, 0px));
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-quiet);
+  cursor: pointer;
+  opacity: 0.75;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--ag-dur-micro) var(--ag-ease);
+}
+
+#again:hover,
+#again:focus-visible {
+  opacity: 1;
+  color: var(--ink);
+}
+
+#again:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  #feed .thought {
+    font-size: 16px;
+  }
+
+  #feed .tool {
+    font-size: 13.5px;
+  }
+
+  #feed code {
+    font-size: 12px;
+  }
+
+  #feed .strip img {
+    height: 52px;
+  }
+
+  #feed .steps .strip img {
+    width: calc((100% - 18px) / 4);
+    height: auto;
+  }
+
+  #feed .plan .title {
+    font-size: 23px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .target,
+  .target .ring,
+  #work,
+  #feed,
+  #feed li,
+  #feed .strip img,
+  #feed .picture img,
+  #act .round {
+    transition: none;
+  }
+
+  .target.busy,
+  #state .dot,
+  #feed li.rise,
+  #feed li.pulse .strip img:last-child,
+  #feed li.pulse .codes code:last-child,
+  #act {
+    animation: none;
+  }
+
+  #act .round::after {
+    animation: none;
+    opacity: 0.9;
+  }
+
+  #state .dot {
+    opacity: 1;
+  }
+}

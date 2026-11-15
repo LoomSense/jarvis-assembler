@@ -458,6 +458,14 @@ class Coach:
             choice = (raw.get("hardware_in_hand") or {}).get("choice")
             if sure is not None and sure >= w.cfg.yes and choice not in SPECIAL and choice not in w.hardware:
                 drop.add("hardware_in_hand")                     # the yes/no says it is the right one
+            conf = float((raw.get("hardware_in_hand") or {}).get("confidence") or 0.0)
+            hands = (yes_p(raw, "hands_present") or 0) >= w.cfg.hands
+            if (sure is not None and sure <= w.cfg.no and hands and choice is not None and choice not in SPECIAL
+                    and choice not in w.hardware and t.hardware_no_floor <= conf < w.cfg.choice):
+                # The yes/no is sure it is NOT the screw needed, and the choice leans to another code without
+                # reaching the threshold (seen with a short screw in hand: right_hardware 0.05, 108560 at 0.51).
+                # Let that code count as seen, so the measured N-of-M window decides the warning.
+                raw = {**raw, "hardware_in_hand": {**raw["hardware_in_hand"], "confidence": w.cfg.choice}}
         return {k: v for k, v in raw.items() if k not in drop} if drop else raw
 
     def _camera_moved(self, raw: dict, ts: float, cfg, out: list) -> bool:

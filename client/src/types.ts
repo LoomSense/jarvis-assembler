@@ -18,6 +18,7 @@ export interface Cite {
 export interface ManifestPart {
   id: string
   name: string | Loc
+  names?: Loc
   short?: string | Loc
   count: number
   nodes: string[]
@@ -29,6 +30,7 @@ export interface ManifestPart {
 export interface ManifestHardware {
   code: string
   name?: string | Loc
+  names?: Loc
   short?: string | Loc
   kind?: string
   count: number

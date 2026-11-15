@@ -6,6 +6,7 @@ import './styles/tokens.css'
 //
 //   (no mode)        the guide page for phone and laptop    src/guide/page.ts     with src/styles/page.css
 //   ?mode=xr         the Quest experience of src/xr         src/xr/xrMain.ts      with src/styles/xr.css
+//   ?mode=build      upload a guide, watch the agent build  src/build/build.ts    with src/styles/build.css
 //
 // index.html is the document `?mode=xr` was written for: an empty #app. For the guide page, the small script in
 // its <head> has already made the document dark and Greek-first.
@@ -16,6 +17,9 @@ const mode = new URLSearchParams(location.search).get('mode')
 if (mode === 'xr') {
   // Quest 3 phase-2 experience (PLAN §6.0). Loaded lazily so the phone bundle stays small.
   import('./xr/xrMain').then((m) => m.startXR(app))
+} else if (mode === 'build') {
+  // Drop a flat-pack guide (PDF), watch the agent build the 3D guide, approve its plan, open the result.
+  void import('./build/build').then((m) => m.startBuild(app))
 } else {
   // The guide's markup goes into the document now, still hidden, so that it is there when `load` fires.
   // Its styles arrive with its code, and src/guide/page.ts shows it then.

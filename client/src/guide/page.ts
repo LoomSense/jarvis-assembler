@@ -28,7 +28,10 @@ export async function startGuidePage(): Promise<void> {
 
   // ---- the one line of words, before the guide takes it over: loading, or what went wrong
   let said: () => void = () => {}
-  const say = (text: () => string, opts: { quiet?: () => string; alert?: boolean; retry?: boolean } = {}) => {
+  const say = (
+    text: () => string,
+    opts: { quiet?: () => string; alert?: boolean; retry?: boolean; go?: { text: () => string; href: () => string } } = {},
+  ) => {
     said = () => {
       now.replaceChildren()
       now.setAttribute('role', opts.alert ? 'alert' : 'status')
@@ -48,6 +51,12 @@ export async function startGuidePage(): Promise<void> {
         again.textContent = tr(lang, 'retry')
         again.addEventListener('click', () => location.reload())
         now.append(again)
+      }
+      if (opts.go) {
+        const go = document.createElement('a')
+        go.textContent = opts.go.text()
+        go.href = opts.go.href()
+        now.append(go)
       }
       now.classList.toggle('long', text().length > 24)
     }
@@ -74,7 +83,30 @@ export async function startGuidePage(): Promise<void> {
   })
   setLang(lang)
 
-  if (!params.job) return say(() => tr(lang, 'noJob'), { alert: true })
+  if (!params.job) {
+    // On the real server, a page without a guide offers to make one (the build screen, `?mode=build`).
+    // A static host, or a page that cannot tell, keeps the plain line.
+    const devApi = import.meta.env.DEV && query.get('api')
+    if (devApi || import.meta.env.VITE_API_URL || (await serverIsHere())) {
+      // nothing to step through: the line has the foot of the room to itself
+      for (const id of ['prev', 'next', 'progress']) $<HTMLElement>(id).style.display = 'none'
+      now.classList.add('bare')
+      return say(() => WORDS[lang].noGuide, {
+        go: {
+          text: () => WORDS[lang].makeOne,
+          href: () => {
+            const url = new URL(location.pathname, location.href)
+            url.searchParams.set('mode', 'build')
+            if (params.key) url.searchParams.set('key', params.key)
+            url.searchParams.set('lang', lang)
+            if (devApi) url.searchParams.set('api', devApi)
+            return url.toString()
+          },
+        },
+      })
+    }
+    return say(() => tr(lang, 'noJob'), { alert: true })
+  }
   const job = params.job
 
   let stage: Stage

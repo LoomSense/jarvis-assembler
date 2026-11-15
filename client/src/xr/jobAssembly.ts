@@ -36,6 +36,7 @@ interface Manifest {
   steps: {
     n: number;
     title: string;
+    pose?: string;
     assemblyRotationDeg: Vec3;
     hardware: { code: string; qty: number }[];
     cite: { page: number };
@@ -79,6 +80,7 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
   const toRoot = root.matrixWorld.clone().invert();
 
   const partNames = new Map(m.parts.map((p) => [p.id, cap(p.short)]));
+  const partItems = new Map(m.parts.map((p) => [p.id, { name: p.name, short: p.short }]));
   const hwColor = new Map(m.hardware.map((h) => [h.code, hex(h.color)]));
 
   function partFrom(a: ManifestAction): DemoPart | null {
@@ -90,6 +92,19 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
       if (!mesh.isMesh) return;
       const g = mesh.geometry.clone();
       for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      // The packed GLB stores positions and normals as normalised integers; moving them in place would round every
+      // vertex to zero. Read them as floats first.
+      for (const k of ['position', 'normal']) {
+        const a = g.getAttribute(k);
+        if (!a || a.array instanceof Float32Array) continue;
+        const f = new Float32Array(a.count * 3);
+        for (let i = 0; i < a.count; i++) {
+          f[i * 3] = a.getX(i);
+          f[i * 3 + 1] = a.getY(i);
+          f[i * 3 + 2] = a.getZ(i);
+        }
+        g.setAttribute(k, new THREE.BufferAttribute(f, 3));
+      }
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(toRoot, mesh.matrixWorld));
       geos.push(g.index ? g.toNonIndexed() : g);
     });
@@ -120,12 +135,19 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
       half: [size.x / 2, size.y / 2, size.z / 2],
       text: a.text,
       color: screw && a.code ? hwColor.get(a.code) : undefined,
+      item: screw ? undefined : partItems.get(a.partId ?? ''),
     };
   }
 
   const steps: DemoStep[] = m.steps.map((s) => {
     const turn = s.actions.find((a) => a.type === 'turn');
-    const parts = s.actions.filter((a) => a.type !== 'turn').map(partFrom).filter((p): p is DemoPart => !!p);
+    const parts = s.actions
+      .map((a, i) => {
+        const p = a.type === 'turn' ? null : partFrom(a);
+        if (p) p.actionIndex = i; // which manifest action it is, for live guidance and for continuing
+        return p;
+      })
+      .filter((p): p is DemoPart => !!p);
     const hw = s.hardware[0];
     return {
       title: s.title,
@@ -136,6 +158,9 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
       parts,
       pose: s.assemblyRotationDeg,
       turn: turn?.text,
+      poseName: s.pose,
+      n: s.n,
+      turnAction: turn ? s.actions.indexOf(turn) : undefined,
     };
   });
 

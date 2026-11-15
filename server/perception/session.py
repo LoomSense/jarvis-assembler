@@ -132,6 +132,9 @@ class PerceptionSession:
         self.coach, self.hands, self.health = Coach(tuning), Hands(tuning), Health(tuning)
         self.step: int | None = None
         self.action: int | None = None
+        # Where the guide last was, kept through `stop` and after the last device left, so that another device
+        # (the headset after the phone) can continue there: GET /api/perception/{job_id}/position.
+        self.position: dict | None = None
         self.epoch = 0                               # changes with every start, step and stop
         self.stream: Stream | None = None
         self.loop: asyncio.AbstractEventLoop | None = None
@@ -441,12 +444,16 @@ class PerceptionSession:
             self.error(conn, "unknown_action", f"step {n} has actions 0 to {len(self.guide.actions(n)) - 1}")
             action = None
         self.step, self.action = n, action
+        self._remember()
         self.epoch += 1
         self.show_part = None
         self.coach.start_step(self.guide.expect(n, action))
         self.hands.new_action()
         self._warm(n)
         return True
+
+    def _remember(self) -> None:
+        self.position = {"step": self.step, "action": self.action, "at": int(time.time() * 1000)}
 
     def _valid_action(self, n: int, action) -> bool:
         return isinstance(action, int) and not isinstance(action, bool) and 0 <= action < len(self.guide.actions(n))
@@ -473,6 +480,7 @@ class PerceptionSession:
             return self.error(conn, "unknown_action",
                               f"step {self.step} has actions 0 to {len(self.guide.actions(self.step)) - 1}")
         self.action = index
+        self._remember()
         self.coach.set_action(self.guide.expect(self.step, index))
         self.hands.new_action()
         self._broadcast_status()

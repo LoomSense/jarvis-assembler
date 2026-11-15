@@ -35,6 +35,10 @@ export interface DemoPart {
   text?: { en: string; el: string };
   /** Hardware colour from the manifest, so each screw code looks different. */
   color?: string;
+  /** From a pipeline job: the manifest's names for the part, so the panel says what the guide page says. */
+  item?: { name: string; short?: string };
+  /** From a pipeline job: the index of the manifest action that adds this part. */
+  actionIndex?: number;
 }
 
 export interface DemoStep {
@@ -48,6 +52,11 @@ export interface DemoStep {
   pose?: Vec3;
   /** The step starts by turning the assembly; this is what to say. */
   turn?: { en: string; el: string };
+  /** From a pipeline job: the manifest's pose name (`upside_down`, `on_end`...), for the guide page's turn words. */
+  poseName?: string;
+  /** From a pipeline job: the manifest's step number and the index of its turn action, for live guidance. */
+  n?: number;
+  turnAction?: number;
   hardware?: { code: string; qty: number };
   parts: DemoPart[];
 }
