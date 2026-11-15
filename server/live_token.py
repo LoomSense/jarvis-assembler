@@ -21,7 +21,7 @@ from server.settings import ROOT, Settings
 PROMPT_FILE = ROOT / "prompts" / "live_voice.md"
 PROMPT_VERSION = "live_voice.md@1"
 COACH_FILE = ROOT / "prompts" / "live_coach.md"          # the coach that sees the camera (mode "see")
-COACH_VERSION = "live_coach.md@2"
+COACH_VERSION = "live_coach.md@3"
 API_VERSIONS = ("v1beta", "v1alpha")     # PLAN says v1beta; SDK 3.3 documents token creation as v1alpha
 
 _NO_ARGS = {"type": "object", "properties": {}}
@@ -49,17 +49,15 @@ TOOLS = [types.Tool(function_declarations=[
 ])]
 
 
-# The coach that sees also says, as data, whether what it sees is right: the screen shows it as a large tick or cross.
-REPORT = types.FunctionDeclaration(
-    name="report", behavior=_NAV,
-    description="Tell the screen your verdict on what the person is doing now. Call it every time you speak about their work.",
-    parameters_json_schema={"type": "object", "required": ["verdict", "what"], "properties": {
-        "verdict": {"type": "string", "enum": ["right", "wrong", "done", "unsure"],
-                    "description": "right: the correct part or screw is in hand, or it is going to the correct place. "
-                                   "wrong: another part or screw, the wrong hole, or turned the wrong way. "
-                                   "done: the current action is visibly finished. unsure: you cannot tell from the picture."},
-        "what": {"type": "string", "description": "Two to six words in the person's language: what is right, wrong or finished."}}})
-COACH_TOOLS = [types.Tool(function_declarations=[*TOOLS[0].function_declarations, REPORT])]
+# The coach that sees does not judge "finished" by itself: when the step looks done, or the person says so, it asks
+# for the careful check (POST /api/perception/{job}/verify), and the screen shows that check's verdict.
+CHECK = types.FunctionDeclaration(
+    name="check_step", behavior=_NAV, parameters_json_schema=_NO_ARGS,
+    description="Ask for a careful check of whether the current step is finished. Call it when the pictures show the "
+                "step's pieces all in place, or when the person says they are done or asks you to check.")
+_COACH_NAMES = {"get_current_step", "next_step", "previous_step", "go_to_step"}
+COACH_TOOLS = [types.Tool(function_declarations=[
+    *[f for f in TOOLS[0].function_declarations if f.name in _COACH_NAMES], CHECK])]
 
 
 def guide_context(job: Job) -> str:

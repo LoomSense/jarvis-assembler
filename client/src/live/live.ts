@@ -1,56 +1,49 @@
 import '../styles/live.css'
-import { fetchManifest, fileUrl } from '../api'
-import { createAssist, type Assist, type AssistStatus, type GuidanceEvent } from '../assist'
+import { apiFetch, fetchManifest, fileUrl } from '../api'
 import { appLink } from '../routes'
 import { startCoach, type Coach } from './coach'
 
-// Build with the camera (`?mode=live&job=<id>`): the phone is held over the real parts, the whole screen is the
-// camera's picture, and what the server recognises in it is shown and spoken as it happens:
+// Build with the camera (`?mode=live&job=<id>`). The phone is held over the real parts. Three things on the
+// screen, and no more: which step this is, what to do in it, and one button, "I'm done, check it".
 //
-//   what it sees     the piece or screw in the hands, by name, and whether it is the one this action needs
-//   what to do now   the guide's own instruction for the current action, with the part's picture
-//   what went wrong  wrong screw, wrong part, turned the wrong way, out of order: said aloud, shown in red
-//   when it is done  the step is seen finished, said aloud, and the page moves to the next step by itself
+//   the step     its title and what it adds, read aloud once by the voice coach (Gemini Live, coach.ts)
+//   the check    one photo goes to POST /api/perception/{job}/verify: a careful look that answers whether the
+//                step is finished, what is in place and what is still missing (about 5 s). The answer fills the
+//                screen: a tick and the page moves on, or a cross with what is missing.
+//   who asks     the person (the button, or saying "I'm done"), or the coach by itself when the pictures show
+//                the step's pieces all in place
 //
-// Every frame goes to the perception socket (src/assist, server/perception): gemini-decision-1 answers the
-// step's questions in about half a second to a second per frame. Nothing here draws on the real parts: the
-// browser of a phone has no position of the camera in the room.
+// The coach speaks little: the step, a warning when it clearly sees a mistake, answers to questions, and the
+// check's sentence. Its words are shown as one line. `?coach=0`: no voice, the button alone.
 
 type Lang = 'el' | 'en'
-interface Action { type: string; text?: { en?: string; el?: string }; partId?: string; code?: string; node?: string }
-interface Step { n: number; title: string; actions: Action[]; crop?: string | null; ar?: string; hardware?: { code: string; qty: number }[] }
-interface Named { id?: string; code?: string; name: string; short?: string; names?: { en?: string; el?: string }; thumb?: string }
+interface Action { type: string; text?: { en?: string; el?: string } }
+interface Step { n: number; title: string; actions: Action[]; crop?: string | null; ar?: string; pickParts?: string[]; hardware?: { code: string; qty: number }[] }
+interface Named { id?: string; code?: string; name: string; short?: string; names?: { en?: string; el?: string } }
+interface Verdict { step: number; done: boolean; visible: boolean; have: string; missing: string[]; say: { en: string; el: string }; message: string }
 
 const W = {
   en: {
-    start: 'Start the camera', startHelp: 'Hold the phone over the parts. It watches each step, says what it sees and tells you what to do next.',
-    step: 'Step', of: 'of', live: 'live', paused: 'paused', connecting: 'connecting', off: 'not watching',
-    sees: 'I see', nothing: 'Show me the part you picked up', right: 'That is the right one', wrong: 'Not this one',
-    needs: 'This action needs', unknown: 'I am not sure what that is. Hold it closer.',
-    waiting: 'Pick up the part', inHand: 'Part in hand', placing: 'Putting it in place', complete: 'Step finished', idle: 'Ready',
-    done: 'Done, next', back: 'Back', what: 'What is this?', mute: 'Sound', guide: 'The guide’s drawing', close: 'Close',
-    finished: 'It is built.', toGuide: 'Open the 3D steps', dark: 'It is too dark here', blocked: 'Something is in the way of the camera',
-    poor: 'Hold the phone steadier', moved: 'Point the camera at the parts again', noCamera: 'The camera could not be opened. Allow it in the browser and try again.',
-    noVision: 'The server is not watching right now', sim: 'simulated', move: 'action',
-    vRight: 'Right', vWrong: 'Not this', vDone: 'Done', vUnsure: 'I can’t see it well',
-    coach: 'coach', coachOff: 'voice coach off', mic: 'Microphone', askHeld: 'What am I holding, and is it right for this action?',
+    start: 'Start', startHelp: 'Hold the phone so the camera sees the parts. Build one step, then let it check your work.',
+    step: 'Step', of: 'of', check: 'I’m done, check it', checking: 'Checking your work', hold: 'Hold the phone still',
+    done: 'Step finished', notYet: 'Not finished yet', cantSee: 'I can’t see it', next: 'Next step',
+    skip: 'Skip', back: 'Back', drawing: 'Show the drawing', close: 'OK', mic: 'Microphone',
+    built: 'It is built.', failed: 'The check did not answer. Try again.',
+    noCamera: 'The camera could not be opened. Allow it in the browser and try again.',
   },
   el: {
-    start: 'Άνοιξε την κάμερα', startHelp: 'Κράτα το κινητό πάνω από τα κομμάτια. Βλέπει κάθε βήμα, λέει τι βλέπει και σου λέει τι να κάνεις μετά.',
-    step: 'Βήμα', of: 'από', live: 'ζωντανά', paused: 'παύση', connecting: 'σύνδεση', off: 'δεν βλέπει',
-    sees: 'Βλέπω', nothing: 'Δείξε μου το κομμάτι που πήρες', right: 'Αυτό είναι το σωστό', wrong: 'Όχι αυτό',
-    needs: 'Εδώ χρειάζεται', unknown: 'Δεν είμαι σίγουρος τι είναι. Φέρ’ το πιο κοντά.',
-    waiting: 'Πάρε το κομμάτι', inHand: 'Το κρατάς', placing: 'Το βάζεις στη θέση του', complete: 'Το βήμα τελείωσε', idle: 'Έτοιμο',
-    done: 'Έγινε, επόμενο', back: 'Πίσω', what: 'Τι είναι αυτό;', mute: 'Ήχος', guide: 'Το σχέδιο του οδηγού', close: 'Κλείσιμο',
-    finished: 'Χτίστηκε.', toGuide: 'Άνοιξε τα βήματα σε 3D', dark: 'Είναι πολύ σκοτεινά εδώ', blocked: 'Κάτι κρύβει την κάμερα',
-    poor: 'Κράτα το κινητό πιο σταθερά', moved: 'Στρέψε ξανά την κάμερα στα κομμάτια', noCamera: 'Η κάμερα δεν άνοιξε. Δώσε άδεια στον browser και δοκίμασε ξανά.',
-    noVision: 'Ο server δεν βλέπει αυτή τη στιγμή', sim: 'προσομοίωση', move: 'κίνηση',
-    vRight: 'Σωστά', vWrong: 'Όχι αυτό', vDone: 'Έγινε', vUnsure: 'Δεν βλέπω καλά',
-    coach: 'βοηθός', coachOff: 'ο φωνητικός βοηθός είναι κλειστός', mic: 'Μικρόφωνο', askHeld: 'Τι κρατάω, και είναι το σωστό για αυτή την κίνηση;',
+    start: 'Ξεκίνα', startHelp: 'Κράτα το κινητό ώστε η κάμερα να βλέπει τα κομμάτια. Χτίσε ένα βήμα και μετά άφησέ το να ελέγξει τη δουλειά σου.',
+    step: 'Βήμα', of: 'από', check: 'Τελείωσα, έλεγξέ το', checking: 'Ελέγχω τη δουλειά σου', hold: 'Κράτα το κινητό σταθερό',
+    done: 'Το βήμα τελείωσε', notYet: 'Δεν τελείωσε ακόμα', cantSee: 'Δεν το βλέπω', next: 'Επόμενο βήμα',
+    skip: 'Παράλειψη', back: 'Πίσω', drawing: 'Δείξε το σχέδιο', close: 'Εντάξει', mic: 'Μικρόφωνο',
+    built: 'Χτίστηκε.', failed: 'Ο έλεγχος δεν απάντησε. Δοκίμασε ξανά.',
+    noCamera: 'Η κάμερα δεν άνοιξε. Δώσε άδεια στον browser και δοκίμασε ξανά.',
   },
 } as const
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+const AUTO_GAP_MS = 9000 // between two checks the coach asks for by itself
+const AFTER_FAIL_MS = 14000
 
 export async function startLive(app: HTMLElement): Promise<void> {
   const q = new URLSearchParams(location.search)
@@ -63,297 +56,263 @@ export async function startLive(app: HTMLElement): Promise<void> {
   if (!job) return location.replace(appLink({}))
 
   app.innerHTML = `
-  <div id="live" data-tone="idle">
+  <div id="live" data-state="idle">
     <video playsinline muted autoplay></video>
-    <div class="frame" aria-hidden="true"></div>
     <header>
       <a class="round" href="${esc(appLink({ mode: 'ready', job }))}" aria-label="${w.back}"><svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></a>
-      <p class="where"><b></b><span class="title"></span></p>
-      <p class="link" role="status"><i></i><span></span></p>
-      <a class="round ar" rel="ar" hidden><img alt="AR" width="22" height="22" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 5.5 7v7.5L12 18l6.5-3.5V7L12 3.5Z'/%3E%3Cpath d='M5.5 7 12 10.5 18.5 7M12 10.5V18M3 20.5h18'/%3E%3C/svg%3E" /></a>
+      <div class="where"><b></b><ol class="bar" aria-hidden="true"></ol></div>
       <button class="round mic" type="button" aria-pressed="true" aria-label="${w.mic}" hidden><svg viewBox="0 0 24 24"><path d="M12 4a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 12 4ZM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3"/></svg></button>
     </header>
-    <p class="said" aria-live="polite" hidden><b></b><span></span></p>
-    <section class="sees" aria-live="polite"><small></small><strong></strong><span></span></section>
-    <p class="toast" role="alert" hidden></p>
-    <div class="verdict" role="status" hidden><i></i><b></b><span></span></div>
+
+    <p class="said" aria-live="polite" hidden></p>
+
     <footer>
-      <ol class="ticks" aria-hidden="true"></ol>
-      <div class="now">
-        <img class="thumb" alt="" hidden />
-        <div><small></small><p></p></div>
-        <button class="crop" type="button" hidden aria-label="${w.guide}"><img alt="" /></button>
-      </div>
-      <div class="row">
-        <button class="ghost prev" type="button">${w.back}</button>
-        <button class="ghost ask" type="button">${w.what}</button>
-        <button class="primary next" type="button">${w.done}</button>
-      </div>
+      <button class="card" type="button" aria-label="${w.drawing}">
+        <span class="text"><strong></strong><small></small></span>
+        <img class="crop" alt="" hidden />
+      </button>
+      <button class="primary check" type="button">${w.check}</button>
+      <div class="row"><button class="quiet prev" type="button">${w.back}</button><button class="quiet skip" type="button">${w.skip}</button></div>
     </footer>
+
+    <div class="result" role="alert" hidden>
+      <i></i><b></b><p></p><ul></ul>
+      <button class="primary" type="button"></button>
+    </div>
+
     <div class="gate">
       <h1></h1><p>${w.startHelp}</p>
       <button class="primary go" type="button">${w.start}</button>
       <p class="err" role="alert"></p>
     </div>
-    <div class="sheet" hidden><img alt="${w.guide}" /><button class="ghost" type="button">${w.close}</button></div>
+    <div class="sheet" hidden><img alt="${w.drawing}" /><button class="primary" type="button">${w.close}</button></div>
   </div>`
   const $ = <T extends HTMLElement>(sel: string) => app.querySelector<T>(sel)!
   const root = $('#live')
+  const video = $<HTMLVideoElement>('video')
 
   let manifest
   try {
     manifest = await fetchManifest(job, key)
   } catch {
-    $('.gate h1').textContent = w.noVision
+    $('.gate h1').textContent = w.failed
     return
   }
   const steps = manifest.steps as unknown as Step[]
   const named = new Map<string, Named>()
   for (const p of manifest.parts as unknown as Named[]) if (p.id) named.set(p.id, p)
   for (const h of manifest.hardware as unknown as Named[]) if (h.code) named.set(h.code, h)
-  const nameOf = (id: string | null | undefined) => {
-    const n = id ? named.get(id) : null
-    return n ? (n.names?.[lang] ?? n.short ?? n.name) : (id ?? '')
+  const nameOf = (id: string) => {
+    const n = named.get(id)
+    return n ? (n.names?.[lang] ?? n.short ?? n.name) : id.replace(/_/g, ' ')
   }
   $('.gate h1').textContent = (manifest as { title?: string }).title ?? ''
 
-  let at = { step: Math.max(0, Math.min(steps.length - 1, Number(q.get('step') || 1) - 1)), action: 0 }
-  let assist: Assist | null = null
-  let coach: Coach | null = null
-  let toldStep = ''
+  let at = Math.max(0, Math.min(steps.length - 1, Number(q.get('step') || 1) - 1))
   let finished = false
+  let coach: Coach | null = null
+  let busy = false // a check is running or its result is on show
+  let lastAuto = 0
+  let saidTimer = 0
+  const current = () => steps[at]
 
-  /** actions of each step seen finished (by the coach, the step check, or the person's own "Done") */
-  const doneActions = new Set<string>()
-  const current = () => steps[at.step]
-  const action = () => current().actions[at.action] ?? null
-
-  const paintStep = () => {
-    const s = current()
-    const a = action()
-    $('.where b').textContent = `${w.step} ${at.step + 1} ${w.of} ${steps.length}`
-    $('.where .title').textContent = s.title
-    const id = a?.code ?? a?.partId ?? null
-    $('.now small').textContent = s.actions.length > 1 ? `${w.move} ${at.action + 1} ${w.of} ${s.actions.length}` : ''
-    $('.now p').textContent = finished ? w.finished : (a?.text?.[lang] ?? a?.text?.en ?? s.title)
-    const thumb = $<HTMLImageElement>('.thumb')
-    thumb.hidden = !id
-    if (id) thumb.src = fileUrl(job, `renders/part-${id}-shaded.png`, key)
-    const crop = $<HTMLButtonElement>('.crop')
-    crop.hidden = !s.crop
-    if (s.crop) (crop.firstElementChild as HTMLImageElement).src = fileUrl(job, s.crop, key)
-    // this step life-size on the table (AR Quick Look), where the browser can open it
-    const arLink = $<HTMLAnchorElement>('.ar')
-    arLink.hidden = !(s.ar && arLink.relList?.supports?.('ar'))
-    if (s.ar) arLink.href = `${fileUrl(job, s.ar, key)}#allowsContentScaling=0`
-    // the step's actions as a row: finished ones ticked, the current one ringed
-    $('.ticks').innerHTML = s.actions.map((_, k) =>
-      `<li class="${doneActions.has(`${at.step}:${k}`) ? 'done' : ''}${k === at.action && !finished ? ' now' : ''}"></li>`).join('')
-    $<HTMLButtonElement>('.prev').disabled = at.step === 0 && at.action === 0
-    assist?.setStep(s.n, at.action)
-    tellStep()
+  // ---- the step
+  const needs = (s: Step): string => {
+    const parts = new Map<string, number>()
+    for (const p of s.pickParts ?? []) parts.set(p, (parts.get(p) ?? 0) + 1)
+    const list = [...parts].map(([id, n]) => `${n}× ${nameOf(id)}`)
+    for (const h of s.hardware ?? []) list.push(`${h.qty}× ${nameOf(h.code)}`)
+    return list.join(' · ')
   }
-  /** The coach is told the action in the guide's English words; it says it in the page's language. */
+  const paint = () => {
+    const s = current()
+    $('.where b').textContent = finished ? w.built : `${w.step} ${at + 1} ${w.of} ${steps.length}`
+    $('.bar').innerHTML = steps.map((_, i) => `<li class="${i < at || finished ? 'done' : i === at ? 'now' : ''}"></li>`).join('')
+    $('.card strong').textContent = finished ? w.built : s.title
+    $('.card small').textContent = finished ? '' : needs(s)
+    const crop = $<HTMLImageElement>('.crop')
+    crop.hidden = !s.crop || finished
+    if (s.crop) crop.src = fileUrl(job, s.crop, key)
+    $<HTMLButtonElement>('.check').hidden = finished
+    $<HTMLButtonElement>('.prev').disabled = at === 0 && !finished
+    $<HTMLButtonElement>('.skip').hidden = finished
+  }
+  /** The coach is given the step in the guide's English words; it says it in the page's language. */
   const tellStep = () => {
     if (!coach?.on) return
     const s = current()
-    const a = action()
-    const line = finished ? '[STEP done] Every step is finished. Tell the person it is built.'
-      : `[STEP ${s.n} ACTION ${at.action + 1}] ${a?.text?.en ?? a?.text?.el ?? s.title}`
-    if (line === toldStep) return
-    toldStep = line
-    coach.tell(line)
+    if (finished) return coach.tell('[RESULT] Every step is finished. Say that it is built.')
+    const actions = s.actions.map((a) => a.text?.en).filter(Boolean).join(' ')
+    coach.tell(`[STEP ${s.n}] ${s.title}. ${actions}`.slice(0, 900))
+  }
+  const goTo = (i: number, done = false) => {
+    finished = done
+    at = Math.max(0, Math.min(steps.length - 1, i))
+    lastAuto = performance.now() // a new step is not checked the moment it starts
+    paint()
+    tellStep()
+  }
+  const forward = () => (at < steps.length - 1 ? goTo(at + 1) : goTo(at, true))
+
+  // ---- the coach's words: one line, gone after a few seconds
+  const said = (text: string, warn = false) => {
+    const el = $('.said')
+    el.textContent = text
+    el.dataset.warn = String(warn)
+    el.hidden = !text
+    clearTimeout(saidTimer)
+    saidTimer = window.setTimeout(() => (el.hidden = true), warn ? 8000 : 5000)
   }
 
-  const go = (d: 1 | -1) => {
-    const s = current()
-    if (d > 0) {
-      doneActions.add(`${at.step}:${at.action}`)
-      if (at.action < s.actions.length - 1) at = { step: at.step, action: at.action + 1 }
-      else if (at.step < steps.length - 1) at = { step: at.step + 1, action: 0 }
-      else finished = true
-    } else {
-      finished = false
-      if (at.action > 0) at = { step: at.step, action: at.action - 1 }
-      else if (at.step > 0) at = { step: at.step - 1, action: Math.max(0, steps[at.step - 1].actions.length - 1) }
-    }
-    paintStep()
+  // ---- the check: one photo, one answer that fills the screen
+  const photo = (): string | null => {
+    if (!video.videoWidth) return null
+    const k = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight))
+    const c = document.createElement('canvas')
+    c.width = Math.round(video.videoWidth * k)
+    c.height = Math.round(video.videoHeight * k)
+    c.getContext('2d')!.drawImage(video, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.82).split(',')[1]
   }
-  $('.next').addEventListener('click', () => go(1))
-  $('.prev').addEventListener('click', () => go(-1))
-  $('.ask').addEventListener('click', () => (coach?.on ? coach.tell(w.askHeld) : assist?.showPart()))
-  $('.thumb').addEventListener('error', (e) => ((e.target as HTMLElement).hidden = true))
-  $('.crop').addEventListener('click', () => {
-    $<HTMLImageElement>('.sheet img').src = ($('.crop').firstElementChild as HTMLImageElement).src
+  const result = $('.result')
+  const closeResult = () => {
+    result.hidden = true
+    root.dataset.state = 'idle'
+    busy = false
+  }
+  const check = async (auto: boolean) => {
+    if (busy || finished) return
+    const image = photo()
+    if (!image) return
+    busy = true
+    const n = current().n
+    const button = result.querySelector('button')!
+    button.hidden = true
+    if (!auto) {
+      // asked by the person: say at once that it is looking. Asked by the coach: stay out of the way until it knows.
+      root.dataset.state = 'checking'
+      result.hidden = false
+      result.dataset.v = 'wait'
+      result.querySelector('b')!.textContent = w.checking
+      result.querySelector('p')!.textContent = w.hold
+      result.querySelector('ul')!.innerHTML = ''
+    }
+    let v: Verdict | null = null
+    try {
+      const res = await apiFetch(`/api/perception/${encodeURIComponent(job)}/verify`, key, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image, step: n, lang }),
+      })
+      if (res.ok) v = (await res.json()) as Verdict
+    } catch {
+      /* shown below */
+    }
+    if (n !== current().n) return closeResult() // the person moved on while it was looking
+    if (!v) {
+      if (auto) return closeResult()
+      result.dataset.v = 'unsure'
+      result.querySelector('b')!.textContent = w.failed
+      result.querySelector('p')!.textContent = ''
+      button.textContent = w.close
+      button.hidden = false
+      button.onclick = closeResult
+      return
+    }
+    const sentence = v.say?.[lang] || v.message || ''
+    if (v.done) {
+      root.dataset.state = 'done'
+      result.hidden = false
+      result.dataset.v = 'done'
+      result.querySelector('b')!.textContent = w.done
+      result.querySelector('p')!.textContent = v.have || sentence
+      result.querySelector('ul')!.innerHTML = ''
+      navigator.vibrate?.(60)
+      coach?.tell(`[RESULT] Step ${n} is finished. Say: "${sentence}"`)
+      window.setTimeout(() => {
+        closeResult()
+        if (n === current().n) forward()
+      }, 2800)
+      return
+    }
+    // a check the coach asked for that finds the step unfinished shows nothing: no cross for work in progress
+    if (auto) {
+      lastAuto = performance.now() + (AFTER_FAIL_MS - AUTO_GAP_MS)
+      return closeResult()
+    }
+    root.dataset.state = 'wrong'
+    result.dataset.v = v.visible ? 'wrong' : 'unsure'
+    result.querySelector('b')!.textContent = v.visible ? w.notYet : w.cantSee
+    result.querySelector('p')!.textContent = sentence
+    result.querySelector('ul')!.innerHTML = (v.missing ?? []).slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join('')
+    navigator.vibrate?.([60, 40, 60])
+    coach?.tell(`[RESULT] Step ${n} is not finished. Say: "${sentence}"`)
+    button.textContent = w.close
+    button.hidden = false
+    button.onclick = closeResult
+  }
+
+  $('.check').addEventListener('click', () => void check(false))
+  $('.prev').addEventListener('click', () => (finished ? goTo(at) : goTo(at - 1)))
+  $('.skip').addEventListener('click', forward)
+  $('.card').addEventListener('click', () => {
+    const s = current()
+    if (!s.crop) return
+    $<HTMLImageElement>('.sheet img').src = fileUrl(job, s.crop, key)
     $('.sheet').hidden = false
   })
   $('.sheet button').addEventListener('click', () => ($('.sheet').hidden = true))
+  $('.crop').addEventListener('error', (e) => ((e.target as HTMLElement).hidden = true))
 
-  // ---- what the server sees, as it says it
-  const STATE = { IDLE: w.idle, WAITING_FOR_PART: w.waiting, PART_IN_HAND: w.inHand, PLACING: w.placing, STEP_COMPLETE: w.complete } as const
-  const paintStatus = (st: AssistStatus) => {
-    const link = $('.link')
-    const vision = st.vision
-    link.dataset.vision = vision
-    const ms = st.server?.frames?.decision_ms_p50
-    link.querySelector('span')!.textContent =
-      vision === 'live' ? `${w.live}${ms ? ` · ${(ms / 1000).toFixed(1)} s` : ''}`
-      : vision === 'simulated' ? w.sim
-      : st.link === 'connecting' || st.link === 'reconnecting' ? w.connecting
-      : vision === 'paused' ? w.paused : w.off
-    const sees = $('.sees')
-    const held = st.holding
-    const need = st.expected?.name ?? nameOf(action()?.code ?? action()?.partId)
-    const view = st.view
-    let tone = 'idle'
-    let head: string = STATE[st.state] ?? w.idle
-    let big: string = ''
-    let small: string = ''
-    if (view === 'dark' || view === 'blocked' || view === 'poor' || view === 'moved') {
-      big = w[view]
-      tone = 'warn'
-    } else if (held && (held.kind === 'part' || held.kind === 'hardware') && held.name) {
-      head = w.sees
-      big = held.name
-      if (st.verdict === 'right') { small = w.right; tone = 'ok' }
-      else if (st.verdict === 'wrong') { small = need ? `${w.wrong}. ${w.needs}: ${need}` : w.wrong; tone = 'bad' }
-    } else if (held?.kind === 'unknown') {
-      big = w.unknown
-    } else {
-      big = need ? `${w.needs}: ${need}` : w.nothing
-      if (st.state === 'STEP_COMPLETE') tone = 'ok'
-    }
-    if (vision === 'unavailable' || vision === 'off') { big = st.reason || w.noVision; tone = 'warn' }
-    sees.querySelector('small')!.textContent = head
-    sees.querySelector('strong')!.textContent = big
-    sees.querySelector('span')!.textContent = small
-    root.dataset.tone = verdictTone || tone // a verdict on show keeps the frame's colour
-  }
-
-  // ---- the verdict: one large mark in the middle of the picture, with a few words, for a few seconds
-  let verdictTimer = 0
-  let verdictTone = ''
-  const showVerdict = (v: 'right' | 'wrong' | 'done' | 'unsure', what = '') => {
-    const el = $('.verdict')
-    el.dataset.v = v
-    el.querySelector('b')!.textContent = v === 'right' ? w.vRight : v === 'wrong' ? w.vWrong : v === 'done' ? w.vDone : w.vUnsure
-    el.querySelector('span')!.textContent = what
-    el.hidden = false
-    el.classList.remove('pop')
-    void el.offsetWidth // restart the animation
-    el.classList.add('pop')
-    verdictTone = v === 'wrong' ? 'bad' : v === 'unsure' ? 'warn' : 'ok'
-    root.dataset.tone = verdictTone
-    if (v === 'wrong') navigator.vibrate?.([60, 40, 60])
-    else if (v === 'done') navigator.vibrate?.(40)
-    clearTimeout(verdictTimer)
-    verdictTimer = window.setTimeout(() => {
-      el.hidden = true
-      verdictTone = ''
-    }, v === 'wrong' ? 5000 : 2600)
-  }
-  /** The current action is finished: tick it and move to the next one after the sentence has had a moment. */
-  const actionDone = () => {
-    const mark = `${at.step}:${at.action}`
-    if (doneActions.has(mark)) return
-    doneActions.add(mark)
-    paintStep()
-    window.setTimeout(() => {
-      if (`${at.step}:${at.action}` === mark) go(1)
-    }, 1600)
-  }
-
-  let toastTimer = 0
-  const toast = (text: string, tone: string) => {
-    const t = $('.toast')
-    t.textContent = text
-    t.dataset.tone = tone
-    t.hidden = false
-    clearTimeout(toastTimer)
-    toastTimer = window.setTimeout(() => (t.hidden = true), 5000)
-  }
-  const BAD = new Set(['wrong_part', 'wrong_hardware', 'flip_needed', 'out_of_order'])
-  const onEvent = (e: GuidanceEvent) => {
-    const text = e.say?.[lang] || e.say?.en || e.message || ''
-    if (text) toast(text, BAD.has(e.event) ? 'bad' : e.event === 'step_complete' || e.event.startsWith('right_') ? 'ok' : 'info')
-    const seen = e.observed || e.expected || ''
-    if (BAD.has(e.event)) showVerdict('wrong', text)
-    else if (e.event === 'right_part' || e.event === 'right_hardware') showVerdict('right', seen)
-    else if (e.event === 'step_complete') showVerdict('done', current().title)
-    if (coach?.on && e.speak !== false && (e.perception || text)) coach.tell(`[CHECK] ${e.perception || e.say?.en || text}`)
-    // the camera saw the step finished: move on by itself, after the sentence has had a moment
-    if (e.event === 'step_complete' && e.step === current().n) {
-      navigator.vibrate?.(40)
-      window.setTimeout(() => {
-        if (e.step !== current().n) return
-        if (at.step < steps.length - 1) at = { step: at.step + 1, action: 0 }
-        else finished = true
-        paintStep()
-      }, 1800)
-    }
-  }
-
-  // ---- start: one tap opens the camera (the browser asks) and lets the voice speak
+  // ---- start: one tap opens the camera and the microphone and lets the voice speak
   $('.go').addEventListener('click', async () => {
     const err = $('.err')
     err.textContent = ''
-    // made inside the tap, so that the phone lets the coach's voice play
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const audio = new Ctx()
+    const audio = new Ctx() // made inside the tap, so that the phone lets the coach's voice play
     void audio.resume()
-    const videoWish = { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    const wish = { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
     let stream: MediaStream
     try {
-      // the camera and the microphone in one question; `?mic=0` asks for the camera alone
       stream = await navigator.mediaDevices.getUserMedia({
         audio: q.get('mic') === '0' ? false : { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: videoWish,
+        video: wish,
       })
     } catch {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoWish })
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: wish })
       } catch {
         err.textContent = w.noCamera
         return
       }
     }
-    const camera = new MediaStream(stream.getVideoTracks())
     const mic = stream.getAudioTracks().length ? new MediaStream(stream.getAudioTracks()) : null
-    const video = $<HTMLVideoElement>('video')
-    video.srcObject = camera
+    video.srcObject = new MediaStream(stream.getVideoTracks())
     void video.play().catch(() => {})
     $('.gate').hidden = true
-    // the coach that sees (Gemini Live): `?coach=0` leaves only the step checks and the browser's own voice
-    const said = $('.said')
+    paint()
     if (q.get('coach') !== '0') {
       coach = await startCoach({
         job, key, lang, video, audio, mic,
-        onWords: (text) => {
-          said.hidden = false
-          said.querySelector('span')!.textContent = text
-        },
+        onWords: (text) => said(text, /^(Πρόσεξε|Careful)/i.test(text)),
         onTool: (name, args) => {
-          if (name === 'next_step') { at = { step: Math.min(steps.length - 1, at.step + 1), action: 0 }; paintStep() }
-          else if (name === 'previous_step') { at = { step: Math.max(0, at.step - 1), action: 0 }; paintStep() }
-          else if (name === 'go_to_step') {
-            const n = Math.max(1, Math.min(steps.length, Number(args.step) || 1))
-            at = { step: n - 1, action: 0 }
-            paintStep()
-          } else if (name === 'show_part_request') assist?.showPart()
-          else if (name === 'report') {
-            const v = String(args.verdict)
-            if (v === 'right' || v === 'wrong' || v === 'done' || v === 'unsure') showVerdict(v, String(args.what ?? ''))
-            if (v === 'done') actionDone()
-            return { shown: true }
+          if (name === 'check_step') {
+            // by itself the coach may ask only now and then
+            const quiet = performance.now() - lastAuto < AUTO_GAP_MS
+            if (!quiet) {
+              lastAuto = performance.now()
+              void check(true)
+            }
+            return { started: !quiet }
           }
+          if (name === 'next_step') forward()
+          else if (name === 'previous_step') goTo(at - 1)
+          else if (name === 'go_to_step') goTo(Number(args.step || 1) - 1)
           const s = current()
-          return { step: s.n, of: steps.length, title: s.title, action: at.action + 1, instruction: action()?.text?.en ?? s.title }
+          return { step: s.n, of: steps.length, title: s.title }
         },
         onState: (state) => {
           root.dataset.coach = state
-          said.querySelector('b')!.textContent = state === 'on' ? w.coach : state === 'off' ? w.coachOff : ''
-          if (state === 'off') said.querySelector('span')!.textContent = ''
-          said.hidden = state === 'connecting'
         },
       })
       const micBtn = $<HTMLButtonElement>('.mic')
@@ -363,19 +322,9 @@ export async function startLive(app: HTMLElement): Promise<void> {
         micBtn.setAttribute('aria-pressed', String(on))
         coach?.setMic(on)
       })
+      tellStep()
     }
-    // a phone in the hand moves with the person, like a headset: the server then waits for a still moment
-    // with the coach speaking, the step checks stay silent: their findings are handed to the coach to say
-    assist = createAssist({ jobId: job, key, lang, viewpoint: 'headset', camera, device: 'phone-live', ...(coach ? { speaker: null } : {}) })
-    assist.on('status', paintStatus)
-    assist.on('event', onEvent)
-    paintStep()
-    await assist.start(current().n, at.action)
-    paintStatus(assist.status)
   })
-  window.addEventListener('pagehide', () => {
-    assist?.stop()
-    coach?.stop()
-  })
-  paintStep()
+  window.addEventListener('pagehide', () => coach?.stop())
+  paint()
 }
