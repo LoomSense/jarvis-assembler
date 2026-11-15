@@ -157,6 +157,8 @@ class StepPanelModel {
   var onMicDown: () -> Unit = {}
   var onMicUp: () -> Unit = {}
   var mic by mutableStateOf(MicState.IDLE)
+  /** The no-marker instruction ("Place … inside the blue outline."), first line of the body while it applies; "" = none. */
+  var coach by mutableStateOf("")
   /** Fade-relocate (§2.6 rule 5): 0..1, written by the frame tick. */
   var alpha by mutableStateOf(1f)
 }
@@ -401,6 +403,17 @@ fun StepPanel(model: StepPanelModel) {
           maxLines = 2,
           overflow = TextOverflow.Ellipsis,
       )
+      // The no-marker instruction: first in the body area, whole (up to three lines), in the outline's own azure.
+      if (model.coach.isNotEmpty() && !s.compact)
+          Text(
+              model.coach,
+              color = AgColors.accent,
+              fontSize = TextSize.body,
+              lineHeight = TextSize.bodyLine,
+              fontWeight = FontWeight.SemiBold,
+              maxLines = 3,
+              overflow = TextOverflow.Ellipsis,
+          )
       if (s.body.isNotEmpty())
           Text(
               s.body,

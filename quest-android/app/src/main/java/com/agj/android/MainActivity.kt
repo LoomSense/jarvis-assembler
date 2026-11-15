@@ -546,6 +546,7 @@ class MainActivity : AppSystemActivity() {
     val st = g.step(step) ?: return
     val act = st.actions.getOrNull(action)
     val firstOfStep = step != curStep || finished
+    val again = !firstOfStep && action == curAction // Repeat: the same action shown again
     val sock = socket
     if (sock != null) {
       when {
@@ -582,14 +583,16 @@ class MainActivity : AppSystemActivity() {
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
     panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
-    world.coachLine(lang)?.let { stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = it) }
+    val coachNow = coachLine() // "Place … inside the blue outline.": first line of the body, spoken before the step line
+    stepPanel.coach = coachNow ?: ""
     loadDrawing(step, st.crop)
     showPartCard(act)
     val line =
         if (firstOfStep && st.page != null)
             (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + body
         else body
-    if (speak) voice.say(line, lang)
+    // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
+    if (speak) voice.sayStep(listOfNotNull(coachNow?.takeIf { firstOfStep || again }, line), lang)
     // prefetch the next two lines
     var n = g.next(step, action)
     repeat(2) {
@@ -599,6 +602,13 @@ class MainActivity : AppSystemActivity() {
     }
     Agq.log.step(step, action, by)
   }
+
+  /**
+   * The no-marker instruction (`world.coachLine`: "Place the drawer front inside the blue outline.") while it applies:
+   * in the guide, on the base part's own step (the outline is drawn only then), with a ghost that is placed, not followed.
+   */
+  private fun coachLine(): String? =
+      if (coach.stage == CoachFlow.Stage.GUIDE && !finished && curStep == world.basePart?.step) world.coachLine(lang) else null
 
   /** The step's guide drawing (`/files/{job}/crops/step-NN.png`) as white line art in the window's right column. */
   private fun loadDrawing(step: Int, crop: String?) {
@@ -958,6 +968,7 @@ class MainActivity : AppSystemActivity() {
             ?.let { t -> showCameraBox(PreviewBox((t.box[1] / 1000).toFloat(), (t.box[0] / 1000).toFloat(), (t.box[3] / 1000).toFloat(), (t.box[2] / 1000).toFloat(), t.label)) }
             ?: showCameraBox(null)
         if (side.showCamera) side.caption = if (camFps > 0.5) s("cameraLive", "fps" to camFps.toInt()) else s("cameraOff")
+        stepPanel.coach = coachLine() ?: "" // gone once the part is followed live, or the base part's step is over
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0
           Agq.log.frame(fps, null, null)
