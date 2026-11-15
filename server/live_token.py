@@ -11,12 +11,17 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 
 from google import genai
 from google.genai import types
 
 from server.jobs import Job
 from server.settings import ROOT, Settings
+
+# One voice everywhere: the Live coach on the phone speaks with the voice the headset hears from POST /api/tts
+# (server/routes/tts.py reads the same variable).
+VOICE = os.environ.get("TTS_VOICE", "Schedar")
 
 PROMPT_FILE = ROOT / "prompts" / "live_voice.md"
 PROMPT_VERSION = "live_voice.md@1"
@@ -120,6 +125,8 @@ async def mint(settings: Settings, job: Job, mode: str = "voice", lang: str = "e
             model=settings.live_model,
             config=types.LiveConnectConfig(
                 response_modalities=[types.Modality.AUDIO],
+                speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE))),
                 system_instruction=coach_instruction(job, lang) if see else system_instruction(job),
                 tools=COACH_TOOLS if see else TOOLS,
                 # the coach's words are also shown on the screen, and the person's are logged by the page
