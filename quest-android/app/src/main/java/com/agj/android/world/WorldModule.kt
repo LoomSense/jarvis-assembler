@@ -88,6 +88,12 @@ class WorldModule(
   /** FLAT-PARTS: the guide is being followed (MainActivity sets it each frame): the rectangle pass runs and the outline shows. */
   @Volatile var flatGuiding = false
 
+  /**
+   * FLAT-PARTS: the outline may show now (MainActivity: only while the action coach says "take this part"; while the
+   * part is being put in place the pick cues are hidden, this one too). The rectangles are followed all the same.
+   */
+  @Volatile var flatShow = true
+
   /** FLAT-PARTS: no pulse on the outline. */
   var reducedMotion = false
     set(v) {
@@ -355,7 +361,7 @@ class WorldModule(
       if (t == null) surfaceY?.let { anchor.setSurfaceHeight(it) }
     }
     outline?.update(if (outlineVisible()) anchor.pose else null, footprint())
-    flatOutline?.update(if (flatGuiding) flat.lit() else null, dtS) // FLAT-PARTS: the outline on the real part to pick up
+    flatOutline?.update(if (flatGuiding && flatShow) flat.lit() else null, dtS) // FLAT-PARTS: the outline on the real part to pick up
   }
 
   /** The outline shows while the anchor is a placed one (no live tracking) and the base part's step is on. */

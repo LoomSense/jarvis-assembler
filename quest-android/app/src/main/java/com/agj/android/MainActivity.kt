@@ -976,6 +976,7 @@ class MainActivity : AppSystemActivity() {
     }
     if (coach.stage != CoachFlow.Stage.GUIDE || finished || coachIds.isEmpty()) {
       coachShown = emptyList()
+      world.flatShow = false // FLAT-PARTS: nothing to take now
       return
     }
     val now = SystemClock.elapsedRealtime()
@@ -1010,6 +1011,8 @@ class MainActivity : AppSystemActivity() {
       coachApply(actionCoach.tick(now, sight), source = "hands")
     }
     coachShown = if (actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)) mine else emptyList()
+    // FLAT-PARTS: the outline on the real board follows the same rule as the other pick cues
+    world.flatShow = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)
   }
 
   /**
