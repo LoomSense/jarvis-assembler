@@ -73,7 +73,7 @@ class Tuning:
     #                                        answer: a side panel shown during step 1 scored left 0.47-0.54, right
     #                                        0.36-0.43). False: the Watcher's rule alone (first choice at 0.75)
     wrong_part_sum_min: float = 0.65       # ...the sum that counts, when `right_part` agrees. Real frames, the
-    #                                        drawer bottom held up during step 3: 0.70-0.88; the part needed: 0.01-0.04.
+    #                                        drawer bottom held up during step 3: 0.68-0.85; the part needed: 0.01-0.04.
     #                                        A step without parts has no `right_part`: the sum must reach `choice`
     wrong_part_no: float = 0.3             # ...and `right_part` at or below this agrees (the Watcher's own `no` is
     #                                        0.15). Real frames: a wrong board held where the right one goes
@@ -81,7 +81,8 @@ class Tuning:
     #                                        (21 logged frames), 0.90-0.93 when held up
     wrong_way: bool = True                 # a step whose questions have the optional `wrong_way` choice: the mistake
     #                                        it names becomes `flip_needed` with `reason` (README, "Wrong way round")
-    wrong_way_choice: float = 0.75         # ...named with this confidence
+    wrong_way_choice: float = 0.7          # ...named with this confidence. The front lying on its face (a phone
+    #                                        photo): 0.74-0.76; lying right (16 real headset frames): 0.58 at most
     wrong_way_window: NofM = NofM(4, 5)    # ...in 4 of the last 5 frames in which the assembly is in view
     all_choices: bool = True               # "which part / which hardware is held" also offers the parts of later
     #                                        steps and every hardware code of the guide (questions.complete_choices).

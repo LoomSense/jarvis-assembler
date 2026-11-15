@@ -124,3 +124,78 @@ def test_a_complete_pack_is_left_alone(tmp_path):
         **pack["questions"]["hardware_in_hand"],
         "criteria": {**{c: "x" for n in guide.order for c, _ in guide.hardware(n)}, **crit}}}}
     assert complete_choices(guide, last, full) is full                # the last step has no later part
+
+
+# ---- which way round is wrong: the optional `wrong_way` choice of a step ------------------------------
+
+def way(choice: str, conf: float, **kw) -> dict:
+    """A frame with nobody's hands in it and the step's `wrong_way` answer."""
+    answers = frame(**kw)
+    rest = round(1 - conf, 3)
+    answers["wrong_way"] = {"type": "choice", "choice": choice, "confidence": conf,
+                            "probabilities": {choice: conf, ("ok" if choice != "ok" else "cannot_tell"): rest}}
+    return answers
+
+
+def flips(c, frames, **kw) -> list:
+    said, events = feed(c, frames, **kw)
+    return [(t, e.reason) for (t, name), e in zip(said, events) if name == "flip_needed"]
+
+
+def test_wrong_way_names_the_mistake_once_and_again_only_after_it_was_put_right():
+    c = coach(FRONT)
+    assert flips(c, [way("front_outer_up", 0.76)] * 3) == []                         # 3 frames are not 4 of 5
+    said, events = feed(c, [way("front_outer_up", 0.74)] * 30, t0=0.75)
+    assert said == [(0.75, "flip_needed")]                                           # once, however long it lies there
+    e = events[0]
+    assert (e.reason, e.p, e.votes) == ("front_outer_up", 0.74, "4 of last 4 frames")
+    assert e.evidence == {"wrong_way.front_outer_up": 0.74, "orientation_ok": 0.9}
+    assert flips(c, [way("front_outer_up", 0.9)] * 8, t0=40.0) == []                 # still the same mistake
+    assert flips(c, [way("ok", 0.9)] * 5 + [way("front_outer_up", 0.9)] * 4, t0=50.0) == [(52.0, "front_outer_up")]
+
+
+def test_wrong_way_needs_a_sure_answer_and_the_assembly_in_view():
+    assert flips(coach(FRONT), [way("front_outer_up", 0.58)] * 20) == []             # a real frame, the front lying right
+    assert flips(coach(FRONT), [way("cannot_tell", 0.95)] * 20) == []
+    assert flips(coach(FRONT), [way("ok", 0.93)] * 20) == []
+    blocked = way("front_outer_up", 0.9, view_blocked=0.5)
+    assert flips(coach(FRONT), [blocked] * 20, source="headset") == []               # a headset keeps the hand answers only
+    assert flips(coach(FRONT), [blocked] * 20) == []                                 # a fixed camera drops the frame
+    mixed = [way("front_outer_up", 0.9), way("side_rail_in", 0.9)] * 10              # no mistake has 4 of 5
+    assert flips(coach(FRONT), mixed) == []
+    assert flips(coach(FRONT, wrong_way=False), [way("front_outer_up", 0.9)] * 20) == []
+    assert flips(coach(FRONT, wrong_way_choice=0.8), [way("front_outer_up", 0.76)] * 20) == []
+    assert flips(coach(FRONT, wrong_way_window=[2, 2]), [way("front_outer_up", 0.76)] * 3) == [(0.25, "front_outer_up")]
+
+
+def test_a_step_without_the_question_is_as_before():
+    said, events = feed(coach(FRONT), [frame(orientation_ok=0.05)] * 12)             # the Watcher's own flip_needed
+    assert [name for _, name in said] == ["flip_needed"] and events[0].reason is None
+
+
+def test_flip_needed_carries_the_reason_and_the_step_files_own_sentence(tmp_path):
+    from tests.test_perception import JOB, Peer, app_client, url
+    with app_client(tmp_path) as c:
+        path = tmp_path / "jobs" / JOB / "refs" / "step-02-questions.json"
+        pack = json.loads(path.read_text())
+        pack["questions"]["wrong_way"] = {"type": "choice", "instructions": "Which of these describes the base?", "criteria": {
+            "base_face_down": "The base lies with its plain face up", "ok": "The base lies with its holes up",
+            "cannot_tell": "The base is not in view"}}
+        pack["wrong_way_text"] = {"base_face_down": {"en": "Turn the base over.", "el": "Γύρισε τη βάση ανάποδα."}}
+        path.write_text(json.dumps(pack, ensure_ascii=False))
+        with c.websocket_connect(url("camera")) as ws:
+            cam = Peer(ws)
+            cam.send(type="start", step=2)
+            cam.send(type="sim", orientation_ok=False)                # the simulated model then names the first mistake
+            cam.until("sim")
+            for seq in range(1, 5):
+                assert cam.frame_ack(seq, step=2)["dropped"] is None
+            event = cam.find("event")
+            assert (event["event"], event["reason"], event["step"]) == ("flip_needed", "base_face_down", 2)
+            assert event["say"] == {"en": "Turn the base over.", "el": "Γύρισε τη βάση ανάποδα."}
+            assert event["evidence"]["wrong_way.base_face_down"] == 0.93 and event["votes"] == "4 of last 4 frames"
+            cam.send(type="sim", orientation_ok=True)
+            cam.until("sim")
+            for seq in range(5, 12):
+                cam.frame_ack(seq, step=2)
+            assert [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed"]     # said once

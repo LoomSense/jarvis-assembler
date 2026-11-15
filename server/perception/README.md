@@ -161,6 +161,7 @@ In simulated mode every message carries `sim: true`. The field is absent otherwi
 | `latency_ms` | int\|null | frame receipt to event, server side |
 | `votes` | string | how many frames agreed, e.g. `"4 of last 5 frames"` |
 | `reason`, `message` | string | `reason:"unavailable"` with `message` on `vision_paused`; `reason:"hand_summary"` on a `step_complete` that the hand summary supported |
+| `reason` on `flip_needed` | string | [added Sun 15 Nov, 15:05] which way round is wrong: an option key of the step's `wrong_way` question (the drawer: `front_outer_up`, `side_rail_in`, `side_locks_up`, `side_groove_far`, `bottom_brown_in`, `back_groove_up`); `say` is then that mistake's own sentence. Absent on a `flip_needed` that comes from `orientation_ok` alone. See "Wrong part and wrong way round". |
 | `match` | bool\|null | on `show_part_result` |
 | `reason` on `show_part_result` | string | [added Sun 15 Nov] only when `observed_id` is null: `image_poor`, `hand_may_be_empty` (the model gives "nothing in the hand" 0.1 or more), `not_confirmed` (the choice and the yes/no `right_hardware` disagree), `not_recognised`. `evidence` also carries `image_poor`, `no_hardware` and `right_hardware`. |
 
@@ -239,7 +240,7 @@ The simplest client sends frames steadily at 4 Hz and lets the server ack the ga
 - **Hands first.** What is held (`part_in_hand`, `hardware_in_hand`, `right_part`) is read only when `hands_present` is 0.5 or more. Measured: with nobody in the picture the model still named a part in 44 of 64 frames.
 - **Expectation.** With an `action` index, `fasten` expects that action's code and `place` that action's part. Without one, the step's parts and hardware.
 - **`wrong_hardware`.** 4 of the last 5 frames confidently (0.75) name a code that is not right now. The added yes/no `right_hardware` overrules a single frame when it clearly says "yes". On a step that uses no hardware, any code is reported, with `expected: null`.
-- **`wrong_part`.** The choice confidently names a part outside the step and `right_part` is a clear "no" (PLAN cross-check).
+- **`wrong_part`.** The choice confidently names a part outside the step and `right_part` is a clear "no" (PLAN cross-check). Since Sun 15 Nov, 15:05 the choices also offer the parts of later steps, and a first choice outside the step counts with the summed probability of all such parts (0.65) when `right_part` is 0.3 or less: see "Wrong part and wrong way round".
 - **Said once.** A warning is given once and not again while the same thing stays in the hand. After it was put down (the window emptied) and 20 s passed, it can be given again (`repeat: 1`). Any two utterances are 6 s apart; `step_complete` is never held back.
 - **Confirmations.** Once per step per item; given again after a correction for that kind. They obey the 20 s same-event rule, so a second, different part picked within 20 s is not confirmed.
 - **`step_complete`.** A frame votes for it when `step_complete` is 0.45 or more and `orientation_ok` is 0.4 or more (both measured; other yes/no answers need 0.85). It needs 8 of the last 10 frames and hands out of the picture for 2 s. When the display reports actions, frames vote only during the last action. Measured: it stays weak on some steps (step 3 of the KNAGGLIG box scored 0.28 when finished), so **the display must always offer its own way to advance** (a pinch, "next").
@@ -257,7 +258,7 @@ The simplest client sends frames steadily at 4 Hz and lets the server ack the ga
     | after, no close-ups (a job where `details` was not run) | 45 | 0 | 0.40 / 0.34 | 0.31 / 0.18 |
 
     Step 3 clears the line by 0.01 with the frame before it 0.03 under: on real frames expect it to miss often. Asked alone, as `/locate` asks it, the same 55 pairs give 49 correct and 0 false "done" (step 3 done 0.58, step 7 done 0.47 with the frame before it at 0.44, also 0.01 from the line). A job needs its close-ups to gain anything: **run `python -m pipeline.perception.details jobs/<id>` once on jobs built before this** (about 50 s, Blender, no model call), then reconnect. Renders only; hands, real light and a real camera are not measured.
-- **`flip_needed`** is about how the assembly stands, from `orientation_ok` ≤ 0.15. Measured to separate poorly; it was not retuned.
+- **`flip_needed`** is about how the assembly stands, from `orientation_ok` ≤ 0.15. Measured to separate poorly; it was not retuned. A step whose question file has the optional `wrong_way` choice also gets a `flip_needed` that names the mistake (`reason`).
 - **`unsure_show_part`.** 8 frames in a row with hands in view and a part that is not recognised, including a confident `other` (a tool).
 - **Slow answers.** A request gets 4 s; without an answer by then the frame is acked `timeout` and does not count. The pipeline's client tries a dead connection a second time first, so that ack can take 8 s. After 3 s of failures without a success: `vision_paused`.
 - **Logs.** `jobs/<job>/perception/<session>/{frames,events,hands}.jsonl`. Since Sun 15 Nov `frames` rows also carry `wall_ms` (when the frame arrived), `ts` (the frame header's own clock) and `luma` (mean brightness), and `hands` rows `wall_ms`: `t` restarts at every `start`, so the two files could not be joined by it. The job's own `events.jsonl` (build feed) is not touched.
@@ -495,6 +496,50 @@ What the server had kept from the day's headset sessions: `frames.jsonl` (every 
 
 **Keeping frames.** `PERCEPTION_KEEP_FRAMES=<count>` keeps camera frames as they arrived under `jobs/_host/frames/<session>/<seq>-<used|poor|dark|show|bad_frame>.jpg`: one a second at most, every `show_part` look, until `count` frames or `PERCEPTION_KEEP_FRAMES_MB` megabytes (what the folder already holds counts). They join `frames.jsonl` by `seq`. Off by default. The frames show the user's room; `jobs/` is git-ignored and they must stay there.
 
+## Wrong part and wrong way round on the real drawer [added Sun 15 Nov, 15:05]
+
+Measured on the frames the server kept from the headset sessions of 14:07 to 14:37 (job `drawer`, 768 px as the app sends them; one real Decision 1 call per frame, the events from the server's own `Coach` with the headset rules), on the phone photos of the parts, and on the job's renders. Which number comes from which is said each time.
+
+**Why a wrong part was never called wrong.** A step's question file offers, for "which part is held", its own parts and the next step's: what its reference sheet pictures. Any other part could only be answered `other`, and `other` is never a `wrong_part`. In the 14:11 run the user held the drawer bottom up for 25 s during step 3 (the left side): the log has `other` 0.55 to 0.77 and no event. Three changes, all in the server and in memory (no job file is written):
+
+| Change | Setting | What it does |
+|---|---|---|
+| All the choices | `all_choices` (true) | `part_in_hand` also offers every part of a LATER step, `hardware_in_hand` every hardware code of the guide (`questions.complete_choices`), each with the description its own step's file gives it and the words "not pictured on the reference sheet". Parts already built in stay out: they are touched all the time. The drawer's step 2 had no `PEG-W` choice at all. |
+| The sum | `wrong_part_sum` (true), `wrong_part_sum_min` (0.65) | When the first choice is a part of another step, the probabilities of all such parts are added up. Mirror twins share one answer: a side panel during step 1 scored left 0.47 to 0.54 and right 0.36 to 0.43. |
+| The cross-check | `wrong_part_no` (0.3) | With the sum reached, `right_part` at 0.3 or less agrees (the Watcher's own line stays 0.15). A step without parts has no `right_part` question: there the sum must reach the Watcher's 0.75. |
+
+The mirror twin of a part the step uses (the right side panel during step 3) is not in the sum and keeps the Watcher's own rule (0.75 and 0.15): left and right are not told apart well enough to relax anything. The window stays 4 of 5 frames. The event's `evidence` gains `part_in_hand.other_steps` (the sum).
+
+| Real kept frames, in the order they came | Before | After |
+|---|---|---|
+| Bottom held by the user during step 3 (6 frames of 14:14) | no event; three of them looked at: `other` 0.76 or the needed side 0.58 to 0.70, `right_part` 0.18 to 0.21 | `wrong_part` on the 4th frame; `drawer_bottom` 0.66 to 0.84, sum 0.68 to 0.85, `right_part` 0.08 to 0.27. With the choices alone and the old lines 2 of the 6 frames vote: no event |
+| Side panel held up by a colleague during step 1 (4 frames of 14:36) | no event (`other` 0.43 to 0.73; live it gave `unsure_show_part`) | `wrong_part` on the 4th frame, sum 0.86 to 0.95, `right_part` 0.09 to 0.22; named `drawer_side_left`, which may be the right one |
+| Side panel held up during step 2 (2 frames of 14:09, each fed twice) | `wrong_part` on the 4th frame (0.81, 0.87) | the same (0.67 and 0.69 alone, sum 0.89 and 0.91) |
+| The part needed: front in step 1, left side in step 3, bolts in step 2 | `right_part` / `right_hardware` on the 3rd frame | the same; scores within 0.05. The bottom frames read as step 5: `right_part` on the 3rd frame |
+| All 50 distinct real frames sent with the new request (steps 1 to 3) | | 15 vote for a wrong part, and each of them shows a part of another step in somebody's hands (9 a side panel, 6 the bottom). The other 35 (hands on bolts, on the front, empty, the part needed) give no vote |
+
+Not solved, and not a matter of thresholds: **a bolt held during step 6 is read as the peg that step needs** in 3 of 4 real frames (`PEG-W` 0.60 to 0.94, `right_hardware` 0.43 to 0.87; the same at `high` resolution), so no `wrong_hardware` and a possible false "right". The hardware is a few pixels of a 768 px frame at arm's length. No frame of a held peg exists, so `PEG-W` during step 2 is untested. A part someone else holds in the picture counts as held.
+
+**Wrong way round: `flip_needed` with a `reason`.** The yes/no `orientation_ok` does not separate on real frames (the front lying right: 0.26 to 0.89 over 16 frames; lying on its face, a phone photo: 0.13 to 0.22; the line is 0.15) and cannot say which mistake it is. A step's question file may now carry one more question, `wrong_way`: a choice whose options are the ways that step goes wrong, plus `ok` and `cannot_tell`, and next to `questions` a `wrong_way_text` with the sentence for each mistake:
+```json
+"questions": {"wrong_way": {"type": "choice", "instructions": "In Image 1, which of these describes the wood-coloured drawer front? ...",
+                            "criteria": {"front_outer_up": "...", "ok": "...", "cannot_tell": "..."}}},
+"wrong_way_text": {"front_outer_up": {"en": "Turn the front over: the face with the holes must be up.",
+                                      "el": "Γύρισε τη μετόπη ανάποδα: η πλευρά με τις τρύπες πρέπει να είναι από πάνω."}}
+```
+- A mistake named with `wrong_way_choice` (0.7) in `wrong_way_window` (4 of 5) frames in which the assembly is in view gives **`flip_needed` with `reason: "<the option key>"`**, `say` from `wrong_way_text` (the generic sentence when the file has none), `p` its confidence, `evidence` `{"wrong_way.<key>": p, "orientation_ok": ...}`. Said once per mistake; again only after frames that answer `ok`. The cooldowns are the ones of `flip_needed`. `PERCEPTION_TUNING='{"wrong_way": false}'` turns it off; a step without the question is as before, and the Watcher's own `flip_needed` (no `reason`) is unchanged.
+- The `drawer` job has it for all six steps (`jobs/drawer-src/make_plan.py`, `WRONG_WAY` and `WRONG_WAY_TEXT`): `front_outer_up` (steps 1, 2), `side_rail_in`, `side_locks_up`, `side_groove_far` (3, 4), `bottom_brown_in` (5, 6), `back_groove_up` (6).
+- In simulation the answer is `ok` while the script says `orientation_ok`, else the step's first mistake.
+
+| `wrong_way`, the drawer | Scores | Event |
+|---|---|---|
+| Front on its face, all parts laid out (phone photo, 768 px, steps 1 and 2) | `front_outer_up` 0.76, 0.74 | `flip_needed` on the 4th frame |
+| Front lying right (2 phone photos; 16 real headset frames of steps 1 and 2) | `front_outer_up` 0.55 at most on the photos, 0.58 at most on the real frames | none |
+| Step 3, real headset frames: side or bottom in the hands, nothing standing yet (6) | `cannot_tell` 0.80 to 0.95 | none |
+| The job's renders of steps 1 to 6 done right (8 answers; renders, not photos) | a mistake 0.51 at most (`bottom_brown_in` on step 5), else 0.36 at most | none |
+
+**Unproven:** no picture of a wrongly placed side, bottom or back exists, so `side_*`, `bottom_brown_in` and `back_groove_up` have never been seen to fire; the front on its face was seen on one phone photo, not through the headset. The line of 0.7 sits 0.04 under that photo's scores and 0.12 over the highest right-way frame.
+
 ## Settings
 
 In `server/settings.py`, with commented lines in `.env.example`:
@@ -511,7 +556,7 @@ In `server/settings.py`, with commented lines in `.env.example`:
 ```sh
 PERCEPTION_TUNING='{"max_in_flight": 8, "watcher": {"done_yes": 0.5, "windows": {"wrong_hardware": [3, 4]}}, "headset": {"step_complete": [9, 10]}}'
 ```
-- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …). Added Sun 15 Nov: `poor_at` (0.55; `0.3` restores the old line), `dim_luma` (50; `0` lets every poor frame count towards `more_light`), `dark_peak` (60; `0` restores the mean alone), `show_nothing_max` (0.1), `show_right_min` (0.7).
+- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …). Added Sun 15 Nov: `poor_at` (0.55; `0.3` restores the old line), `dim_luma` (50; `0` lets every poor frame count towards `more_light`), `dark_peak` (60; `0` restores the mean alone), `show_nothing_max` (0.1), `show_right_min` (0.7). Added Sun 15 Nov, 15:05: `all_choices` (true), `wrong_part_sum` (true), `wrong_part_sum_min` (0.65), `wrong_part_no` (0.3), `wrong_way` (true), `wrong_way_choice` (0.7), `wrong_way_window` (`[4, 5]`); `{"all_choices": false, "wrong_part_sum": false, "wrong_way": false}` is the server of before.
 - `watcher`: the fields of `Config` in `pipeline/perception/logic.py` (`yes`, `no`, `choice`, `done_yes`, `done_orientation`, `hands`, `unusable`, `windows`, `unsure_frames`, `hands_away_s`, `cooldown_s`, `global_cooldown_s`). Their defaults are not repeated in the server.
 - `fixed`, `headset`: per-source rules; a window given there replaces the Watcher's for that source.
 
