@@ -21,6 +21,8 @@ namespace AG.Guide
             if (guide.Root != null) guide.Root.transform.SetParent(assemblyAnchor, false);
         }
 
+        public void ShowPickTargets(System.Collections.Generic.IReadOnlyList<PickTarget> targets) { }
+
         public void ShowAction(int step, int actionIndex)
         {
             var s = _guide?.StepByNumber(step);

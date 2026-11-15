@@ -30,6 +30,22 @@ namespace AG.Guide
     }
 
     /// <summary>
+    /// A part to pick up, found in the pile (server POST /api/perception/{job}/parts box -> Vision unprojects the box
+    /// centre onto the table). World space, metres. Spec §4.6.
+    /// </summary>
+    public struct PickTarget
+    {
+        /// <summary>Point on the table under the part's centre (world).</summary>
+        public Vector3 WorldPosition;
+        /// <summary>Approximate footprint on the table (world metres, x/z extents of the box); zero = 6 cm default.</summary>
+        public Vector2 FootprintM;
+        /// <summary>Part id or hardware code (manifest); used for the name and code when <see cref="Label"/> is null.</summary>
+        public string PartId;
+        /// <summary>Label text without the "Pick up" prefix (server's <c>label</c>), or null to use the manifest name.</summary>
+        public string Label;
+    }
+
+    /// <summary>
     /// Draws the guide ON the real object: everything is parented under <c>assemblyAnchor</c>, a Transform whose
     /// world pose AppRoot keeps equal to the tracked assembly pose (Vision), so this renderer works purely in the
     /// assembly frame and never reads tracking itself.
@@ -72,6 +88,13 @@ namespace AG.Guide
 
         /// <summary>Freeze every loop (spec §7).</summary>
         bool ReducedMotion { get; set; }
+
+        /// <summary>
+        /// "Pick this part" cues on the table (spec §4.6): azure ellipse under each part, a chevron 6 cm above it
+        /// bobbing 0.5 Hz, and a label pill "Pick up · name · code" with a leader line. Null or empty clears them.
+        /// Never invent positions: call only with camera answers.
+        /// </summary>
+        void ShowPickTargets(System.Collections.Generic.IReadOnlyList<PickTarget> targets);
 
         /// <summary>Hide everything (between flows).</summary>
         void Clear();

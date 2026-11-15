@@ -145,6 +145,7 @@ namespace AG.Guide
                     _label.Hide();
                     break;
                 case GuideFeedback.Wrong:
+                    BuildWrongOutline();
                     _badge.Show(Badge.Kind.Cross, _root.TransformPoint(anchor) + Vector3.up * 0.13f);
                     if (observedPartId != null && _g.Parts.TryGetValue(observedPartId, out var info) && info.Nodes.Count > 0
                         && _nodes.TryGetValue(info.Nodes[0], out var other) && other.Node.Node != _ghostNode)
@@ -241,8 +242,24 @@ namespace AG.Guide
             return true;
         }
 
+        /// <summary>World bounds of the current action's ghost (for the hands summary's hand_at_target); false when none.</summary>
+        public bool TryGetGhostWorldBounds(out Bounds b)
+        {
+            b = default;
+            if (_root == null || _ghostNode == null || !_nodes.TryGetValue(_ghostNode, out var v)) return false;
+            if (v.Node.FinalBounds.size.sqrMagnitude <= 0) return false;
+            var lb = v.Node.FinalBounds;
+            for (int i = 0; i < 8; i++)
+            {
+                var p = _root.TransformPoint(lb.center + Vector3.Scale(lb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1)));
+                if (i == 0) b = new Bounds(p, Vector3.zero); else b.Encapsulate(p);
+            }
+            return true;
+        }
+
         public void Clear()
         {
+            ShowPickTargets(null);
             foreach (var v in _nodes.Values) Apply(v, PartVisualState.Hidden);
             ClearMarks();
             _label?.Hide();
@@ -333,6 +350,7 @@ namespace AG.Guide
             }
             _dots.Clear(); _dotBaseA.Clear(); _dimRings.Clear();
             _head = _arc = _ring = _rippleA = _rippleB = _preview = _turnArrow = null;
+            _wrongDashes.Clear();
             _previewAt = -1;
         }
 
@@ -659,6 +677,8 @@ namespace AG.Guide
             }
             _label?.Tick(viewer, _alpha);
             _note?.Tick(viewer, _alpha);
+            TickWrongOutline(viewer, now);
+            TickPickTargets(viewer, now);
             _badge?.Tick(viewer, now, ReducedMotion);
         }
 
@@ -673,6 +693,148 @@ namespace AG.Guide
         }
 
         static string Cap(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s.Substring(1);
+
+        // ---------------------------------------------------------------- wrong part: red dashed outline (spec §4.8)
+
+        readonly List<(Transform t, Vector3 a, Vector3 b)> _wrongDashes = new List<(Transform, Vector3, Vector3)>();
+        Material _wrongMat;
+
+        /// <summary>
+        /// Red dashed edges (8 mm dash, 5 mm gap, 2 mm wide) where the wrong part sits: the current action's place
+        /// (the user put the observed part there), drawn from that place's own mesh. Pulses 0.6-1.0 at 0.83 Hz x 3.
+        /// </summary>
+        void BuildWrongOutline()
+        {
+            foreach (var d in _wrongDashes) if (d.t != null) Destroy(d.t.gameObject);
+            _wrongDashes.Clear();
+            if (_ghostNode == null || !_nodes.TryGetValue(_ghostNode, out var v) || v.Node.Instance == null) return;
+            if (_wrongMat == null) _wrongMat = GuideMaterials.Flat(Tokens.Error, Tokens.QMarks + 1);
+            var parent = new GameObject("wrong_outline").transform;
+            parent.SetParent(_marks, false);
+            const float dash = 0.008f, gap = 0.005f;
+            foreach (var mf in v.Node.Instance.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null || mf.GetComponent<MeshRenderer>() == null || mf.sharedMaterial() == _edgeMat) continue;
+                if (!_edgeCache.TryGetValue(mf.sharedMesh, out var em)) { em = GuideMeshes.HardEdges(mf.sharedMesh); _edgeCache[mf.sharedMesh] = em; }
+                if (em == null) continue;
+                var m = _root.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                var vs = em.vertices;
+                var idx = em.GetIndices(0);
+                for (int i = 0; i + 1 < idx.Length && _wrongDashes.Count < 600; i += 2)
+                {
+                    Vector3 a = m.MultiplyPoint3x4(vs[idx[i]]), b = m.MultiplyPoint3x4(vs[idx[i + 1]]);
+                    float len = Vector3.Distance(a, b);
+                    if (len < 0.004f) continue;
+                    var dir = (b - a) / len;
+                    for (float x = 0; x < len && _wrongDashes.Count < 600; x += dash + gap)
+                    {
+                        float x1 = Mathf.Min(len, x + dash);
+                        var q = Quad("dash", parent, _wrongMat);
+                        _wrongDashes.Add((q, a + dir * x, a + dir * x1));
+                    }
+                }
+            }
+            TickWrongOutline(ViewerT(), Time.time);
+        }
+
+        void TickWrongOutline(Transform viewer, float now)
+        {
+            if (_wrongDashes.Count == 0 || _root == null) return;
+            float t = now - _feedbackAt;
+            float a = ReducedMotion || t > 3.6f ? 1f : 0.8f + 0.2f * Mathf.Cos(2 * Mathf.PI * 0.83f * t);
+            if (_feedback != GuideFeedback.Wrong) a = 0;
+            _wrongMat.SetFloat("_Alpha", a * _alpha);
+            var eye = viewer != null ? viewer.position : _root.position + Vector3.back;
+            foreach (var (q, la, lb) in _wrongDashes)
+            {
+                if (q == null) continue;
+                Vector3 wa = _root.TransformPoint(la), wb = _root.TransformPoint(lb), c = (wa + wb) * 0.5f;
+                var right = wb - wa;
+                float len = right.magnitude;
+                right /= Mathf.Max(len, 1e-6f);
+                var fwd = Vector3.ProjectOnPlane(c - eye, right);
+                if (fwd.sqrMagnitude < 1e-8f) fwd = Vector3.Cross(right, Vector3.up);
+                fwd.Normalize();
+                q.position = c;
+                q.rotation = Quaternion.LookRotation(fwd, Vector3.Cross(fwd, right));
+                q.localScale = new Vector3(len, 0.002f, 1);
+            }
+        }
+
+        // ---------------------------------------------------------------- pick this part (spec §4.6)
+
+        sealed class PickVis
+        {
+            public Transform Root, Chevron;
+            public Vector3 Base;
+            public Label Label;
+        }
+        readonly List<PickVis> _picks = new List<PickVis>();
+        Material _pickFillMat, _pickStrokeMat, _pickChevronMat;
+
+        public void ShowPickTargets(IReadOnlyList<PickTarget> targets)
+        {
+            foreach (var p in _picks) if (p.Root != null) Destroy(p.Root.gameObject);
+            _picks.Clear();
+            if (targets == null || targets.Count == 0) return;
+            if (_pickFillMat == null)
+            {
+                _pickFillMat = GuideMaterials.Flat(Tokens.Accent.A(0.10f), Tokens.QMarks, 1);
+                _pickStrokeMat = GuideMaterials.Flat(Tokens.Accent.A(0.9f), Tokens.QMarks + 1, 2);
+                _pickChevronMat = GuideMaterials.Flat(Tokens.Accent.A(0.97f), Tokens.QMarks + 1);
+            }
+            for (int i = 0; i < targets.Count && i < 4; i++)
+            {
+                var t = targets[i];
+                var root = new GameObject("pick_" + (t.PartId ?? i.ToString())).transform;
+                root.SetParent(transform, false);
+                root.position = t.WorldPosition;
+                var fp = t.FootprintM.sqrMagnitude > 0 ? t.FootprintM : new Vector2(0.06f, 0.06f);
+                var size = new Vector3(fp.x + 0.02f, fp.y + 0.02f, 1);   // 2 cm larger than the footprint
+                var fill = Quad("pick_fill", root, _pickFillMat);
+                fill.localPosition = Vector3.up * 0.001f;
+                fill.localRotation = Quaternion.LookRotation(Vector3.down);
+                fill.localScale = size;
+                var stroke = Quad("pick_stroke", root, _pickStrokeMat);
+                stroke.localPosition = Vector3.up * 0.0012f;
+                stroke.localRotation = Quaternion.LookRotation(Vector3.down);
+                stroke.localScale = size;
+                _pickStrokeMat.SetFloat("_RingWidth", 0.002f / Mathf.Max(size.x, size.y));
+                // chevron: 1.0 deg (14 mm) cone pointing down, 6 cm above the part
+                var chev = MeshGo("pick_chevron", GuideMeshes.Cone, _pickChevronMat);
+                chev.SetParent(root, false);
+                chev.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
+                chev.localScale = new Vector3(0.014f, 0.014f, 0.012f);
+                var pv = new PickVis { Root = root, Chevron = chev, Base = Vector3.up * 0.072f };
+                chev.localPosition = pv.Base;
+                // label "Pick up · name · code"
+                string name = t.Label, code = null;
+                if (name == null && t.PartId != null && _g != null && _g.Parts.TryGetValue(t.PartId, out var info))
+                {
+                    name = Cap(info.Names?.Get(_lang) ?? info.Id);
+                    if (info.IsHardware) code = info.Id;
+                }
+                if (LabelsVisible && name != null && i < 2)
+                {
+                    pv.Label = new Label(root, Font, "pick_label");
+                    pv.Label.Set((_lang == "el" ? "Πάρε · " : "Pick up · ") + name, code, null, null, Tokens.AccentDeep);
+                    pv.Label.Place(root, Vector3.up * 0.085f, 0.05f, ViewerT());
+                }
+                _picks.Add(pv);
+            }
+            AgLog.Ev("pick_targets", new { n = targets.Count });
+        }
+
+        void TickPickTargets(Transform viewer, float now)
+        {
+            foreach (var p in _picks)
+            {
+                if (p.Root == null) continue;
+                float bob = ReducedMotion ? 0 : 0.01f * Mathf.Sin(2 * Mathf.PI * 0.5f * now);   // +-1 cm at 0.5 Hz
+                p.Chevron.localPosition = p.Base + Vector3.up * bob;
+                p.Label?.Tick(viewer, 1f);
+            }
+        }
 
         // ---------------------------------------------------------------- label pill with leader line
 

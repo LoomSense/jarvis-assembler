@@ -258,6 +258,7 @@ namespace AG.Guide
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var t = go.AddComponent<TextMeshPro>();
+            EnsureGlyphs(font);
             if (font != null) t.font = font;
             t.fontSize = emM * 100f;
             t.color = color;
@@ -276,6 +277,20 @@ namespace AG.Guide
                 t.fontSharedMaterial = QueueMat(t.fontSharedMaterial, queue);
             }
             return t;
+        }
+
+        static readonly HashSet<TMP_FontAsset> Ensured = new HashSet<TMP_FontAsset>();
+        /// <summary>
+        /// The ellipsis TMP uses for <see cref="TextOverflowModes.Ellipsis"/> and the few symbols the UI writes: added
+        /// to the dynamic atlas once per font so truncation shows "…" (the saved asset has an empty character table).
+        /// </summary>
+        public const string UiGlyphs = "\u2026\u00B7\u00D7\u2013\u203A\u2039";
+        public static bool EnsureGlyphs(TMP_FontAsset font)
+        {
+            if (font == null || !Ensured.Add(font)) return font != null;
+            bool ok = font.TryAddCharacters(UiGlyphs, out string missing);
+            if (!ok && !string.IsNullOrEmpty(missing)) Debug.LogWarning("AG font: missing glyphs " + missing + " in " + font.name);
+            return ok;
         }
 
         static readonly Dictionary<(Material, int), Material> Mats = new Dictionary<(Material, int), Material>();
