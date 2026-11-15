@@ -206,6 +206,7 @@ export async function startGuidePage(): Promise<void> {
         key: params.key,
         apiBase,
         lang,
+        invite: asked === '1',
         page: {
           stage: $<HTMLElement>('stage'),
           button: $<HTMLButtonElement>('watch'),

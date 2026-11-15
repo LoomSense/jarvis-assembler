@@ -527,3 +527,18 @@ noscript {
     opacity: 0.9;
   }
 }
+
+/* `?assist=1`: the person chose "build with camera help"; the control waits for its one tap */
+#watch.invite {
+  opacity: 1;
+  color: var(--ink);
+  box-shadow: 0 0 0 1.5px currentColor;
+  animation: watch-invite 2.4s var(--ag-ease) infinite;
+}
+@keyframes watch-invite {
+  0%, 100% { box-shadow: 0 0 0 1.5px currentColor, 0 0 0 0 rgba(246, 236, 219, 0.35); }
+  50% { box-shadow: 0 0 0 1.5px currentColor, 0 0 0 10px rgba(246, 236, 219, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #watch.invite { animation: none; }
+}

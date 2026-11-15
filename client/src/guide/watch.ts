@@ -33,6 +33,8 @@ export interface WatchOptions {
   /** where the perception socket is; undefined: the build's API base, else the page's own origin */
   apiBase?: string
   lang: Lang
+  /** `?assist=1`: the person came here to build with camera help, so the control asks for its one tap */
+  invite?: boolean
 }
 
 export interface Watch {
@@ -61,6 +63,7 @@ export function startWatch(o: WatchOptions): Watch {
   let assist: Assist | null = null
   let last: AssistStatus | null = null
   let hintKey = ''
+  let started = false // the control was tapped once: the invitation is over
 
   const describe = document.createElement('span') // the ring's state in words, for a screen reader
   describe.className = 'sr'
@@ -190,7 +193,8 @@ export function startWatch(o: WatchOptions): Watch {
     page.button.setAttribute('aria-pressed', String(on))
     page.button.setAttribute('aria-label', WATCH[lang].control)
     page.button.title = WATCH[lang].control
-    page.word.textContent = on ? stateWord(status!) : ''
+    page.word.textContent = on ? stateWord(status!) : o.invite && !started ? WATCH[lang].tapToStart : ''
+    page.button.classList.toggle('invite', !!o.invite && !started && !on)
     describe.textContent = on ? (assist?.preview.getAttribute('aria-label') ?? '') : ''
     if (!on || !status) {
       setHint(null)
@@ -239,6 +243,7 @@ export function startWatch(o: WatchOptions): Watch {
       assist.stop()
       return
     }
+    started = true
     assist ??= make()
     const at = guide.place()
     void assist.start(at.step, at.action)

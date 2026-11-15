@@ -1,8 +1,8 @@
-// The build screen (`?mode=build`): drop a flat-pack guide (PDF), watch the agent turn it into the 3D guide,
-// approve its plan, open the result. The same workshop at night as the guide page: one dark room, a single
+// The build screen (`?mode=build`): find a guide by name, code or link, or drop a flat-pack guide (a PDF or
+// photos of its pages), watch the agent turn it into the 3D guide, approve its plan, open the result. The same workshop at night as the guide page: one dark room, a single
 // column of light words, the latest line brightest, two round controls at most.
 //
-//   ?mode=build                     drop or pick a PDF; the recent jobs below it
+//   ?mode=build                     find a guide (build/intake.ts), or drop a PDF or photos; the recent jobs below
 //   ?mode=build&job=<id>            the feed of that job (live while it runs, the whole story once it is done)
 //   &key=<demo key>                 sent on every request, never stored
 //   &lang=en                        English (Greek by default)
@@ -19,7 +19,8 @@ import type { Lang } from '../types'
 import { tr } from '../i18n'
 import { WORDS } from '../guide/words'
 import { follow, type AgentEvent, type Follow } from './stream'
-import { BUILD, STAGE, bw, fmtSec, say, thoughtPieces, type Said } from './words'
+import { STAGE, bw, fmtSec, say, thoughtPieces, type BuildWord, type Said } from './words'
+import { choose, debounce, openCatalog, openQuery, searchCatalog, sendGuide, type CatalogItem, type Chosen } from './intake'
 
 interface PlanSummary {
   title?: string
@@ -44,6 +45,8 @@ const ICON = {
   check: '<path d="M5.5 12.5 10 17l8.5-9.5" />',
   next: '<path d="M9.5 5.5 16 12l-6.5 6.5" />',
   plus: '<path d="M12 6v12M6 12h12" />',
+  cross: '<path d="M7.5 7.5l9 9M16.5 7.5l-9 9" />',
+  camera: '<path d="M4.5 8.5h3l1.6-2.2h5.8l1.6 2.2h3v10h-15z" /><circle cx="12" cy="13.2" r="3.2" />',
 }
 const svg = (path: string, size = 22) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`
@@ -69,12 +72,28 @@ export function startBuild(app: HTMLElement): void {
   root.id = 'build'
   root.innerHTML = `
     <section id="drop">
-      <label class="target">
-        <input type="file" accept="application/pdf,.pdf" />
-        <span class="ring">${svg(ICON.up, 30)}</span>
-        <span class="word"></span>
-        <span class="quiet">PDF</span>
-      </label>
+      <form class="find" role="search" autocomplete="off">
+        <input type="search" name="q" enterkeyhint="go" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <p class="said" role="status"></p>
+        <ul class="matches" hidden></ul>
+      </form>
+      <div class="put">
+        <div class="disc">
+          <label class="target">
+            <input type="file" accept="application/pdf,image/*" multiple />
+            <span class="ring">${svg(ICON.up, 30)}</span>
+            <span class="word"></span>
+            <span class="quiet"></span>
+          </label>
+          <label class="camera" hidden><input type="file" accept="image/*" capture="environment" />${svg(ICON.camera, 20)}</label>
+          <button class="clear" type="button" hidden>${svg(ICON.cross, 18)}</button>
+        </div>
+        <span class="pages" hidden></span>
+        <div class="send" hidden>
+          <input class="size" type="text" name="size" autocomplete="off" enterkeyhint="go" maxlength="120" />
+          <button class="go" type="button"><span class="round">${svg(ICON.next)}</span><span class="word"></span></button>
+        </div>
+      </div>
       <p class="note" role="alert"></p>
       <ul id="recent"></ul>
     </section>
@@ -87,8 +106,22 @@ export function startBuild(app: HTMLElement): void {
     <button id="lang" type="button"></button>`
   app.append(root)
   const $ = <T extends Element>(sel: string) => root.querySelector(sel) as T
+  const findForm = $<HTMLFormElement>('.find')
+  const findInput = $<HTMLInputElement>('.find input')
+  const findSaid = $<HTMLParagraphElement>('.find .said')
+  const matches = $<HTMLUListElement>('.find .matches')
   const target = $<HTMLLabelElement>('.target')
   const input = $<HTMLInputElement>('.target input')
+  const targetWord = $<HTMLSpanElement>('.target .word')
+  const targetQuiet = $<HTMLSpanElement>('.target .quiet')
+  const camera = $<HTMLLabelElement>('.camera')
+  const cameraInput = $<HTMLInputElement>('.camera input')
+  const clearButton = $<HTMLButtonElement>('.disc .clear')
+  const pagesStrip = $<HTMLSpanElement>('.put .pages')
+  const send = $<HTMLDivElement>('.put .send')
+  const sizeInput = $<HTMLInputElement>('.send .size')
+  const goButton = $<HTMLButtonElement>('.send .go')
+  const goWord = $<HTMLSpanElement>('.send .go .word')
   const note = $<HTMLParagraphElement>('#drop .note')
   const recent = $<HTMLUListElement>('#recent')
   const work = $<HTMLElement>('#work')
@@ -134,7 +167,9 @@ export function startBuild(app: HTMLElement): void {
     if (import.meta.env.DEV && q.get('api')) url.searchParams.set('api', q.get('api')!)
     return url.toString()
   }
-  const guideLink = (id: string) => link({ job: id })
+  // a finished guide opens on the "ready" screen (?mode=ready, src/home/), which leads on to the guide page;
+  // while a build of the client has no such screen, an unknown mode falls through to the guide page itself
+  const guideLink = (id: string) => link({ mode: 'ready', job: id })
 
   // ------------------------------------------------------------------ language
   let refreshWords: () => void = () => {}
@@ -146,7 +181,12 @@ export function startBuild(app: HTMLElement): void {
     langButton.setAttribute('aria-label', WORDS[l].otherLanguage)
     langButton.lang = l === 'el' ? 'en' : 'el'
     again.setAttribute('aria-label', bw(l, 'again'))
-    $<HTMLSpanElement>('.target .word').textContent = bw(l, touch ? 'pick' : 'drop')
+    findInput.placeholder = bw(l, 'find')
+    findInput.setAttribute('aria-label', bw(l, 'find'))
+    sizeInput.placeholder = bw(l, 'size')
+    sizeInput.setAttribute('aria-label', bw(l, 'size'))
+    cameraInput.setAttribute('aria-label', bw(l, 'camera'))
+    clearButton.setAttribute('aria-label', bw(l, 'clear'))
     refreshWords()
   }
   langButton.addEventListener('click', () => {
@@ -158,7 +198,7 @@ export function startBuild(app: HTMLElement): void {
   again.addEventListener('click', () => location.assign(link({ mode: 'build' })))
 
   // ------------------------------------------------------------------ 1. drop or pick
-  let noteKey: keyof (typeof BUILD)['en'] | null = null
+  let noteKey: BuildWord | null = null
   const showNote = (k: typeof noteKey) => {
     noteKey = k
     note.textContent = k ? bw(lang, k) : ''
@@ -171,7 +211,8 @@ export function startBuild(app: HTMLElement): void {
       const li = el('li')
       const a = el('a')
       a.href = j.status === 'done' ? guideLink(j.job_id) : link({ mode: 'build', job: j.job_id })
-      a.append(el('span', 'name', j.title || prettyName(j.filename) || j.job_id))
+      const photos = /^(\d+) photos$/.exec(j.filename ?? '') // the server names an upload of photos "<n> photos"
+      a.append(el('span', 'name', j.title || (photos ? bw(lang, 'pages', { n: +photos[1] }) : prettyName(j.filename)) || j.job_id))
       const word =
         j.status === 'running' ? bw(lang, 'busy')
         : j.status === 'waiting_approval' ? bw(lang, 'waiting')
@@ -204,30 +245,215 @@ export function startBuild(app: HTMLElement): void {
     }
   }
 
-  const upload = async (file: File | undefined) => {
-    if (!file) return
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') return showNote('notPdf')
-    if (file.size > 40 * 1024 * 1024) return showNote('tooBig')
-    showNote(null)
-    target.classList.add('busy')
-    $<HTMLSpanElement>('.target .word').textContent = bw(lang, 'uploading')
+  // ---- a job to follow: from an upload, or from a catalog guide that is not built yet
+  const followJob = (id: string) => {
+    history.replaceState(null, '', link({ mode: 'build', job: id, auto: auto ? '1' : null }))
+    job = id
+    openJob(id)
+  }
+
+  // ---- find a guide: name, IKEA article number or product link
+  let found: CatalogItem[] = []
+  let asked = 0
+  let opening = false
+  let saidKey: BuildWord | null = null
+  let saidWarn = false
+  const sayFind = (k: BuildWord | null, warn = true) => {
+    saidKey = k
+    saidWarn = warn
+    findSaid.textContent = k ? bw(lang, k) : ''
+    findSaid.classList.toggle('warn', !!k && warn)
+  }
+
+  const drawMatches = () => {
+    matches.replaceChildren()
+    for (const item of found.slice(0, 5)) {
+      const li = el('li')
+      const quiet = item.ready ? (item.steps ? bw(lang, 'steps', { n: item.steps }) : '') : bw(lang, 'toBuild')
+      const pick = item.ready && item.job_id ? el('a') : el('button')
+      if (pick instanceof HTMLAnchorElement) pick.href = guideLink(item.job_id!)
+      else {
+        pick.type = 'button'
+        pick.addEventListener('click', () => void openGuide(openQuery(item)))
+      }
+      pick.append(el('span', 'name', item.product))
+      if (quiet) pick.append(el('span', `how${item.ready ? '' : ' later'}`, quiet))
+      li.append(pick)
+      matches.append(li)
+    }
+    const showing = found.length > 0 && !!findInput.value.trim() && !opening
+    matches.hidden = !showing
+    root.classList.toggle('finding', showing)
+  }
+
+  const search = debounce(async (q: string) => {
+    const mine = ++asked
+    if (!q.trim()) {
+      found = []
+      return drawMatches()
+    }
     try {
-      const body = new FormData()
-      body.append('file', file, file.name)
-      const res = await apiFetch('/api/jobs', key, { method: 'POST', body })
-      if (!res.ok) throw res.status
-      const { job_id } = (await res.json()) as { job_id: string }
-      history.replaceState(null, '', link({ mode: 'build', job: job_id, auto: auto ? '1' : null }))
-      job = job_id
-      openJob(job_id)
-    } catch (status) {
-      target.classList.remove('busy')
-      $<HTMLSpanElement>('.target .word').textContent = bw(lang, touch ? 'pick' : 'drop')
-      showNote(status === 401 ? 'noKey' : status === 413 ? 'tooBig' : status === 415 ? 'notPdf' : typeof status === 'number' ? 'failed' : 'offline')
+      const items = await searchCatalog(q, key)
+      if (mine !== asked) return
+      found = items
+    } catch {
+      if (mine !== asked) return
+      found = []
+    }
+    drawMatches()
+  }, 180)
+
+  const openGuide = async (q: string) => {
+    if (opening || !q.trim()) return
+    opening = true
+    asked++ // a search still on its way is no longer wanted
+    drawMatches()
+    findForm.classList.add('busy')
+    findInput.readOnly = true
+    sayFind('finding', false)
+    const got = await openCatalog(q, key)
+    opening = false
+    findForm.classList.remove('busy')
+    findInput.readOnly = false
+    if (!got.ok) {
+      sayFind(got.word)
+      found = []
+      drawMatches()
+      findInput.focus()
+      return
+    }
+    sayFind(null)
+    if (got.ready) return location.assign(guideLink(got.job))
+    followJob(got.job)
+  }
+
+  findInput.addEventListener('input', () => {
+    if (saidKey && saidWarn) sayFind(null)
+    search(findInput.value)
+  })
+  findForm.addEventListener('submit', (e) => {
+    e.preventDefault()
+    void openGuide(findInput.value)
+  })
+  findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && !matches.hidden) {
+      e.preventDefault()
+      ;(matches.querySelector('a, button') as HTMLElement | null)?.focus()
+    } else if (e.key === 'Escape') {
+      findInput.value = ''
+      sayFind(null)
+      search('')
+    }
+  })
+  matches.addEventListener('keydown', (e) => {
+    const all = [...matches.querySelectorAll<HTMLElement>('a, button')]
+    const at = all.indexOf(document.activeElement as HTMLElement)
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const next = at + (e.key === 'ArrowDown' ? 1 : -1)
+      ;(next < 0 ? findInput : all[Math.min(next, all.length - 1)]).focus()
+    } else if (e.key === 'Escape') findInput.focus()
+  })
+
+  // ---- give the guide: one PDF, or photos of its pages in order, and the size if the person knows it
+  let chosen: Chosen | null = null
+  let thumbs: string[] = []
+  let sending = false
+
+  const drawChosen = () => {
+    const has = !!chosen
+    root.classList.toggle('chosen', has)
+    send.hidden = !has
+    clearButton.hidden = !has || sending
+    pagesStrip.hidden = chosen?.kind !== 'photos'
+    target.classList.toggle('busy', sending)
+    goButton.disabled = sending
+    goWord.textContent = bw(lang, sending ? 'uploading' : 'build')
+    if (!chosen) {
+      targetWord.textContent = bw(lang, touch ? 'pick' : 'drop')
+      targetQuiet.textContent = bw(lang, 'accepts')
+    } else if (chosen.kind === 'pdf') {
+      targetWord.textContent = prettyName(chosen.files[0].name) || chosen.files[0].name
+      targetQuiet.textContent = bw(lang, 'pdf')
+    } else {
+      targetWord.textContent = bw(lang, 'pages', { n: chosen.files.length })
+      targetQuiet.textContent = bw(lang, 'more')
     }
   }
 
-  input.addEventListener('change', () => void upload(input.files?.[0]))
+  const drawPages = () => {
+    for (const u of thumbs) URL.revokeObjectURL(u)
+    thumbs = []
+    pagesStrip.replaceChildren()
+    if (chosen?.kind !== 'photos') return
+    const SHOW = 12
+    for (const f of chosen.files.slice(0, SHOW)) {
+      const url = URL.createObjectURL(f)
+      thumbs.push(url)
+      const img = el('img')
+      img.alt = ''
+      img.decoding = 'async'
+      img.src = url
+      img.addEventListener('load', () => img.classList.add('in'))
+      img.addEventListener('error', () => img.replaceWith(el('i', 'nopic')))
+      pagesStrip.append(img)
+    }
+    if (chosen.files.length > SHOW) pagesStrip.append(el('span', 'more', `+${chosen.files.length - SHOW}`))
+  }
+
+  const takeFiles = (files: File[]) => {
+    if (sending || !files.length) return
+    const got = choose(chosen, files)
+    if ('word' in got) return showNote(got.word)
+    showNote(null)
+    const wasChosen = !!chosen
+    chosen = got.chosen
+    drawChosen()
+    drawPages()
+    if (!wasChosen && !touch) sizeInput.focus({ preventScroll: true })
+  }
+
+  const clearChosen = () => {
+    chosen = null
+    sizeInput.value = ''
+    showNote(null)
+    drawChosen()
+    drawPages()
+  }
+
+  const sendChosen = async () => {
+    if (!chosen || sending) return
+    sending = true
+    showNote(null)
+    drawChosen()
+    const got = await sendGuide(chosen, sizeInput.value, key)
+    sending = false
+    if (got.ok) {
+      for (const u of thumbs) URL.revokeObjectURL(u)
+      return followJob(got.job)
+    }
+    drawChosen()
+    showNote(got.word)
+  }
+
+  input.addEventListener('change', () => {
+    takeFiles([...(input.files ?? [])])
+    input.value = '' // the same photo chosen again still counts
+  })
+  cameraInput.addEventListener('change', () => {
+    takeFiles([...(cameraInput.files ?? [])])
+    cameraInput.value = ''
+  })
+  camera.hidden = !touch
+  clearButton.addEventListener('click', clearChosen)
+  goButton.addEventListener('click', () => void sendChosen())
+  sizeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      void sendChosen()
+    }
+  })
+
   let depth = 0
   addEventListener('dragenter', (e) => {
     e.preventDefault()
@@ -246,7 +472,7 @@ export function startBuild(app: HTMLElement): void {
     e.preventDefault()
     depth = 0
     root.classList.remove('over')
-    if (!job && !target.classList.contains('busy')) void upload(e.dataTransfer?.files?.[0])
+    if (!job) takeFiles([...(e.dataTransfer?.files ?? [])])
   })
 
   // ------------------------------------------------------------------ 2. the agent at work
@@ -683,9 +909,13 @@ export function startBuild(app: HTMLElement): void {
   } else {
     setState('drop')
     void loadRecent()
+    drawChosen()
     refreshWords = () => {
       drawRecent()
+      drawMatches()
+      drawChosen()
       if (noteKey) showNote(noteKey)
+      if (saidKey) sayFind(saidKey, saidWarn)
     }
   }
   document.documentElement.dataset.ready = 'true'

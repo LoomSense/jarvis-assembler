@@ -142,19 +142,6 @@
   text-align: center;
 }
 
-#recent a {
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 12px 8px;
-  color: var(--ink-quiet);
-  text-decoration: none;
-  font-size: var(--ag-text-small);
-  transition: color var(--ag-dur-micro) var(--ag-ease);
-}
-
 #recent a:hover,
 #recent a:focus-visible {
   color: var(--ink);
@@ -179,6 +166,338 @@
 
 #recent .how.error {
   color: var(--ag-error);
+}
+
+/* find a guide: one quiet line to type in, its matches right under it (over the drop target, which steps back) */
+.find {
+  position: relative;
+  width: min(420px, 100%);
+  margin: 0 0 52px; /* room for the one line under it, so the drop target never moves */
+  flex: none;
+}
+
+.find input,
+.send .size {
+  display: block;
+  width: 100%;
+  height: 48px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--hair);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  text-align: center;
+  caret-color: var(--warm);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color var(--ag-dur-micro) var(--ag-ease), box-shadow var(--ag-dur-micro) var(--ag-ease);
+}
+
+.find input::placeholder,
+.send .size::placeholder {
+  color: var(--ink-quiet);
+  opacity: 0.8;
+}
+
+.find input::-webkit-search-cancel-button,
+.find input::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+.find input:hover,
+.send .size:hover {
+  border-bottom-color: var(--hair-strong);
+}
+
+.find input:focus,
+.send .size:focus {
+  outline: none;
+  border-bottom-color: var(--ink);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.find.busy input {
+  animation: underline var(--ag-dur-pulse) ease-in-out infinite;
+}
+
+@keyframes underline {
+  0%,
+  100% {
+    border-bottom-color: var(--hair);
+  }
+  50% {
+    border-bottom-color: var(--warm);
+  }
+}
+
+.find .said {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 10px 0 0;
+  font-size: var(--ag-text-small);
+  line-height: 1.4;
+  color: var(--ink-quiet);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.find .said.warn {
+  color: var(--ag-warn);
+}
+
+.matches {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+  animation: rise var(--ag-dur-enter) var(--ag-ease) both;
+}
+
+.matches a,
+.matches button,
+#recent a {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink-quiet);
+  font: inherit;
+  text-decoration: none;
+  font-size: var(--ag-text-small);
+  cursor: pointer;
+  transition: color var(--ag-dur-micro) var(--ag-ease);
+}
+
+.matches a,
+.matches button {
+  font-size: var(--ag-text-body);
+  color: var(--ink);
+}
+
+.matches a:hover,
+.matches button:hover,
+.matches a:focus-visible,
+.matches button:focus-visible {
+  color: var(--warm);
+}
+
+.matches a:focus-visible,
+.matches button:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.matches .how {
+  font-size: var(--ag-text-label);
+  letter-spacing: 0.02em;
+  color: var(--ink-quiet);
+}
+
+#build.finding .put,
+#build.finding #drop .note,
+#build.finding #recent {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.put,
+#drop .note,
+#recent {
+  transition: opacity var(--ag-dur-slow) var(--ag-ease), visibility var(--ag-dur-slow);
+}
+
+/* give the guide */
+.put {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: none;
+}
+
+.disc {
+  position: relative;
+}
+
+.target .word {
+  max-width: 78%;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.camera,
+.disc .clear {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: var(--ag-bg);
+  color: var(--ink-quiet);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--ag-dur-micro) var(--ag-ease), border-color var(--ag-dur-micro) var(--ag-ease);
+}
+
+.camera {
+  right: 4%;
+  bottom: 4%;
+}
+
+.disc .clear {
+  right: 4%;
+  top: 4%;
+}
+
+.camera input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera:hover,
+.disc .clear:hover,
+.disc .clear:focus-visible {
+  color: var(--ink);
+  border-color: var(--hair-strong);
+}
+
+.camera:focus-within,
+.disc .clear:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+/* the photos as chosen, in their order */
+.put .pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  width: min(420px, 100%);
+  margin-top: 18px;
+}
+
+.put .pages img,
+.put .pages .nopic {
+  height: 44px;
+  width: auto;
+  max-width: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--hair);
+  background: #0d0c0a;
+  opacity: 0;
+  transition: opacity 500ms var(--ag-ease);
+}
+
+.put .pages .nopic {
+  display: block;
+  width: 33px;
+  opacity: 1;
+}
+
+.put .pages img.in {
+  opacity: 0.92;
+}
+
+.put .pages .more {
+  font-size: var(--ag-text-label);
+  color: var(--ink-quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+.send {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(320px, 100%);
+  margin-top: 18px;
+  animation: rise var(--ag-dur-enter) var(--ag-ease) both;
+}
+
+.send .size {
+  height: 42px;
+  font-size: 16px; /* no zoom on focus in iOS Safari */
+}
+
+.send .go {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px 0 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.send .go .round {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hair-strong);
+  border-radius: 50%;
+  transition: border-color var(--ag-dur-micro) var(--ag-ease), transform var(--ag-dur-micro) var(--ag-ease);
+}
+
+.send .go:hover .round {
+  border-color: var(--ink);
+}
+
+.send .go:active .round {
+  transform: scale(0.96);
+}
+
+.send .go:focus-visible {
+  outline: none;
+}
+
+.send .go:focus-visible .round {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+.send .go:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+#build.chosen #recent {
+  display: none;
+}
+
+#build.chosen .target {
+  width: min(260px, 62vw);
 }
 
 /* ---------------------------------------------------------------- 2. the agent at work */
@@ -761,6 +1080,9 @@
 @media (prefers-reduced-motion: reduce) {
   .target,
   .target .ring,
+  .put,
+  #drop .note,
+  #recent,
   #work,
   #feed,
   #feed li,
@@ -771,6 +1093,9 @@
   }
 
   .target.busy,
+  .find.busy input,
+  .matches,
+  .send,
   #state .dot,
   #feed li.rise,
   #feed li.pulse .strip img:last-child,

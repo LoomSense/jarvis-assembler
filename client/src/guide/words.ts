@@ -36,6 +36,7 @@ export const WORDS = {
 export const WATCH = {
   el: {
     control: 'Ζωντανός έλεγχος με την κάμερα',
+    tapToStart: 'πάτα για να σε βλέπω',
     simulated: 'προσομοίωση',
     noVision: 'χωρίς εικόνα',
     cantSee: 'δεν βλέπω τώρα',
@@ -61,6 +62,7 @@ export const WATCH = {
   },
   en: {
     control: 'Live check with the camera',
+    tapToStart: 'tap so I can watch',
     simulated: 'simulated',
     noVision: 'no vision',
     cantSee: "can't see right now",
