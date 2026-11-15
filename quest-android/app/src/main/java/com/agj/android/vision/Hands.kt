@@ -3,8 +3,30 @@ package com.agj.android.vision
 import com.agj.android.core.Vec3
 import com.agj.android.net.HandSummary
 
-/** One tracked hand in WORLD (metres). [indexTip] null when only the wrist/palm is known. */
-data class HandSample(val wrist: Vec3, val indexTip: Vec3?, val tipRadiusM: Float = 0.008f)
+/**
+ * One tracked hand in WORLD (metres). [indexTip] and the other joints are null when only the wrist is known (the
+ * `avatar_body` source); [pinching] is the system's own index pinch (the SDK's hand "button"), null when the source
+ * does not have it.
+ */
+data class HandSample(
+    val wrist: Vec3,
+    val indexTip: Vec3?,
+    val tipRadiusM: Float = 0.008f,
+    val palm: Vec3? = null,
+    val thumbTip: Vec3? = null,
+    val middleTip: Vec3? = null,
+    val ringTip: Vec3? = null,
+    val littleTip: Vec3? = null,
+    val pinching: Boolean? = null,
+) {
+  /** Every known point of the hand (its box in the camera image, [HandProjector]). */
+  val points: List<Vec3>
+    get() = listOfNotNull(wrist, palm, thumbTip, indexTip, middleTip, ringTip, littleTip)
+
+  /** Wrist, thumb tip and index tip are known: enough to tell a pinch from an open hand. */
+  val hasFingers: Boolean
+    get() = thumbTip != null && indexTip != null
+}
 
 /** Both hands at one time; null = that hand is not tracked. */
 data class HandsFrame(val tNs: Long, val head: Vec3?, val left: HandSample?, val right: HandSample?) {
