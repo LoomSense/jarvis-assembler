@@ -161,6 +161,17 @@ namespace AG.World.Tests
             Assert.AreEqual(0.13f, e.x, 1e-5f); Assert.AreEqual(0.38f, e.y, 1e-5f);
         }
 
+        [Test]
+        public void PlausibleSize_AcceptsThePart_RejectsThePileAndAScrew()
+        {
+            Assert.IsTrue(WorldMath.PlausibleSize(new Vector2(0.38f, 0.13f), 0.38f, 0.13f));
+            Assert.IsTrue(WorldMath.PlausibleSize(new Vector2(0.15f, 0.40f), 0.38f, 0.13f), "either way round");
+            Assert.IsTrue(WorldMath.PlausibleSize(new Vector2(0.36f, 0.36f), 0.38f, 0.13f), "lying at 45 degrees: a square box");
+            Assert.IsFalse(WorldMath.PlausibleSize(new Vector2(0.90f, 0.60f), 0.38f, 0.13f), "the whole pile");
+            Assert.IsFalse(WorldMath.PlausibleSize(new Vector2(0.05f, 0.03f), 0.38f, 0.13f), "a screw");
+            Assert.IsFalse(WorldMath.PlausibleSize(new Vector2(0.38f, 0f), 0.38f, 0.13f), "an edge ray missed the table");
+        }
+
         // ---- placement: head fallback and tables ----------------------------------------------------------------
 
         [Test]

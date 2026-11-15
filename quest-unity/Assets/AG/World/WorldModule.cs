@@ -366,11 +366,16 @@ namespace AG.World
                 int li = b.extents.x >= b.extents.y && b.extents.x >= b.extents.z ? 0 : b.extents.y >= b.extents.z ? 1 : 2;
                 var axis = Vector3.zero;
                 axis[li] = 1f;
+                // footprint of the part as it lies now: the two largest sides of its box when it lies flat
+                var e = b.size;
+                float pLong = Mathf.Max(e.x, Mathf.Max(e.y, e.z)), pShort = e.x + e.y + e.z - pLong - Mathf.Min(e.x, Mathf.Min(e.y, e.z));
+                bool sizeOk = WorldMath.PlausibleSize(hit.SizeM, pLong, pShort);
                 var cur = new Pose(_anchor.position, _anchor.rotation);
                 var cand = WorldMath.AlignAnchor(cur, root.TransformPoint(b.center), root.TransformDirection(axis), hit.World,
                     WorldMath.LongAxis(hit.SizeM, hit.Across));
                 bool first = !Gate.HasPose, stronger = Rank(SourceBox) > Rank(PlaceSource);
-                if (Rank(PlaceSource) > Rank(SourceBox) && !_forceAlign) why = "weaker_source";
+                if (!sizeOk) why = "size";          // a box around the pile or a small piece must not move the ghost
+                else if (Rank(PlaceSource) > Rank(SourceBox) && !_forceAlign) why = "weaker_source";
                 else if (Gate.Offer(cur, cand, Time.realtimeSinceStartup, _forceAlign || stronger))
                 {
                     string reason = _forceAlign ? "request" : first || stronger ? "first" : "disagree";

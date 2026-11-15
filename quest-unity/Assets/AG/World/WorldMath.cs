@@ -177,6 +177,20 @@ namespace AG.World
         }
 
         /// <summary>
+        /// Is a box of <paramref name="boxSize"/> on the table about the size of a part whose footprint is
+        /// <paramref name="partLong"/> x <paramref name="partShort"/>? The picture's box is upright in the picture, so
+        /// it can be as large as the part's diagonal on both sides and no smaller than the short side; half and 1.5 times
+        /// leave room for a loose box and a wrong table height. A box around the whole pile, or around a screw, fails.
+        /// </summary>
+        public static bool PlausibleSize(Vector2 boxSize, float partLong, float partShort)
+        {
+            if (boxSize.x <= 0 || boxSize.y <= 0 || partLong <= 0) return false;
+            float diag = Mathf.Sqrt(partLong * partLong + partShort * partShort);
+            float big = Mathf.Max(boxSize.x, boxSize.y), small = Mathf.Min(boxSize.x, boxSize.y);
+            return big >= 0.5f * partLong && big <= 1.5f * diag && small >= 0.5f * partShort && small <= 1.5f * diag;
+        }
+
+        /// <summary>
         /// The long axis of a server box on the table (from <see cref="BoxOnTable"/>'s size and across), or null when
         /// the box is not clearly elongated. The picture's box is upright in the picture, so a part lying askew gives
         /// a squarish box and no axis: with <paramref name="minRatio"/> 2 a 380 x 130 mm board passes only within
