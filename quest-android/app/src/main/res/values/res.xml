@@ -6,6 +6,8 @@
     <item type="id" name="panel_hud" />
     <item type="id" name="panel_label" />
     <item type="id" name="panel_side" />
+    <item type="id" name="panel_verdict" />
+    <item type="id" name="panel_pick_label" />
 
     <style name="PanelAppThemeTransparent" parent="android:Theme">
         <item name="android:windowIsTranslucent">true</item>

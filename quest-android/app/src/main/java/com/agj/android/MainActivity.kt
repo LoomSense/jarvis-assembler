@@ -154,6 +154,29 @@ class MainActivity : AppSystemActivity() {
   private var sceneReady = false
   private var stepEntity: Entity? = null
 
+  // HELD-PART (ui/HeldPartGuide.kt): which part to take, and whether the one in the hand is right. Every lambda is
+  // first called from a frame tick or a perception event, so the lateinit fields it reads are set by then.
+  private val held =
+      com.agj.android.ui.HeldPartGuide(
+          lang = { params.lang },
+          // CONFIRM and PROMPT never talk over the guide, the rest interrupt (a speech queue maps HeldSpeech here)
+          say = { text, kind -> if (!kind.quiet) voice.say(text, params.lang) else if (!voice.speaking) voice.say(text, params.lang, interrupt = false) },
+          prefetch = { voice.prefetch(it, params.lang) },
+          speaking = { voice.speaking },
+          play = { sounds.play(it) },
+          stepPanel = stepPanel,
+          side = side,
+          wrists = { vision.input.hands?.hands?.map { it.wrist } ?: emptyList() },
+          pickTargets = { world.pickTargets },
+          window = { windowPos to windowHead },
+          showPart = { expected -> socketStarted && socket?.showPart(expected) == true },
+          nameOf = { id -> heldName(id) },
+          cues =
+              com.agj.android.guide.VerdictCues { uri, make ->
+                systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
+              },
+      )
+
   private var curStep = 0
   private var curAction = 0
   private var finished = false
@@ -233,6 +256,10 @@ class MainActivity : AppSystemActivity() {
     side.reducedMotion = params.reducedMotion
     side.showCamera = params.hud
     side.caption = s("cameraOff")
+    // HELD-PART: the "Έλεγχος" button on the ΠΑΡΕ card checks the part in the hand now
+    held.reducedMotion = params.reducedMotion
+    side.onPress = { sounds.play(Sounds.Cue.TICK) }
+    side.onCheck = { held.check("card") }
     if (params.hud) preview = CameraPreviewFeed(scope, side)
     if (params.server.isNotEmpty()) voiceCtl = VoiceController(VoiceCommandClient(params.server, params.key), scope, voiceHost)
     stepPanel.onMicDown = { voiceCtl?.down() }
@@ -359,16 +386,24 @@ class MainActivity : AppSystemActivity() {
 
         override fun onStepComplete(step: Int?, raw: JsonObject) = post("step_complete", raw, step)
 
-        override fun onWrongHardware(expected: String?, observed: String?, raw: JsonObject) = post("wrong_hardware", raw)
-
         override fun onFlipNeeded(raw: JsonObject) = post("wrong_flip", raw)
 
-        override fun onUnsure(raw: JsonObject) = post("unsure", raw)
-
         override fun onEvent(event: String, raw: JsonObject) {
-          if (event in PASS_THROUGH_EVENTS) post(event, raw)
+          // HELD-PART: right_part / right_hardware / wrong_part / wrong_hardware / unsure_show_part /
+          // show_part_result are about what is in the hand: the badge at the hand, not the ghost at the target
+          if (event in com.agj.android.ui.HeldEvent.EVENTS) runOnUiThread { held.onServerEvent(event, raw) }
+          else if (event in PASS_THROUGH_EVENTS) post(event, raw)
         }
       }
+
+  /** HELD-PART: the manifest's name for a part id or hardware code, in the app language. */
+  private fun heldName(id: String): com.agj.android.guide.PartLabel? {
+    val m = assembly?.manifest ?: return null
+    fun pick(names: com.agj.android.guide.LocalizedText, short: String, name: String) =
+        names.get(lang).ifEmpty { short.ifEmpty { name } }.replaceFirstChar { it.uppercase() }
+    m.hardware.firstOrNull { it.code == id }?.let { return com.agj.android.guide.PartLabel(pick(it.names, it.short, it.name), it.code, null) }
+    return m.parts.firstOrNull { it.id == id }?.let { com.agj.android.guide.PartLabel(pick(it.names, it.short, it.name), null, null) }
+  }
 
   // ---- coach flow (XR_NATIVE_SPEC §5.4) ----
 
@@ -578,6 +613,7 @@ class MainActivity : AppSystemActivity() {
             pill = if (lostShown) s("lost") else null,
         )
     hud.state = hud.state.copy(step = step, action = action)
+    held.onAction(step, action, act, st) // HELD-PART: a new pick; clears the badge and what was waiting
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
     panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
@@ -685,6 +721,11 @@ class MainActivity : AppSystemActivity() {
           showStep(t.step, t.action, StepBy.VOICE, speak = false)
           true
         } else false
+    // HELD-PART: "είναι σωστό αυτό;" checks the part in the hand now; the verdict speaks instead of `answer`
+    if (!moved && coach.stage == CoachFlow.Stage.GUIDE && held.onVoice(r.transcript, r.intent)) {
+      Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to false, "check" to true, "step" to curStep, "action" to curAction))
+      return
+    }
     if (r.answer.isNotBlank()) {
       val wav = r.ttsWav()
       if (wav != null) voice.play(wav, r.answer, lang) else voice.say(r.answer, lang)
@@ -871,6 +912,7 @@ class MainActivity : AppSystemActivity() {
     }
 
     trackLostPill()
+    held.tick(dt, head, coach.stage == CoachFlow.Stage.GUIDE && !finished) // HELD-PART: badge, cues, pick pill
     // The step window: beside the object once there is one, else where it was placed at start (world-locked).
     val e = stepEntity ?: return
     val objectTop = if (coach.stage == CoachFlow.Stage.GUIDE) ghost.assemblyCenterWorld() else null
@@ -987,6 +1029,7 @@ class MainActivity : AppSystemActivity() {
     sideEntity = Entity.createPanelEntity(R.id.panel_side, Transform(facingPose(Vec3(0.38f, 1.15f, -0.8f), eye)))
     windowPos = Vec3(0f, 1.15f, -0.8f)
     windowHead = eye
+    held.onSceneReady(R.id.panel_verdict, R.id.panel_pick_label) // HELD-PART
     sceneReady = true
     assembly?.let { ghost.load(it) }
   }
@@ -1004,6 +1047,13 @@ class MainActivity : AppSystemActivity() {
           // The label sits on the object: mesh mode, depth-sorted with the 3D guidance (RESEARCH.md §2).
           panel(R.id.panel_label, LABEL_PANEL_W, LABEL_PANEL_H, layer = false) {
             ComposeView(it).apply { setContent { LabelPill(label) } }
+          },
+          // HELD-PART: the verdict badge at the hand and the name pill above the pick marker (layers, like the window)
+          panel(R.id.panel_verdict, com.agj.android.ui.VERDICT_PANEL_W, com.agj.android.ui.VERDICT_PANEL_H, layer = true) {
+            ComposeView(it).apply { setContent { com.agj.android.ui.VerdictBadge(held.badge) } }
+          },
+          panel(R.id.panel_pick_label, LABEL_PANEL_W, LABEL_PANEL_H, layer = true) {
+            ComposeView(it).apply { setContent { LabelPill(held.pickLabel) } }
           },
       )
 
