@@ -7,7 +7,7 @@ Everything in this repository that we did not build ourselves during the hackath
 | What | Used for | Provider |
 |---|---|---|
 | `gemini-4-carbon` | Reading the guide and extracting the plan | Google (Gemini API) |
-| `claude-opus-5-5` | The build agent: reads the guide, writes the plan and the CadQuery scripts, fixes them until the fit checks pass (PLAN D20) | Anthropic (Claude Agent SDK) |
+| `claude-fable-5-2` (demo setting `AGJ_AGENT_MODEL`; code default `claude-opus-5-5`) | The build agent: reads the guide, writes the plan and the CadQuery scripts, fixes them until the fit checks pass (PLAN D20) | Anthropic (Claude Agent SDK) |
 | `gemini-4-hydrogen` | Writing the per-step questions | Google (Gemini API) |
 | `gemini-decision-1` | Comparing renders with the guide's drawings; checking live camera frames | Google (Gemini API) |
 | `gemini-3.8-live` | The always-on voice agent | Google (Gemini API) |

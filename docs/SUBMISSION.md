@@ -47,7 +47,7 @@ Nothing below is claimed without a measurement, a file or a commit. Run folders 
 | `gemini-3.8-live` | Voice session token (`POST /api/live/token`); a session opened from Python, not used by the headset apps | `server/live_token.py` |
 | `gemini-4-carbon` | Called once in the model smoke test; not in the running pipeline | `eval/smoke_models.py` |
 
-The plan and the part scripts are written by a build agent on the Claude Agent SDK (`claude-opus-5-5`, `docs/PLAN.md` D20); Gemini checks its output and does everything live.
+The plan and the part scripts are written by a build agent on the Claude Agent SDK (`docs/PLAN.md` D20; the demo runs it on `claude-fable-5-2` through `AGJ_AGENT_MODEL`, the code default and the timed builds above are `claude-opus-5-5`); Gemini checks its output and does everything live.
 
 ## Architecture
 
