@@ -132,9 +132,6 @@ async def mint(settings: Settings, job: Job, mode: str = "voice", lang: str = "e
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE))),
                 system_instruction=coach_instruction(job, lang) if see else system_instruction(job),
                 tools=COACH_TOOLS if see else TOOLS,
-                # the same voice as the headset's spoken guidance (server/routes/tts.py: TTS_VOICE, default Schedar)
-                speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=os.environ.get("TTS_VOICE", "Schedar")))),
                 # the coach's words are also shown on the screen, and the person's are logged by the page
                 output_audio_transcription=types.AudioTranscriptionConfig() if see else None,
                 context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),
