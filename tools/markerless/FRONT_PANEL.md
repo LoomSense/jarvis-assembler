@@ -1,6 +1,6 @@
 # Front panel on the table without a marker: what to port today
 
-Reference: `server/perception/panel.py`, function `detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None)` (the only copy). `tools/markerless/panel_pose.py` evaluates it on a dataset.
+Reference: `server/perception/panel.py`, function `detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None)` (the only copy; `detect_footprint` is the same detector for any rectangle, see "All steps"). `tools/markerless/panel_pose.py` evaluates it on a dataset.
 
 **Status, plainly.** It is measured on synthetic renders only. There are no real
 Quest camera frames with a pose in the repo, so nothing here is proven on the
@@ -69,7 +69,61 @@ states as negatives. Table plane noise σ 3 mm / 0.4°, camera pose noise
   warp and the Lab conversion of a 560 × 560 image).
 
 Reproduce: `python panel_pose.py data/synth out/panel_pose.json` (dataset from
-`gen_dataset.py`, see `REPORT.md` §8).
+`gen_dataset.py`, see `REPORT.md` §8). Add `--raw` for the renders without the image degradation.
+
+## All steps (Sun 15 Nov): which steps the tracker is on for
+
+`detect_footprint(img, K, T_world_cam, T_world_table, length, width, height, prev_yaw, fill_hull)` is the same
+detector for any rectangle; `detect_front_panel` is it with 380 × 130 × 16 mm. Every gate and constant is unchanged.
+The only addition is `fill_hull`: area, rectness and the contrast ring use the convex hull of the blob (the
+rectangle itself does not change: the minimum-area rectangle of a blob is that of its hull).
+
+`footprint.py` computes from the guide, per step, the outline of the placed parts in the step's resting pose
+(`base` = when the step starts, `done` = when it ends) and the detector's target: the part that lies flat on the
+surface, spans the whole outline and is at most 30 mm thick. A step without one has no target and the tracker is
+off. Dataset state N is the end of guide step N, so it is also what stands there during step N + 1.
+
+Same 360 renders, same degradation and noise, same success (10 mm and 5°, yaw modulo 180°). "Gross" is a trusted
+pose more than 30 mm or 10° off. "Reports" replays the app's rule (3 trusted in a row within 10 mm and 3°) on each
+30-frame sequence.
+
+| guide step | what stands there (dataset state) | detector target | trusted | within 10 mm & 5° | position p50 / p90 / max (mm) | gross trusted | reports (max error) | tracker |
+|---|---|---|---|---|---|---|---|---|
+| 1 | front alone (state 1) | 380 × 130 × 16 | 71 / 90 (79%) | 61 | 4.6 / 10.8 / 17.0 | 0 | 38 (15.6 mm) | on |
+| 2, sides not on yet | front alone (state 1) | 380 × 130 × 16, hull | 75 / 90 (83%) | 64 | 4.7 / 11.3 / 17.0 | 0 | 39 (15.6 mm) | on |
+| 2 with the sides on, 3 | sides standing on the front (state 2) | 380 × 130 × 16, hull | 30 / 90 (33%) | 30 | 5.7 / 8.7 / 9.5 | 0 | 14 (7.0 mm) | on |
+| 4 before the bottom is in | open U, turned over | none | not rendered | – | – | – | – | off |
+| 4 with the bottom in, 5 | turned-over box (state 4) | none | – | – | – | – | – | off |
+| 5 with the back in, 6, 7 | turned-over box with back (state 5) | none | – | – | – | – | – | off |
+
+Tried on the later states and not shipped (same script, "not shipped" rows):
+
+- **Sides standing, the whole outline 380 × 130 × 418:** 0 of 90 trusted, with or without the hull. The camera can
+  be below the top of the sides, and from above the sides are two 16 mm strips. The front panel under them is
+  the rectangle that can be seen: without the hull 0 of 90 (the sides hide its ends), with the hull 30 of 90, all
+  within 10 mm. By light: office 19 / 30, window 0 / 30 (low sun, hard shadows), dim 11 / 30.
+- **Turned-over box, the whole outline 418 × 380 × 130:** 0 of 90 trusted on both states; with the hull 1 of 90 on
+  state 4 and that one is gross (31.6 mm, 5.9°). At the side rims (115 mm): 1 of 90, 27 mm off. Why: from above the
+  box is not one rectangle at one height (front edge 380 mm wide at 130 mm, sides and bottom 352 mm wide at 103 to
+  115 mm), the 115 mm side faces smear by up to about 100 mm (from the geometry, not measured) and are white or grey
+  depending on the light, so the predicted smear is wrong one way or the other, and 418 against 380 mm leaves little room before the two sides are swapped.
+  A scratch variant without the smear model (not in the repo) trusted 12 to 20 of 90 on state 4 at p50 11 to
+  13 mm with 2 to 6 within 10 mm, and on state 5 it trusted 0 to 3 of 90, none within 10 mm and, with the hull, all of them 90° off. So steps 4 to
+  7 are off.
+- **The front-panel target left on at the turned-over box:** 0 of 180 trusted on degraded images; on the raw
+  renders it trusts one frame 248 mm off (`s08_f012`), never three in a row. The tracker is off there anyway.
+
+On the raw renders (`--raw`) the shipped rows read: 72 / 90 (max 16.5 mm), 75 / 90 (max 16.5 mm), 32 / 90 (max
+9.7 mm); gross 0 in all three.
+
+Against the edge tracker (`REPORT.md` §4, all frames, no trust flag): step 1 100% within 10 mm and 5°, step 2 83%,
+step 4 52% (33% flipped by 180°), step 5 99%. The edge tracker is right more often on the standing sides (83%
+against 33% of frames) but shows its wrong poses (slips of 16 to 23 mm) like its right ones; this detector shows
+nothing on the frames it does not trust. For the turned-over box the edge tracker is the only one of the two that
+works at all (with the slips and 180° flips listed in `REPORT.md` §4).
+
+The hull makes the rectness gate weaker: with it, 3 of the 12 frames with a hand over the panel are trusted (6 to
+13 mm off). It is used only in steps where parts stand on the panel.
 
 ## Porting
 

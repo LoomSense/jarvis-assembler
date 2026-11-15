@@ -62,7 +62,7 @@ class PanelPoseTest {
 
   @Test
   fun homographyAndWindowMatchThePythonReference() {
-    assertEquals(8, ref.size)
+    assertEquals(9, ref.size)
     for (row in ref) {
       val v = row.view()
       assertEquals(row["N"]!!.jsonPrimitive.int, v.n)
@@ -556,7 +556,116 @@ class PanelPoseTest {
         assertTrue("$id yaw $yawErr deg from the ground truth", yawErr < 1.0)
       }
     }
-    assertEquals(2, trustedRows) // s00_f010 and s02_f012 are the panel alone; s00_f023 has a hand over it; five are later states
+    assertEquals(2, trustedRows) // s00_f010 and s02_f012 are the panel alone; s00_f023 has a hand over it; six are later states
+  }
+
+  @Test
+  fun hullAndOtherRectanglesMatchThePythonReferenceOnTheSampleFrames() {
+    val root = repoRoot()
+    assumeTrue("tools/markerless/sample not found", root != null)
+    assumeTrue("desktop OpenCV not loadable", loadOpenCv())
+    val hull = PanelParams(fillHull = true) // steps 2 and 3: the sides stand on the front
+    val box = PanelParams(longM = 0.418, shortM = 0.380, thickM = 0.130) // the turned-over box's outline: not shipped, pins the parameters
+    val trusted = ArrayList<String>()
+    for (row in ref) {
+      val id = row["id"]!!.jsonPrimitive.content
+      val img = Imgcodecs.imread(File(root, "tools/markerless/sample/img/$id.jpg").path, Imgcodecs.IMREAD_COLOR)
+      assertFalse("$id did not load", img.empty())
+      val k = row.mat("K")
+      val intr = Intrinsics(k[0], k[4], k[2], k[5], img.cols(), img.rows())
+      for ((key, p) in listOf("out_hull" to hull, "out_box" to box)) {
+        val out = row[key]!!.jsonObject
+        val r = PanelPose.detect(img, intr, row.mat("T_table_cam"), null, p)
+        assertEquals("$id $key", out["trusted"]!!.jsonPrimitive.boolean, r.trusted)
+        assertEquals("$id $key", out["reason"]!!.jsonPrimitive.content, r.reason)
+        // numbers: every hull row; of the box's outline only a trusted one (an untrusted 400 mm blob's best candidate
+        // moves by more than a millimetre between OpenCV builds)
+        if (out["x"] == null || (key == "out_box" && !r.trusted)) continue
+        assertEquals("$id $key x", out.num("x"), r.x!!, 1e-3)
+        assertEquals("$id $key y", out.num("y"), r.y!!, 1e-3)
+        assertEquals("$id $key yaw", 0.0, Math.toDegrees(PanelConsensus.yawDiffMod180(out.num("yaw"), r.yaw!!)), 0.2)
+        val e = out["size_err_mm"]!!.jsonArray.doubles()
+        assertEquals("$id $key err long", e[0], r.sizeErrMm!![0], 1.0)
+        assertEquals("$id $key err short", e[1], r.sizeErrMm!![1], 1.0)
+        assertEquals("$id $key rectness", out.num("rectness"), r.rectness!!, 0.02)
+        if (key == "out_hull" && r.trusted) {
+          trusted += id
+          // states 1 and 2: the rectangle is the drawer front, the dataset's object frame is its FOOTPRINT frame
+          val wt = row.mat("T_world_table")
+          val gt = row.mat("gt_T_world_obj")
+          val d = (0 until 3).map { wt[4 * it] * r.x!! + wt[4 * it + 1] * r.y!! + wt[4 * it + 3] - gt[4 * it + 3] }
+          val mm = sqrt(d.sumOf { it * it }) * 1000
+          val yawErr = Math.toDegrees(PanelConsensus.yawDiffMod180(r.yaw!!, row["gt_obj_xy_yaw"]!!.jsonArray.doubles()[2]))
+          println("panel $id (state ${row["state"]}) hull vs ground truth: %.1f mm, %.2f deg".format(mm, yawErr))
+          assertTrue("$id $mm mm from the ground truth", mm < 17.0)
+          assertTrue("$id yaw $yawErr deg from the ground truth", yawErr < 1.0)
+        }
+      }
+      img.release()
+    }
+    // the panel alone (also under the hand of s00_f023: the hull bridges it) and s03_f010: the sides standing on it
+    assertEquals(listOf("s00_f010", "s00_f023", "s02_f012", "s03_f010"), trusted)
+  }
+
+  @Test
+  fun trackerFollowsTheStepsTarget() {
+    val got = ArrayList<Got>()
+    val lines = ArrayList<String>()
+    var t = 0L
+    val tr = tracker(got, lines, { t })
+    tr.setJob("malm-drawer")
+    val table = PanelFrames.tableAtHeight(0.74f)
+    fun events() = lines.map { Json.parseToJsonElement(it).jsonObject }.filter { it["ev"]!!.jsonPrimitive.content == "panel" }
+    val front = PanelTarget.FRONT_PANEL
+    tr.setStep(1, front)
+    tr.setStep(1, front) // every action of the step calls it: one line
+    assertEquals(1, events().size)
+    val e1 = events().last()
+    assertTrue(e1["on"]!!.jsonPrimitive.boolean)
+    assertEquals(1, e1["step"]!!.jsonPrimitive.int)
+    assertEquals(listOf(380, 130, 16), e1["footprint_mm"]!!.jsonArray.map { it.jsonPrimitive.int })
+    assertFalse(e1["hull"]!!.jsonPrimitive.boolean)
+    tr.onResult(trusted(0.100, 0.400, 20.0), table, t)
+    t += 333
+    tr.onResult(trusted(0.101, 0.400, 20.0), table, t)
+    // steps 2 and 3: the same panel, now with the hull: the row of three carries on
+    tr.setStep(2, front.copy(fillHull = true))
+    assertTrue(tr.active)
+    assertTrue(events().last()["hull"]!!.jsonPrimitive.boolean)
+    t += 333
+    tr.onResult(trusted(0.102, 0.400, 20.0), table, t)
+    assertEquals(1, got.size)
+    // step 4: the drawer is turned over, no flat base part: off, and a result still on its way is dropped
+    tr.setStep(4, null)
+    assertFalse(tr.active)
+    val off = events().last()
+    assertFalse(off["on"]!!.jsonPrimitive.boolean)
+    assertEquals(4, off["step"]!!.jsonPrimitive.int)
+    assertEquals(PanelPoseTracker.REASON_NO_TARGET, off["reason"]!!.jsonPrimitive.content)
+    assertTrue(off["footprint_mm"] !is JsonArray)
+    val quiet = lines.size
+    for (i in 0 until 4) {
+      t += 333
+      tr.onResult(trusted(0.300, 0.400, 20.0), table, t, front)
+    }
+    tr.onFrame(frame(9, Pose3(Vec3(0f, 1.24f, 0f), Quat(1f, 0f, 0f, 0f))))
+    assertEquals(1, got.size)
+    assertEquals(quiet, lines.size)
+    // another rectangle elsewhere in the assembly: a new row of three, and the pose goes through ITS frame
+    val other = PanelTarget(0.418, 0.380, 0.016, false, Pose3(Vec3(0f, 0.115f, -0.193f), front.assemblyFromFootprint.q), "part_other")
+    tr.setStep(5, other)
+    for (i in 0 until 3) {
+      t += 333
+      tr.onResult(trusted(0.200, 0.500, 30.0), table, t)
+    }
+    assertEquals(2, got.size)
+    val want = PanelFrames.worldFromAssembly(table, 0.200, 0.500, Math.toRadians(30.0), other.assemblyFromFootprint)
+    assertEquals(0f, (got[1].pose.t - want.t).length(), 1e-5f)
+    val seen = events().last { it["streak"] != null }
+    assertEquals(listOf(418, 380, 16), seen["footprint_mm"]!!.jsonArray.map { it.jsonPrimitive.int })
+    assertEquals(5, seen["step"]!!.jsonPrimitive.int)
+    assertTrue(seen["on"]!!.jsonPrimitive.boolean)
+    tr.stop()
   }
 
   /**
@@ -577,13 +686,39 @@ class PanelPoseTest {
     var falselyTrusted = 0
     var onlyKotlin = 0
     var maxMm = 0.0
+    var hullRows = 0
+    var hullSame = 0
+    var hullBoth = 0
+    var hullOnlyKotlin = 0
+    var hullKotlinTrusted = 0
+    var hullPythonTrusted = 0
+    var maxHullMm = 0.0
     val gtMm = ArrayList<Double>()
     val ms = ArrayList<Double>()
     for (row in rows) {
       val id = row["id"]!!.jsonPrimitive.content
       val img = Imgcodecs.imread(File(dir, "img/$id.jpg").path, Imgcodecs.IMREAD_COLOR)
       val k = row.mat("K")
-      val r = PanelPose.detect(img, Intrinsics(k[0], k[4], k[2], k[5], img.cols(), img.rows()), row.mat("T_table_cam"))
+      val intr = Intrinsics(k[0], k[4], k[2], k[5], img.cols(), img.rows())
+      val r = PanelPose.detect(img, intr, row.mat("T_table_cam"))
+      val oh = row["out_hull"]?.jsonObject
+      if (oh != null) {
+        // the same rectangle with the convex hull (steps 2 and 3)
+        val rh = PanelPose.detect(img, intr, row.mat("T_table_cam"), null, PanelParams(fillHull = true))
+        val pyh = oh["trusted"]!!.jsonPrimitive.boolean
+        hullRows++
+        if (pyh) hullPythonTrusted++
+        if (rh.trusted) hullKotlinTrusted++
+        if (pyh == rh.trusted && oh["reason"]!!.jsonPrimitive.content == rh.reason) hullSame++
+        else println("panel $id hull differs: kotlin ${rh.trusted} '${rh.reason}', python $pyh '${oh["reason"]!!.jsonPrimitive.content}'")
+        if (rh.trusted && !pyh) hullOnlyKotlin++
+        if (rh.trusted && pyh) {
+          hullBoth++
+          val dx = oh.num("x") - rh.x!!
+          val dy = oh.num("y") - rh.y!!
+          maxHullMm = maxOf(maxHullMm, sqrt(dx * dx + dy * dy) * 1000)
+        }
+      }
       img.release()
       ms += r.ms
       val out = row["out"]!!.jsonObject
@@ -610,6 +745,13 @@ class PanelPoseTest {
         val d = (0 until 3).map { wt[4 * it] * r.x!! + wt[4 * it + 1] * r.y!! + wt[4 * it + 3] - gt[4 * it + 3] }
         gtMm += sqrt(d.sumOf { it * it }) * 1000
       }
+    }
+    if (hullRows > 0) {
+      println("panel render set, hull: $hullRows frames, same trusted+reason $hullSame, trusted kotlin $hullKotlinTrusted / python $hullPythonTrusted, " +
+          "both $hullBoth (max kotlin-python %.2f mm), only kotlin $hullOnlyKotlin".format(maxHullMm))
+      assertTrue("hull same $hullSame of $hullRows", hullSame >= hullRows * 0.98)
+      assertEquals(0, hullOnlyKotlin)
+      assertTrue("hull kotlin-python $maxHullMm mm", maxHullMm < 2.0)
     }
     gtMm.sort()
     ms.sort()

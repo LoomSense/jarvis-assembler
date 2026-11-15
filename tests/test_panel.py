@@ -96,3 +96,27 @@ def test_validation_and_auth(client):
     assert r.status_code == 422 and "column-major" in r.json()["detail"]
     scaled = [v * 2 if i in (0, 1, 2, 4, 5, 6, 8, 9, 10) else v for i, v in enumerate(good)]
     assert client.post(url, json={**body("s00_f010"), "cam_in_table": scaled}).status_code == 422
+
+
+def test_footprint_under_the_standing_sides_needs_the_hull():
+    """Steps 2 and 3 of the drawer: the sides stand on the front and hide its ends. Same rectangle, `fill_hull`.
+    Straight to the detector (the route stays the front panel alone); numbers in FRONT_PANEL.md "All steps"."""
+    import cv2
+    import numpy as np
+
+    from server.perception.panel import detect_footprint, detect_front_panel
+    f = FRAMES["s03_f010"]
+    img = cv2.imread(str(SAMPLE / "img" / "s03_f010.jpg"))
+    K, T = np.array(f["K"], float), np.array(f["T_world_cam"], float)
+    assert detect_front_panel(img, K, T, np.eye(4))["trusted"] is False
+    out = detect_footprint(img, K, T, np.eye(4), fill_hull=True)
+    assert out["trusted"] is True and out["reason"] == "ok"
+    mm, deg = errors(out, "s03_f010")
+    assert mm < 10 and deg < 2, (mm, deg)                                # stated: max 9.5 mm on the trusted frames
+    box = detect_footprint(img, K, T, np.eye(4), length=0.418, width=0.380, height=0.130)
+    assert box["trusted"] is False and box["reason"] == "size is not 418 x 380 mm"
+    # the defaults ARE the front panel detector
+    g = FRAMES["s00_f010"]
+    alone = cv2.imread(str(SAMPLE / "img" / "s00_f010.jpg"))
+    Kg, Tg = np.array(g["K"], float), np.array(g["T_world_cam"], float)
+    assert detect_footprint(alone, Kg, Tg, np.eye(4)) == detect_front_panel(alone, Kg, Tg, np.eye(4))

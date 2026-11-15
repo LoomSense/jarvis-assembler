@@ -325,8 +325,19 @@ Optional, on the whole render set (git-ignored): export the reference with
 Measured (360 un-degraded frames, the evaluation's noisy camera pose and table prior): the same 73 frames trusted
 as Python, the same reason on 358 of 360, at most 2.0 mm between the two, Kotlin against the ground truth p50 4.4 /
 p90 10.7 / max 16.5 mm, 9 ms p50 on the Mac. One of the 73 is a later assembly state (`s08_f012`, step 4,
-rectness 0.862), trusted by the reference too on un-degraded frames: switch the tracker off after step 1
-(`panel?.enabled = …` below).
+rectness 0.862), trusted by the reference too on un-degraded frames: the tracker is off from step 4
+(`panel?.setStep(…)` below).
+
+**Every step, not only the first (Sun 15 Nov).** `vision/StepFootprint.kt` computes from the app's own guide the
+outline of the assembly at each step (`StepFootprints.of`: long side, short side, height, ASSEMBLY ← FOOTPRINT) and
+what the detector is given (`StepFootprints.target`): the flat base part that spans the outline, or null. The Python
+side is `tools/markerless/footprint.py`; `StepFootprintTest` pins the two (14 outlines, 7 targets). For the drawer
+the target is the front panel in steps 1–3 (380 × 130 × 16 mm; in steps 2 and 3 the sides stand on it, so the
+convex hull of the blob is measured, `PanelParams.fillHull`) and nothing from step 4: the turned-over box is not a
+flat rectangle of one height from above and the renders say it cannot be trusted. `PanelPoseTracker.setStep(step,
+target)` switches it; a null target rests the tracker and the ghost keeps its last pose. Numbers:
+`tools/markerless/FRONT_PANEL.md` "All steps". On the render set the hull variant agrees with Python on 357 of 360
+frames (trusted 108 / 108, at most 2.0 mm apart, nothing trusted by Kotlin alone).
 
 **Not wired in MainActivity yet.** The lines (compiled against this tree, then taken out again):
 
@@ -346,8 +357,9 @@ if (params.markerless) {
 panel?.setJob(a.jobId)
 // visionListener.onFrame, first line:
 panel?.onFrame(frame)
-// showStep(), after world.setAction(…): only while the front is alone on the table
-panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
+// showStep(), after world.setAction(…): the flat base part of this step, or off where there is none
+// (import com.agj.android.vision.StepFootprints)
+panel?.setStep(step, assembly?.let { a -> a.guide?.let { g -> StepFootprints.target(g, a.manifest, step) } })
 // onDestroy, after world.stop():
 panel?.stop()
 ```
