@@ -75,6 +75,17 @@ class HeldPartGuide(
 
   /** BOARD-CUE: the face that is up on the board to take (world/FlatParts.kt), for the pill and the spoken prompt; null = not known. */
   var boardLook: () -> com.agj.android.vision.FaceLook? = { null }
+
+  /** WHERE-IS: where the part to take (its ids) was last seen, for a wearer at this head pose; null = not remembered, or already said. */
+  var remembered: (List<String>, Pose3) -> com.agj.android.world.Where? = { _, _ -> null }
+
+  /** WHERE-IS: the prompt being said now is the remembered place (the part is not in view), not a located part. */
+  var promptFromMemory = false
+    private set
+
+  /** WHERE-IS: a "right" verdict was shown for this action (the part is in the hand). */
+  val rightVerdict: Boolean
+    get() = rightSeen
   var reducedMotion = false
     set(v) {
       field = v
@@ -424,18 +435,40 @@ class HeldPartGuide(
       prompted = true // already in the hand: nothing to point at
       return
     }
-    if (best != null && headPose != null && age >= PROMPT_AFTER_MS && !speaking() && machine.shown == null && checkingSince == null) {
+    val quiet = headPose != null && age >= PROMPT_AFTER_MS && !speaking() && machine.shown == null && checkingSince == null
+    // WHERE-IS: not in view, but its last place is remembered: that is said, once
+    val seen = if (best == null && quiet && headPose != null) remembered(wanted, headPose) else null
+    if (best != null && headPose != null && quiet) {
       prompted = true
       val bearing = PickPrompt.bearing(headPose, best.worldPos)
       val whereText = s(bearing)
       // BOARD-CUE: "Πάρε: Αριστερό πλαϊνό, αριστερά σου. Το βλέπω με τη ράγα προς τα πάνω."
       val look = if (best.method == com.agj.android.world.FlatParts.METHOD) boardLook() else null
-      say(listOfNotNull(PickPrompt.line(lang(), l.name, whereText), look?.let { com.agj.android.world.BoardWords.seen(it, lang()) }).joinToString(" "), HeldSpeech.PROMPT)
+      // WHERE-IS: farther than 1.2 m: "Πάρε: Αριστερό πλαϊνό. Είναι πίσω σου, περίπου δύο μέτρα. Φέρ' το κοντά σου."
+      val w = com.agj.android.world.WhereIs.where(headPose, best.worldPos)
+      val far = w.distM > com.agj.android.world.WhereLines.FAR_M
+      say(listOfNotNull(com.agj.android.world.WhereLines.take(lang(), l.name, w, whereText, null), look?.let { com.agj.android.world.BoardWords.seen(it, lang()) }).joinToString(" "), HeldSpeech.PROMPT)
       log.event(
           "pick_prompt",
-          mapOf("part" to expected, "name" to l.name, "position" to whereText, "bearing" to bearing.removePrefix("where").lowercase(),
+          mapOf("part" to expected, "name" to l.name, "position" to (if (far) w.bearing(lang()) else whereText),
+              "bearing" to (if (far) w.sector.wire else bearing.removePrefix("where").lowercase()),
               "in_view" to (best.countSeen ?: inView), "needed" to (best.countNeeded ?: needed), "spoken" to true,
-              "step" to step, "action" to action),
+              "step" to step, "action" to action, "source" to "live", "dist_m" to Math.round(w.distM * 100) / 100.0),
+      )
+    } else if (seen != null) {
+      // WHERE-IS: "Πάρε: Βίδα έκκεντρου. Την είδα τελευταία πίσω αριστερά σου, περίπου ένα μέτρο."
+      prompted = true
+      promptFromMemory = true
+      try {
+        say(com.agj.android.world.WhereLines.take(lang(), l.name, null, null, seen), HeldSpeech.PROMPT)
+      } finally {
+        promptFromMemory = false
+      }
+      log.event(
+          "pick_prompt",
+          mapOf("part" to expected, "name" to l.name, "position" to seen.bearing(lang()), "bearing" to seen.sector.wire, "in_view" to 0,
+              "needed" to needed, "spoken" to true, "step" to step, "action" to action, "source" to "memory",
+              "dist_m" to Math.round(seen.distM * 100) / 100.0),
       )
     } else if (age >= PROMPT_GIVE_UP_MS) {
       prompted = true

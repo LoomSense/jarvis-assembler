@@ -327,6 +327,9 @@ class FlatParts(
   @Volatile var wanted = false
     private set
 
+  /** WHERE-IS: the session's memory of where each board was last seen (world/WhereIs.kt); fed by [update]. */
+  @Volatile var whereIs: WhereIs? = null
+
   /** The loaded guide; null clears everything. */
   @Synchronized
   fun setAssembly(a: Assembly?) {
@@ -476,6 +479,12 @@ class FlatParts(
         used += i
       }
     }
+    // WHERE-IS: every live labelled board into the memory; a board placed by an earlier action leaves it
+    whereIs?.boards(
+        tracks.filter { it.kind != null && it.seen >= cfg.minSeen && nowMs - it.lastMs <= cfg.liveMs }
+            .map { WhereIs.BoardSight(it.kind!!.name, it.index, it.center(), it.which.value) },
+        kinds.associate { k -> k.name to k.boards.count { b -> !placed(b) } },
+        boards.filter { placed(it) }.map { it.partId }.toSet())
     val lit = choose(nowMs)
     litKey = lit?.key
     if (nowMs - lastLogMs >= 1000) {

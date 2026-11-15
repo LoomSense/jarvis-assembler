@@ -620,4 +620,37 @@ class ActionCoachTest {
     assertEquals(CoachChange(2, 0, CoachPhase.PICK, CoachPhase.PLACE, "right_part"), c)
     assertEquals("grab_rect", coach.how)
   }
+
+  // ---- WHERE-IS: "where is it?" said while "put it here" is shown ----
+
+  @Test
+  fun askedWhereGoesBackToTakeOnlyFromPutItHere() {
+    bolt(0, last = false)
+    assertNull("still at take: nothing to go back to", coach.backToPick(at(1000)))
+    assertNull(coach.tick(at(16), PickSight(spots = listOf(PickSpot(7, lay)))))
+    // no hand data: the bolt is gone from where it lay for 1.5 s, so "put it here" came by itself
+    var gone: CoachChange? = null
+    repeat(120) { if (gone == null) gone = coach.tick(at(16), PickSight()) }
+    assertEquals(CoachChange(3, 0, CoachPhase.PICK, CoachPhase.PLACE, "part_moved"), gone)
+    val back = coach.backToPick(at(2000))!!
+    assertEquals(CoachChange(3, 0, CoachPhase.PLACE, CoachPhase.PICK, "asked"), back)
+    assertEquals(CoachPhase.PICK, coach.phase)
+    assertTrue(coach.hasPick)
+    assertNull("once", coach.backToPick(at(100)))
+    // where the bolt lay is learned afresh: its absence does not end "take" again
+    repeat(300) { assertNull(coach.tick(at(16), PickSight())) }
+    assertEquals(CoachPhase.PICK, coach.phase)
+    // found again and taken: on as usual, and the rest of the action is unchanged
+    assertNull(coach.tick(at(16), PickSight(spots = listOf(PickSpot(9, lay)))))
+    assertEquals(CoachPhase.PLACE, coach.rightPart(at(1000), "118331")!!.to)
+    assertEquals("voice", coach.backToPick(at(500), why = "voice")!!.why)
+    assertEquals(CoachPhase.PLACE, coach.next(at(1000))!!.to)
+    assertEquals(CoachPhase.DONE, coach.next(at(1000))!!.to)
+    assertNull("a finished action stays finished", coach.backToPick(at(1000)))
+    // nothing to take (a turn): "put it here" is its only phase
+    coach.start(4, 0, ActionKind.TURN, emptyList(), true, at(100), "next")
+    assertEquals(CoachPhase.PLACE, coach.phase)
+    assertNull(coach.backToPick(at(1000)))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+  }
 }

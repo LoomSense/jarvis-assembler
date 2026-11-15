@@ -338,4 +338,59 @@ class HeldPartGuideTest {
     assertEquals(0.11f, Math.hypot((land.x + 0.4f).toDouble(), (land.z + 0.5f).toDouble()).toFloat(), 1e-4f)
     assertTrue("on the hand's side", land.x > -0.4f)
   }
+
+  // ---- WHERE-IS: the prompt of a part that is far away, or not in view but remembered ----
+
+  @Test
+  fun promptSaysWhereAFarPartIsAndWhereAHiddenOneWasLastSeen() {
+    // seen, two metres to the left: where it is, and "bring it close"
+    start()
+    targets = listOf(PickTarget("118331", "x", Vec3(-2f, 0f, 0f), 0.9, 0))
+    tick(3100)
+    assertEquals(listOf("Πάρε: Βίδα έκκεντρου. Είναι αριστερά σου, περίπου δύο μέτρα. Φέρ' την κοντά σου." to HeldSpeech.PROMPT), said)
+    assertFalse(guide.promptFromMemory)
+    val far = logged("pick_prompt").single()
+    assertEquals("αριστερά σου", far.str("position"))
+    assertEquals("left", far.str("bearing"))
+    assertEquals("live", far.str("source"))
+    // not in view, its last place remembered: said once, as a prompt, after the same delay
+    said.clear()
+    targets = emptyList()
+    var fromMemory = false
+    guide.remembered = { ids, h ->
+      assertEquals(listOf("cam_bolt", "118331"), ids)
+      com.agj.android.world.WhereIs.where(h, Vec3(-1f, 0f, 1f))
+    }
+    guide.onAction(2, 1, bolt, step(2, bolt))
+    tick(2000)
+    assertTrue("not before the prompt delay", said.isEmpty())
+    speaking = true
+    tick(1500)
+    assertTrue("never over another line", said.isEmpty())
+    speaking = false
+    tick(100)
+    fromMemory = said.size == 1
+    assertTrue(fromMemory)
+    assertEquals("Πάρε: Βίδα έκκεντρου. Την είδα τελευταία πίσω αριστερά σου, περίπου ενάμισι μέτρο." to HeldSpeech.PROMPT, said.single())
+    tick(20_000)
+    assertEquals("once per action", 1, said.size)
+    val mem = logged("pick_prompt").last()
+    assertEquals("memory", mem.str("source"))
+    assertEquals("behind_left", mem.str("bearing"))
+    assertEquals("true", mem.str("spoken"))
+    assertEquals(2, logged("pick_prompt").size)
+    // nothing remembered and nothing seen: silence, as before
+    said.clear()
+    guide.remembered = { _, _ -> null }
+    guide.onAction(2, 2, bolt, step(2, bolt))
+    tick(16_000)
+    assertTrue(said.isEmpty())
+    assertEquals("false", logged("pick_prompt").last().str("spoken"))
+    // a right verdict is known to the activity (it then does not go back to "take" on "where is it?")
+    assertFalse(guide.rightVerdict)
+    guide.onAction(2, 3, bolt, step(2, bolt))
+    tick(100)
+    event("right_hardware", "118331", "118331")
+    assertTrue(guide.rightVerdict)
+  }
 }
