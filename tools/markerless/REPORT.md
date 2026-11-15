@@ -251,3 +251,7 @@ python check_gt.py data/synth sheet.jpg                       # GT overlay conta
 python debug_gt.py data/synth dbg.jpg s07_f000                # edge fitness at the GT pose
 python diag_init.py data/synth s06_f000                       # init ranking vs GT
 ```
+
+## 9. Update: no printed marker for the demo
+
+The marker cannot be printed, so step 1 needs a markerless pose today. See `FRONT_PANEL.md` and `panel_pose.py`: a single-frame detector for the front panel lying flat on the table (x, y, yaw on the table plane), with trust gates and porting notes. It replaces the recommendation in section 7 for step 1 only.

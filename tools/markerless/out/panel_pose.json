@@ -1,0 +1,3424 @@
+{
+"rows": [
+{
+"id": "s00_f000",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 202.2317499977362,
+"t_mm": 3.2983356734744773,
+"yaw_deg": 0.21554670805796658
+},
+{
+"id": "s00_f001",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 28.712040999380406,
+"t_mm": 13.02132432213456,
+"yaw_deg": 0.2622181941952553
+},
+{
+"id": "s00_f002",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 25.76049999697716,
+"t_mm": 16.054873129002168,
+"yaw_deg": 0.010921874252146196
+},
+{
+"id": "s00_f003",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 34.43279099883512,
+"t_mm": 16.551234107821593,
+"yaw_deg": 0.43375839520012555
+},
+{
+"id": "s00_f004",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.628375000233063,
+"t_mm": 3.5762129465041674,
+"yaw_deg": 0.077775765848231
+},
+{
+"id": "s00_f005",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 34.18312500070897,
+"t_mm": 4.431349797245173,
+"yaw_deg": 0.01090821387380617
+},
+{
+"id": "s00_f006",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.451874998689163,
+"t_mm": 17.012475739808124,
+"yaw_deg": 0.09618312566141536
+},
+{
+"id": "s00_f007",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.839208001125371,
+"t_mm": 11.637266391758384,
+"yaw_deg": 0.2433463815185101
+},
+{
+"id": "s00_f008",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 22.67970899993088,
+"t_mm": 10.57107462030787,
+"yaw_deg": 0.2433463815185101
+},
+{
+"id": "s00_f009",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 31.69854100269731,
+"t_mm": 4.575339481514818,
+"yaw_deg": 0.14648666535996765
+},
+{
+"id": "s00_f010",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 37.32145799949649,
+"t_mm": 3.8218110718353864,
+"yaw_deg": 0.4067381668435551
+},
+{
+"id": "s00_f011",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 9.562707997247344,
+"t_mm": 0.41452555794755563,
+"yaw_deg": 0.01090821387380617
+},
+{
+"id": "s00_f012",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 40.69129199706367,
+"t_mm": 1.6649044568772553,
+"yaw_deg": 0.0810466229220755
+},
+{
+"id": "s00_f013",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 19.789124999078922,
+"t_mm": 6.348894256515832,
+"yaw_deg": 0.06715401815026956
+},
+{
+"id": "s00_f014",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 26.511500000196975,
+"t_mm": 3.0016210712815163,
+"yaw_deg": 0.14964301629510518
+},
+{
+"id": "s00_f015",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 25.021042001753813,
+"t_mm": 7.9581864431934095,
+"yaw_deg": 0.010915044062976182
+},
+{
+"id": "s00_f016",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.933459002553718,
+"t_mm": 2.98860399822785,
+"yaw_deg": 0.22711785205055982
+},
+{
+"id": "s00_f017",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 44.610916997044114,
+"t_mm": 2.9125292217343364,
+"yaw_deg": 0.3108832920315962
+},
+{
+"id": "s00_f018",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.564707999146776,
+"t_mm": 3.807150584679854,
+"yaw_deg": 0.35033446467758983
+},
+{
+"id": "s00_f019",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 31.4695839988417,
+"t_mm": 6.172798012230763,
+"yaw_deg": 0.10114184299884463
+},
+{
+"id": "s00_f020",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.091250000608852,
+"t_mm": 8.790760035232772,
+"yaw_deg": 0.07128628259812728
+},
+{
+"id": "s00_f021",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 35.97862500100746,
+"t_mm": 6.189261072283255,
+"yaw_deg": 0.5347555989185125
+},
+{
+"id": "s00_f022",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 15.766583997901762,
+"t_mm": 13.124615229690864,
+"yaw_deg": 0.2155535382471366
+},
+{
+"id": "s00_f023",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 21.80045900240657,
+"t_mm": 7.715398337457282,
+"yaw_deg": 0.19542497076310902
+},
+{
+"id": "s00_f024",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 32.95441699810908,
+"t_mm": 7.461604281119846,
+"yaw_deg": 0.1256750789589388
+},
+{
+"id": "s00_f025",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 18.663291000848403,
+"t_mm": 1.7909441067447134,
+"yaw_deg": 0.07776210546989097
+},
+{
+"id": "s00_f026",
+"state": 1,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 17.209707999427337,
+"t_mm": 3.7017486215261726,
+"yaw_deg": 0.254335352354469
+},
+{
+"id": "s00_f027",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 36.13637500166078,
+"t_mm": 12.48331838335699,
+"yaw_deg": 0.9424777147718453
+},
+{
+"id": "s00_f028",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 36.375374998897314,
+"t_mm": 26.376899879227793,
+"yaw_deg": 9.473233723956032
+},
+{
+"id": "s00_f029",
+"state": 1,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 16.084958999272203,
+"t_mm": 7.805917175260765,
+"yaw_deg": 0.01090821387380617
+},
+{
+"id": "s01_f000",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 14.339417000883259,
+"t_mm": 4.1514453185425335,
+"yaw_deg": 0.24396113486467705
+},
+{
+"id": "s01_f001",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 27.00225000080536,
+"t_mm": 10.256240632937475,
+"yaw_deg": 0.33143790647929217
+},
+{
+"id": "s01_f002",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 28.78387500095414,
+"t_mm": 3.260004620140548,
+"yaw_deg": 0.1118413706545354
+},
+{
+"id": "s01_f003",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 27.291124999464955,
+"t_mm": 6.77844359751839,
+"yaw_deg": 0.3411649720377135
+},
+{
+"id": "s01_f004",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 21.893291999731446,
+"t_mm": 3.1244403689425195,
+"yaw_deg": 0.11184478574912039
+},
+{
+"id": "s01_f005",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 17.406832997949095,
+"t_mm": 7.648095862227136,
+"yaw_deg": 0.18770086667128202
+},
+{
+"id": "s01_f006",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 32.391917000495596,
+"t_mm": 1.9666598846997592,
+"yaw_deg": 0.04279069705996828
+},
+{
+"id": "s01_f007",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 36.127292001765454,
+"t_mm": 5.153770016240597,
+"yaw_deg": 0.06305674450771932
+},
+{
+"id": "s01_f008",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 16.826833998493385,
+"t_mm": 14.477235128000606,
+"yaw_deg": 0.1118482008437054
+},
+{
+"id": "s01_f009",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 41.90300000118441,
+"t_mm": 5.442382888017221,
+"yaw_deg": 0.06894436757227031
+},
+{
+"id": "s01_f010",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 19.04395800011116,
+"t_mm": 6.602036401951699,
+"yaw_deg": 0.3866403715316584
+},
+{
+"id": "s01_f011",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 48.19279199728044,
+"t_mm": 3.6863474384904955,
+"yaw_deg": 0.20822558512717032
+},
+{
+"id": "s01_f012",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 11.013000003003981,
+"t_mm": 6.285433236315267,
+"yaw_deg": 0.3581550675981202
+},
+{
+"id": "s01_f013",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.944916998705594,
+"t_mm": 4.934139077505596,
+"yaw_deg": 0.04467670545121501
+},
+{
+"id": "s01_f014",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 36.64674999890849,
+"t_mm": 1.6406924933914095,
+"yaw_deg": 0.04468012054580001
+},
+{
+"id": "s01_f015",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 45.98516700207256,
+"t_mm": 3.3081313466010203,
+"yaw_deg": 0.11183454046536538
+},
+{
+"id": "s01_f016",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 13.285041000926867,
+"t_mm": 2.1150342732576015,
+"yaw_deg": 0.24396113486467705
+},
+{
+"id": "s01_f017",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 30.75525000167545,
+"t_mm": 3.8311387734349287,
+"yaw_deg": 0.06896739705404215
+},
+{
+"id": "s01_f018",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 15.354375002061715,
+"t_mm": 4.389522121388548,
+"yaw_deg": 0.09125859559070197
+},
+{
+"id": "s01_f019",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "panel partly out of the camera view",
+"ms": 47.33516600026633,
+"t_mm": 3.6738263959453312,
+"yaw_deg": 0.2268959072234002
+},
+{
+"id": "s01_f020",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "panel partly out of the camera view",
+"ms": 28.04012499836972,
+"t_mm": 3.6328394579760515,
+"yaw_deg": 0.04466304507287498
+},
+{
+"id": "s01_f021",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 14.206750001903856,
+"t_mm": 2.5032745686736506,
+"yaw_deg": 0.39283535310886
+},
+{
+"id": "s01_f022",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 34.36083300039172,
+"t_mm": 1.8752600618499047,
+"yaw_deg": 0.1399134481432878
+},
+{
+"id": "s01_f023",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 45.19020799853024,
+"t_mm": 5.482376928046672,
+"yaw_deg": 0.3732019743396583
+},
+{
+"id": "s01_f024",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 52.31366699808859,
+"t_mm": 3.659930373176954,
+"yaw_deg": 0.04467670545121501
+},
+{
+"id": "s01_f025",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 19.054542000958463,
+"t_mm": 7.464582306477967,
+"yaw_deg": 0.09727170097457499
+},
+{
+"id": "s01_f026",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 11.915249997400679,
+"t_mm": 3.006477504558835,
+"yaw_deg": 0.3866369564370734
+},
+{
+"id": "s01_f027",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 42.63558399907197,
+"t_mm": 8.37990448099702,
+"yaw_deg": 0.25453426769985676
+},
+{
+"id": "s01_f028",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 35.33191599854035,
+"t_mm": 4.449092739125877,
+"yaw_deg": 0.09726487078540498
+},
+{
+"id": "s01_f029",
+"state": 1,
+"light": "window",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 23.158332998718834,
+"t_mm": 3.5041442677425225,
+"yaw_deg": 0.012598722014250122
+},
+{
+"id": "s02_f000",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 34.98741699877428,
+"t_mm": 2.7922490694059032,
+"yaw_deg": 0.3182565243311869
+},
+{
+"id": "s02_f001",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 29.798666000715457,
+"t_mm": 4.43556532334503,
+"yaw_deg": 0.4903089895238081
+},
+{
+"id": "s02_f002",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 19.472875002975343,
+"t_mm": 12.599165681303306,
+"yaw_deg": 0.6868467931712094
+},
+{
+"id": "s02_f003",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 61.84804100121255,
+"t_mm": 10.131268194240159,
+"yaw_deg": 0.4903089895238081
+},
+{
+"id": "s02_f004",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 47.118792001128895,
+"t_mm": 9.401590728176316,
+"yaw_deg": 0.34882073114727846
+},
+{
+"id": "s02_f005",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 32.768625002063345,
+"t_mm": 10.756277022648586,
+"yaw_deg": 0.6004936012144537
+},
+{
+"id": "s02_f006",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 25.54995799800963,
+"t_mm": 4.554689747789749,
+"yaw_deg": 0.4419922313351379
+},
+{
+"id": "s02_f007",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 11.174833998666145,
+"t_mm": 1.7152001389889506,
+"yaw_deg": 0.11686156646419091
+},
+{
+"id": "s02_f008",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 20.9846670004481,
+"t_mm": 8.080703870251702,
+"yaw_deg": 0.2189455737992015
+},
+{
+"id": "s02_f009",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 20.03379199959454,
+"t_mm": 4.655126603457652,
+"yaw_deg": 0.3182565243311869
+},
+{
+"id": "s02_f010",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 27.80358299787622,
+"t_mm": 8.68757855214297,
+"yaw_deg": 0.3182565243311869
+},
+{
+"id": "s02_f011",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 13.380082997173304,
+"t_mm": 4.2002957065905075,
+"yaw_deg": 0.2828078425388207
+},
+{
+"id": "s02_f012",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 24.403790997894248,
+"t_mm": 2.2972553871492916,
+"yaw_deg": 0.8969784527063672
+},
+{
+"id": "s02_f013",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 17.690499997115694,
+"t_mm": 6.376347279896001,
+"yaw_deg": 0.15137362262054985
+},
+{
+"id": "s02_f014",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 30.372208002518164,
+"t_mm": 4.557908694549371,
+"yaw_deg": 0.6770873425669768
+},
+{
+"id": "s02_f015",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 18.91720799903851,
+"t_mm": 7.683163084128771,
+"yaw_deg": 0.2073811738146544
+},
+{
+"id": "s02_f016",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 31.56124999804888,
+"t_mm": 7.920835081498174,
+"yaw_deg": 0.011854238164414872
+},
+{
+"id": "s02_f017",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 33.07108300214168,
+"t_mm": 1.3735104175034254,
+"yaw_deg": 0.011867898542754897
+},
+{
+"id": "s02_f018",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 29.1089579986874,
+"t_mm": 5.45761606129626,
+"yaw_deg": 0.31824286395284684
+},
+{
+"id": "s02_f019",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 21.30241700069746,
+"t_mm": 6.462090719035593,
+"yaw_deg": 0.08055822130585764
+},
+{
+"id": "s02_f020",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 37.95729099874734,
+"t_mm": 2.1853620531509783,
+"yaw_deg": 0.10615777031506544
+},
+{
+"id": "s02_f021",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.46204200066859,
+"t_mm": 6.2866710375900485,
+"yaw_deg": 0.06950103475932248
+},
+{
+"id": "s02_f022",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 32.13208300076076,
+"t_mm": 1.6960678023948852,
+"yaw_deg": 0.3182565243311869
+},
+{
+"id": "s02_f023",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.85191700037103,
+"t_mm": 2.5336761083490233,
+"yaw_deg": 0.2235414013909046
+},
+{
+"id": "s02_f024",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 32.29170800113934,
+"t_mm": 5.751396241891026,
+"yaw_deg": 0.24977704771263903
+},
+{
+"id": "s02_f025",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.70929200091632,
+"t_mm": 3.114998786843113,
+"yaw_deg": 0.2235414013909046
+},
+{
+"id": "s02_f026",
+"state": 1,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 32.56316700208117,
+"t_mm": 10.607757508991297,
+"yaw_deg": 0.5142752336016674
+},
+{
+"id": "s02_f027",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 17.707625000184635,
+"t_mm": 9.306254561009192,
+"yaw_deg": 0.25277461103855914
+},
+{
+"id": "s02_f028",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 29.961665997689124,
+"t_mm": 4.966450356116968,
+"yaw_deg": 0.21721664621947276
+},
+{
+"id": "s02_f029",
+"state": 1,
+"light": "dim",
+"hand": false,
+"trusted": true,
+"reason": "ok",
+"ms": 27.08679200077313,
+"t_mm": 3.0385532703988067,
+"yaw_deg": 0.5142615732233273
+},
+{
+"id": "s03_f000",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 11.10283299931325
+},
+{
+"id": "s03_f001",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 26.356165999459336
+},
+{
+"id": "s03_f002",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 31.653124999138527
+},
+{
+"id": "s03_f003",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 41.91033299866831
+},
+{
+"id": "s03_f004",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 17.249000000447268
+},
+{
+"id": "s03_f005",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 16.759334001108073
+},
+{
+"id": "s03_f006",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 12.043124999763677
+},
+{
+"id": "s03_f007",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 19.23625000199536
+},
+{
+"id": "s03_f008",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 9.7366250010964
+},
+{
+"id": "s03_f009",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 16.941707999649225
+},
+{
+"id": "s03_f010",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 15.728624999610474
+},
+{
+"id": "s03_f011",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 11.287459001323441
+},
+{
+"id": "s03_f012",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 27.965458000835497
+},
+{
+"id": "s03_f013",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 17.562541001097998
+},
+{
+"id": "s03_f014",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.80420800120919
+},
+{
+"id": "s03_f015",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 11.676250000164146
+},
+{
+"id": "s03_f016",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 17.925000000104774
+},
+{
+"id": "s03_f017",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 24.837332999595674
+},
+{
+"id": "s03_f018",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 27.28158399986569
+},
+{
+"id": "s03_f019",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 19.320665996929165
+},
+{
+"id": "s03_f020",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.978625000163447
+},
+{
+"id": "s03_f021",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.854208001954248
+},
+{
+"id": "s03_f022",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.702415997424396
+},
+{
+"id": "s03_f023",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.61295900098048
+},
+{
+"id": "s03_f024",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.154208999680122
+},
+{
+"id": "s03_f025",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.628792001545662
+},
+{
+"id": "s03_f026",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.610083000268787
+},
+{
+"id": "s03_f027",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.62958299877937
+},
+{
+"id": "s03_f028",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 42.47708300317754
+},
+{
+"id": "s03_f029",
+"state": 2,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.829958002839703
+},
+{
+"id": "s04_f000",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.89937500024098
+},
+{
+"id": "s04_f001",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 15.837625000131084
+},
+{
+"id": "s04_f002",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.763041999889538
+},
+{
+"id": "s04_f003",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 9.15812500170432
+},
+{
+"id": "s04_f004",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.242082998564
+},
+{
+"id": "s04_f005",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 25.25495800000499
+},
+{
+"id": "s04_f006",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.847292001126334
+},
+{
+"id": "s04_f007",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.647332999738865
+},
+{
+"id": "s04_f008",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 33.56570899995859
+},
+{
+"id": "s04_f009",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 26.609417000145186
+},
+{
+"id": "s04_f010",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 36.25599999941187
+},
+{
+"id": "s04_f011",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 41.67724999933853
+},
+{
+"id": "s04_f012",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 23.857290998421377
+},
+{
+"id": "s04_f013",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.694458001031308
+},
+{
+"id": "s04_f014",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.6500419996446
+},
+{
+"id": "s04_f015",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 27.78220800246345
+},
+{
+"id": "s04_f016",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.717542000464164
+},
+{
+"id": "s04_f017",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 32.530709002458025
+},
+{
+"id": "s04_f018",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.382999998924788
+},
+{
+"id": "s04_f019",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.46862500012503
+},
+{
+"id": "s04_f020",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.4019169973908
+},
+{
+"id": "s04_f021",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 28.712957999232458
+},
+{
+"id": "s04_f022",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.681459001934854
+},
+{
+"id": "s04_f023",
+"state": 2,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.574958998622606
+},
+{
+"id": "s04_f024",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.96787499936181
+},
+{
+"id": "s04_f025",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.119083001394756
+},
+{
+"id": "s04_f026",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 9.33604099918739
+},
+{
+"id": "s04_f027",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.91974999953527
+},
+{
+"id": "s04_f028",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.200166999420617
+},
+{
+"id": "s04_f029",
+"state": 2,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.93275000070571
+},
+{
+"id": "s05_f000",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.424708002479747
+},
+{
+"id": "s05_f001",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.84183299849974
+},
+{
+"id": "s05_f002",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.621167000674177
+},
+{
+"id": "s05_f003",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.838624997239094
+},
+{
+"id": "s05_f004",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 31.670041000325
+},
+{
+"id": "s05_f005",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.285833000030834
+},
+{
+"id": "s05_f006",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.3962919988262
+},
+{
+"id": "s05_f007",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 36.845624999841675
+},
+{
+"id": "s05_f008",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.94462500140071
+},
+{
+"id": "s05_f009",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.663624999229796
+},
+{
+"id": "s05_f010",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.0913340007246
+},
+{
+"id": "s05_f011",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 23.24975000010454
+},
+{
+"id": "s05_f012",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 18.598208000184968
+},
+{
+"id": "s05_f013",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 14.407708000362618
+},
+{
+"id": "s05_f014",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 23.86516600017785
+},
+{
+"id": "s05_f015",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 23.14937499977532
+},
+{
+"id": "s05_f016",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 22.259707999182865
+},
+{
+"id": "s05_f017",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 22.699249999277527
+},
+{
+"id": "s05_f018",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 21.408542001154274
+},
+{
+"id": "s05_f019",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 16.457249999803025
+},
+{
+"id": "s05_f020",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 16.941082998528145
+},
+{
+"id": "s05_f021",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "not a clean rectangle (hand or object over it)",
+"ms": 19.964000002801185
+},
+{
+"id": "s05_f022",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.935416999127483
+},
+{
+"id": "s05_f023",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 25.489083000138635
+},
+{
+"id": "s05_f024",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.604542000597576
+},
+{
+"id": "s05_f025",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.42308399945614
+},
+{
+"id": "s05_f026",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 54.78475000199978
+},
+{
+"id": "s05_f027",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.002875000500353
+},
+{
+"id": "s05_f028",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.260000000940636
+},
+{
+"id": "s05_f029",
+"state": 2,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.556707997864578
+},
+{
+"id": "s06_f000",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 16.829916999995476
+},
+{
+"id": "s06_f001",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 9.989874997700099
+},
+{
+"id": "s06_f002",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.86333300312981
+},
+{
+"id": "s06_f003",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.50175000031595
+},
+{
+"id": "s06_f004",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.770874998357613
+},
+{
+"id": "s06_f005",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.445125001249835
+},
+{
+"id": "s06_f006",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.891749997535953
+},
+{
+"id": "s06_f007",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.005249998765066
+},
+{
+"id": "s06_f008",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.895125002833083
+},
+{
+"id": "s06_f009",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.74195800095913
+},
+{
+"id": "s06_f010",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.46570799939218
+},
+{
+"id": "s06_f011",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.29133299665409
+},
+{
+"id": "s06_f012",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 27.245875000517117
+},
+{
+"id": "s06_f013",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.679833002242958
+},
+{
+"id": "s06_f014",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 10.65158299752511
+},
+{
+"id": "s06_f015",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.392250000237254
+},
+{
+"id": "s06_f016",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.68737499898998
+},
+{
+"id": "s06_f017",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 38.51554100037902
+},
+{
+"id": "s06_f018",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.171707998291822
+},
+{
+"id": "s06_f019",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.100792000448564
+},
+{
+"id": "s06_f020",
+"state": 4,
+"light": "office",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.816500000364613
+},
+{
+"id": "s06_f021",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 34.816584000509465
+},
+{
+"id": "s06_f022",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.795083000848535
+},
+{
+"id": "s06_f023",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.241041998408036
+},
+{
+"id": "s06_f024",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.55858399963472
+},
+{
+"id": "s06_f025",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.377166997088352
+},
+{
+"id": "s06_f026",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 16.29233299900079
+},
+{
+"id": "s06_f027",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 16.60545800041291
+},
+{
+"id": "s06_f028",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 7.313582998904167
+},
+{
+"id": "s06_f029",
+"state": 4,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 14.128457998594968
+},
+{
+"id": "s07_f000",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.626415999780875
+},
+{
+"id": "s07_f001",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.711583998490823
+},
+{
+"id": "s07_f002",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.72245800163364
+},
+{
+"id": "s07_f003",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 33.55241700046463
+},
+{
+"id": "s07_f004",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.111959000321804
+},
+{
+"id": "s07_f005",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.274374997621635
+},
+{
+"id": "s07_f006",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.835917002230417
+},
+{
+"id": "s07_f007",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.453124997700797
+},
+{
+"id": "s07_f008",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.11100000143051
+},
+{
+"id": "s07_f009",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.985165999969468
+},
+{
+"id": "s07_f010",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 52.49175000062678
+},
+{
+"id": "s07_f011",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.55458399950294
+},
+{
+"id": "s07_f012",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 11.937999999645399
+},
+{
+"id": "s07_f013",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.38212500035297
+},
+{
+"id": "s07_f014",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.54062499923748
+},
+{
+"id": "s07_f015",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.010792001703521
+},
+{
+"id": "s07_f016",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.011000000318745
+},
+{
+"id": "s07_f017",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 11.25362500170013
+},
+{
+"id": "s07_f018",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 22.846291998575907
+},
+{
+"id": "s07_f019",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.072834001126466
+},
+{
+"id": "s07_f020",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.731790998164797
+},
+{
+"id": "s07_f021",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.720958000514656
+},
+{
+"id": "s07_f022",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.733333002368454
+},
+{
+"id": "s07_f023",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.814333000103943
+},
+{
+"id": "s07_f024",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 25.132165999821154
+},
+{
+"id": "s07_f025",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 31.71591699720011
+},
+{
+"id": "s07_f026",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.390958000556566
+},
+{
+"id": "s07_f027",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.019459002563963
+},
+{
+"id": "s07_f028",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.44841700201505
+},
+{
+"id": "s07_f029",
+"state": 4,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 18.128499999875203
+},
+{
+"id": "s08_f000",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.582334000209812
+},
+{
+"id": "s08_f001",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.752750001614913
+},
+{
+"id": "s08_f002",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.576582998619415
+},
+{
+"id": "s08_f003",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.32320800269372
+},
+{
+"id": "s08_f004",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 31.73412500109407
+},
+{
+"id": "s08_f005",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.167499999544816
+},
+{
+"id": "s08_f006",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.867999999813037
+},
+{
+"id": "s08_f007",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.380791997216875
+},
+{
+"id": "s08_f008",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 32.358249998651445
+},
+{
+"id": "s08_f009",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.971915998321492
+},
+{
+"id": "s08_f010",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.322958000178915
+},
+{
+"id": "s08_f011",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.970833000726998
+},
+{
+"id": "s08_f012",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 28.31187500123633
+},
+{
+"id": "s08_f013",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.11891599916271
+},
+{
+"id": "s08_f014",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.576166999380803
+},
+{
+"id": "s08_f015",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.73020799839287
+},
+{
+"id": "s08_f016",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.421041998110013
+},
+{
+"id": "s08_f017",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.08633299858775
+},
+{
+"id": "s08_f018",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.115667000529356
+},
+{
+"id": "s08_f019",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.17633299753652
+},
+{
+"id": "s08_f020",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.683249999507098
+},
+{
+"id": "s08_f021",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.26291699844296
+},
+{
+"id": "s08_f022",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.506209002429387
+},
+{
+"id": "s08_f023",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.39674999853014
+},
+{
+"id": "s08_f024",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.628040997195058
+},
+{
+"id": "s08_f025",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 27.93533300064155
+},
+{
+"id": "s08_f026",
+"state": 4,
+"light": "dim",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.486209000111558
+},
+{
+"id": "s08_f027",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.865874999988591
+},
+{
+"id": "s08_f028",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.262833999964641
+},
+{
+"id": "s08_f029",
+"state": 4,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.70245799687109
+},
+{
+"id": "s09_f000",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 33.753166997485096
+},
+{
+"id": "s09_f001",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.58775000134483
+},
+{
+"id": "s09_f002",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.65429200147628
+},
+{
+"id": "s09_f003",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.772040999872843
+},
+{
+"id": "s09_f004",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.779374999809079
+},
+{
+"id": "s09_f005",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 9.59595799940871
+},
+{
+"id": "s09_f006",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 27.22850000282051
+},
+{
+"id": "s09_f007",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.28704099758761
+},
+{
+"id": "s09_f008",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.77566600200953
+},
+{
+"id": "s09_f009",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.138167000055546
+},
+{
+"id": "s09_f010",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.379291998717235
+},
+{
+"id": "s09_f011",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.867833998432616
+},
+{
+"id": "s09_f012",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.107083997572772
+},
+{
+"id": "s09_f013",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.90558399868314
+},
+{
+"id": "s09_f014",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.914208002679516
+},
+{
+"id": "s09_f015",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.588292000553338
+},
+{
+"id": "s09_f016",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.937958000198705
+},
+{
+"id": "s09_f017",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.08004200150026
+},
+{
+"id": "s09_f018",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.302916999236913
+},
+{
+"id": "s09_f019",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.36937500006752
+},
+{
+"id": "s09_f020",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.560208002483705
+},
+{
+"id": "s09_f021",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.384166999865556
+},
+{
+"id": "s09_f022",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.495084000576753
+},
+{
+"id": "s09_f023",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.64175000123214
+},
+{
+"id": "s09_f024",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.085000001941808
+},
+{
+"id": "s09_f025",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.638792000478134
+},
+{
+"id": "s09_f026",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 28.723415998683777
+},
+{
+"id": "s09_f027",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 10.09195799997542
+},
+{
+"id": "s09_f028",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 17.087208001612453
+},
+{
+"id": "s09_f029",
+"state": 5,
+"light": "office",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.459666001144797
+},
+{
+"id": "s10_f000",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.15437499762629
+},
+{
+"id": "s10_f001",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 28.221250002388842
+},
+{
+"id": "s10_f002",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.767709000210743
+},
+{
+"id": "s10_f003",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "no candidate",
+"ms": 17.065790998458397
+},
+{
+"id": "s10_f004",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 30.806582999503007
+},
+{
+"id": "s10_f005",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.58008300163783
+},
+{
+"id": "s10_f006",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.49287500124774
+},
+{
+"id": "s10_f007",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 9.692624997114763
+},
+{
+"id": "s10_f008",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.19262500066543
+},
+{
+"id": "s10_f009",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.56579199738917
+},
+{
+"id": "s10_f010",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 26.269792000675807
+},
+{
+"id": "s10_f011",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.303374998940853
+},
+{
+"id": "s10_f012",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.590250001376262
+},
+{
+"id": "s10_f013",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.095458998985123
+},
+{
+"id": "s10_f014",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.329540998209268
+},
+{
+"id": "s10_f015",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.992832999676466
+},
+{
+"id": "s10_f016",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.078292002319358
+},
+{
+"id": "s10_f017",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 26.501541000470752
+},
+{
+"id": "s10_f018",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.719790997944074
+},
+{
+"id": "s10_f019",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.04650000060792
+},
+{
+"id": "s10_f020",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.30654199855053
+},
+{
+"id": "s10_f021",
+"state": 5,
+"light": "window",
+"hand": true,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.019917001860449
+},
+{
+"id": "s10_f022",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.853875000175321
+},
+{
+"id": "s10_f023",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.879459002258955
+},
+{
+"id": "s10_f024",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.259458000102313
+},
+{
+"id": "s10_f025",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.44270800150116
+},
+{
+"id": "s10_f026",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.576833000115585
+},
+{
+"id": "s10_f027",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.477249999705236
+},
+{
+"id": "s10_f028",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 14.398625000467291
+},
+{
+"id": "s10_f029",
+"state": 5,
+"light": "window",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.305958997894777
+},
+{
+"id": "s11_f000",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.080250000115484
+},
+{
+"id": "s11_f001",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 25.65800000229501
+},
+{
+"id": "s11_f002",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.235917002428323
+},
+{
+"id": "s11_f003",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.64504199734074
+},
+{
+"id": "s11_f004",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 21.86908400108223
+},
+{
+"id": "s11_f005",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.61362500253017
+},
+{
+"id": "s11_f006",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 20.12687499882304
+},
+{
+"id": "s11_f007",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 24.847250002494548
+},
+{
+"id": "s11_f008",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.28362499974901
+},
+{
+"id": "s11_f009",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 28.51304200157756
+},
+{
+"id": "s11_f010",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 34.948290998727316
+},
+{
+"id": "s11_f011",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 16.056249998655403
+},
+{
+"id": "s11_f012",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.247415999212535
+},
+{
+"id": "s11_f013",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 31.080250002560206
+},
+{
+"id": "s11_f014",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 30.443333002040163
+},
+{
+"id": "s11_f015",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 30.034332998184254
+},
+{
+"id": "s11_f016",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 17.804041999625042
+},
+{
+"id": "s11_f017",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 30.281625000498025
+},
+{
+"id": "s11_f018",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.826083999447292
+},
+{
+"id": "s11_f019",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 13.706582998565864
+},
+{
+"id": "s11_f020",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 19.494791002216516
+},
+{
+"id": "s11_f021",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 22.917083002539584
+},
+{
+"id": "s11_f022",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 15.539750002062647
+},
+{
+"id": "s11_f023",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 8.53162500061444
+},
+{
+"id": "s11_f024",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 34.79604200038011
+},
+{
+"id": "s11_f025",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 18.912166000518482
+},
+{
+"id": "s11_f026",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 29.418750000331784
+},
+{
+"id": "s11_f027",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 12.677833998168353
+},
+{
+"id": "s11_f028",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 26.8839169984858
+},
+{
+"id": "s11_f029",
+"state": 5,
+"light": "dim",
+"hand": false,
+"trusted": false,
+"reason": "size is not 380 x 130 mm",
+"ms": 23.630083000171
+}
+]
+}
