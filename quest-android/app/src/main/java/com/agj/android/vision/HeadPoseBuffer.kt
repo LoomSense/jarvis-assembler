@@ -33,6 +33,9 @@ class HeadPoseBuffer(private val capacity: Int = 256, private val maxExtrapolate
   /** Newest sample time, or null when empty. */
   @Synchronized fun newestNs(): Long? = if (n == 0) null else ts[(head - 1 + capacity) % capacity]
 
+  /** Newest head pose (WORLD ← HEAD), or null when empty. */
+  @Synchronized fun newest(): Pose3? = if (n == 0) null else poses[(head - 1 + capacity) % capacity]
+
   @Synchronized
   fun at(tNs: Long): Pose3? {
     if (n == 0) return null

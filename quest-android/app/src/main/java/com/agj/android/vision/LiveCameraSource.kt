@@ -86,8 +86,7 @@ class LiveCameraSource(
   private val busy = AtomicBoolean(false)
   private var index = 0L
   private var firstLogged = false
-  private var poseLogged = false
-  private var framesWithoutPose = 0
+  private val poseLog = CameraPoseLog(Agq.log, { SystemClock.elapsedRealtime() })
 
   // pooled plane copies (frames are processed one at a time on the camera thread)
   private var yBuf = ByteArray(0)
@@ -253,9 +252,17 @@ class LiveCameraSource(
     val captureNs =
         if (cam.timestampSource == CameraMetadata.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME) img.timestamp
         else nowNs - (config.unknownTsLatencyMs * 1e6).toLong()
-    val lookup = captureNs + (config.headTimeOffsetMs * 1e6).toLong()
-    val head = heads?.at(lookup)
-    val world = if (head != null && headFromCamera != null) head * headFromCamera else null
+    val pr =
+        CameraPoseResolver.resolve(
+            heads,
+            headFromCamera,
+            captureNs,
+            nowNs,
+            offsetNs = (config.headTimeOffsetMs * 1e6).toLong(),
+            fallbackLatencyNs = (config.unknownTsLatencyMs * 1e6).toLong(),
+        )
+    val head = pr.head
+    val world = pr.worldFromCamera
     val y = yBuf
     val u = uBuf
     val v = vBuf
@@ -271,30 +278,13 @@ class LiveCameraSource(
             intr.scaledTo(w, h),
             world,
             gray = GrayImage(y, w, h, yRow),
-            encode = {
-              if (!valid.get()) {
-                Agq.log.error("camera", "frame.jpeg read after onFrame returned")
-                ByteArray(0)
-              } else {
-                val nv21 = Yuv.toNv21Scaled(y, yRow, u, v, uvRow, uvPix, w, h, ow, oh)
-                val out = ByteArrayOutputStream(64 * 1024)
-                YuvImage(nv21, ImageFormat.NV21, ow, oh, null).compressToJpeg(Rect(0, 0, ow, oh), config.jpegQuality, out)
-                out.toByteArray()
-              }
+            encode = { encodeJpeg(valid, y, yRow, u, v, uvRow, uvPix, w, h, ow, oh, config.jpegQuality) },
+            encodeAt = { edge, q ->
+              val (ew, eh) = Yuv.fitLongEdge(w, h, edge)
+              encodeJpeg(valid, y, yRow, u, v, uvRow, uvPix, w, h, ew, eh, q)
             },
         )
-    // The first frame often comes before the head-pose buffer has samples: log when the camera pose first exists
-    // (or that it never does), since marker tracking needs it.
-    if (!poseLogged) {
-      if (world != null) {
-        poseLogged = true
-        Agq.log.event("camera_pose", mapOf("frame" to index - 1, "frames_without_pose" to framesWithoutPose,
-            "head_samples" to (heads?.size() ?: 0), "cam_p" to world.t, "head_p" to head?.t))
-      } else if (++framesWithoutPose == 300) {
-        Agq.log.error("camera_pose", "no head pose for the first 300 frames (head_samples ${heads?.size() ?: 0}, " +
-            "lens pose ${headFromCamera != null})")
-      }
-    }
+    poseLog.onFrame(index - 1, pr, captureNs, nowNs, headFromCamera != null)
     if (!firstLogged) {
       firstLogged = true
       Agq.log.event(
@@ -311,6 +301,8 @@ class LiveCameraSource(
               "head_samples" to (heads?.size() ?: 0),
               "head_newest_age_ms" to heads?.newestNs()?.let { (nowNs - it) / 1e6 },
               "head_found" to (head != null),
+              "pose_miss" to pr.miss?.wire,
+              "ts_fallback" to pr.fallback,
               "cam_p" to world?.t,
               "cam_q" to world?.q?.let { listOf(it.x, it.y, it.z, it.w) },
           ),
@@ -321,6 +313,30 @@ class LiveCameraSource(
     } finally {
       valid.set(false)
     }
+  }
+
+  private fun encodeJpeg(
+      valid: AtomicBoolean,
+      y: ByteArray,
+      yRow: Int,
+      u: ByteArray,
+      v: ByteArray,
+      uvRow: Int,
+      uvPix: Int,
+      w: Int,
+      h: Int,
+      ow: Int,
+      oh: Int,
+      quality: Int,
+  ): ByteArray {
+    if (!valid.get()) {
+      Agq.log.error("camera", "frame.jpeg read after onFrame returned")
+      return ByteArray(0)
+    }
+    val nv21 = Yuv.toNv21Scaled(y, yRow, u, v, uvRow, uvPix, w, h, ow, oh)
+    val out = ByteArrayOutputStream(64 * 1024)
+    YuvImage(nv21, ImageFormat.NV21, ow, oh, null).compressToJpeg(Rect(0, 0, ow, oh), quality, out)
+    return out.toByteArray()
   }
 
   private fun copy(src: java.nio.ByteBuffer, dst: ByteArray, minSize: Int = 0): ByteArray {

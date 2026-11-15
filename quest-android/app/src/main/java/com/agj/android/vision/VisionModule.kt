@@ -11,6 +11,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Callbacks from [VisionModule]. [onFrame] runs on the camera thread (read `frame.jpeg` there if you need it: live
@@ -75,6 +76,8 @@ class VisionModule(
   @Volatile private var renderFps: Double? = null
   @Volatile private var camFps: Double? = null
   @Volatile private var solveHz: Double? = null
+  @Volatile private var camPose: Boolean? = null
+  private val grabRequest = AtomicReference<GrabRequest?>(null)
   private val solves = AtomicInteger()
 
   private val clock: () -> Long = if (replay) ({ System.nanoTime() }) else ({ SystemClock.elapsedRealtimeNanos() })
@@ -85,7 +88,8 @@ class VisionModule(
           Agq.log,
           OneEuroPoseFilter(config.filter),
           logEveryNs = if (replay) 0L else (1e9 / config.trackLogHz.coerceAtLeast(0.2)).toLong(),
-          stats = { mapOf("fps" to renderFps, "cam_fps" to camFps, "solve_hz" to solveHz, "camera" to cameraKind) },
+          stats = { mapOf("fps" to renderFps, "cam_fps" to camFps, "solve_hz" to solveHz, "camera" to cameraKind,
+              "cam_pose" to camPose) },
           clockNs = clock,
       )
 
@@ -115,6 +119,15 @@ class VisionModule(
       val s = core.onMarker(r)
       if (touchActive && s.method == "marker" && s.tracked) touchActive = false // the marker wins
       notifyState(s)
+      camPose = frame.worldFromCamera != null
+      grabRequest.getAndSet(null)?.let { g ->
+        try {
+          g.cb(FrameGrab(frame.jpegAt(g.longEdge, g.quality), frame.width, frame.height, frame.intrinsics,
+              frame.worldFromCamera, frame.timestampNs, System.currentTimeMillis()))
+        } catch (e: Exception) {
+          Agq.log.error("frame_grab", e.message)
+        }
+      }
       listener?.onFrame(frame, s)
     }
     touch.onSnap = { r, pose ->
@@ -161,6 +174,16 @@ class VisionModule(
         TimeUnit.MILLISECONDS,
     )
   }
+
+  /**
+   * Deliver the next camera frame (JPEG with long edge [longEdge], its intrinsics and WORLD ← CAMERA at capture) to
+   * [cb], once, on the camera thread. A newer request replaces a pending one. Used by world/PartsFinder.
+   */
+  fun grabFrame(longEdge: Int = 1280, quality: Int = 80, cb: (FrameGrab) -> Unit) {
+    grabRequest.set(GrabRequest(longEdge, quality, cb))
+  }
+
+  private class GrabRequest(val longEdge: Int, val quality: Int, val cb: (FrameGrab) -> Unit)
 
   fun stop() {
     camera?.stop()

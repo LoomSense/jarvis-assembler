@@ -4,9 +4,13 @@ A new client for the same server (docs/HANDOFF.md §2): passthrough, the guide G
 headset camera with intrinsics and pose, marker tracking, hands, voice. Framework choice and sources:
 [RESEARCH.md](RESEARCH.md). Package id `com.agj.android` (the Unity app is `com.agj.unity`).
 
-## Status (round 1 integrated)
+## Status (round 1 integrated; round 2 vision/net/world on branch)
 
-One APK with guide/UI and vision/net wired together. Builds, 57 JVM unit tests pass (0 skipped once the synthetic
+Round 2 (vision/net/world, JVM-tested, not yet on a headset): camera-pose diagnosis and clock fallback, MRUK table
+placement without a marker, parts in the pile in 3D (`/parts` → rays → depth/table). See "World" below; the
+MainActivity wiring is in `world/WorldModule.kt`'s KDoc.
+
+One APK with guide/UI and vision/net wired together. Builds, 87 JVM unit tests pass (0 skipped once the synthetic
 replay set is generated). **Never run on a headset** yet: everything that touches the SDK at runtime is UNVERIFIED
 (see "First device run").
 
@@ -29,7 +33,7 @@ replay set is generated). **Never run on a headset** yet: everything that touche
   20°/s, name, code, count) on the window's outer edge; window fade-relocate (`WindowRelocator`); push-to-talk voice
   commands on the toolbar mic (Back, Repeat, mic, Next); camera preview (hud only). 70 JVM tests (1 skipped without
   the synthetic replay set).
-- **Not yet:** hand-dwell confirmation, Depth API occlusion, long pinch on the window for push-to-talk, the wrong
+- **Not yet:** drawing the camera-preview box for `/parts` (`showCameraBox`), hand-dwell confirmation, Depth API occlusion, long pinch on the window for push-to-talk, the wrong
   part's own position (the red outline is drawn on the current target, the server does not send where the wrong
   part is), check badge as a separate 3D badge (the status shapes live in the label pill and the window).
 
@@ -188,6 +192,17 @@ outward side, the fixed spot and the step window are in front of the wearer.
 `SENSOR_TIMESTAMP` (ring buffer, interpolated) × HEAD ← CAMERA from Camera2 `LENS_POSE_*` (Android's definition,
 unit-tested equal to Meta's showcase formula; `vision.json` `lens_convention` switches it on device).
 
+**Camera pose (round 2).** The head buffer is filled by `SpatialInput.execute()` (the SDK's per-frame system tick,
+registered in `onCreate`, the same loop thread as MainActivity's FrameTick); identity poses at the origin (before
+tracking starts) are skipped, and the first good sample logs `head_pose` (render frame, thread). The camera thread
+resolves each frame with `CameraPoseResolver` (pure, tested): head at `SENSOR_TIMESTAMP` (+ `head_time_offset_ms`)
+× lens pose. If the buffer is fresh but the capture time falls outside it (a clock mismatch), it falls back to the
+head at `now − unknown_ts_latency_ms` so the marker can still lock. `CameraPoseLog` logs `camera_pose` (`cam_p`,
+`cam_q`, `head_p`, `head_samples`, `head_newest_age_ms`, `capture_age_ms`, frames with/without pose) on the first
+pose and every 10 s, and `error` `where: camera_pose_missing` with `reason` (`no_head_samples`, `head_stale`,
+`capture_outside_buffer`, `no_lens_pose`) after 25 frames without a pose, then every 10 s; once with
+`ts_fallback: true` when the fallback is used. `track` carries `cam_pose` (did the last frame have one).
+
 **Marker:** the dual strip (tools/quest/marker/marker.json): 36h11 id 0 (80 mm, detected with OpenCV) at −50 mm and
 41h12 id 0 at +50 mm from the strip centre. The app detects the 36h11 tag and reports the **strip centre**:
 WORLD ← STRIP = WORLD ← TAG × Translation(−`offset_m`) (`MarkerConfig.tagOffset`, a test keeps it equal to
@@ -208,6 +223,43 @@ action)`, `sendFrame(jpeg, step, tsMs)` (false = dropped by `hello.limits`: max_
 camera JPEG only when it is needed: the LOOK frame for identify, one a second for locate, and a perception frame
 when `canSend()` (live frames encode lazily to 768 px q70).
 
+## World: table placement and parts in the pile (round 2)
+
+`world/WorldModule` is the entry point (KDoc has the MainActivity lines). Needs `MRUKFeature(this, systemManager)` in
+`registerFeatures()`; without it the table step logs `table_missing reason: no_mruk` and everything falls back.
+
+**Table without a marker (R3/R8).** `SceneTable.start()` (after the `USE_SCENE` prompt; it re-checks the permission
+for 30 s) calls MRUK `loadSceneFromDevice(removeMissingRooms = true, requestSceneCaptureIfNoDataFound = false)`,
+never starting a new room scan. Every anchor's plane rectangle and volume top is converted to WORLD
+(`Frames.spatialToWorld` + `mirrorZ` on local points) and `TableFinder` (pure, tested) picks: the `TABLE` in front
+of the user (nearest), else the largest level surface 0.6–1.0 m above the floor in front, else a `TABLE` within 3 m.
+`world.tablePose(head, assembly)` puts the footprint (`overall_mm` L × W) on it: 0.45 m ahead of the head, clamped
+so the footprint stays on the table, yaw so the assembly front (+Z) faces the user; same TABLE frame as
+`Placement.fixedTableSpot`, so it replaces it in `ghost.setTablePose`. Logs `scene` (load result, rooms, anchors),
+`table_found` (`size_m`, `height_m`, `y_m`, `center_m`, `dist_m`, `reason`, `source` plane/volume, `plane_up_axis`,
+labels) or `table_missing` (`reason`: `permission_denied`, `error_no_rooms_found` = no scene model, `no_level_surface`,
+`none_in_front`, `no_head_pose`, …, `fallback: fixed_spot`).
+
+**Parts in the pile in 3D (R11).** While a `place`/`fasten` action is shown (`world.setAction`), `PartsFinder` grabs
+a camera frame every 5 s (`VisionModule.grabFrame`: JPEG at 1280 px long edge q80 + intrinsics + camera pose at
+capture), posts it to `POST /api/perception/{job}/parts` with `want` = the action's part id and/or hardware code,
+and turns each `found[].box_2d` (`[ymin, xmin, ymax, xmax]` 0–1000) into a pixel (`PickRays.boxCenterPx`), a WORLD
+ray (intrinsics + camera pose, optional undistortion with `use_distortion`) and a point: Meta's **environment
+raycaster** (depth, MRUK `raycastEnvironment`, hits 0.15–4 m) first, then the MRUK table rectangle, the floor, the
+work-surface plane (`world.workSurfaceY` = the fixed spot, else the tracked assembly's height). `world.pickTargets` =
+`PickTarget(id, label, worldPos, confidence, ageMs, kind, method)`; an item the server reports `missing` is dropped,
+a new action clears them. Logs `parts` (`ok`, `ms`, `server_ms`, `want`, `found[{id, confidence, box_2d, method,
+pos_m}]`, `missing`, `targets`, `cam_pose`, `simulated`) and `depth_raycaster` (start result).
+`PickMarkers` draws the §4.6 cue for each target (azure ring 2 cm larger than the footprint estimated from the box
+size and distance, chevron 6 cm above, bobbing ±1 cm at 0.5 Hz, fading out over the last 3 s of a 15 s age) and logs
+`pick_markers`. Not yet: the "Πάρε / Pick up" label pill on the pile part, and moving the cue to the insertion path
+when the part is lifted.
+
+**Not wired in MainActivity yet** (owned by the UI agent): `MRUKFeature` in `registerFeatures`, `WorldModule` +
+`PickMarkers` construction, `world.start()`, `world.setAction` in `showStep`, the REGISTER fallback through
+`world.tablePose`, `pickMarkers.update` in `frameTick`, `showCameraBox` for the found box. The exact lines are in
+`world/WorldModule.kt`'s KDoc.
+
 ## Logs (shared with the Unity app)
 
 Tag `AGQ`, `{"t": epoch ms, "app": "android", "ev": ..., "t_rel": ms since start, ...}` (`t` = wall time at start +
@@ -215,14 +267,16 @@ monotonic clock). Events: `start` (version, params; key only as `key_set`), `job
 `parts`, `glb_bytes`, `max_err_mm`), `identify`, `locate`, `coach`, `panels`, `ghost_load`, `ghost_show`, `step`,
 `guidance`, `tracking`, `voice`, `voice_fetch`, `finish`, `frame` (every 5 s: render_fps), `error`; from vision:
 `vision` (config), `camera` (all Camera2 values), `camera_frame` (first frame: capture age, head-pose availability),
-`hands_source`, `track`, `touch_start`, `touch`; round 2: `ghost_material`, `mic`, `voice_cmd`, `voice_apply`,
-`drawing` (guide crop loaded: step, path, bytes), `window` (fade-relocations); from the socket: `perception` (hello, events with latency,
+`hands_source`, `head_pose`, `camera_pose`, `error` `camera_pose_missing`, `track`, `touch_start`, `touch`; round 2:
+`ghost_material`, `mic`, `voice_cmd`, `voice_apply`, `drawing` (guide crop loaded: step, path, bytes), `window`
+(fade-relocations); from world: `scene`, `table_found`, `table_missing`, `depth_raycaster`, `parts`, `pick_markers`;
+from the socket: `perception` (hello, events with latency,
 closed/failure), `perception_stats`.
 
 `track` (10 Hz live, every frame in replay): `fps` (render), `tracked`, `pos_m` (strip centre, WORLD), `yaw_deg`,
 `reproj_px`, `source` (`marker`, `touch`, `anchor` = held after the marker was lost, `none`), `frame` + `q`
 (replay), `state` (`tracked`/`held`/`lost`), `method`, `pos`, `rot`, `ms`, `raw_pos_m`, `asm_pos_m`, `age_ms`,
-`cam_fps`, `solve_hz`. When the marker is hidden (MALM steps 5+) the last pose is held (`source: anchor`).
+`cam_fps`, `solve_hz`, `cam_pose`. When the marker is hidden (MALM steps 5+) the last pose is held (`source: anchor`).
 
 ## Module map
 
@@ -245,13 +299,20 @@ Each module sits behind an interface; `MainActivity.kt` only wires them.
 | `vision/` | `VisionModule.kt` | **the one vision entry point for MainActivity** |
 | | `CameraSource.kt`, `LiveCameraSource.kt`, `ReplayCameraSource.kt` | Camera2 capture (YUV → gray + lazy JPEG, intrinsics, lens pose, head pose) / replay folder |
 | | `SpatialInput.kt`, `HeadPoseBuffer.kt` | Spatial SDK system: head pose ring buffer, hand joints, render fps |
+| | `CameraPose.kt` | `CameraPoseResolver` (head × lens at capture, clock fallback, miss reason) + `CameraPoseLog` (pure, tested) |
 | | `Frames.kt` | frame conversions, `MarkerConfig` (strip tag offset), `MarkerPlacement` |
 | | `MarkerDetector.kt`, `MarkerTracker.kt` | OpenCV AprilTag 36h11 + `solvePnPGeneric(IPPE_SQUARE)`, ambiguity, strip centre |
 | | `TrackingCore.kt`, `PoseFilter.kt` | One-Euro filter + hold + touch fallback + the `track` event |
 | | `Hands.kt`, `TouchTracker.kt` | hand summary (port of handChecks.ts), two-corner snap (port of register.ts) |
 | | `Yuv.kt`, `VisionConfig.kt` | NV21 resize, stream intrinsics; `vision.json` |
-| `net/` | `ServerApi.kt` | `HttpServerApi` (OkHttp, all REST calls) |
+| `net/` | `ServerApi.kt` | `HttpServerApi` (OkHttp, all REST calls, incl. `parts`) |
 | | `PerceptionSocket.kt` | `OkHttpPerceptionSocket` (flow control, reconnect, AGQ) |
+| `world/` | `WorldModule.kt` | **the one world entry point for MainActivity**: table pose, pick targets |
+| | `Table.kt` | `TableFinder`: scene corners → level rectangle, choice, footprint placement (pure, tested) |
+| | `SceneTable.kt` | MRUK scene load → WORLD surfaces → table; `MrukDepthRaycaster` (environment raycast) |
+| | `PickRays.kt` | box → pixel, pixel → WORLD ray, undistortion, ray-plane (pure, tested) |
+| | `PickMarkers.kt` | the §4.6 pick-up cue: ring under the real part + chevron bobbing ±1 cm at 0.5 Hz, fades with age (`PickCue` pure, tested) |
+| | `PartsFinder.kt` | the `/parts` loop every 5 s, ray → depth / table / floor / plane, `PickTarget`, `parts` log (tested with fakes) |
 | `ui/` | `CoachFlow.kt` | look → identify → build → locate → register → guide (pure, tested) |
 | | `Panels.kt` | glass `StepPanel` + toolbar ornament, `LabelPill`, `Hud` (Compose, world-space panels) |
 | | `Strings.kt` | EL/EN copy |
@@ -268,9 +329,12 @@ that answers each:
 
 1. `camera` event: a camera id with `position` 0 (left), intrinsics non-zero, `LENS_POSE_*` present; else
    `vision.json` `camera_position`.
-2. `camera_frame`: `head_found: true`, `head_samples` > 0, `cam_p` set and `age_ms` of tens of ms.
-   `head_found: false` = the timestamp clock (`ts_source`) does not match `elapsedRealtimeNanos`
-   (`unknown_ts_latency_ms`, `head_time_offset_ms`).
+2. `head_pose` once (the buffer fills), then `camera_pose` with `cam_p`/`cam_q` within a second and every 10 s.
+   The first `camera_frame` may say `head_samples: 0` (the camera starts before the first render tick): that is fine
+   if `camera_pose` follows. Otherwise `error` `camera_pose_missing` names the `reason`: `no_head_samples`
+   (SpatialInput not ticking / `getViewerPose` failing: look for `error head_pose`), `head_stale`,
+   `capture_outside_buffer` (clock mismatch: `lookup_minus_newest_ms`; the app falls back to `now − latency`, tune
+   `unknown_ts_latency_ms`), `no_lens_pose`.
 3. `hands_source`: `skeleton` (fingertips, touch registration works) or `avatar_body` (wrists only).
 4. Frames: the step window and the fixed spot appear **in front** (not behind); the drawer ghost is not mirrored
    (left side panel on the left); labels and the window show their front. If panels show their back, negate the
@@ -281,6 +345,11 @@ that answers each:
    is still wrong, relaunch with `--es ghost_material unlit` and compare.
 7. Voice: hold the mic, say "επόμενο" / "next": `voice_cmd` with `intent: next`, then `step` `by: voice`.
 8. Socket: `perception` `kind: hello`, then `perception_stats` with frames sent and acks; hands every 100 ms.
+9. Scene: `scene result: success` and `table_found` with a plausible `height_m` (~0.75) and `size_m`; the ghost
+   then stands on the real table, facing you, when no marker is seen. `plane_up_axis` should be `z` (OpenXR planes).
+   `table_missing reason: error_no_rooms_found` = run Space Setup on the headset once.
+10. Parts: during a `place` step, `parts` every ~5 s with `found[].method` (`depth` if the environment raycaster
+   works, else `table`) and `pos_m` on the real part; `depth_raycaster result` says whether depth is available.
 
 ## Open questions
 
