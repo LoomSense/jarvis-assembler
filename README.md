@@ -4,6 +4,8 @@ Scan a flat-pack box with your phone. An agent finds the assembly guide, rebuild
 
 Gen AI Summit Hackathon, Athens, 14–15 Nov 2026 · Try it: <https://agj.boxd.sh>
 
+**Status, Sun 15 Nov, 16:10 Athens.** On the Quest 3 the app guided the team's own drawer from step 2 to the first peg of step 6 with no button press, confirmed each of the four cam bolts aloud, reported a wrong item in the hand, and read the boards on the floor by size with the face that is up. Not yet shown on the headset: the four pegs to the end and the finish. Not reliable: which way round a side panel goes, a cam bolt against a peg in the hand, board recognition in direct sunlight. Each claim with its log event: [docs/SUBMISSION.md](docs/SUBMISSION.md).
+
 ![The phone flow: home, find the guide, the 3D build, the ready guide, a step, build with help](docs/img/phone-flow.jpg)
 
 ## What the person does, in six steps
