@@ -25,6 +25,10 @@ class VoiceLinesTest {
     v.sayStep(listOf(coach, step), "el")
     // one utterance: the step line cannot cut the coach line, and the coach line comes first
     assertEquals(listOf("$coach $step" to true), v.said)
+    // a step that just ended: "Step 1 done." leads the next step's entry instead of being cut by it 1.4 s later (A6)
+    v.said.clear()
+    v.sayStep(listOfNotNull("Το βήμα 1 έγινε.", null, "Βήμα 2, σελίδα 6. Βάλε τον πάτο."), "el")
+    assertEquals(listOf("Το βήμα 1 έγινε. Βήμα 2, σελίδα 6. Βάλε τον πάτο." to true), v.said)
     // no coach line (later steps, or the part is followed live): just the step line; blanks are skipped
     v.said.clear()
     v.sayStep(listOfNotNull(null, step), "el")

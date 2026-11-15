@@ -596,7 +596,8 @@ class MainActivity : AppSystemActivity() {
             (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + body
         else body
     // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
-    if (speak) voice.sayStep(listOfNotNull(coachNow?.takeIf { firstOfStep || again }, line), lang)
+    if (speak) voice.sayStep(listOfNotNull(stepDone, coachNow?.takeIf { firstOfStep || again }, line), lang)
+    stepDone = null
     // prefetch the next two lines
     var n = g.next(step, action)
     repeat(2) {
@@ -744,10 +745,9 @@ class MainActivity : AppSystemActivity() {
     ghost.setState(GhostState.CORRECT)
     sounds.play(if (stepEnds) Sounds.Cue.STEP else Sounds.Cue.SUCCESS)
     stepPanel.state = stepPanel.state.copy(status = StatusKind.SUCCESS, statusText = Strings.upper(lang, s("correct")))
-    if (stepEnds) {
-      val nextTitle = g.step(n.first)?.actions?.getOrNull(n.second)?.text?.get(lang) ?: ""
-      voice.say(if (lang == "el") "Το βήμα $curStep έγινε. Επόμενο: $nextTitle" else "Step $curStep done. Next: $nextTitle", lang)
-    }
+    // Said by the next step's entry, in front of its own line (one utterance). Spoken here, with the next
+    // instruction appended, it was cut 1.4 s later by that same instruction.
+    if (stepEnds) stepDone = if (lang == "el") "Το βήμα $curStep έγινε." else "Step $curStep done."
     scope.launch {
       delay(if (stepEnds) 1400 else 1000)
       advancing = false
@@ -814,6 +814,8 @@ class MainActivity : AppSystemActivity() {
   }
 
   private var realigning = false
+  /** "Step N done.", waiting to be spoken at the head of the next step's entry ([advance] → [showStep]). */
+  private var stepDone: String? = null
 
   /** "Re-align" is offered in the guide while the ghost is only placed (table, fixed spot, server box, nudge), not followed live. */
   private fun alignLabel(): String? {
