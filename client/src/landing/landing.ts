@@ -225,7 +225,8 @@ export function startLanding(app: HTMLElement): void {
       if (res.status === 401) return askForKey()
       if (!res.ok) throw new Error(String(res.status))
       const { jobs } = (await res.json()) as { jobs: JobRow[] }
-      draw(jobs)
+      // a build that stopped is not shown: on the home page it reads as if the site were broken
+      draw(jobs.filter((j) => j.status !== 'failed' && j.status !== 'error'))
       // a guide still being built: look again, so its card turns to "Ready" by itself
       clearTimeout(timer)
       if (jobs.some((j) => j.status !== 'done' && j.status !== 'failed' && j.status !== 'error')) timer = window.setTimeout(load, 5000)

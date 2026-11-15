@@ -243,6 +243,7 @@ export function startBuild(app: HTMLElement): void {
       // one row per guide: its newest finished build, else its newest attempt
       const byName = new Map<string, JobRow>()
       for (const j of all) {
+        if (j.status === 'error' || j.status === 'failed') continue // a build that stopped is not listed
         const name = (j.title || prettyName(j.filename) || j.job_id).toLowerCase()
         const had = byName.get(name)
         if (!had || (had.status !== 'done' && j.status === 'done')) byName.set(name, j)
