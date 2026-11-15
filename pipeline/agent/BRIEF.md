@@ -44,6 +44,15 @@ Library (`pipeline/cad/lib.py`, read it):
 - `union(*solids)`.
 - `screw(length, shank_d, head_d, head_h)`: seat (underside of the head) at the origin, shank along +Z.
 - `frame(origin, axis)`: a mate frame.
+- `rounded_box(x0, y0, z0, dx, dy, dz, r_side, r_edge)`: a box with rounded corners and soft edges (moulded plastic, padded parts).
+- `cushion(cx, cy, z0, w, d, h, corner, crown)`: an upholstered pad (seat, back cushion, headrest), rounded in plan with a soft top.
+- `cylinder(origin, axis, diameter, length)` and `tube(origin, axis, outer_d, inner_d, length)`: round bars and hollow tubes.
+- `bent_rod(points, diameter)`: a round bar through 3D points with rounded joints (tube frames, handles, armrest loops).
+- `turned(profile, origin, axis)`: a lathe part from (radius, height) points (wheels, knobs, feet, collars).
+- `curved_panel(width, height, thickness, depth, z0)`: a shell curved in plan (chair backs, seat shells).
+- `radial(solid, n, centre, axis)`: n copies around an axis, joined (star bases, spokes).
+
+**Shapes.** Model what a person would recognise from the drawing: the outline, the curves, where the holes are. A chair seat is a `cushion`, not a box; a star base is `radial` arms around a hub; a caster is `turned` wheels in a fork. Exact curvature cannot be read from a drawing, so keep it simple, but never use a plain box for something that is clearly round or padded. If you still have to simplify a part a lot, add a flag `{"kind": "approximate_shape", "ref": "part:<id>", "message": "..."}` so the person approving the plan knows.
 
 **Mate frames.** A frame is a point on the part's surface where another part or a fastener attaches. `origin` lies on the surface. `axis` is a unit vector pointing OUT of the material there. Two frames mate when their origins coincide and their axes are opposite.
 
@@ -98,3 +107,24 @@ Library (`pipeline/cad/lib.py`, read it):
 - `pose` + `assembly_rotation_deg`: how the whole assembly sits during this step, as the guide draws it: XYZ Euler angles in degrees applied to the base part's frame (`[0,0,0]` = base part as modelled; `[180,0,0]` = upside down; `[0,90,0]` = stood on one end). The animation turns the assembly when this changes between steps and shows `turn_text`. Set `flip_whole_assembly` true on a step that starts with such a turn.
 - `view_az_el_deg`: camera azimuth and elevation (degrees, Z up, in the turned scene) matching the guide's drawing for that step. `cover_view_az_el_deg`: the same for the finished product on the cover.
 - `hardware_used`: `{code: quantity}` for this step.
+
+**Sub-assemblies.** When the guide builds something on its own and only later attaches it as one piece (a seat with its mechanism and back, a drawer, a door, a frame), do not attach its parts to the main assembly early. Declare it and build it in its own frame:
+
+```json
+"subassemblies": [{"id": "seat_unit", "name": "Seat with backrest", "short": "seat with backrest",
+                   "el": "το κάθισμα με την πλάτη", "el_pron": "το"}],
+"steps": [
+  {"n": 4, "subassembly": "seat_unit", "assembly_rotation_deg": [180, 0, 0], "add": [
+     {"instance": "seat#1", "into": "seat_unit", "base": true},
+     {"instance": "tilt_mechanism#1", "into": "seat_unit", "mates": [{"moving": "seat_rear_L", "fixed": "seat#1.mech_rear_L"}, ...]},
+     {"instance": "115994#1", "into": "seat_unit", "mates": [{"moving": "seat", "fixed": "tilt_mechanism#1.scr_rear_L"}]}]},
+  {"n": 10, "add": [
+     {"subassembly": "seat_unit", "mates": [{"moving": "tilt_mechanism#1.socket", "fixed": "gas_lift#1.top"},
+                                            {"moving": "tilt_mechanism#1.base_ring", "fixed": "gas_lift#1.shoulder"}]}]}
+]
+```
+
+- Every add of a piece of the sub-assembly has `"into"`. Its first part has `"base": true` (its frame is the sub-assembly's frame). Its mates may only name pieces of the same sub-assembly.
+- A step that works on the sub-assembly has `"subassembly": "<id>"`. Its `assembly_rotation_deg` then turns the sub-assembly (in its base part's frame), as the guide draws it; the main assembly does not move. It is shown beside the main assembly.
+- The joining add has `"subassembly"` and no `"instance"`. Its `moving` frames are `<instance>.<frame>` inside the sub-assembly, its `fixed` frames are on the main assembly. Every piece moves with it. After that, its pieces are part of the main assembly and later steps can mate to them.
+- The whole plan still has exactly one main `"base": true` without `"into"`.

@@ -60,3 +60,95 @@ def screw(length, shank_d, head_d, head_h, recess=True) -> cq.Workplane:
             s = s.cut(cq.Workplane("XY").box(w, l, head_h, centered=(True, True, False))
                       .translate((0, 0, -head_h - 0.01 - head_h * 0.45)))
     return s
+
+
+# --- shapes beyond boards: upholstery, tubes, turned parts, curved shells, radial parts ---------------------
+def _place(solid: cq.Workplane, origin, axis) -> cq.Workplane:
+    """Move a solid built along +Z at the origin so that it starts at `origin` and runs along `axis`."""
+    a = cq.Vector(*axis).normalized()
+    z = cq.Vector(0, 0, 1)
+    v = z.cross(a)
+    if v.Length < 1e-9:
+        rotated = solid if a.z > 0 else solid.rotate((0, 0, 0), (1, 0, 0), 180)
+    else:
+        import math
+        ang = math.degrees(math.acos(max(-1.0, min(1.0, z.dot(a)))))
+        rotated = solid.rotate((0, 0, 0), v.toTuple(), ang)
+    return rotated.translate(tuple(origin))
+
+
+def rounded_box(x0, y0, z0, dx, dy, dz, r_side=0.0, r_edge=0.0) -> cq.Workplane:
+    """Box with its min corner at (x0, y0, z0); `r_side` rounds the vertical corners, `r_edge` all top and
+    bottom edges. For moulded plastic, padded parts, table tops with soft edges."""
+    b = cq.Workplane("XY").box(dx, dy, dz, centered=False)
+    if r_side:
+        b = b.edges("|Z").fillet(min(r_side, dx / 2 - 0.1, dy / 2 - 0.1))
+    if r_edge:
+        b = b.edges("#Z").fillet(min(r_edge, dz / 2 - 0.1))
+    return b.translate((x0, y0, z0))
+
+
+def cushion(cx, cy, z0, w, d, h, corner=40.0, crown=None) -> cq.Workplane:
+    """Upholstered pad (seat, back cushion, headrest): centred at (cx, cy), bottom at z0, height h along +Z.
+    Rounded corners in plan and a soft rounded top edge (`crown`, default 40% of h)."""
+    crown = h * 0.4 if crown is None else crown
+    c = cq.Workplane("XY").rect(w, d).extrude(h).edges("|Z").fillet(min(corner, w / 2 - 0.1, d / 2 - 0.1))
+    c = c.faces(">Z").edges().fillet(min(crown, h - 0.2))
+    return c.translate((cx, cy, z0))
+
+
+def cylinder(origin, axis, diameter, length) -> cq.Workplane:
+    """Solid round bar from `origin` along `axis` (pins, posts, gas lifts, legs)."""
+    return cq.Workplane(obj=cq.Solid.makeCylinder(diameter / 2, length, cq.Vector(*origin), cq.Vector(*axis).normalized()))
+
+
+def tube(origin, axis, outer_d, inner_d, length) -> cq.Workplane:
+    """Hollow tube from `origin` along `axis` (metal frames, sockets)."""
+    o = cq.Solid.makeCylinder(outer_d / 2, length, cq.Vector(*origin), cq.Vector(*axis).normalized())
+    i = cq.Solid.makeCylinder(inner_d / 2, length, cq.Vector(*origin), cq.Vector(*axis).normalized())
+    return cq.Workplane(obj=o.cut(i))
+
+
+def bent_rod(points, diameter) -> cq.Workplane:
+    """Round bar through a list of 3D points, with rounded joints (tube chair frames, handles, armrest loops)."""
+    r = diameter / 2
+    parts = []
+    for a, b in zip(points, points[1:]):
+        va, vb = cq.Vector(*a), cq.Vector(*b)
+        if (vb - va).Length > 1e-6:
+            parts.append(cq.Solid.makeCylinder(r, (vb - va).Length, va, (vb - va).normalized()))
+    for p in points[1:-1]:
+        parts.append(cq.Solid.makeSphere(r, cq.Vector(*p), angleDegrees1=-90, angleDegrees2=90))
+    s = parts[0]
+    for q in parts[1:]:
+        s = s.fuse(q)
+    return cq.Workplane(obj=s.clean())
+
+
+def turned(profile, origin=(0, 0, 0), axis=(0, 0, 1)) -> cq.Workplane:
+    """A part turned on a lathe: `profile` is a list of (radius, height) points, from the axis outwards and back,
+    revolved about the axis (wheels, knobs, feet, the gas lift's collar). Built along `axis` from `origin`."""
+    pts = [(float(r), float(z)) for r, z in profile]
+    if pts[0][0] != 0:
+        pts = [(0.0, pts[0][1])] + pts
+    if pts[-1][0] != 0:
+        pts = pts + [(0.0, pts[-1][1])]
+    s = cq.Workplane("XZ").polyline(pts).close().revolve(360, (0, 0, 0), (0, 1, 0))
+    return _place(s, origin, axis)
+
+
+def curved_panel(width, height, thickness, depth, z0=0.0) -> cq.Workplane:
+    """A shell curved in plan, like a chair back or a seat shell: centred on x = 0, the chord along X, bowing
+    towards -Y by `depth` at the middle, `thickness` thick, from z0 up by `height`."""
+    w, t = width / 2, thickness
+    sec = (cq.Workplane("XY").moveTo(-w, 0).threePointArc((0, -depth), (w, 0)).lineTo(w, t)
+           .threePointArc((0, -depth + t), (-w, t)).close())
+    return sec.extrude(height).translate((0, 0, z0))
+
+
+def radial(solid: cq.Workplane, n: int, centre=(0, 0, 0), axis=(0, 0, 1)) -> cq.Workplane:
+    """`n` copies of `solid` spaced evenly around an axis, joined into one (star bases, spoked wheels)."""
+    out = solid
+    for k in range(1, n):
+        out = out.union(solid.rotate(tuple(centre), tuple(cq.Vector(*centre) + cq.Vector(*axis)), 360.0 * k / n))
+    return out
