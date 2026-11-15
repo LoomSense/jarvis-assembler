@@ -1,62 +1,19 @@
-/* The agent at work (src/build/overview.ts): a stage rail with live counts on the left of the build feed, and what
-   the agent sees or has just written on the right. Tokens from tokens.css. */
+/* The agent at work (src/build/overview.ts). Top left, with no panel around it: a row of dots (one per stage) and
+   the time. In the centre, under the build screen's picture and its stage line: what the agent is doing right now,
+   in plain words. Tokens from tokens.css. */
 #agentview { font-family: var(--ag-font); color: var(--ag-text); }
-#agentview section {
-  position: fixed;
-  z-index: 30;
-  padding: 18px;
-  border: 1px solid var(--ag-border-soft);
-  border-radius: var(--ag-radius-lg);
-  background: var(--ag-surface-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--ag-shadow-glass);
-}
-#agentview h2 { margin: 0 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ag-text-strong); font-size: var(--ag-text-small); font-weight: 600; letter-spacing: 0.01em; }
-#agentview .model { padding: 2px 8px; border-radius: var(--ag-radius-pill); background: var(--ag-info-bg); color: var(--ag-accent); font: 500 11.5px var(--ag-font-mono); }
-#agentview .model[hidden] { display: none; }
+#agentview .rail { position: fixed; z-index: 30; left: 28px; top: 84px; pointer-events: none; text-shadow: 0 0 18px rgba(0, 0, 0, 0.9); }
+#agentview .stages { margin: 0; padding: 0; list-style: none; display: flex; align-items: center; gap: 7px; }
+#agentview .stages li { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ag-border-strong); box-sizing: border-box; }
+#agentview .stages li[data-state='done'] { border-color: var(--ag-success); background: var(--ag-success); }
+#agentview .stages li[data-state='now'] { border-color: var(--ag-accent); background: var(--ag-accent); box-shadow: 0 0 10px var(--ag-accent-glow); animation: agentview-pulse var(--ag-dur-pulse) ease-in-out infinite; }
+#agentview .sum { margin: 10px 0 0; display: flex; flex-wrap: wrap; color: var(--ag-text-meta); font-size: 13px; font-variant-numeric: tabular-nums; }
+#agentview .sum > [hidden] { display: none; }
+#agentview .sum > * + *::before { content: "·"; margin: 0 7px; }
 
-/* left: stages and counts */
-#agentview .rail { left: 24px; top: 72px; width: 292px; max-height: calc(100dvh - 96px); overflow: auto; }
-#agentview .stages { margin: 0; padding: 0; list-style: none; }
-#agentview .stages li { position: relative; display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; padding: 0 0 14px; color: var(--ag-text-meta); font-size: var(--ag-text-small); }
-#agentview .stages li:last-child { padding-bottom: 0; }
-#agentview .stages li::before { content: ""; position: absolute; left: 8.5px; top: 18px; bottom: 0; width: 1px; background: var(--ag-border-strong); }
-#agentview .stages li:last-child::before { display: none; }
-#agentview .stages i { width: 18px; height: 18px; margin-top: 1px; border: 1.5px solid var(--ag-border-strong); border-radius: 50%; background: var(--ag-bg); display: grid; place-items: center; z-index: 1; }
-#agentview .stages b { display: block; font-weight: 500; line-height: 1.3; }
-#agentview .stages small { display: block; margin-top: 3px; min-height: 0; color: var(--ag-accent); font: 12px/1.35 var(--ag-font-mono); overflow-wrap: anywhere; }
-#agentview .stages small:empty { display: none; }
-#agentview .stages time { color: var(--ag-text-meta); font: 12px var(--ag-font-mono); padding-top: 2px; }
-#agentview .stages li[data-state='done'] { color: var(--ag-text); }
-#agentview .stages li[data-state='done'] i { border-color: var(--ag-success); background: var(--ag-success-bg); }
-#agentview .stages li[data-state='done'] i::after { content: ""; width: 7px; height: 4px; margin-top: -2px; border: solid var(--ag-success); border-width: 0 0 1.5px 1.5px; transform: rotate(-45deg); }
-#agentview .stages li[data-state='done']::before { background: rgba(111, 220, 155, 0.4); }
-#agentview .stages li[data-state='now'] { color: var(--ag-text-strong); }
-#agentview .stages li[data-state='now'] b { font-weight: 600; }
-#agentview .stages li[data-state='now'] i { border-color: var(--ag-accent); }
-#agentview .stages li[data-state='now'] i::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ag-accent); box-shadow: 0 0 10px var(--ag-accent-glow); animation: agentview-pulse var(--ag-dur-pulse) ease-in-out infinite; }
-#agentview .stats { margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid var(--ag-border-soft); display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; }
-#agentview .stats div { min-width: 0; }
-#agentview .stats dt { color: var(--ag-text-meta); font-size: 11.5px; line-height: 1.25; }
-#agentview .stats dd { margin: 3px 0 0; color: var(--ag-text-strong); font: 500 17px var(--ag-font-mono); font-variant-numeric: tabular-nums; }
-
-/* right: what it sees, what it wrote */
-#agentview .eye { right: 24px; top: 188px; width: 340px; max-height: calc(100dvh - 212px); display: flex; flex-direction: column; }
-#agentview .show { min-height: 120px; overflow: auto; border-radius: var(--ag-radius-md); background: var(--ag-surface-2); display: grid; place-items: center; }
-#agentview .show > img { width: 100%; max-height: 46dvh; object-fit: contain; display: block; background: #fff; }
-#agentview .none { margin: 0; padding: 24px; color: var(--ag-text-meta); font-size: var(--ag-text-small); }
-#agentview pre { margin: 0; padding: 12px; width: 100%; box-sizing: border-box; max-height: 52dvh; overflow: auto; color: var(--ag-text); font: 11.5px/1.5 var(--ag-font-mono); white-space: pre; tab-size: 4; }
-#agentview .pair { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; box-sizing: border-box; }
-#agentview .pair:has(figure:only-child) { grid-template-columns: 1fr; }
-#agentview figure { margin: 0; }
-#agentview figure img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; border-radius: var(--ag-radius-sm); background: #fff; }
-#agentview figcaption { margin-top: 5px; color: var(--ag-text-meta); font-size: 11.5px; text-align: center; }
-#agentview .score { margin: 0 6px 8px; justify-self: start; padding: 4px 10px; border-radius: var(--ag-radius-pill); font: 500 12.5px var(--ag-font-mono); color: var(--ag-success); background: var(--ag-success-bg); }
-#agentview .score[data-level='warn'] { color: var(--ag-warn); background: var(--ag-warn-bg); }
-#agentview .score[data-level='error'] { color: var(--ag-error); background: var(--ag-error-bg); }
-#agentview .cap { margin: 10px 0 0; color: var(--ag-text-meta); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
-#agentview .cap:empty { display: none; }
+/* the plain-words line under the stage line */
+#now .doing { margin: -12px 0 0; max-width: 36ch; min-height: 1.45em; color: var(--ag-text-meta); font-size: 17px; line-height: 1.45; text-wrap: balance; }
+#now .doing:empty { visibility: hidden; }
 
 /* the feed itself reads better: older rows stay legible */
 :root[data-agentview] #feed li { opacity: 0.72; }
@@ -65,19 +22,12 @@
 
 @keyframes agentview-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
 
-/* not wide enough for three columns: the stages become one line under the status, the side panel goes */
-@media (max-width: 1320px) {
-  #agentview .eye { display: none; }
-  #agentview .rail { left: 50%; top: 46px; transform: translateX(-50%); width: auto; max-width: calc(100vw - 24px); padding: 8px 14px; border-radius: var(--ag-radius-pill); overflow: visible; }
-  #agentview .rail h2, #agentview .stats { display: none; }
-  #agentview .stages { display: flex; align-items: center; gap: 6px; }
-  #agentview .stages li { display: flex; align-items: center; gap: 6px; padding: 0; }
-  #agentview .stages li::before, #agentview .stages time, #agentview .stages small { display: none; }
-  #agentview .stages li:not([data-state='now']) div { display: none; }
-  #agentview .stages b { white-space: nowrap; font-size: 13px; }
-  #agentview .stages i { margin: 0; width: 14px; height: 14px; }
-  :root[data-agentview] #feed { padding-top: 44px; }
+/* a phone: the dots and the time centred under the top edge */
+@media (max-width: 720px) {
+  #agentview .rail { left: 50%; top: 52px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; }
+  #agentview .sum { margin: 0; }
+  :root[data-agentview] #feed { padding-top: 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #agentview .stages li[data-state='now'] i::after { animation: none; }
+  #agentview .stages li[data-state='now'] { animation: none; }
 }
