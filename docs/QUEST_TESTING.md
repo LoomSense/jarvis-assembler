@@ -230,3 +230,13 @@ The shell scripts honour `ADB=/path/to/adb`, so a fake adb can drive `run.sh` en
 | Replay push fails | Start the app once so Android creates `/sdcard/Android/data/<pkg>/files/`, then rerun `install.sh --replay`. |
 | Several devices | `export ANDROID_SERIAL=<serial>`. |
 | Wi-Fi instead of USB | `adb tcpip 5555 && adb connect <quest-ip>:5555`, then unplug. |
+
+## 10. Markerless tracking (offline research, not in the apps)
+
+`tools/markerless/` is an offline Python study of whether the marker can be dropped. It renders 360 synthetic Quest-like frames of the drawer at steps 1, 2, 4 and 5 (Blender), and tracks the drawer with oriented-chamfer edge tracking against the step's mesh, constrained to the table plane. Results are in `tools/markerless/REPORT.md`:
+
+- Edge tracking: 84% of frames within 10 mm and 5°, p50 4.6 mm and 0.5°, about 43 ms per frame on an M4 core in Python.
+- Keypoints on the white panels: 0%.
+- The marker: p50 1.35 mm.
+
+Keep the marker for the demo. Edge tracking is the candidate for when the marker is covered (step 4 onwards), seeded by the marker or the two-corner touch. Before any app work, validate it on a real replay with the marker pose as ground truth: `eval_edges.py` takes `frames.jsonl` (K, `T_world_cam`, `T_world_obj`) plus `img/`.
