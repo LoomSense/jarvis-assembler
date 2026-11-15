@@ -32,7 +32,8 @@ const WORDS = {
   el: {
     title: 'Οδηγός συναρμολόγησης', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
     findAria: 'Αναζήτηση', back: 'Πίσω', other: 'en', otherAria: 'English', go: 'Βρες',
-    aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή γράψε τον κωδικό', looking: 'Ψάχνω', noCamera: 'Γράψε τον κωδικό ή το όνομα',
+    aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή φωτογράφισε το κουτί, ή γράψε το όνομα', looking: 'Ψάχνω', noCamera: 'Φωτογράφισε το κουτί, ή γράψε τον κωδικό ή το όνομα',
+    photo: 'Φωτογράφισε το κουτί', unsure: 'Δεν αναγνώρισα το προϊόν. Δοκίμασε τον κωδικό ή το όνομα.',
     noKey: 'Λείπει ο κωδικός πρόσβασης από τη διεύθυνση (?key=).', fromIkea: 'Από την IKEA',
     notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', several: 'Ταιριάζουν πολλά. Γράψε πιο συγκεκριμένα.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
     steps: 'Δες τα βήματα', help: 'Συναρμολόγησε με βοήθεια', quest: 'Άνοιξε στο Quest',
@@ -42,7 +43,8 @@ const WORDS = {
   en: {
     title: 'Assembly guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
     findAria: 'Search', back: 'Back', other: 'ελ', otherAria: 'Ελληνικά', go: 'Find',
-    aim: 'Point at the code on the box', type: 'or type the code', looking: 'Looking', noCamera: 'Type the code or the name',
+    aim: 'Point at the code on the box', type: 'or photograph the box, or type the name', looking: 'Looking', noCamera: 'Photograph the box, or type the code or the name',
+    photo: 'Photograph the box', unsure: 'I could not tell which product this is. Try the code or the name.',
     noKey: 'The access key is missing from the address (?key=).', fromIkea: 'From IKEA',
     notFound: 'I could not find that guide. Upload it.', several: 'Several match. Be more specific.', offline: 'The server does not answer. Try again.',
     steps: 'See the steps', help: 'Build with help', quest: 'Open in Quest',
@@ -60,6 +62,7 @@ const ICON = {
   phone: '<rect x="7" y="2.5" width="10" height="15" rx="2"/><path d="M10 21.5h4M12 17.5v4"/>',
   quest: '<path d="M3.5 9.5c0-1.7 1.3-3 3-3h11c1.7 0 3 1.3 3 3v4.5c0 1.7-1.3 3-3 3h-2.6c-.8 0-1.4-.4-1.8-1.1l-.4-.8c-.4-.8-1.2-.8-1.6 0l-.4.8c-.4.7-1 1.1-1.8 1.1H6.5c-1.7 0-3-1.3-3-3z"/>',
   go: '<path d="M5 12h13M13 6.5 18.5 12 13 17.5"/>',
+  shot: '<path d="M4 8.5h3.2l1.4-2h6.8l1.4 2H20v10H4z"/><circle cx="12" cy="13.2" r="3.2"/>',
   warn: '<path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4.5M12 17.2v.1"/>',
 }
 const svg = (p: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`
@@ -99,8 +102,10 @@ export function startHome(app: HTMLElement): void {
     <div class="foot" data-for="scan" hidden>
       <p class="line scanline" aria-live="polite"></p>
       <p class="meta scanhint"></p>
-      <form class="codefield"><label class="sr" for="home-code"></label><input id="home-code" autocomplete="off" enterkeyhint="go" />
+      <form class="codefield"><button class="round shot" type="button">${svg(ICON.shot)}</button>
+        <label class="sr" for="home-code"></label><input id="home-code" autocomplete="off" enterkeyhint="go" />
         <button class="round" type="submit">${svg(ICON.go)}</button></form>
+      <input class="shotfile" type="file" accept="image/*" capture="environment" hidden />
     </div>
     <div class="foot" data-for="ready" hidden>
       <p class="line readyname"></p>
@@ -375,7 +380,8 @@ export function startHome(app: HTMLElement): void {
     $('.scanline').textContent = cameraOn ? w().aim : ''
     $('.codefield label').textContent = w().find
     $<HTMLInputElement>('#home-code').placeholder = w().find
-    $('.codefield button').setAttribute('aria-label', w().go)
+    $('.codefield button[type="submit"]').setAttribute('aria-label', w().go)
+    $('.shot').setAttribute('aria-label', w().photo)
     $('.r-steps span').textContent = w().steps
     $('.r-help span').textContent = w().help
     $('.r-quest span').textContent = w().quest
@@ -570,6 +576,56 @@ export function startHome(app: HTMLElement): void {
     }
   }
   $('.go-scan').addEventListener('click', () => void startScan())
+
+  // ------------------------------------------------------------------ a photo of the box (or of the label, or of the piece)
+  // POST /api/identify reads the name and the numbers printed on it and answers with a guide of this server
+  // (`match`) or with the words to look the guide up (`query`), which then go the same way as a scanned code.
+  const toJpeg = (src: CanvasImageSource, width: number, height: number): string => {
+    const k = Math.min(1, 1600 / Math.max(width, height)) // labels carry small print: keep it large
+    const c = document.createElement('canvas')
+    c.width = Math.round(width * k)
+    c.height = Math.round(height * k)
+    c.getContext('2d')?.drawImage(src, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.85).split(',')[1] ?? ''
+  }
+  const identify = async (image: string) => {
+    if (!image) return
+    say(w().looking)
+    $('.scanline').textContent = w().looking
+    try {
+      const res = await apiFetch('/api/identify', key, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image, lang }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const out = (await res.json()) as { match: { job_id: string; ready: boolean } | null; query: string | null; message?: string }
+      if (out.match?.job_id) {
+        if (out.match.ready) return void showReady(out.match.job_id, null)
+        return location.assign(link({ mode: 'build', job: out.match.job_id, auto: '1' }))
+      }
+      if (out.query) return void (await openByText(out.query)) // not found: openByText says so
+      $('.scanline').textContent = out.message || w().unsure
+      say(out.message || w().unsure)
+    } catch {
+      $('.scanline').textContent = w().offline
+      say(w().offline)
+    }
+  }
+  $('.shot').addEventListener('click', () => {
+    const video = $<HTMLVideoElement>('.cam video')
+    if (cameraOn && video.videoWidth) return void identify(toJpeg(video, video.videoWidth, video.videoHeight))
+    $<HTMLInputElement>('.shotfile').click() // no live camera here: the phone's own camera or a picture from its library
+  })
+  $<HTMLInputElement>('.shotfile').addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => { URL.revokeObjectURL(url); void identify(toJpeg(img, img.naturalWidth, img.naturalHeight)) }
+    img.onerror = () => { URL.revokeObjectURL(url); $('.scanline').textContent = w().unsure }
+    img.src = url
+  })
   $('.codefield').addEventListener('submit', (e) => {
     e.preventDefault()
     void openByText($<HTMLInputElement>('#home-code').value.trim())
