@@ -25,7 +25,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * | `head_time_offset_ms` | 0 | added to the capture time before looking up the head pose |
  * | `unknown_ts_latency_ms` | 35 | capture latency assumed when `SENSOR_INFO_TIMESTAMP_SOURCE` is UNKNOWN |
  * | `track_log_hz` | 10 | `track` events per second in live mode (replay logs every frame) |
- * | `jpeg_long_edge`, `jpeg_quality` | 768, 70 | server frames (perception hello.limits) |
+ * | `jpeg_long_edge`, `jpeg_quality` | 768, 80 | server frames (perception hello.limits) |
  * | `subpixel`, `aruco3`, `use_distortion` | true, false, false | [DetectorOptions] |
  * | `marker_id`, `marker_size_m` | 0, 0.08 | marker.json |
  * | `marker_tag_offset_m` | [−0.05, 0, 0] | the 36h11 tag's centre in strip axes (marker.json); [0, 0, 0] = single tag |
@@ -41,7 +41,7 @@ data class VisionConfig(
     val unknownTsLatencyMs: Double = 35.0,
     val trackLogHz: Double = 10.0,
     val jpegLongEdge: Int = 768,
-    val jpegQuality: Int = 70,
+    val jpegQuality: Int = 80,
     val detector: DetectorOptions = DetectorOptions(),
     val marker: MarkerConfig = MarkerConfig(),
     val filter: OneEuroParams = OneEuroParams(),

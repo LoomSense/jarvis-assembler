@@ -150,6 +150,13 @@ class VisionMathTest {
     assertEquals(90, out[8].toInt()) // V first in NV21
     assertEquals(50, out[9].toInt())
     assertEquals(768 to 576, Yuv.fitLongEdge(1280, 960, 768))
+    // smooth: each output luma is the mean of its 2 x 2 source block (columns 0-1 -> 5, 2-3 -> 25, ...)
+    val smooth = Yuv.toNv21Scaled(y, w, u, v, w, 2, w, h, 4, 2, smooth = true)
+    assertEquals(listOf(5, 25, 45, 65), smooth.take(4).map { it.toInt() })
+    assertEquals(90, smooth[8].toInt())
+    // bright pixels (above 127 as signed bytes) average as unsigned
+    val bright = ByteArray(w * h) { 200.toByte() }
+    assertEquals(200, Yuv.toNv21Scaled(bright, w, u, v, w, 2, w, h, 4, 2, smooth = true)[0].toInt() and 0xFF)
   }
 
   @Test

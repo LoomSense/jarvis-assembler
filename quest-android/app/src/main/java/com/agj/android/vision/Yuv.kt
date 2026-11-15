@@ -5,7 +5,7 @@ package com.agj.android.vision
  */
 object Yuv {
   /**
-   * Nearest-neighbour resize of a YUV 4:2:0 image (any plane layout, as `android.media.Image` gives it) into NV21
+   * Resize (nearest neighbour, or a 2 x 2 luma average with [smooth]) of a YUV 4:2:0 image (any plane layout, as `android.media.Image` gives it) into NV21
    * (`Y…, then V,U interleaved`) of [ow] × [oh] (both even).
    */
   fun toNv21Scaled(
@@ -19,15 +19,34 @@ object Yuv {
       h: Int,
       ow: Int,
       oh: Int,
+      smooth: Boolean = false,
   ): ByteArray {
     require(ow % 2 == 0 && oh % 2 == 0) { "output size must be even" }
     val out = ByteArray(ow * oh * 3 / 2)
     val xs = IntArray(ow) { ((it.toLong() * w) / ow).toInt() }
-    for (j in 0 until oh) {
-      val sy = ((j.toLong() * h) / oh).toInt()
-      val row = sy * yRowStride
-      val o = j * ow
-      for (i in 0 until ow) out[o + i] = y[row + xs[i]]
+    if (smooth && (ow < w || oh < h)) {
+      // 2 x 2 average of the luma when shrinking: the nearest-neighbour picture is aliased, and the server threw
+      // away most headset frames as too poor to judge (15 Nov)
+      for (j in 0 until oh) {
+        val sy = ((j.toLong() * h) / oh).toInt()
+        val r0 = sy * yRowStride
+        val r1 = minOf(sy + 1, h - 1) * yRowStride
+        val o = j * ow
+        for (i in 0 until ow) {
+          val x0 = xs[i]
+          val x1 = minOf(x0 + 1, w - 1)
+          val sum = (y[r0 + x0].toInt() and 0xFF) + (y[r0 + x1].toInt() and 0xFF) +
+              (y[r1 + x0].toInt() and 0xFF) + (y[r1 + x1].toInt() and 0xFF)
+          out[o + i] = ((sum + 2) shr 2).toByte()
+        }
+      }
+    } else {
+      for (j in 0 until oh) {
+        val sy = ((j.toLong() * h) / oh).toInt()
+        val row = sy * yRowStride
+        val o = j * ow
+        for (i in 0 until ow) out[o + i] = y[row + xs[i]]
+      }
     }
     var o = ow * oh
     for (j in 0 until oh / 2) {

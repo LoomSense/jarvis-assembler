@@ -14,7 +14,7 @@ interface JobRepository {
   /** `GET /files/{job}/manifest.json`, parsed. Throws on HTTP or parse errors. */
   suspend fun manifest(jobId: String): Manifest
 
-  /** Downloads `/files/{job}/{manifest.glb}` into the cache dir (once) and returns the local file. */
+  /** Downloads `/files/{job}/{manifest.glb}` into the cache dir on every load and returns the local file. */
   suspend fun glb(jobId: String, manifest: Manifest): File
 
   /** Manifest + GLB + final node poses. Logs `job_loaded` (job, steps, actions, ms). */
@@ -33,11 +33,20 @@ class HttpJobRepository(private val api: ServerApi, private val cacheDir: File) 
 
   override suspend fun glb(jobId: String, manifest: Manifest): File {
     val out = File(cacheDir, "jobs/$jobId/${manifest.glb}")
-    if (!out.exists() || out.length() == 0L) {
-      out.parentFile?.mkdirs()
+    out.parentFile?.mkdirs()
+    // Always fetch: a job can be rebuilt on the server under the same id (15 Nov: the drawer was rebuilt with its
+    // measured sizes), and an old GLB under a new manifest puts every ghost in the wrong place. The cached copy is
+    // only the fallback when the download fails.
+    try {
       val tmp = File(out.path + ".part")
       tmp.writeBytes(api.file(jobId, manifest.glb))
-      tmp.renameTo(out)
+      if (!tmp.renameTo(out)) {
+        out.delete()
+        tmp.renameTo(out)
+      }
+    } catch (e: Exception) {
+      if (!out.exists() || out.length() == 0L) throw e
+      Agq.log.error("glb_cache", "download failed, using the cached copy: ${e.message}")
     }
     return out
   }

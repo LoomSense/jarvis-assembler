@@ -333,7 +333,7 @@ class LiveCameraSource(
       Agq.log.error("camera", "frame.jpeg read after onFrame returned")
       return ByteArray(0)
     }
-    val nv21 = Yuv.toNv21Scaled(y, yRow, u, v, uvRow, uvPix, w, h, ow, oh)
+    val nv21 = Yuv.toNv21Scaled(y, yRow, u, v, uvRow, uvPix, w, h, ow, oh, smooth = true)
     val out = ByteArrayOutputStream(64 * 1024)
     YuvImage(nv21, ImageFormat.NV21, ow, oh, null).compressToJpeg(Rect(0, 0, ow, oh), quality, out)
     return out.toByteArray()
