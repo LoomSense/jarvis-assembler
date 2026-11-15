@@ -659,14 +659,14 @@ class MainActivity : AppSystemActivity() {
     // "Πάρε: …"; the step's own line comes with "put it here" ([coachApply]).
     coachPaint()
     val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
-    val said = if (picking) coachPickLine(act) ?: body else body
+    val said = if (picking && speak) coachPickLine(act) ?: body else body
     if (picking) voice.prefetch(body, lang)
     val line =
         if (firstOfStep && st.page != null)
             (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + said
         else said
     // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
-    val lead = listOfNotNull(stepDone, coachNow?.takeIf { firstOfStep || again })
+    val lead = listOfNotNull(stepDone, coachNow?.takeIf { (firstOfStep || again) && !picking })
     // ACTION-COACH: a bare "Πάρε: …" the wearer did not ask for is a prompt: it waits for silence, it never cuts a sentence
     if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
       if (!voice.speaking) voice.say(line, lang, interrupt = false)
@@ -809,8 +809,9 @@ class MainActivity : AppSystemActivity() {
   private val actionCoach = com.agj.android.ui.ActionCoach()
   /** Why the next `showStep` starts its action (`back`, `repeat`, or what ended the action before it). */
   private var coachWhy: String? = null
-  /** "Σωστό. <name>.", held back for an instant so it can lead the "put it here" line as one sentence group. */
-  private var coachConfirm: String? = null
+  /** Inside [coachHeld]: "Σωστό. <name>." is held back so it can lead the "put it here" line as one sentence group. */
+  private var coachHolding = false
+  private var coachHeldLine: Pair<String, com.agj.android.ui.HeldSpeech>? = null
   /** The entry line already said where the part lies: the located prompt would only repeat it. */
   private var coachSaidWhere = false
   /** Part id / hardware code of the action shown now (empty: nothing to take). */
@@ -834,7 +835,7 @@ class MainActivity : AppSystemActivity() {
     val next = assembly?.guide?.next(step, action)
     val why = coachWhy ?: if (again) "repeat" else if (by == StepBy.VOICE) "voice" else if (by == StepBy.AUTO) "start" else "next"
     coachWhy = null
-    coachConfirm = null
+    coachHeldLine = null
     coachSaidWhere = false
     coachSpot = null
     val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why)
@@ -876,8 +877,9 @@ class MainActivity : AppSystemActivity() {
       com.agj.android.ui.CoachPhase.PLACE -> {
         coachPaint()
         if (c.why == "part_moved" || c.why == "timer") sounds.play(Sounds.Cue.PLACE) // it moved by itself: one soft cue
-        // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us here
-        voice.sayStep(listOfNotNull(lead, coachAct()?.text?.get(lang)), lang)
+        // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us
+        // here, and on the base part's step the no-marker line ("… inside the blue outline") comes with it
+        voice.sayStep(listOfNotNull(lead, coachLine(), coachAct()?.text?.get(lang)), lang)
       }
       com.agj.android.ui.CoachPhase.DONE -> {
         coachWhy = c.why
@@ -896,10 +898,15 @@ class MainActivity : AppSystemActivity() {
 
   /** A held-part event: the badge as before ([held]), then the phase: right → "put it here", wrong → it stays. */
   private fun coachHeld(event: String, raw: JsonObject) {
-    coachConfirm = null
-    held.onServerEvent(event, raw)
-    val confirm = coachConfirm
-    coachConfirm = null
+    coachHeldLine = null
+    coachHolding = true
+    try {
+      held.onServerEvent(event, raw)
+    } finally {
+      coachHolding = false
+    }
+    val line = coachHeldLine
+    coachHeldLine = null
     val ev = com.agj.android.ui.HeldEvent.parse(event, raw, lang)
     var c: com.agj.android.ui.CoachChange? = null
     if (ev != null && coach.stage == CoachFlow.Stage.GUIDE && !finished && !advancing && (ev.step == null || ev.step == curStep)) {
@@ -910,20 +917,25 @@ class MainActivity : AppSystemActivity() {
         com.agj.android.ui.Verdict.UNSURE -> {}
       }
     }
-    if (c != null) coachApply(c, lead = confirm)
-    else if (confirm != null && !voice.speaking) voice.say(confirm, lang, interrupt = false) // no phase change: as before
+    if (c != null) coachApply(c, lead = line?.first) else line?.let { coachSpeak(it.first, it.second) } // no change: as before
+  }
+
+  /** One place for the urgency of a held-part line: CONFIRM and PROMPT wait for silence, the rest interrupt. */
+  private fun coachSpeak(text: String, kind: com.agj.android.ui.HeldSpeech) {
+    if (!kind.quiet) voice.say(text, lang) else if (!voice.speaking) voice.say(text, lang, interrupt = false)
   }
 
   /** What [held] wants to say, timed by the phase (CONFIRM and PROMPT never talk over the guide, the rest interrupt). */
   private fun coachSay(text: String, kind: com.agj.android.ui.HeldSpeech) {
     val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
     when {
-      // "Σωστό. <name>." while taking the part: [coachHeld] says it in front of the "put it here" line
-      kind == com.agj.android.ui.HeldSpeech.CONFIRM && picking -> coachConfirm = text
+      // the verdict that may end "take" (a confirmation, or the answer to a check): [coachHeld] says it, in front of
+      // the "put it here" line when the phase moves, by itself when it does not
+      coachHolding && picking && (kind == com.agj.android.ui.HeldSpeech.CONFIRM || kind == com.agj.android.ui.HeldSpeech.ANSWER) ->
+          coachHeldLine = text to kind
       // "Πάρε: …, αριστερά σου." only while the part is still to be taken, and not when the entry line said where
       kind == com.agj.android.ui.HeldSpeech.PROMPT && (!picking || coachSaidWhere) -> {}
-      !kind.quiet -> voice.say(text, lang)
-      !voice.speaking -> voice.say(text, lang, interrupt = false)
+      else -> coachSpeak(text, kind)
     }
   }
 

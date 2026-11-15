@@ -475,7 +475,8 @@ fun StepPanel(model: StepPanelModel) {
           overflow = TextOverflow.Ellipsis,
       )
       // The no-marker instruction: first in the body area, whole (up to three lines), in the outline's own azure.
-      if (model.coach.isNotEmpty() && !s.compact)
+      // ACTION-COACH: it says where the part goes, so it waits while "take" is the instruction (phase 1)
+      if (model.coach.isNotEmpty() && !s.compact && s.phase != 1)
           Text(
               model.coach,
               color = AgColors.accent,
