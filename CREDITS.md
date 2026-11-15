@@ -69,3 +69,4 @@ Everything in this repository that we did not build ourselves during the hackath
 - Licence of the IKEA-Manual dataset.
 - `client/public/xr-check.html` (the headset check page) loads three.js 0.187.0 from the jsDelivr CDN at run time instead of from the build.
 - Fonts: the client loads Google Sans and JetBrains Mono from Google Fonts at run time (`client/src/styles/tokens.css`). Check their licence terms before listing them above.
+| AprilRobotics apriltag-imgs (tag41_12_00000.png) | 41h12 marker image in `tools/quest/marker/vendor/` | BSD-2-Clause | https://github.com/AprilRobotics/apriltag-imgs |
