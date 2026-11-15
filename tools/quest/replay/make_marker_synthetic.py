@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Render a synthetic replay dataset: an AprilTag 36h11 marker on a wooden table, seen by a moving camera.
+"""Render a synthetic replay dataset: the two-tag marker strip on a wooden table, seen by a moving camera.
 
   .venv/bin/python tools/quest/replay/make_marker_synthetic.py [--out DIR] [--frames 300] [--size 1280x960]
 
 Writes into tools/quest/replay/marker-synthetic/ (git-ignored, ~25 MB; regenerate in ~15 s):
   000000.jpg ...      frames (JPEG q85)
   intrinsics.json     {fx, fy, cx, cy, width, height, fps, distortion: none}
-  poses.jsonl         one line per frame: camera pose in the world + ground-truth marker pose in the camera
-  dataset.json        marker family/id/size, conventions, trajectory phases
+  poses.jsonl         one line per frame: camera pose in the world + ground-truth STRIP CENTRE pose in the camera
+                      (+ each tag's corners in pixels); format spec: docs/QUEST_TESTING.md "poses.jsonl"
+  dataset.json        strip + tags (from tools/quest/marker/marker.json), conventions, trajectory phases
 
 Trajectory (30 fps, 10 s): frames 0-179 orbit the marker (azimuth -55..+55 deg, elevation 55..38 deg,
 0.55 m); 180-259 slow sideways translation and approach to 0.42 m; 260-299 perfectly still (jitter window).
-The marker's black square is 80 mm (same as the printable marker in tools/quest/marker/).
+The strip is the printable one in tools/quest/marker/ (210 x 105 mm: 36h11 id 0 at x = -50 mm, tagStandard41h12
+id 0 at x = +50 mm), drawn with the same code; both tags stay fully in view in every frame. The strip centre is the
+world origin and the tracked object: both apps must report the same pose whichever tag they detect.
 """
 from __future__ import annotations
 
@@ -24,12 +27,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from geom import CV_TO_XR, R_WORLD_MARKER, look_at_cv, quat_from_R  # noqa: E402
-
 HERE = Path(__file__).resolve().parent
-FAMILY, MARKER_ID, MARKER_MM = "apriltag_36h11", 0, 80.0
-TEX_MM = (700, 500)             # table patch, 1 px = 1 mm
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent / "marker"))
+from geom import CV_TO_XR, R_WORLD_MARKER, look_at_cv, quat_from_R  # noqa: E402
+from make_marker import render_strip  # noqa: E402
+
+MARKER = json.loads((HERE.parent / "marker" / "marker.json").read_text())
+TEX_MM = (700, 500)             # table patch
+PX_MM = 2                       # texture pixels per mm (0.5 mm texels)
 
 
 def smoothstep(a: float) -> float:
@@ -37,28 +43,24 @@ def smoothstep(a: float) -> float:
     return a * a * (3 - 2 * a)
 
 
-def marker_bits() -> np.ndarray:
-    d = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
-    return cv2.aruco.generateImageMarker(d, MARKER_ID, 8, borderBits=1)   # 8x8 modules, 1 px each
-
-
 def table_texture(rng: np.random.Generator) -> np.ndarray:
-    """BGR wood-ish texture (1 px = 1 mm) with the printed marker on white paper at the centre."""
-    W, H = TEX_MM
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    noise = cv2.GaussianBlur(rng.standard_normal((H, W)).astype(np.float32), (0, 0), 6) * 3
+    """BGR wood-ish texture (PX_MM px per mm) with the printed strip (white paper) at the centre."""
+    W, H = TEX_MM[0] * PX_MM, TEX_MM[1] * PX_MM
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32) / PX_MM
+    noise = cv2.resize(cv2.GaussianBlur(rng.standard_normal(TEX_MM[::-1]).astype(np.float32), (0, 0), 6) * 3, (W, H))
     grain = np.sin((xx + 25 * noise + 8 * np.sin(yy / 37)) / 5.5) * 0.5 + 0.5
-    fine = cv2.GaussianBlur(rng.standard_normal((H, W)).astype(np.float32), (0, 0), 1.2) * 0.08
+    fine = cv2.GaussianBlur(rng.standard_normal((H, W)).astype(np.float32), (0, 0), 1.2 * PX_MM) * 0.08
     t = np.clip(0.55 + 0.25 * grain + fine, 0, 1)
     base = np.array([60, 110, 165], np.float32)        # BGR light oak
     dark = np.array([30, 65, 110], np.float32)
     tex = (dark[None, None] * (1 - t[..., None]) + base[None, None] * t[..., None]).astype(np.uint8)
-    # Paper 140 x 140 mm, marker 80 mm (10 mm modules) centred.
-    cx, cy = W // 2, H // 2
-    tex[cy - 70:cy + 70, cx - 70:cx + 70] = (236, 238, 240)
-    m = cv2.resize(marker_bits(), (int(MARKER_MM), int(MARKER_MM)), interpolation=cv2.INTER_NEAREST)
-    h = int(MARKER_MM) // 2
-    tex[cy - h:cy + h, cx - h:cx + h] = np.where(m[..., None] > 0, 240, 22).astype(np.uint8)
+    # Strip: rendered at 4x, area-averaged down (exact module edges); row 0 = TOP edge = toward world -Z.
+    strip = cv2.resize(render_strip(4 * PX_MM).astype(np.float32), None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+    shade = (22 + (240 - 22) * strip / 255.0).astype(np.uint8)
+    sh, sw = shade.shape
+    v0, u0 = H // 2 - sh // 2, W // 2 - sw // 2
+    paper = np.array([236, 238, 240], np.float32) / 240
+    tex[v0:v0 + sh, u0:u0 + sw] = np.clip(shade[..., None] * paper[None, None], 0, 255).astype(np.uint8)
     return tex
 
 
@@ -96,8 +98,8 @@ def main() -> int:
     K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
     rng = np.random.default_rng(a.seed)
     tex = table_texture(rng)
-    TW, TH = TEX_MM
-    s = 0.001                                               # metres per texture pixel
+    TW, TH = TEX_MM[0] * PX_MM, TEX_MM[1] * PX_MM
+    s = 0.001 / PX_MM                                       # metres per texture pixel
     # texture pixel (u, v, 1) -> world (X, 0, Z): X = (u + 0.5 - TW/2) s, Z = (v + 0.5 - TH/2) s
     A = np.array([[s, 0, (0.5 - TW / 2) * s], [0, 0, 0], [0, s, (0.5 - TH / 2) * s]])   # pixel centres
     bg = np.tile(np.linspace(70, 40, H, dtype=np.float32)[:, None, None], (1, W, 3)).astype(np.uint8)
@@ -107,9 +109,11 @@ def main() -> int:
     for old in out.glob("*.jpg"):
         old.unlink()
     poses = []
-    half = MARKER_MM / 2000
-    corners_m = np.array([[-half, half, 0], [half, half, 0], [half, -half, 0], [-half, -half, 0]])
-    min_px = 1e9
+    tag_corners = {}                                        # tag key -> its 4 detector-edge corners in strip axes
+    for tg in MARKER["tags"]:
+        h, o = tg["size_m"] / 2, np.asarray(tg["offset_m"], dtype=float)
+        tag_corners[tg["key"]] = o + np.array([[-h, h, 0], [h, h, 0], [h, -h, 0], [-h, -h, 0]])
+    min_px = {k: 1e9 for k in tag_corners}
     for i, t, cam, tgt in trajectory(a.frames, a.fps):
         R_wc = look_at_cv(cam, tgt)
         R_cw = R_wc.T
@@ -128,12 +132,15 @@ def main() -> int:
         cv2.imwrite(str(out / f"{i:06d}.jpg"), img, [cv2.IMWRITE_JPEG_QUALITY, a.quality])
 
         R_cm = R_cw @ R_WORLD_MARKER
-        t_cm = t_cw                                         # marker origin = world origin
-        proj, _ = cv2.projectPoints(corners_m, cv2.Rodrigues(R_cm)[0], t_cm, K, None)
-        proj = proj.reshape(-1, 2)
-        assert (proj[:, 0] > 0).all() and (proj[:, 0] < W).all() and (proj[:, 1] > 0).all() and (proj[:, 1] < H).all(), \
-            f"marker leaves the image at frame {i}"
-        min_px = min(min_px, float(np.linalg.norm(proj[0] - proj[1])))
+        t_cm = t_cw                                         # strip centre = world origin
+        corners_px = {}
+        for key, cm in tag_corners.items():
+            proj, _ = cv2.projectPoints(cm, cv2.Rodrigues(R_cm)[0], t_cm, K, None)
+            proj = proj.reshape(-1, 2)
+            assert (proj[:, 0] > 0).all() and (proj[:, 0] < W).all() and (proj[:, 1] > 0).all() and \
+                (proj[:, 1] < H).all(), f"{key} leaves the image at frame {i}"
+            min_px[key] = min(min_px[key], float(np.linalg.norm(proj[0] - proj[1])))
+            corners_px[key] = [[round(float(x), 2), round(float(y), 2)] for x, y in proj]
         poses.append({
             "frame": i, "t": round(t, 4), "file": f"{i:06d}.jpg",
             "cam_p": [round(float(v), 6) for v in cam],
@@ -141,7 +148,7 @@ def main() -> int:
             "cam_q_xr": [round(v, 7) for v in quat_from_R(R_wc @ CV_TO_XR)],
             "marker_p": [round(float(v), 6) for v in t_cm],
             "marker_q": [round(v, 7) for v in quat_from_R(R_cm)],
-            "marker_corners_px": [[round(float(x), 2), round(float(y), 2)] for x, y in proj],
+            "tag_corners_px": corners_px,
         })
     (out / "intrinsics.json").write_text(json.dumps(
         {"fx": round(fx, 4), "fy": round(fy, 4), "cx": round(cx, 4), "cy": round(cy, 4), "width": W, "height": H,
@@ -149,21 +156,28 @@ def main() -> int:
     (out / "poses.jsonl").write_text("".join(json.dumps(p, separators=(",", ":")) + "\n" for p in poses))
     (out / "dataset.json").write_text(json.dumps({
         "name": "marker-synthetic", "frames": a.frames, "fps": a.fps, "seed": a.seed,
-        "marker": {"family": FAMILY, "id": MARKER_ID, "size_m": MARKER_MM / 1000,
-                   "size_note": "edge of the black square (8 x 8 modules of 10 mm incl. the black border)",
+        "marker": {"object": "strip_centre", "tags": MARKER["tags"], "strip_m": MARKER["strip_m"],
+                   "marker_axes": MARKER["marker_axes"],
                    "world_p": [0, 0, 0], "world_q": quat_from_R(R_WORLD_MARKER),
-                   "world_note": "lying face up at the world origin, its top edge pointing to world -Z"},
+                   "world_note": "strip lying face up, its centre at the world origin, its TOP edge pointing to "
+                                 "world -Z, its x axis (36h11 -> 41h12) along world +X"},
         "conventions": {
             "world": "right-handed, Y up, metres (OpenXR)",
-            "cam_p/cam_q": "camera pose in the world, OpenCV camera axes (x right, y down, z forward)",
+            "cam_p/cam_q": "world-from-camera: camera pose in the world, OpenCV camera axes "
+                           "(x right, y down, z forward); p_world = R(cam_q) p_cam + cam_p",
             "cam_q_xr": "same camera rotation in OpenXR camera axes (x right, y up, z backward)",
-            "marker_p/marker_q": "marker pose in the OpenCV camera frame (what solvePnP returns), "
-                                 "marker axes x right, y to the top edge, z out of the face",
-            "quaternion": "[x, y, z, w]"},
+            "marker_p/marker_q": "camera-from-object: STRIP CENTRE pose in the OpenCV camera frame "
+                                 "(what solvePnP returns after the tag offset), marker axes x along the strip "
+                                 "(36h11 -> 41h12), y to the TOP edge, z out of the face; "
+                                 "p_cam = R(marker_q) p_strip + marker_p",
+            "tag_corners_px": "per tag key, the 4 detector-edge corners in pixels: top-left, top-right, "
+                              "bottom-right, bottom-left of the upright tag (marker axes)",
+            "quaternion": "[x, y, z, w], Hamilton, w >= 0"},
         "phases": {"orbit": [0, 179], "translate": [180, 259], "still": [260, a.frames - 1]},
     }, indent=2))
     size_mb = sum(p.stat().st_size for p in out.iterdir()) / 1e6
-    print(f"wrote {a.frames} frames {W}x{H} to {out} ({size_mb:.1f} MB); smallest marker edge {min_px:.0f} px")
+    print(f"wrote {a.frames} frames {W}x{H} to {out} ({size_mb:.1f} MB); smallest detector edge "
+          + ", ".join(f"{k} {v:.0f} px" for k, v in min_px.items()))
     return 0
 
 

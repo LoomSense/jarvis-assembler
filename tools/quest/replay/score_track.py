@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Score an app's `track` events against a replay dataset's ground truth (poses.jsonl).
 
-  score_track.py <run_dir | agq.jsonl> [--dataset marker-synthetic] [--frame auto|world|camera] [--out DIR]
+  score_track.py <run_dir | agq.jsonl> [--dataset marker-synthetic] [--frame auto|world|camera] [--unity]
+                 [--q-order auto|xyzw|wxyz] [--out DIR]
   score_track.py --make-fake fake.jsonl [--dataset ...] [--frame world|camera] [--noise-mm 0] [--no-frame-field]
+                 [--fake-q none|xyzw|wxyz] [--unity]
 
+The tracked object is the STRIP CENTRE (tools/quest/marker/marker.json), whichever tag the app detects.
 What the app reports in replay mode (any of these works):
-  world  : pos_m = marker (assembly origin) in the app's world, using poses.jsonl as the camera pose.
-           The dataset's marker sits at the world origin, so the truth is (0, 0, 0) and yaw 0 in any
-           Y-up convention (Unity's left-handed one included). Scored: bias (distance of the mean from
-           the origin), error per event, and jitter in the still phase.
-  camera : pos_m = marker in the camera frame (what PnP returns). Scored per frame against marker_p,
-           trying OpenCV (x right, y down, z fwd), Unity (y up, z fwd) and OpenXR (y up, z back) camera
-           axes and keeping the best.
-Event-to-frame matching uses the event's `frame` field when present (recommended in replay mode),
+  world  : pos_m (+ q) = strip centre in the app's world, using poses.jsonl as the camera pose.
+           The dataset's strip centre sits at the world origin, so the position truth is (0, 0, 0) and yaw 0
+           in any Y-up convention. Scored: bias (distance of the mean from the origin), error per event,
+           jitter in the still phase, and the rotation against the strip's world orientation when `q` is given.
+  camera : pos_m (+ q) = strip centre in the camera frame (camera-from-object, what PnP returns after the tag
+           offset). Scored per frame against marker_p, trying OpenCV (x right, y down, z fwd), Unity (y up,
+           z fwd) and OpenXR (y up, z back) camera axes and keeping the best.
+Track event fields read: `pos_m` (alias `pos`) metres; `q` (aliases `rot`, `quat_xyzw`, `quat_wxyz`) unit
+quaternion, canonical order [x, y, z, w]; for `q`/`rot` the order can also be [w, x, y, z]: --q-order (or a
+`q_order` field on the event) says which, `auto` (default) scores both and keeps the better one.
+--unity: positions and quaternions are in Unity's left-handed Y-up convention (as Unity logs them). The scorer
+mirrors them back to right-handed (x, y, -z) and q (-x, -y, z, w). Without it they must be right-handed Y-up
+(OpenXR / Android / poses.jsonl).
+Event-to-frame matching uses the event's integer `frame` field when present (recommended in replay mode),
 else time since the first track event at the dataset fps, with the best offset in +-2 s.
 Writes score.json and score.md next to the log (or into --out).
 """
@@ -20,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -29,12 +37,46 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
-from agq import load, num, vec3  # noqa: E402
-from geom import R_from_quat  # noqa: E402
+from agq import first, load, num, vec3  # noqa: E402
+from geom import CV_TO_XR, R_WORLD_MARKER, R_from_quat, quat_from_R, rot_angle_deg  # noqa: E402
 
 CAM_CONV = {"opencv": np.array([1.0, 1.0, 1.0]), "unity": np.array([1.0, -1.0, 1.0]),
             "openxr": np.array([1.0, -1.0, -1.0])}
 T0 = 1_794_750_000.0
+MIRROR_Z = np.diag([1.0, 1.0, -1.0])        # right-handed <-> Unity left-handed (same for points and frames)
+Q_FIELDS = (("q", None), ("rot", None), ("quat_xyzw", "xyzw"), ("quat_wxyz", "wxyz"))
+
+
+def mirror_q(q):
+    """Quaternion [x, y, z, w] of R, mirrored through z (R -> M R M): Unity <-> right-handed."""
+    x, y, z, w = q
+    return [-x, -y, z, w]
+
+
+def ev_pos(e: dict, unity: bool) -> np.ndarray | None:
+    v = vec3(first(e, "pos_m", "pos"))
+    if v is None:
+        return None
+    p = np.asarray(v, dtype=float)
+    return MIRROR_Z @ p if unity else p
+
+
+def ev_quats(e: dict, order: str, unity: bool) -> dict:
+    """{order: [x, y, z, w] right-handed} for each order the event's quaternion could be in (1 or 2 entries)."""
+    for key, fixed in Q_FIELDS:
+        q = e.get(key)
+        if isinstance(q, (list, tuple)) and len(q) == 4 and all(num(v) is not None for v in q):
+            q = [float(v) for v in q]
+            if np.linalg.norm(q) < 1e-6:
+                return {}
+            ev_order = e.get("q_order") if e.get("q_order") in ("xyzw", "wxyz") else None
+            pick = fixed or ev_order or (None if order == "auto" else order)
+            out = {}
+            for o in ([pick] if pick else ["xyzw", "wxyz"]):
+                xyzw = q if o == "xyzw" else [q[1], q[2], q[3], q[0]]
+                out[o] = mirror_q(xyzw) if unity else xyzw
+            return out
+    return {}
 
 
 def resolve_dataset(name: str) -> Path:
@@ -58,23 +100,37 @@ def pctl(xs, p):
     return None if len(xs) == 0 else round(float(np.percentile(np.asarray(xs), p)), 3)
 
 
-def make_fake(out: Path, ds: Path, frame_mode: str, noise_mm: float, frame_field: bool, seed: int = 0) -> None:
+def make_fake(out: Path, ds: Path, frame_mode: str, noise_mm: float, frame_field: bool, seed: int = 0,
+              fake_q: str = "none", unity: bool = False) -> None:
+    """A perfect tracker plus noise, logged the way an app would (world: OpenXR world; camera: OpenCV camera
+    axes; with unity=True: Unity world / Unity camera axes, left-handed)."""
     gt, meta = load_gt(ds)
     rng = np.random.default_rng(seed)
     fps = float(meta["fps"])
     lines = [{"t": T0, "app": "fake", "ev": "start", "replay": True}]
     for g in gt:
-        p = np.zeros(3) if frame_mode == "world" else np.asarray(g["marker_p"])
+        if frame_mode == "world":
+            p, R = np.zeros(3), R_WORLD_MARKER
+        elif unity:                                  # Unity camera axes = OpenXR camera axes mirrored through z
+            p, R = CV_TO_XR @ np.asarray(g["marker_p"]), CV_TO_XR @ R_from_quat(g["marker_q"])
+        else:
+            p, R = np.asarray(g["marker_p"]), R_from_quat(g["marker_q"])
         p = p + rng.normal(0, noise_mm / 1000, 3)
+        q = quat_from_R(R)
+        if unity:
+            p, q = MIRROR_Z @ p, mirror_q(q)
         ev = {"t": round(T0 + 0.5 + g["frame"] / fps, 4), "app": "fake", "ev": "track", "fps": 72.0, "tracked": True,
               "pos_m": [round(float(v), 6) for v in p], "yaw_deg": round(float(rng.normal(0, noise_mm / 10)), 3),
               "reproj_px": 0.0, "source": "marker"}
+        if fake_q != "none":
+            ev["q"] = [round(float(v), 7) for v in (q if fake_q == "xyzw" else [q[3], q[0], q[1], q[2]])]
         if frame_field:
             ev["frame"] = g["frame"]
         lines.append(ev)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(e, separators=(",", ":")) + "\n" for e in lines))
-    print(f"wrote {out}: {len(lines) - 1} {frame_mode}-frame track events, noise {noise_mm} mm, frame field {frame_field}")
+    print(f"wrote {out}: {len(lines) - 1} {frame_mode}-frame track events, noise {noise_mm} mm, frame field "
+          f"{frame_field}, q {fake_q}, {'unity' if unity else 'right-handed'}")
 
 
 def match_frames(track: list[dict], gt: list[dict], fps: float, gt_cam: np.ndarray | None) -> tuple[list[int], float | None]:
@@ -86,7 +142,7 @@ def match_frames(track: list[dict], gt: list[dict], fps: float, gt_cam: np.ndarr
     rel = np.array([e["_t"] - t_first for e in track])
     if gt_cam is None:                       # world mode: truth is constant, alignment does not matter
         return [int(round(r * fps)) for r in rel], 0.0
-    pos = np.array([vec3(e.get("pos_m")) or [np.nan] * 3 for e in track], dtype=float)
+    pos = np.array([e["_P"] for e in track], dtype=float)
     best = (np.inf, 0.0)
     for off in np.arange(-2.0, 2.0 + 1e-9, 1.0 / fps):
         idx = np.round((rel + off) * fps).astype(int)
@@ -100,7 +156,7 @@ def match_frames(track: list[dict], gt: list[dict], fps: float, gt_cam: np.ndarr
     return [int(round((r + off) * fps)) for r in rel], float(off)
 
 
-def score(log: Path, ds: Path, frame_mode: str) -> dict:
+def score(log: Path, ds: Path, frame_mode: str, unity: bool = False, q_order: str = "auto") -> dict:
     events, bad = load(log)
     gt, meta = load_gt(ds)
     fps = float(meta["fps"])
@@ -109,8 +165,16 @@ def score(log: Path, ds: Path, frame_mode: str) -> dict:
     track = [e for e in events if e["ev"] == "track"]
     if not track:
         return {"error": "no track events", "bad_lines": bad}
-    tracked = [e for e in track if e.get("tracked") is True and vec3(e.get("pos_m"))]
+    tracked = []
+    for e in track:
+        p = ev_pos(e, unity) if e.get("tracked") is True else None
+        if p is not None:
+            e["_P"], e["_Q"] = p, ev_quats(e, q_order, unity)
+            tracked.append(e)
+    if not tracked:
+        return {"error": "no tracked track events with a position", "bad_lines": bad}
     gt_cam = np.array([g["marker_p"] for g in gt])
+    gt_R = [R_from_quat(g["marker_q"]) for g in gt]
     results = {}
     modes = ["world", "camera"] if frame_mode == "auto" else [frame_mode]
     for mode in modes:
@@ -118,8 +182,7 @@ def score(log: Path, ds: Path, frame_mode: str) -> dict:
         for conv in convs:
             target = None if mode == "world" else gt_cam * CAM_CONV[conv]
             frames, offset = match_frames(tracked, gt, fps, target)
-            rows = [(f, np.asarray(vec3(e["pos_m"])), num(e.get("yaw_deg")), e) for f, e in zip(frames, tracked)
-                    if 0 <= f < n]
+            rows = [(f, e["_P"], num(e.get("yaw_deg")), e) for f, e in zip(frames, tracked) if 0 <= f < n]
             if not rows:
                 continue
             P = np.array([r[1] for r in rows])
@@ -133,13 +196,18 @@ def score(log: Path, ds: Path, frame_mode: str) -> dict:
                 still_jit = float(np.sqrt(np.mean(np.sum(((Ps - truth[in_still]) - (Ps - truth[in_still]).mean(0)) ** 2,
                                                          axis=1))) * 1000)
             yaws = np.array([r[2] for r in rows if r[2] is not None])
-            rot = []
-            if mode == "camera" and conv == "opencv":
+            # Rotation truth: the strip's world orientation, or its rotation in these camera axes. Unity camera
+            # axes are a reflection of OpenCV's: no rotation to compare (use --unity, which lands on openxr).
+            rot, used_order = [], None
+            if mode == "world" or conv in ("opencv", "openxr"):
+                by_order = {}
                 for f, _, _, e in rows:
-                    q = e.get("q")
-                    if isinstance(q, list) and len(q) == 4:
-                        Ra, Rb = R_from_quat(q), R_from_quat(gt[f]["marker_q"])
-                        rot.append(math.degrees(math.acos(max(-1, min(1, (np.trace(Ra.T @ Rb) - 1) / 2)))))
+                    Rt = R_WORLD_MARKER if mode == "world" else (gt_R[f] if conv == "opencv" else CV_TO_XR @ gt_R[f])
+                    for o, q in e["_Q"].items():
+                        by_order.setdefault(o, []).append(rot_angle_deg(R_from_quat(q), Rt))
+                if by_order:
+                    used_order = min(by_order, key=lambda o: (-len(by_order[o]), np.median(by_order[o])))
+                    rot = by_order[used_order]
             res = {
                 "mode": mode, "camera_axes": None if mode == "world" else conv,
                 "time_offset_s": None if offset is None else round(offset, 3),
@@ -152,6 +220,8 @@ def score(log: Path, ds: Path, frame_mode: str) -> dict:
                 "still_events": int(in_still.sum()),
                 "yaw_err_deg_p50": pctl(np.abs((yaws + 180) % 360 - 180), 50) if mode == "world" and len(yaws) else None,
                 "rot_err_deg_p50": pctl(rot, 50) if rot else None,
+                "rot_err_deg_p90": pctl(rot, 90) if rot else None,
+                "rot_events": len(rot), "q_order": used_order, "unity_input": unity,
             }
             key = mode if mode == "world" else f"camera/{conv}"
             results[key] = res
@@ -173,7 +243,10 @@ def to_md(s: dict) -> str:
             ("Position error p50 / p90 / max", f"{s['pos_err_mm_p50']} / {s['pos_err_mm_p90']} / {s['pos_err_mm_max']} mm"),
             ("Bias (mean error vector)", f"{s['bias_mm']} mm"),
             ("Still-phase jitter (RMS)", f"{s['still_jitter_mm']} mm over {s['still_events']} events"),
-            ("Yaw error p50", s["yaw_err_deg_p50"]), ("Rotation error p50", s["rot_err_deg_p50"]),
+            ("Yaw error p50", s["yaw_err_deg_p50"]),
+            ("Rotation error p50 / p90", None if s["rot_err_deg_p50"] is None else
+             f"{s['rot_err_deg_p50']} / {s['rot_err_deg_p90']} deg over {s['rot_events']} events (q {s['q_order']})"),
+            ("Input handedness", "Unity left-handed, mirrored back (--unity)" if s["unity_input"] else "right-handed"),
             ("Time offset (no frame field)", s["time_offset_s"])]
     md = ["## Track score", "", "| Metric | Value |", "|---|---|"] + [f"| {k} | {'–' if v is None else v} |" for k, v in rows]
     if len(s["all"]) > 1:
@@ -190,17 +263,23 @@ def main() -> int:
     ap.add_argument("--make-fake", type=Path, metavar="OUT.jsonl")
     ap.add_argument("--noise-mm", type=float, default=0.0)
     ap.add_argument("--no-frame-field", action="store_true")
+    ap.add_argument("--unity", action="store_true",
+                    help="track events are in Unity's left-handed Y-up convention (flip z, mirror q)")
+    ap.add_argument("--q-order", choices=["auto", "xyzw", "wxyz"], default="auto",
+                    help="order of `q`/`rot` in track events (canonical xyzw); auto keeps the better fit")
+    ap.add_argument("--fake-q", choices=["none", "xyzw", "wxyz"], default="xyzw", help="--make-fake: write q")
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
     ds = resolve_dataset(a.dataset)
     if a.make_fake:
-        make_fake(a.make_fake, ds, "camera" if a.frame == "camera" else "world", a.noise_mm, not a.no_frame_field)
+        make_fake(a.make_fake, ds, "camera" if a.frame == "camera" else "world", a.noise_mm, not a.no_frame_field,
+                  fake_q=a.fake_q, unity=a.unity)
         return 0
     if not a.target:
         ap.error("give a run folder or agq .jsonl (or --make-fake)")
     log = a.target / "agq.jsonl" if a.target.is_dir() else a.target
     out = a.out or (a.target if a.target.is_dir() else a.target.parent)
-    s = score(log, ds, a.frame)
+    s = score(log, ds, a.frame, unity=a.unity, q_order=a.q_order)
     out.mkdir(parents=True, exist_ok=True)
     stem = "score" if a.target.is_dir() else f"{log.stem}.score"
     (out / f"{stem}.json").write_text(json.dumps(s, indent=2))

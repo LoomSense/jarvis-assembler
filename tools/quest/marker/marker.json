@@ -1,21 +1,78 @@
 {
-  "family": "apriltag_36h11",
-  "opencv_dictionary": "DICT_APRILTAG_36h11",
-  "id": 0,
-  "size_m": 0.08,
-  "size_note": "edge of the black square (8 x 8 modules of 10 mm incl. black border)",
-  "cut_square_m": 0.1,
-  "marker_axes": "OpenCV ArUco: x to the tag's right, y to its TOP edge, z out of the printed face; origin at the centre",
+  "object": "strip_centre",
+  "object_note": "Apps report the pose of the STRIP CENTRE (marker axes), not of a tag: T_cam_strip = T_cam_tag * Translation(-offset_m). offset_m is the tag centre in strip axes; offset_q (x, y, z, w) is identity because both tags are upright on the strip.",
+  "marker_axes": "marker axes (OpenCV ArUco convention): origin at the strip centre, x along the strip toward the 41h12 tag (to the right when TOP is up), y toward the TOP edge, z out of the printed face. Right-handed, metres. Both tags are upright on the strip, so each tag's own axes are parallel to the strip axes.",
+  "apriltag_lib_axes_note": "the apriltag C library (and jp.keijiro.apriltag, pupil-apriltags) returns tag poses with x right, y DOWN, z INTO the tag; convert to marker axes with R_marker = R_apriltag * diag(1, -1, -1) (180 deg about x). OpenCV ArUco already uses marker axes.",
+  "tags": [
+    {
+      "key": "tag36h11_0",
+      "family": "tag36h11",
+      "opencv_dictionary": "DICT_APRILTAG_36h11",
+      "id": 0,
+      "size_m": 0.08,
+      "size_note": "detector edge = outer edge of the black square (8 x 8 modules of 10 mm incl. the black border)",
+      "black_square_m": 0.08,
+      "overall_m": 0.08,
+      "module_m": 0.01,
+      "offset_m": [
+        -0.05,
+        0.0,
+        0.0
+      ],
+      "offset_q": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "detectors": [
+        "OpenCV aruco (Android app, reference_tracker.py)"
+      ]
+    },
+    {
+      "key": "tag41h12_0",
+      "family": "tagStandard41h12",
+      "opencv_dictionary": null,
+      "id": 0,
+      "size_m": 0.0571429,
+      "size_note": "detector edge = INNER edge of the black ring (5 of the 9 modules, 57.14 mm). The black ring's outer edge is 80 mm (7 modules); the outermost ring of modules (102.86 mm) is data bits",
+      "black_square_m": 0.08,
+      "overall_m": 0.1028571,
+      "module_m": 0.0114286,
+      "offset_m": [
+        0.05,
+        0.0,
+        0.0
+      ],
+      "offset_q": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "detectors": [
+        "jp.keijiro.apriltag (Unity app)",
+        "apriltag C library",
+        "pupil-apriltags"
+      ]
+    }
+  ],
+  "strip_m": [
+    0.21,
+    0.105
+  ],
+  "tag_centre_spacing_m": 0.1,
+  "print_check": "print at 100 %: the ruler is 100 mm and BOTH black squares are 80 mm wide",
   "placement": {
     "part": "drawer_front (MALM drawer, 380 x 130 x 16 mm)",
     "face": "inside face: the face that is up in step 1, with the dowel holes and the groove for the drawer bottom",
-    "position": "centred along the 380 mm length; centred across the 130 mm height between the groove and the opposite long edge (the 100 mm cut square fits; keep the groove and dowel holes clear)",
-    "orientation": "the printed TOP edge of the marker points toward the groove edge; marker x runs along the 380 mm length, marker z points out of the inside face",
+    "position": "strip centre on the old single-tag centre: centred along the 380 mm length; centred across the 130 mm height between the groove and the opposite long edge (the 210 x 105 mm strip fits; keep the groove and dowel holes clear)",
+    "orientation": "the printed TOP edge of the strip points toward the groove edge; strip x runs along the 380 mm length, marker z points out of the inside face",
     "fixing": "flat, no bubbles: glue stick or low-tack spray; tape only on the white margin, never on the black",
     "visibility": "visible in steps 1-4 (front lying flat, sides going on); hidden once the bottom panel slides in. Apps must hold the last good pose (anchor) when the marker is lost."
   },
   "files": [
-    "agj-marker-36h11-id0-80mm.pdf",
-    "agj-marker-36h11-id0-80mm.png"
+    "agj-marker-strip-36h11-41h12-id0.pdf",
+    "agj-marker-strip-36h11-41h12-id0.png"
   ]
 }

@@ -44,7 +44,8 @@ for app in "${apps[@]}"; do
   "$QUEST_DIR/run.sh" "$app" --job "$job" --lang "$lang" --secs "$secs" $hud ${replay:+--replay}
   r="$(latest_run "$app")"; runs+=("$r")
   if [[ -n "$replay" ]]; then
-    "$PY" "$QUEST_DIR/replay/score_track.py" "$r" --dataset "$replay" --quiet || warn "score_track: no usable track events in $r"
+    hand=""; [[ "$app" == unity ]] && hand="--unity"    # Unity logs track poses in Unity's left-handed axes
+    "$PY" "$QUEST_DIR/replay/score_track.py" "$r" --dataset "$replay" $hand --quiet || warn "score_track: no usable track events in $r"
   fi
 done
 
