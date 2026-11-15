@@ -32,6 +32,7 @@ import com.agj.android.ui.LabelPill
 import com.agj.android.ui.STEP_PANEL_H
 import com.agj.android.ui.STEP_PANEL_W
 import com.agj.android.ui.ServerVoice
+import com.agj.android.ui.Sounds
 import com.agj.android.ui.StatusKind
 import com.agj.android.ui.StepPanel
 import com.agj.android.ui.StepPanelModel
@@ -96,6 +97,9 @@ class MainActivity : AppSystemActivity() {
   private val filter = ExpPoseFilter()
   private val tracker = MarkerTracker()
   private val follow = WindowFollow()
+  private val sounds by lazy { Sounds() }
+  private var lostShown = false
+  private var advancing = false
   private var camera: CameraSource? = null
   private var assembly: Assembly? = null
   private var sceneReady = false
@@ -150,6 +154,8 @@ class MainActivity : AppSystemActivity() {
     stepPanel.onNext = { next() }
     stepPanel.onWhere = { whereAmI() }
     stepPanel.onRepeat = { repeat() }
+    stepPanel.onPress = { sounds.play(Sounds.Cue.TICK) }
+    ghost.reducedMotion = Params.bool(intent?.extras?.get("reduced_motion"))
 
     systemManager.findSystem<LocomotionSystem>().enableLocomotion(false)
     systemManager.registerSystem(FrameTick())
@@ -215,6 +221,7 @@ class MainActivity : AppSystemActivity() {
             status = status,
             statusText = statusText,
             whereLabel = if (where) s("retry") else null,
+            compact = true,
         )
   }
 
@@ -371,7 +378,7 @@ class MainActivity : AppSystemActivity() {
     stepPanel.state =
         StepPanelState(
             stepLabel = Strings.upper(lang, s("step", "n" to step, "total" to g.steps.size)),
-            page = st.page?.let { s("page", "page" to it) } ?: "",
+            page = st.page?.let { Strings.upper(lang, s("page", "page" to it)) } ?: "",
             title = act?.label(lang)?.let { l -> listOfNotNull(l.name, l.count).joinToString(" ") }
                 ?: if (act?.kind == ActionKind.TURN) s("turnIt") else st.title,
             body = body,
@@ -381,6 +388,7 @@ class MainActivity : AppSystemActivity() {
             whereLabel = s("whereAmI"),
             repeatLabel = s("repeat"),
             nextLabel = if (last) s("finish") else s("next"),
+            pill = if (lostShown) s("lost") else null,
         )
     hud.state = hud.state.copy(step = step, action = action)
     ghost.setStep(step, action)
@@ -399,15 +407,74 @@ class MainActivity : AppSystemActivity() {
     Agq.log.step(step, action, by)
   }
 
-  private fun next() {
+  private fun next() = advance(StepBy.BUTTON)
+
+  /**
+   * The current action is done (Next, or a perception `step_complete`): correct sequence first (green check, ghost
+   * fades over 600 ms, chime; three-note cue when the step ends), then the next action's ghost (spec §4.7).
+   */
+  private fun advance(by: StepBy) {
     val g = assembly?.guide ?: return
-    if (coach.stage != CoachFlow.Stage.GUIDE) return
+    if (coach.stage != CoachFlow.Stage.GUIDE || advancing || finished) return
     val n = g.next(curStep, curAction)
     if (n == null) {
       finishGuide()
       return
     }
-    showStep(n.first, n.second, StepBy.BUTTON)
+    advancing = true
+    val stepEnds = n.first != curStep
+    ghost.setState(com.agj.android.guide.GhostState.CORRECT)
+    sounds.play(if (stepEnds) Sounds.Cue.STEP else Sounds.Cue.SUCCESS)
+    stepPanel.state = stepPanel.state.copy(status = StatusKind.SUCCESS, statusText = Strings.upper(lang, s("correct")))
+    if (stepEnds) {
+      val nextTitle = g.step(n.first)?.actions?.getOrNull(n.second)?.text?.get(lang) ?: ""
+      voice.say(if (lang == "el") "Το βήμα $curStep έγινε. Επόμενο: $nextTitle" else "Step $curStep done. Next: $nextTitle", lang)
+    }
+    scope.launch {
+      delay(if (stepEnds) 1400 else 1000)
+      advancing = false
+      showStep(n.first, n.second, by)
+      sounds.play(Sounds.Cue.PLACE)
+    }
+  }
+
+  /**
+   * Live guidance from perception (the socket owner calls this on the main thread): `step_complete` → correct and
+   * advance; `wrong_hardware` / `wrong_part` / `wrong_place` → wrong (red, octagon ✕, the spoken reason [say]);
+   * `unsure` → amber, asks to see the part; `good` → steady green.
+   */
+  fun onGuidanceEvent(event: String, say: String?) {
+    if (coach.stage != CoachFlow.Stage.GUIDE) return
+    when {
+      event == "step_complete" || event == "action_complete" -> advance(StepBy.AUTO)
+      event.startsWith("wrong") -> {
+        ghost.setState(com.agj.android.guide.GhostState.WRONG)
+        sounds.play(Sounds.Cue.WARNING)
+        stepPanel.state = stepPanel.state.copy(status = StatusKind.ERROR, statusText = Strings.upper(lang, s("wrong")), body = say ?: stepPanel.state.body)
+        say?.let { voice.say(it, lang) }
+      }
+      event == "unsure" -> {
+        ghost.setState(com.agj.android.guide.GhostState.UNSURE)
+        sounds.play(Sounds.Cue.UNSURE)
+        stepPanel.state = stepPanel.state.copy(status = StatusKind.UNSURE, statusText = Strings.upper(lang, s("unsure")))
+        voice.say(say ?: s("unsureSay"), lang)
+      }
+      event == "good" -> ghost.setState(com.agj.android.guide.GhostState.GOOD)
+    }
+    Agq.log.event("guidance", mapOf("event" to event, "step" to curStep, "action" to curAction))
+  }
+
+  /** Tracking lost → status pill above the window, one soft cue and one spoken line per loss (spec §4.12). */
+  private fun trackLostPill() {
+    val lostNow = coach.stage == CoachFlow.Stage.GUIDE && tableFallback == null && ghost.lost
+    if (lostNow == lostShown) return
+    lostShown = lostNow
+    stepPanel.state = stepPanel.state.copy(pill = if (lostNow) s("lost") else null, pillKind = StatusKind.UNSURE)
+    if (lostNow) {
+      sounds.play(Sounds.Cue.LOST)
+      voice.say(s("lostSay"), lang)
+    }
+    Agq.log.event("tracking", mapOf("lost" to lostNow))
   }
 
   private fun back() {
@@ -445,6 +512,7 @@ class MainActivity : AppSystemActivity() {
             backLabel = s("back"),
         )
     voice.say(s("allDone"), lang)
+    sounds.play(Sounds.Cue.COMPLETE)
     Agq.log.event("finish", mapOf("job" to assembly?.jobId, "steps" to g.steps.size))
   }
 
@@ -485,6 +553,7 @@ class MainActivity : AppSystemActivity() {
       ghost.tick(dt)
     }
 
+    trackLostPill()
     // The step window: beside the object once there is one, else where it was placed at start (world-locked).
     val e = stepEntity ?: return
     val objectTop = if (coach.stage == CoachFlow.Stage.GUIDE) ghost.assemblyCenterWorld() else null

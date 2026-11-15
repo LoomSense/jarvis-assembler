@@ -87,7 +87,9 @@ class SpatialGhostRenderer(
   private var posedNow = Pose3.IDENTITY
   private var worldFromTable: Pose3? = null
   private var lastMeasured: Pose3? = null
-  private var lost = false
+  override var lost = false
+    private set
+  override var reducedMotion = false
   private var lostSince = 0f
   private var labelScale = 1f
 
@@ -238,10 +240,10 @@ class SpatialGhostRenderer(
     stateSince = clock
     val a = cur
     val moving = state == GhostState.NEXT || state == GhostState.UNSURE
-    a?.node?.let { show(moverE[it] ?: return@let, moving && a.fromDir != null) }
+    a?.node?.let { show(moverE[it] ?: return@let, moving && a.fromDir != null && !reducedMotion) }
     val guides = moving || state == GhostState.GOOD
     dots.forEachIndexed { i, e -> show(e, guides && i < path.size) }
-    for (e in dash) show(e, guides && path.size > DASH)
+    for (e in dash) show(e, guides && path.size > DASH && !reducedMotion)
     arrowHead?.let { show(it, guides && path.size >= 2) }
     a?.node?.let { n -> turnE[n]?.let { show(it, guides) } }
     pushLabel()
@@ -295,7 +297,9 @@ class SpatialGhostRenderer(
     // Turn preview: previous pose → new pose in 1.6 s, hold 0.8 s, three times, then stay.
     val a = cur
     val tAction = clock - actionSince
-    if (a?.kind == ActionKind.TURN) {
+    if (a?.kind == ActionKind.TURN && reducedMotion) {
+      posedNow = stepPose
+    } else if (a?.kind == ActionKind.TURN) {
       val cycle = 2.4f
       val k =
           if (tAction >= cycle * 3) 1f else ((tAction % cycle) / 1.6f).coerceIn(0f, 1f).let { easeInOutCubic(it) }
@@ -308,7 +312,7 @@ class SpatialGhostRenderer(
     val lostK = if (lost) (1f - 0.7f * ((clock - lostSince) / 0.3f).coerceIn(0f, 1f)) else 1f
     when (state) {
       GhostState.NEXT -> {
-        val breathe = 0.05f * sin(2f * PI.toFloat() * 0.42f * t)
+        val breathe = if (reducedMotion) 0f else 0.05f * sin(2f * PI.toFloat() * 0.42f * t)
         GhostMaterial.set(ghostMat, GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = lostK)
       }
       GhostState.GOOD -> GhostMaterial.set(ghostMat, GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = lostK)
@@ -328,7 +332,7 @@ class SpatialGhostRenderer(
     // Insertion loop: the mover slides in along from_dir in 1.5 s and fades at both ends.
     val geo = a?.geometry
     val dir = a?.fromDir
-    if (a?.node != null && geo != null && dir != null && moverE[a.node]?.let { visible[it] } == true) {
+    if (a?.node != null && geo != null && dir != null && moverE[a.node]?.let { visible[it] } == true && !reducedMotion) {
       val k = (tAction % 1.5f) / 1.5f
       val travel = easeOutCubic((k / 0.8f).coerceIn(0f, 1f))
       val d = if (a.kind.twists) 0.09f else 0.12f
@@ -338,7 +342,7 @@ class SpatialGhostRenderer(
     }
 
     // Travelling dash: 4 bright dots run start → end in 1.6 s, 0.6 s pause (0.45 Hz).
-    if (path.size > DASH && dash.firstOrNull()?.let { visible[it] } == true) {
+    if (path.size > DASH && dash.firstOrNull()?.let { visible[it] } == true && !reducedMotion) {
       val c = tAction % 2.2f
       val k = easeInOutCubic((c / 1.6f).coerceIn(0f, 1f))
       val head = (k * (path.size - 1)).toInt()
@@ -350,7 +354,7 @@ class SpatialGhostRenderer(
     }
     GhostMaterial.set(dotMat, GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, lostK)
     // Turning arrow: static arc, brightness sweep at 0.8 Hz.
-    GhostMaterial.set(arrowMat, GhostMaterial.Tint.ACCENT, 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, lostK)
+    GhostMaterial.set(arrowMat, GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, lostK)
 
     placeLabel(wft)
   }

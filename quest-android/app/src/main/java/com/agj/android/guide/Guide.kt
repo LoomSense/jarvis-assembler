@@ -85,14 +85,10 @@ class PartGeometry(
   }
 }
 
-/** The label pill text for one language: "Cam bolt · 118331 [2 of 2]". */
+/** The label pill text for one language: "Cam bolt · 118331 · 2 of 2" (the pill draws the count as a chip). */
 data class PartLabel(val name: String, val code: String?, val count: String?) {
   val line: String
-    get() = buildString {
-      append(name)
-      if (code != null) append(" · ").append(code)
-      if (count != null) append("  ").append(count)
-    }
+    get() = listOfNotNull(name, code, count).joinToString(" · ")
 }
 
 data class GuideAction(

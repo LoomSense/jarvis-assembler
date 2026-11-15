@@ -106,8 +106,8 @@ class GuideTest {
   fun labelsUseManifestNamesAndCounts() {
     val a = guide.step(7)!!.actions.first { it.node == "hw_100365_2" }
     assertEquals(ActionKind.FASTEN, a.kind)
-    assertEquals("Small screw · 100365  2 of 4", a.label("en")!!.line)
-    assertEquals("Μικρή βίδα · 100365  2 από 4", a.label("el")!!.line)
+    assertEquals("Small screw · 100365 · 2 of 4", a.label("en")!!.line)
+    assertEquals("Μικρή βίδα · 100365 · 2 από 4", a.label("el")!!.line)
     val side = guide.step(2)!!.actions.first { it.node == "part_drawer_side_right_1" }
     assertEquals("Δεξί πλαϊνό", side.label("el")!!.name)
     assertEquals(null, side.label("el")!!.count)

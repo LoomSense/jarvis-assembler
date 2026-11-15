@@ -21,8 +21,16 @@ Status (round 1, guide + UI): builds, 29 unit tests pass, **never run on a heads
   server voice (`/api/tts` → WAV → MediaPlayer, cached, next two lines prefetched).
 - From phase 1: params/config, AGQ logger, HUD, passthrough, replay camera, Camera2 discovery, REST client,
   two-corner solver, marker pipeline (vision/, owned by the vision agent).
-- Stubs / not yet: hole ripple rings, sounds (tick/success/warning), parts ornament, reduced-motion setting, voice
-  commands, hand-dwell confirmation, perception socket events → `setState` (needs `net/PerceptionSocket`).
+- Spec pass (XR_NATIVE_SPEC v1 on main): window 0.52 × 0.34 m (coach cards compact 0.36 × 0.20 m), em sizes
+  0.85° / 1.25° / 2.0° (12 / 17.5 / 28 sp at 1 dp = 1 mm), status line "ΒΗΜΑ 2 ΑΠΟ 7 · ΣΕΛΙΔΑ 5" with
+  colour + shape + word, status pill above the window on tracking loss, glass edge band 0.90 → 0.80, buttons
+  88/104 × 44 mm with hover 1.03 / press 0.97 springs and a tick at pinch-down, synthesised sound family
+  (`ui/Sounds.kt`: tick, place, success, step, warning, unsure, complete, lost), Next = correct sequence (green, ghost
+  fades 600 ms, chime) then the next ghost, `MainActivity.onGuidanceEvent(event, say)` for perception events (wrong →
+  red + octagon + spoken reason; unsure → amber), reduced motion via `--ez reduced_motion true`.
+- Not yet: hole ripple rings, dashed edges (wrong / lost: the ghost only fades), the guide drawing in the window's
+  right column, parts ornament, mic state in the toolbar (Where am I takes that slot), voice commands, hand-dwell
+  confirmation, window fade-relocate on turns, Depth API occlusion, wiring `PerceptionSocket` to `onGuidanceEvent`.
 
 ## Toolchain (macOS arm64, as installed on Sun 15 Nov 2026)
 

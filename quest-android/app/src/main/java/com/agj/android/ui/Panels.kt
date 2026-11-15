@@ -51,8 +51,18 @@ import com.agj.android.guide.LabelInfo
  * (text sizes, as cap heights at 0.8 m), §4.5 (label pill). Colours: docs/design/tokens.css.
  *
  * Panel density: registered at [DP_PER_M] dp per metre, so 1 dp ≈ 1 mm (sizes below are millimetres at true size).
- * Text: cap height ≈ 0.72 em; spec body cap 15.4 mm → 21 sp; title 25 mm → 35 sp; caption 10.5 mm → 15 sp.
+ * Text (spec §2.2, em sizes at 0.8 m): caption / uppercase 0.85° = 11.9 mm → 12 sp; body 1.25° = 17.5 mm → 17.5 sp;
+ * title 2.0° = 27.9 mm → 28 sp; label name 1.2° = 16.8 mm → 17 sp. Line height 1.2 titles, 1.36 body.
  */
+object TextSize {
+  val caption = 12.sp
+  val body = 17.5.sp
+  val bodyLine = 24.sp
+  val title = 28.sp
+  val titleLine = 34.sp
+  val labelName = 17.sp
+  val button = 17.sp
+}
 const val DP_PER_M = 1000f
 
 object AgColors {
@@ -120,6 +130,11 @@ data class StepPanelState(
     val whereLabel: String? = null,
     val repeatLabel: String? = null,
     val nextLabel: String? = null,
+    /** Coach cards use the compact window, 0.36 × 0.20 m (§2.4). */
+    val compact: Boolean = false,
+    /** Status pill above the window (§2.5): tracking lost, offline. Null = hidden. */
+    val pill: String? = null,
+    val pillKind: StatusKind = StatusKind.UNSURE,
 )
 
 class StepPanelModel {
@@ -128,6 +143,8 @@ class StepPanelModel {
   var onNext: () -> Unit = {}
   var onWhere: () -> Unit = {}
   var onRepeat: () -> Unit = {}
+  /** Called at pinch-down on any button (the tick sound, §5.2). */
+  var onPress: () -> Unit = {}
 }
 
 class LabelModel {
@@ -144,6 +161,17 @@ private fun Modifier.glass(radius: Dp): Modifier =
         .background(Brush.verticalGradient(listOf(AgColors.glassTop, AgColors.glassBottom)))
         .drawWithContent {
           drawContent()
+          // edge band: the outer 16 mm let passthrough through (α 0.90 → 0.80), drawn as a darkening-free fade
+          val band = 16.dp.toPx()
+          drawRect(
+              Brush.horizontalGradient(
+                  0f to Color(0x1A000000),
+                  band / size.width to Color.Transparent,
+                  1f - band / size.width to Color.Transparent,
+                  1f to Color(0x1A000000),
+              ),
+              blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+          )
           // sheen: white 7 % at the top-left → 0 at 45 % of the diagonal
           drawRect(
               Brush.linearGradient(
@@ -200,11 +228,16 @@ private fun StatusShape(kind: StatusKind, sizeDp: Dp) {
 }
 
 @Composable
-private fun AgButton(label: String, primary: Boolean, onClick: () -> Unit) {
+private fun AgButton(label: String, primary: Boolean, onPress: () -> Unit, onClick: () -> Unit) {
   val src = androidx.compose.runtime.remember { MutableInteractionSource() }
   val hovered by src.collectIsHoveredAsState()
   val pressed by src.collectIsPressedAsState()
-  val scale = if (pressed) 0.97f else if (hovered) 1.03f else 1f
+  val scale by androidx.compose.animation.core.animateFloatAsState(
+      if (pressed) 0.97f else if (hovered) 1.03f else 1f,
+      androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 630f), // response ≈ 0.25 s
+      label = "press",
+  )
+  androidx.compose.runtime.LaunchedEffect(pressed) { if (pressed) onPress() }
   val fill =
       when {
         primary && pressed -> Color(0xFF3F6A90)
@@ -224,21 +257,36 @@ private fun AgButton(label: String, primary: Boolean, onClick: () -> Unit) {
           .clickable(interactionSource = src, indication = null, onClick = onClick),
       contentAlignment = Alignment.Center,
   ) {
-    Text(label, color = AgColors.textStrong, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
   }
 }
 
-/** Panel size for [StepPanel]: window 0.48 × 0.32 m plus the toolbar ornament below (overlapping by half). */
-const val STEP_PANEL_W = 0.50f
-const val STEP_PANEL_H = 0.37f
+/**
+ * Panel size for [StepPanel]: status pill row (40 mm) + window 0.52 × 0.34 m + the toolbar ornament below
+ * (56 mm, overlapping the window's bottom edge by half).
+ */
+const val STEP_PANEL_W = 0.54f
+const val STEP_PANEL_H = 0.42f
 
-/** The step window (§2.4) with its toolbar ornament (§2.5). Same window shows the coach cards (§5.4). */
+/** The step window (§2.4) with its toolbar ornament and status pill (§2.5). Coach cards use the compact size. */
 @Composable
 fun StepPanel(model: StepPanelModel) {
   val s = model.state
+  val w = if (s.compact) 360.dp else 520.dp
+  val h = if (s.compact) 200.dp else 340.dp
   Box(Modifier.fillMaxSize()) {
+    s.pill?.let { text ->
+      Row(
+          Modifier.align(Alignment.TopCenter).wrapContentSize().glass(18.dp).padding(horizontal = 14.dp, vertical = 7.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        StatusShape(s.pillKind, 12.dp)
+        Text(text, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, maxLines = 1)
+      }
+    }
     Column(
-        Modifier.padding(horizontal = 10.dp).padding(top = 6.dp).width(480.dp).height(320.dp).glass(24.dp).padding(24.dp),
+        Modifier.align(Alignment.TopCenter).padding(top = 44.dp).width(w).height(h).glass(24.dp).padding(22.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       s.progress?.let { p ->
@@ -247,22 +295,28 @@ fun StepPanel(model: StepPanelModel) {
         }
       }
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (s.status != StatusKind.NONE) StatusShape(s.status, 14.dp)
+        // Status: colour + shape + word (an accent dot when there is nothing to report).
+        StatusShape(if (s.status == StatusKind.NONE) StatusKind.INFO else s.status, 12.dp)
+        val head = if (s.status != StatusKind.NONE && s.statusText.isNotEmpty()) s.statusText else s.stepLabel
         Text(
-            if (s.status != StatusKind.NONE && s.statusText.isNotEmpty()) s.statusText else s.stepLabel,
-            color = AgColors.textMeta,
-            fontSize = 15.sp,
+            if (s.page.isNotEmpty()) "$head · ${s.page}" else head,
+            color = when (s.status) {
+              StatusKind.ERROR -> AgColors.error
+              StatusKind.SUCCESS -> AgColors.success
+              StatusKind.UNSURE -> AgColors.unsure
+              else -> AgColors.textMeta
+            },
+            fontSize = TextSize.caption,
             fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.9.sp,
+            letterSpacing = 0.7.sp,
+            maxLines = 1,
         )
-        Spacer(Modifier.weight(1f))
-        if (s.page.isNotEmpty()) Text(s.page, color = AgColors.textMeta, fontSize = 15.sp, fontWeight = FontWeight.Medium)
       }
       Text(
           s.title,
           color = AgColors.textStrong,
-          fontSize = 33.sp,
-          lineHeight = 40.sp,
+          fontSize = TextSize.title,
+          lineHeight = TextSize.titleLine,
           fontWeight = FontWeight.SemiBold,
           maxLines = 2,
           overflow = TextOverflow.Ellipsis,
@@ -271,16 +325,15 @@ fun StepPanel(model: StepPanelModel) {
           Text(
               s.body,
               color = AgColors.text,
-              fontSize = 21.sp,
-              lineHeight = 28.sp,
+              fontSize = TextSize.body,
+              lineHeight = TextSize.bodyLine,
               fontWeight = FontWeight.Medium,
               maxLines = 2,
               overflow = TextOverflow.Ellipsis,
           )
-      Spacer(Modifier.weight(1f))
       if (s.hardware.isNotEmpty())
-          Box(Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0x1FFFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp)) {
-            Text(s.hardware, color = AgColors.text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+          Box(Modifier.clip(RoundedCornerShape(15.dp)).background(Color(0x1FFFFFFF)).padding(horizontal = 12.dp, vertical = 6.dp)) {
+            Text(s.hardware, color = AgColors.text, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
           }
     }
     // Toolbar ornament: glass capsule centred under the window, overlapping its bottom edge by half its height.
@@ -292,22 +345,23 @@ fun StepPanel(model: StepPanelModel) {
     )
     if (buttons.isNotEmpty()) {
       Row(
-          Modifier.align(Alignment.BottomCenter)
-              .padding(bottom = 8.dp)
+          Modifier.align(Alignment.TopCenter)
+              .padding(top = 44.dp + h - 28.dp)
               .wrapContentSize()
               .glass(28.dp)
               .padding(horizontal = 6.dp, vertical = 6.dp),
           horizontalArrangement = Arrangement.spacedBy(12.dp),
           verticalAlignment = Alignment.CenterVertically,
       ) {
-        for ((label, primary, cb) in buttons) AgButton(label, primary) { cb() }
+        for ((label, primary, cb) in buttons) AgButton(label, primary, model.onPress) { cb() }
       }
     }
   }
 }
 
-const val LABEL_PANEL_W = 0.26f
-const val LABEL_PANEL_H = 0.04f
+/** Pill height 28 mm (2.0°) in a 0.32 × 0.032 m panel (the pill is centred, the rest transparent). */
+const val LABEL_PANEL_W = 0.32f
+const val LABEL_PANEL_H = 0.032f
 
 /** Part label pill (§4.5): name · code, count chip, status shape when known. Billboarded by the renderer. */
 @Composable
@@ -316,7 +370,7 @@ fun LabelPill(model: LabelModel) {
   val lang = model.lang
   Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
     Row(
-        Modifier.wrapContentSize().glass(14.dp).padding(horizontal = 12.dp, vertical = 4.dp),
+        Modifier.height(28.dp).wrapContentSize().glass(14.dp).padding(horizontal = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -328,15 +382,23 @@ fun LabelPill(model: LabelModel) {
             info.state == GhostState.UNSURE -> StatusKind.UNSURE
             else -> StatusKind.NONE
           }
-      if (kind != StatusKind.NONE) StatusShape(kind, 11.dp)
-      Text(info.label.name, color = AgColors.textStrong, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-      info.label.code?.let { Text("· $it", color = AgColors.textMeta, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1) }
+      if (kind != StatusKind.NONE) StatusShape(kind, 12.dp)
+      Text(info.label.name, color = AgColors.textStrong, fontSize = TextSize.labelName, fontWeight = FontWeight.SemiBold, maxLines = 1)
+      info.label.code?.let { Text("· $it", color = AgColors.textMeta, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1) }
       info.label.count?.let {
-        Box(Modifier.clip(RoundedCornerShape(9.dp)).background(AgColors.accentDeep).padding(horizontal = 7.dp, vertical = 1.dp)) {
-          Text(it, color = AgColors.textStrong, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(AgColors.accentDeep).padding(horizontal = 8.dp, vertical = 2.dp)) {
+          Text(it, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
         }
       }
-      if (info.lost) Text(Strings.t(lang, "unsure"), color = AgColors.unsure, fontSize = 14.sp)
+      val word =
+          when {
+            info.lost -> Strings.t(lang, "unsure")
+            kind == StatusKind.SUCCESS -> Strings.t(lang, "correct")
+            kind == StatusKind.ERROR -> Strings.t(lang, "wrong")
+            kind == StatusKind.UNSURE -> Strings.t(lang, "unsure")
+            else -> null
+          }
+      if (word != null) Text(word, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold)
     }
   }
 }

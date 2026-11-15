@@ -16,7 +16,7 @@ import kotlin.math.hypot
 class WindowFollow(
     private val response: Float = 0.6f,
     private val deadBand: Float = 0.03f,
-    private val halfWidth: Float = 0.24f,
+    private val halfWidth: Float = 0.26f,
 ) {
   var position: Vec3? = null
     private set

@@ -56,6 +56,12 @@ interface GhostRenderer {
 
   fun clear()
 
+  /** Reduced motion (spec §7): no breathing, no mover, static path and arrow, turn preview shows the end pose. */
+  var reducedMotion: Boolean
+
+  /** True while the pose is lost (> hold time): the ghost is at 30 % and frozen; the window shows a status pill. */
+  val lost: Boolean
+
   // phase 1 names, kept so older call sites still compile
   fun show(step: Int, action: Int) = setStep(step, action)
 
@@ -85,6 +91,10 @@ class StubGhostRenderer : GhostRenderer {
   override fun currentAnchorWorld() = null
 
   override fun assemblyCenterWorld() = null
+
+  override var reducedMotion = false
+
+  override val lost = false
 
   override fun clear() {
     assembly = null
