@@ -1,23 +1,23 @@
-"""Armrest loop with padded top, guide page 15 (step 11) and page 1. Two identical pieces.
-Local frame: the loop lies in the plane x = 0 and is symmetric about it, so the same piece fits either side.
-y and z are the seat unit's y and z (front towards -Y, seat underside z = 0).
-A flat foot bar runs along the seat side; two holes through it take the screws into the seat's inserts.
-Frames on both faces of the bar: `*_m_*` on the x = -12.5 face, `*_p_*` on the x = +12.5 face."""
-from pipeline.cad.lib import board, drill, frame, union, rounded_box, bent_rod
+"""Armrest: moulded loop with a pad on top and a mounting plate at the foot, guide page 15 (step 11).
+Local frame = seat sub-assembly frame; `side` = +1 for the right-hand armrest (at +X), -1 for the left one (at -X).
+The plate's inner face lies on the seat's side at x = side*seat_w/2."""
+from pipeline.cad.lib import rounded_box, bent_rod, drill, union, frame
 
-PARAMS = {"bar_t": 25, "arm_y_a": -120, "arm_y_b": 60, "arm_z": 35}
+PARAMS = {"side": 1, "seat_w": 500, "arm_y1": 60, "arm_y2": 120, "arm_z": 30}
 
 
 def build(p):
-    h = p["bar_t"] / 2
-    foot = board(-h, -165, 15, 2 * h, 280, 40)
-    loop = bent_rod([(0, 100, 50), (0, 70, 245), (0, -110, 255), (0, -150, 230), (0, -150, 50)], 25)
-    pad = rounded_box(-25, -175, 245, 50, 270, 30, r_side=15, r_edge=8)
-    solid = union(foot, loop, pad)
+    s = p["side"]
+    x0 = p["seat_w"] / 2
+    xr = x0 + 18
+    plate = rounded_box(x0 if s > 0 else -x0 - 8, 40, 10, 8, 100, 80, r_side=0, r_edge=2)
+    pts = [(40, 75), (-60, 110), (-135, 245), (-110, 300), (150, 300), (180, 260), (140, 140), (140, 75)]
+    loop = bent_rod([(s * xr, y, z) for y, z in pts], 24)
+    pad = rounded_box(xr - 16 if s > 0 else -xr - 16, -120, 298, 32, 250, 24, r_side=12, r_edge=6)
+    solid = union(plate, loop, pad)
     frames = {}
-    for tag, y in (("a", p["arm_y_a"]), ("b", p["arm_y_b"])):
-        z = p["arm_z"]
-        frames[f"side_m_{tag}"] = frame((-h, y, z), (-1, 0, 0))
-        frames[f"side_p_{tag}"] = frame((h, y, z), (1, 0, 0))
-        solid = drill(solid, (h, y, z), (1, 0, 0), 6.5, 2 * h + 1)
+    for i, y in enumerate((p["arm_y1"], p["arm_y2"]), 1):
+        solid = drill(solid, (s * (x0 + 8), y, p["arm_z"]), (s, 0, 0), 6.5, 9)
+        frames[f"seat_{i}"] = frame((s * x0, y, p["arm_z"]), (-s, 0, 0))
+        frames[f"scr_{i}"] = frame((s * (x0 + 8), y, p["arm_z"]), (s, 0, 0))
     return solid, frames

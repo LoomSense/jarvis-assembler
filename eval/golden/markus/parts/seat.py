@@ -1,25 +1,24 @@
-"""Upholstered seat, guide pages 6, 10-11 (steps 4-6, drawn upside down) and 15 (step 11).
-Local frame (= the seat unit's frame): seat underside at z = 0, padded top up +Z, centred on x = y = 0,
-front edge towards -Y, back towards +Y, width along X.
-Underside: threaded holes for the tilt mechanism (2 front, 2 rear).
-Sides: two threaded inserts per side for the armrests (step 11)."""
-from pipeline.cad.lib import frame, drill, cushion
+"""Upholstered seat cushion, guide pages 6, 10-12 (steps 4-9).
+Local frame (= seat sub-assembly frame): underside at z=0, centred, front edge towards -Y."""
+from pipeline.cad.lib import cushion, drill, frame
 
-PARAMS = {"seat_w": 500, "seat_d": 480, "seat_h": 90,
-          "mx": 85, "my_f": -130, "my_r": 125, "arm_y_a": -120, "arm_y_b": 60, "arm_z": 35}
+PARAMS = {"seat_w": 500, "seat_d": 480, "seat_h": 90, "hx": 85, "hy_f": -60, "hy_r": 120, "arm_y1": 60, "arm_y2": 120,
+          "arm_z": 30}
 
 
 def build(p):
-    w, d = p["seat_w"], p["seat_d"]
-    solid = cushion(0, 0, 0, w, d, p["seat_h"], corner=80, crown=30)
+    w = p["seat_w"]
+    solid = cushion(0, 0, 0, w, p["seat_d"], p["seat_h"], corner=60, crown=36)
     frames = {}
-    for name, x, y in (("mech_front_L", -p["mx"], p["my_f"]), ("mech_front_R", p["mx"], p["my_f"]),
-                       ("mech_rear_L", -p["mx"], p["my_r"]), ("mech_rear_R", p["mx"], p["my_r"])):
-        frames[name] = frame((x, y, 0), (0, 0, -1))
-        solid = drill(solid, (x, y, 0), (0, 0, -1), 6, 20)
-    for side, sx in (("R", 1), ("L", -1)):
-        for tag, y in (("a", p["arm_y_a"]), ("b", p["arm_y_b"])):
-            o = (sx * w / 2, y, p["arm_z"])
-            frames[f"arm_{side}_{tag}"] = frame(o, (sx, 0, 0))
-            solid = drill(solid, o, (sx, 0, 0), 5, 20)
+    k = 1
+    for y in (p["hy_f"], p["hy_r"]):
+        for x in (-p["hx"], p["hx"]):
+            solid = drill(solid, (x, y, 0), (0, 0, -1), 5, 20)
+            frames[f"mech_{k}"] = frame((x, y, 0), (0, 0, -1))
+            k += 1
+    for side, tag in ((1, "R"), (-1, "L")):
+        for i, y in enumerate((p["arm_y1"], p["arm_y2"]), 1):
+            o = (side * w / 2, y, p["arm_z"])
+            solid = drill(solid, o, (side, 0, 0), 5, 20)
+            frames[f"arm_{tag}{i}"] = frame(o, (side, 0, 0))
     return solid, frames
