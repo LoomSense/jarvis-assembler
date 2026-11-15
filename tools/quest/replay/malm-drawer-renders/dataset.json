@@ -1,0 +1,51 @@
+{
+  "name": "malm-drawer-renders",
+  "job": "malm-drawer",
+  "frames": 7,
+  "fps": 0.2,
+  "note": "Blender step renders (white background), not camera photos. Intrinsics are plausible, not the render camera's. Use for identify/locate and step logic, not for tracking accuracy.",
+  "frame_list": [
+    {
+      "frame": 0,
+      "file": "000000.jpg",
+      "source": "step_01.png",
+      "expected_step": 1
+    },
+    {
+      "frame": 1,
+      "file": "000001.jpg",
+      "source": "step_02.png",
+      "expected_step": 2
+    },
+    {
+      "frame": 2,
+      "file": "000002.jpg",
+      "source": "step_03.png",
+      "expected_step": 3
+    },
+    {
+      "frame": 3,
+      "file": "000003.jpg",
+      "source": "step_04.png",
+      "expected_step": 4
+    },
+    {
+      "frame": 4,
+      "file": "000004.jpg",
+      "source": "step_05.png",
+      "expected_step": 5
+    },
+    {
+      "frame": 5,
+      "file": "000005.jpg",
+      "source": "step_06.png",
+      "expected_step": 6
+    },
+    {
+      "frame": 6,
+      "file": "000006.jpg",
+      "source": "step_07.png",
+      "expected_step": 7
+    }
+  ]
+}

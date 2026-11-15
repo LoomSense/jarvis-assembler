@@ -1,0 +1,21 @@
+{
+  "family": "apriltag_36h11",
+  "opencv_dictionary": "DICT_APRILTAG_36h11",
+  "id": 0,
+  "size_m": 0.08,
+  "size_note": "edge of the black square (8 x 8 modules of 10 mm incl. black border)",
+  "cut_square_m": 0.1,
+  "marker_axes": "OpenCV ArUco: x to the tag's right, y to its TOP edge, z out of the printed face; origin at the centre",
+  "placement": {
+    "part": "drawer_front (MALM drawer, 380 x 130 x 16 mm)",
+    "face": "inside face: the face that is up in step 1, with the dowel holes and the groove for the drawer bottom",
+    "position": "centred along the 380 mm length; centred across the 130 mm height between the groove and the opposite long edge (the 100 mm cut square fits; keep the groove and dowel holes clear)",
+    "orientation": "the printed TOP edge of the marker points toward the groove edge; marker x runs along the 380 mm length, marker z points out of the inside face",
+    "fixing": "flat, no bubbles: glue stick or low-tack spray; tape only on the white margin, never on the black",
+    "visibility": "visible in steps 1-4 (front lying flat, sides going on); hidden once the bottom panel slides in. Apps must hold the last good pose (anchor) when the marker is lost."
+  },
+  "files": [
+    "agj-marker-36h11-id0-80mm.pdf",
+    "agj-marker-36h11-id0-80mm.png"
+  ]
+}

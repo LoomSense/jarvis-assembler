@@ -1,0 +1,5 @@
+# Run folders (logs, captures, summaries) stay local; share judge.md / summary.md instead.
+runs/
+# ~22 MB of rendered frames: regenerate with replay/make_marker_synthetic.py
+replay/marker-synthetic/
+__pycache__/
