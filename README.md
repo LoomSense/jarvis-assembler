@@ -23,11 +23,7 @@ Under the hood it combines a coding agent that reads the drawings and writes CAD
 
 ## How it works
 
-![Four steps build the 3D guide, then you follow it on your phone or in a Quest 3](docs/img/steps.svg)
-
-## How it fits together
-
-![How it fits together](docs/img/architecture.svg)
+![Six steps with the technology of each: four build the 3D guide on the server, then you follow it on your phone or in a Quest 3 while the server checks your build](docs/img/steps.svg)
 
 ## For other agents
 
