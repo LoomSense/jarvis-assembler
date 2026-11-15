@@ -33,12 +33,13 @@ enum class GhostMaterialKind(val wire: String) {
  * If the custom path fails at runtime (or `ghost_material=unlit` is passed), [create] falls back to the SDK's unlit
  * shader with a translucent azure fill (token #9ecfff).
  */
-class GhostMat private constructor(val kind: GhostMaterialKind, val material: SceneMaterial) {
+class GhostMat private constructor(val kind: GhostMaterialKind, val material: SceneMaterial, private val mark: Boolean = false) {
   /** Shader inputs: tint (linear RGB), body opacity at normal incidence, rim strength / exponent, overall opacity. */
   fun set(tint: FloatArray, body: Float, rim: Float, rimPower: Float = 2.5f, opacity: Float = 1f) {
     when (kind) {
       GhostMaterialKind.CUSTOM -> {
-        material.setAttribute("albedoFactor", Vector4(tint[0], tint[1], tint[2], body))
+        val t = GhostMaterial.shaderTint(tint, mark)
+        material.setAttribute("albedoFactor", Vector4(t[0], t[1], t[2], body))
         material.setAttribute("matParams", Vector4(rim, rimPower, opacity, 0f))
       }
       GhostMaterialKind.UNLIT -> {
@@ -56,10 +57,15 @@ class GhostMat private constructor(val kind: GhostMaterialKind, val material: Sc
         rim: Float = 0.65f,
         rimPower: Float = 2.5f,
         opacity: Float = 1f,
+        /**
+         * A guidance mark (hole ring, path dot, arrow, edge, leader): drawn in the token colour itself. The fresnel
+         * shader draws a face seen straight on at 55 % of the tint (right for a ghost's body, too dull for a ring).
+         */
+        mark: Boolean = false,
     ): GhostMat {
       val m =
           if (GhostMaterial.preferred == GhostMaterialKind.CUSTOM && !GhostMaterial.customFailed) {
-            runCatching { GhostMat(GhostMaterialKind.CUSTOM, GhostMaterial.customMaterial()) }
+            runCatching { GhostMat(GhostMaterialKind.CUSTOM, GhostMaterial.customMaterial(), mark) }
                 .onFailure {
                   GhostMaterial.customFailed = true
                   Agq.log.error("ghost_material", "custom shader failed, using unlit: ${it.message}")
@@ -93,6 +99,16 @@ object GhostMaterial {
     /** Edges: azure lightened 8 % (spec §4.1). */
     val EDGE = floatArrayOf(0.42f, 0.69f, 1.0f)
   }
+
+  /** `ghost_fresnel.frag`: colour = tint × (BODY_GAIN + 0.9 × rim). A JVM test keeps this equal to the shader. */
+  const val BODY_GAIN = 0.55f
+
+  /**
+   * The tint handed to the fresnel shader. A guidance mark is pre-divided by [BODY_GAIN], so a face seen straight on
+   * comes out in the token colour (the unlit fallback already draws the tint as it is). Pure, tested.
+   */
+  fun shaderTint(tint: FloatArray, mark: Boolean): FloatArray =
+      if (mark) floatArrayOf(tint[0] / BODY_GAIN, tint[1] / BODY_GAIN, tint[2] / BODY_GAIN) else tint
 
   /** Flat alpha for the unlit fallback: fill + 30 % of the rim, times the overall opacity (pure, tested). */
   fun unlitAlpha(body: Float, rim: Float, opacity: Float): Float = ((body + 0.3f * rim) * opacity).coerceIn(0f, 1f)

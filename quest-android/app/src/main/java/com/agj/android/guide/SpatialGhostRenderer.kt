@@ -22,9 +22,6 @@ import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sin
 
-/** A hole lip ring: centre, outward normal, radius (m), ASSEMBLY frame. */
-data class Hole(val center: Vec3, val normal: Vec3, val radius: Float)
-
 /** What the label pill shows (the ui/ layer draws it in a mesh-mode Compose panel). */
 data class LabelInfo(val label: PartLabel, val state: GhostState, val lost: Boolean)
 
@@ -115,6 +112,12 @@ class SpatialGhostRenderer(
   private val rippleE = ArrayList<Entity>()
   private val staticRingE = ArrayList<Entity>()
   private var hole: Hole? = null
+  /** "2 of 4" of the current fastener and the holes still to do (dim rings). */
+  private var repeat: Repeat? = null
+  /** The current `turn` action's poses from the walkthrough clip (null: interpolate the two step poses). */
+  private var turnTrack: TurnTrack? = null
+  /** True until the current action's hole has been logged in WORLD (`ghost_hole`, once a pose is known). */
+  private var holeWorldPending = false
   private var materialLogged = false
   private var jobKey = "job"
   private var makeEntity: ((String, MeshData, GhostMat, Entity?) -> Entity)? = null
@@ -155,15 +158,16 @@ class SpatialGhostRenderer(
     ghostMat = GhostMat.create()
     placedMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.035f, rim = 0.22f, rimPower = 3f)
     moverMat = GhostMat.create(body = 0.10f, rim = 0.45f)
-    dotMat = GhostMat.create(body = 0.55f, rim = 0.3f, rimPower = 1.5f)
-    dashMat = GhostMat.create(body = 0.95f, rim = 0.2f, rimPower = 1.5f)
-    arrowMat = GhostMat.create(body = 0.9f, rim = 0.1f, rimPower = 1.5f)
-    leaderMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.7f, rim = 0f)
-    edgeMat = GhostMat.create(GhostMaterial.Tint.EDGE, body = 0.85f, rim = 0f)
-    outlineMat = GhostMat.create(GhostMaterial.Tint.ERROR, body = 1f, rim = 0f)
-    ringMat = GhostMat.create(body = 0.9f, rim = 0f)
-    rippleMat = GhostMat.create(body = 0.6f, rim = 0f)
-    staticRingMat = GhostMat.create(body = 0.35f, rim = 0f)
+    // Guidance marks (`mark = true`) are drawn in the token colour itself, not at the ghost body's 55 % of it.
+    dotMat = GhostMat.create(body = 0.55f, rim = 0.3f, rimPower = 1.5f, mark = true)
+    dashMat = GhostMat.create(body = 0.95f, rim = 0.2f, rimPower = 1.5f, mark = true)
+    arrowMat = GhostMat.create(body = 0.9f, rim = 0.1f, rimPower = 1.5f, mark = true)
+    leaderMat = GhostMat.create(GhostMaterial.Tint.WHITE, body = 0.7f, rim = 0f, mark = true)
+    edgeMat = GhostMat.create(GhostMaterial.Tint.EDGE, body = 0.85f, rim = 0f, mark = true)
+    outlineMat = GhostMat.create(GhostMaterial.Tint.ERROR, body = 1f, rim = 0f, mark = true)
+    ringMat = GhostMat.create(body = 0.9f, rim = 0f, mark = true)
+    rippleMat = GhostMat.create(body = 0.6f, rim = 0f, mark = true)
+    staticRingMat = GhostMat.create(body = 0.35f, rim = 0f, mark = true)
 
     val job = assembly.jobId.replace(Regex("[^A-Za-z0-9_-]"), "_")
     val r = Entity.create(listOf(Transform(Pose())))
@@ -186,12 +190,11 @@ class SpatialGhostRenderer(
       ghostE[node] = meshEntity("mesh://agj/$job/ghost/$node", data, ghostMat, p)
       moverE[node] = meshEntity("mesh://agj/$job/mover/$node", data, moverMat, p)
     }
+    // A turning arrow only for hardware that is turned (screws, cam bolts, cam locks); dowels and pins go straight in.
     for (s in g.steps) for (a in s.actions) {
-      val geo = a.geometry ?: continue
-      if (!a.kind.twists || a.node == null) continue
-      val axis = a.fromDir ?: Vec3(0f, 1f, 0f)
-      val radius = (geo.widthAcross(axis) / 2f + 0.010f).coerceIn(0.018f, 0.040f)
-      turnE[a.node] = meshEntity("mesh://agj/$job/turn/${a.node}", Shapes.turnArrow(radius, 0.00175f), arrowMat, p)
+      val node = a.node ?: continue
+      val arrow = Guidance.turnArrowOf(a) ?: continue
+      turnE[node] = meshEntity("mesh://agj/$job/turn/$node", Shapes.turnArrow(arrow.radius, 0.00175f), arrowMat, p)
     }
     val dot = Shapes.sphere(0.002f)
     repeat(MAX_DOTS) { i -> dots += meshEntity("mesh://agj/$job/dot/$i", dot, dotMat, p) }
@@ -200,10 +203,13 @@ class SpatialGhostRenderer(
     arrowHead = meshEntity("mesh://agj/$job/arrowhead", Shapes.cone(0.005f, 0.014f), arrowMat, p)
     leader = meshEntity("mesh://agj/$job/leader", Shapes.cylinder(0.0006f, 1f), leaderMat, null)
     anchorDot = meshEntity("mesh://agj/$job/anchor", Shapes.sphere(0.0015f), leaderMat, null)
-    // Unit rings, scaled to the hole radius: stroke 0.2 × r for the lip ring (≈ 1.2 mm at 6 mm), 0.12 × r ripples.
-    ringE = meshEntity("mesh://agj/$job/ring", Shapes.ring(1f, 0.2f), ringMat, p)
-    repeat(2) { i -> rippleE += meshEntity("mesh://agj/$job/ripple/$i", Shapes.ring(1f, 0.12f), rippleMat, p) }
-    repeat(MAX_STATIC_RINGS) { i -> staticRingE += meshEntity("mesh://agj/$job/sring/$i", Shapes.ring(1f, 0.2f), staticRingMat, p) }
+    // Unit rings, scaled to the hole radius: stroke 0.24 × r, i.e. the spec's 1.2 mm at the smallest ring (5 mm).
+    val unitRing = Shapes.ring(1f, Guidance.RING_STROKE)
+    ringE = meshEntity("mesh://agj/$job/ring", unitRing, ringMat, p)
+    repeat(2) { i -> rippleE += meshEntity("mesh://agj/$job/ripple/$i", unitRing, rippleMat, p) }
+    // One dim ring for every hole that can still be open at once (knagglig: 7 of the 8 slat screws).
+    val staticRings = Guidance.maxRemaining(g).coerceIn(1, MAX_STATIC_RINGS)
+    repeat(staticRings) { i -> staticRingE += meshEntity("mesh://agj/$job/sring/$i", unitRing, staticRingMat, p) }
     labelE =
         labelPanelId?.let { id ->
           Entity.createPanelEntity(id, Transform(Pose(Vector3(0f, -10f, 0f)))).also {
@@ -216,6 +222,8 @@ class SpatialGhostRenderer(
         mapOf(
             "parts" to g.parts.size,
             "turn_arrows" to turnE.size,
+            "static_rings" to staticRingE.size,
+            "turn_tracks" to g.steps.count { it.turnTrack != null },
             "material" to ghostMat.kind.wire,
             "ms" to (System.nanoTime() - t0) / 1_000_000,
         ),
@@ -252,6 +260,8 @@ class SpatialGhostRenderer(
     prevPose = prevStep?.tableFromAssembly ?: s.tableFromAssembly
     stepPose = s.tableFromAssembly
     val turning = a?.kind == ActionKind.TURN
+    // The turn as the guide's own animation does it (same way round); only when it joins the two step poses.
+    turnTrack = s.turnTrack?.takeIf { turning && samePose(it.start, prevPose) && samePose(it.end, stepPose) }
     if (!turning) posedNow = stepPose
 
     for ((node, e) in placedE) {
@@ -267,19 +277,13 @@ class SpatialGhostRenderer(
     a?.node?.let { edgesFor(it) }
     placeHoles(s, a)
 
-    // Insertion path + mover
+    // Insertion path (from `from_dir`, on the hole's axis for hardware) + turning arrow (clockwise seen from the head)
     path = emptyList()
-    val geo = a?.geometry
-    val dir = a?.fromDir
-    if (a != null && geo != null && dir != null && !turning) {
+    val arrow = if (a != null && !turning) Guidance.turnArrowOf(a) else null
+    if (a != null && !turning) {
       val up = stepPose.q.conjugate().rotate(Vec3(0f, 1f, 0f))
-      val small = maxOf(geo.size.x, geo.size.y, geo.size.z) < 0.06f
-      val surface = geo.center + dir * (geo.extentAlong(dir) / 2f)
-      path = Shapes.insertionPath(surface, dir, up, straight = a.kind.twists || small).take(MAX_DOTS)
-      turnE[a.node]?.let { e ->
-        val q = Shapes.fromTo(Vec3(0f, 1f, 0f), dir * -1f)
-        e.setComponent(Transform(Pose3(surface + dir * 0.006f, q).toSdk()))
-      }
+      path = Guidance.insertionPath(a, up, MAX_DOTS)
+      if (arrow != null) turnE[a.node]?.setComponent(Transform(Guidance.turnArrowPose(arrow).toSdk()))
     }
     dots.forEachIndexed { i, e ->
       val pt = path.getOrNull(i)
@@ -312,11 +316,55 @@ class SpatialGhostRenderer(
           ),
       )
     }
-    Agq.log.event(
-        "ghost_show",
-        mapOf("step" to step, "action" to action, "kind" to (a?.kind?.name?.lowercase()), "node" to a?.node, "path_dots" to path.size),
-    )
+    // Everything needed to check the guidance from a log: where the hole is, where the hardware comes from, which
+    // of the step's identical fasteners this is, and which way it turns.
+    val h = hole
+    val wfa = worldFromTable?.let { it * posedNow }
+    val fromDir = a?.fromDir?.takeIf { !turning }
+    val fields =
+        mutableMapOf<String, Any?>(
+            "step" to step,
+            "action" to action,
+            "kind" to (a?.kind?.name?.lowercase()),
+            "node" to a?.node,
+            "code" to a?.code,
+            "hw_kind" to a?.hardwareKind,
+            "path_dots" to path.size,
+            "hole_m" to (if (h != null && wfa != null) vec(wfa.transform(h.center)) else null),
+            "hole_asm_m" to h?.let { vec(it.center) },
+            "hole_src" to h?.source,
+            "ring_r_mm" to h?.let { round1(it.radius * 1000f) },
+            "from_dir" to (if (fromDir != null && wfa != null) vec(wfa.q.rotate(fromDir)) else null),
+            "from_dir_asm" to fromDir?.let { vec(it) },
+            "path_from_asm_m" to path.firstOrNull()?.let { vec(it) },
+            "path_to_asm_m" to path.lastOrNull()?.let { vec(it) },
+            "repeat_index" to repeat?.index,
+            "repeat_of" to repeat?.of,
+            "remaining_rings" to repeat?.remaining?.size,
+            "label_count" to a?.label(lang)?.count,
+            "turn_sense" to (if (a != null && !turning && Guidance.hasHole(a)) Guidance.turnSense(a).wire else null),
+            "arrow_axis_asm" to arrow?.let { vec(it.into) },
+            "axis_dev_deg" to (if (h != null && a != null) Guidance.hardwareAxis(a)?.let { round1(Guidance.angleDeg(it, h.normal * -1f).toFloat()) } else null),
+            "pose_known" to (wfa != null),
+        )
+    if (turning) {
+      fields["flip_deg"] = round1(turnTrack?.angleDeg ?: Math.toDegrees(Guidance.angleRad(prevPose.q, stepPose.q).toDouble()).toFloat())
+      fields["flip_src"] = if (turnTrack != null) "clip" else "end_poses"
+      fields["flip_from_q"] = quat(prevPose.q)
+      fields["flip_to_q"] = quat(stepPose.q)
+    }
+    Agq.log.event("ghost_show", fields)
+    holeWorldPending = h != null && wfa == null
   }
+
+  /** Within 1° and 5 mm. */
+  private fun samePose(a: Pose3, b: Pose3) = Guidance.angleRad(a.q, b.q) < 0.0175f && (a.t - b.t).length() < 0.005f
+
+  private fun round1(v: Float) = Math.round(v * 10f) / 10f
+
+  private fun vec(v: Vec3) = listOf(Math.round(v.x * 10000f) / 10000f, Math.round(v.y * 10000f) / 10000f, Math.round(v.z * 10000f) / 10000f)
+
+  private fun quat(q: Quat) = listOf(q.x, q.y, q.z, q.w).map { Math.round(it * 10000f) / 10000f }
 
   override fun setState(state: GhostState) {
     this.state = state
@@ -353,30 +401,36 @@ class SpatialGhostRenderer(
     outlineE[node]?.let { show(it, dashed) }
   }
 
-  /** The hole of the current screw-like action and the step's other holes of the same code (spec §4.4). */
+  /**
+   * The hole of the current action (bright ring + ripples) and the step's holes of the same code that are still to
+   * do (dim rings); done ones get none (spec §4.4). Every ring sits on the receiving surface at the hardware's final
+   * origin, 0.5 mm off it, facing `from_dir` ([Guidance.holeOf]).
+   */
   private fun placeHoles(s: GuideStep, a: GuideAction?) {
-    hole = a?.let { holeOf(it) }
+    hole = a?.let { Guidance.holeOf(it) }
+    repeat = a?.let { Guidance.repeatOf(s, it) }
     val h = hole
     ringE?.let { e ->
       if (h != null) {
-        e.setComponent(Transform(Pose3(h.center, Shapes.fromTo(Vec3(0f, 1f, 0f), h.normal)).toSdk()))
+        e.setComponent(Transform(ringPose(h).toSdk()))
         e.setComponent(Scale(Vector3(h.radius)))
       }
       show(e, h != null)
     }
     rippleE.forEach { show(it, h != null && !reducedMotion) }
-    val later =
-        if (a == null) emptyList()
-        else s.guided.filter { it.index > a.index && it.code != null && it.code == a.code }.mapNotNull { holeOf(it) }
+    val later = repeat?.remaining?.mapNotNull { Guidance.holeOf(it) } ?: emptyList()
     staticRingE.forEachIndexed { i, e ->
       val o = later.getOrNull(i)
       if (o != null) {
-        e.setComponent(Transform(Pose3(o.center, Shapes.fromTo(Vec3(0f, 1f, 0f), o.normal)).toSdk()))
+        e.setComponent(Transform(ringPose(o).toSdk()))
         e.setComponent(Scale(Vector3(o.radius)))
       }
       show(e, o != null)
     }
   }
+
+  /** The flat ring mesh (normal +Y) on the hole's lip. */
+  private fun ringPose(h: Hole) = Pose3(h.ringCenter, Shapes.fromTo(Vec3(0f, 1f, 0f), h.normal))
 
   /** Two ripples, a new pair every 2.0 s: each grows 1.0 → 2.2 × r and fades 0.6 → 0 in 1.2 s (ease-out). */
   private fun updateRings(tAction: Float, lostK: Float) {
@@ -389,7 +443,7 @@ class SpatialGhostRenderer(
       val k = (c - i * 0.3f) / 1.2f
       val on = k in 0f..1f
       if (on) {
-        e.setComponent(Transform(Pose3(h.center, Shapes.fromTo(Vec3(0f, 1f, 0f), h.normal)).toSdk()))
+        e.setComponent(Transform(ringPose(h).toSdk()))
         e.setComponent(Scale(Vector3(h.radius * (1f + 1.2f * easeOutCubic(k)))))
       }
       show(e, on)
@@ -452,9 +506,21 @@ class SpatialGhostRenderer(
       val cycle = 2.4f
       val k =
           if (tAction >= cycle * 3) 1f else ((tAction % cycle) / 1.6f).coerceIn(0f, 1f).let { easeInOutCubic(it) }
-      posedNow = Pose3(prevPose.t.lerp(stepPose.t, k), prevPose.q.nlerp(stepPose.q, k))
+      // Along the guide's own turn (same way round as its animation); without a clip, between the two step poses.
+      posedNow = turnTrack?.at(k) ?: Pose3(prevPose.t.lerp(stepPose.t, k), prevPose.q.nlerp(stepPose.q, k))
     }
     posed?.setComponent(Transform(posedNow.toSdk()))
+    // The hole in WORLD, once, when `ghost_show` could not give it (no pose yet at that moment).
+    if (holeWorldPending && wft != null) {
+      holeWorldPending = false
+      hole?.let { h ->
+        val wfa = wft * posedNow
+        Agq.log.event(
+            "ghost_hole",
+            mapOf("step" to step, "action" to action, "hole_m" to vec(wfa.transform(h.center)), "from_dir" to vec(wfa.q.rotate(h.normal))),
+        )
+      }
+    }
 
     // Ghost material by state (spec §4.1, 4.7–4.9, 4.12).
     val t = clock - stateSince
@@ -615,20 +681,9 @@ class SpatialGhostRenderer(
   companion object {
     private const val MAX_DOTS = 48
     private const val DASH = 4
-    private const val MAX_STATIC_RINGS = 6
+    /** Upper bound on the dim rings (the real number comes from the guide: [Guidance.maxRemaining]). */
+    private const val MAX_STATIC_RINGS = 24
 
-    /**
-     * The hole of a screw-like action (spec §4.4), ASSEMBLY frame: on the part's outer end along `from_dir`, 0.5 mm
-     * out, radius = half the part's width across the axis + 2 mm. Null for other kinds or without geometry.
-     */
-    fun holeOf(a: GuideAction): Hole? {
-      if (!a.kind.twists && a.kind != ActionKind.PRESS) return null
-      val geo = a.geometry ?: return null
-      val dir = Shapes.norm(a.fromDir ?: return null)
-      val c = geo.center + dir * (geo.extentAlong(dir) / 2f + 0.0005f)
-      val r = (geo.widthAcross(dir) / 2f + 0.002f).coerceIn(0.004f, 0.03f)
-      return Hole(c, dir, r)
-    }
     /** Half the label panel's height (m), so the pill's bottom edge sits on the leader line. */
     const val PILL_HALF_H = 0.02f
 

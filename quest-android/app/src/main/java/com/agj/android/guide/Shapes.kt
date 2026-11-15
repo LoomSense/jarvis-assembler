@@ -99,9 +99,8 @@ object Shapes {
    */
   fun turnArrow(radius: Float, tube: Float, sweepDeg: Float = 290f, seg: Int = 48, sides: Int = 8): MeshData {
     val b = Builder()
-    val sweep = (sweepDeg * PI / 180.0).toFloat()
-    val head = 0.022f.coerceAtMost(radius * 1.2f) // arc length the arrowhead takes
-    val arcEnd = sweep - head / radius
+    val head = turnArrowHead(radius, sweepDeg).third
+    val arcEnd = turnArrowEnd(radius, sweepDeg)
     for (k in 0..seg) {
       val a = arcEnd * k / seg
       val c = Vec3(radius * cos(a), 0f, -radius * sin(a))
@@ -121,9 +120,8 @@ object Shapes {
     }
     // Arrowhead: a cone whose axis is the arc tangent at arcEnd.
     val cone = cone(tube * 2.8f, head)
-    val tangent = Vec3(-sin(arcEnd), 0f, -cos(arcEnd))
+    val (base, tangent, _) = turnArrowHead(radius, sweepDeg)
     val q = fromTo(Vec3(0f, 1f, 0f), tangent)
-    val base = Vec3(radius * cos(arcEnd), 0f, -radius * sin(arcEnd))
     val off = b.p.size / 3
     for (v in 0 until cone.vertexCount) {
       val pp = q.rotate(Vec3(cone.positions[v * 3], cone.positions[v * 3 + 1], cone.positions[v * 3 + 2])) + base
@@ -132,6 +130,19 @@ object Shapes {
     }
     for (idx in cone.indices) b.i += idx + off
     return b.build()
+  }
+
+  /** Angle (radians) where the arc of [turnArrow] ends and its arrowhead starts. */
+  private fun turnArrowEnd(radius: Float, sweepDeg: Float): Float =
+      (sweepDeg * PI / 180.0).toFloat() - 0.022f.coerceAtMost(radius * 1.2f) / radius
+
+  /**
+   * The arrowhead of [turnArrow] in the mesh's frame: base centre, unit direction it points in, length. Turning sense
+   * = base × direction: +Y, i.e. the arrow turns counter-clockwise seen from +Y (the right-hand rule about +Y).
+   */
+  fun turnArrowHead(radius: Float, sweepDeg: Float = 290f): Triple<Vec3, Vec3, Float> {
+    val a = turnArrowEnd(radius, sweepDeg)
+    return Triple(Vec3(radius * cos(a), 0f, -radius * sin(a)), Vec3(-sin(a), 0f, -cos(a)), 0.022f.coerceAtMost(radius * 1.2f))
   }
 
   /** Flat ring in the XZ plane (hole highlight): inner radius [r], width [w]. */
@@ -172,6 +183,11 @@ object Shapes {
    * Insertion path points (ASSEMBLY frame) for a part that ends at [end] and comes from [fromDir], per spec §4.2:
    * boards: cubic Bézier from 25 cm out along from_dir, lifted; dowels/pins/screws: a straight line 10 cm long.
    * Dots every [spacing] metres; the last dot stops [gap] short of the end. [up] is world-up in ASSEMBLY coordinates.
+   *
+   * The arc is lifted along the part of [up] that is perpendicular to [fromDir], so the path never moves away from
+   * the part along `from_dir`: a board that comes sideways arcs up and over as before; a board that comes from above
+   * comes straight down. (Lifting along [up] itself sent a from-above path 14 cm further up first and back down the
+   * same line: dots on top of each other and a travelling dash that started by moving away from the part.)
    */
   fun insertionPath(end: Vec3, fromDir: Vec3, up: Vec3, straight: Boolean, spacing: Float = 0.012f, gap: Float = 0.02f): List<Vec3> {
     val u = norm(fromDir)
@@ -182,9 +198,11 @@ object Shapes {
       val n = maxOf(2, (len / spacing).toInt())
       return (0..n).map { start.lerp(e, it / n.toFloat()) }
     }
+    val upN = norm(up)
+    val lift = upN - u * u.dot(upN)
     val start = end + u * 0.25f
-    val c1 = start + up * 0.30f
-    val c2 = e + u * 0.18f + up * 0.12f
+    val c1 = start + lift * 0.30f
+    val c2 = e + u * 0.18f + lift * 0.12f
     // Sample densely, then resample by arc length.
     val dense = (0..200).map { bezier(start, c1, c2, e, it / 200f) }
     val out = ArrayList<Vec3>()
