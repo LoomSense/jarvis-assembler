@@ -322,7 +322,7 @@ def _picture(item: Item, caption: str) -> list:
         return [f"{caption} (no reference picture: use the description)"]
 
 
-REAL_COLOURS = True                  # the manifest's `perception_note` goes into the request (off: the request of before)
+REAL_COLOURS = False                 # the manifest's `perception_note` goes into the request (off: the request of before)
 
 NOTE = """
 
