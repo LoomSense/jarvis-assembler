@@ -1347,3 +1347,108 @@ def test_clear_no_lets_a_leaning_other_code_warn():
     assert coach._prefilter(weak, w, rules, False)["hardware_in_hand"]["confidence"] == 0.3     # below the floor
     unsure = {**raw, "right_hardware": {"type": "noul", "noul": 0.4, "confidence": 0.6}}
     assert coach._prefilter(unsure, w, rules, False)["hardware_in_hand"]["confidence"] == 0.51  # no clear "no"
+
+
+# ---- real headset frames (Sun 15 Nov): the poor line, the dark rule, the close look, kept frames --------------
+
+def test_a_frame_the_model_is_only_half_sure_is_poor_still_counts():
+    """Real headset frames with a hand in view scored `image_poor` 0.13 to 0.47; the Watcher's 0.3 threw them away."""
+    held = dict(frame("hardware_only", LONG, right_hardware=0.95), image_poor=noul(0.45))
+    c = coach(STEP2)
+    said, _ = feed(c, [held] * 6)
+    assert [name for _, name in said] == ["right_hardware"] and c.belief()["view"] == "ok"
+    c = coach(STEP2, poor_at=0.3)                                     # the line before Sun 15 Nov
+    assert feed(c, [held] * 6)[0] == [] and c.belief()["view"] == "poor"
+    c = coach(STEP2)                                                  # the model is sure: still discarded
+    assert feed(c, [dict(held, image_poor=noul(0.56))] * 6)[0] == [] and c.belief()["view"] == "poor"
+    c = coach(STEP2, poor_at=0.1)                                     # never below the Watcher's `unusable`
+    assert [name for _, name in feed(c, [dict(held, image_poor=noul(0.2))] * 6)[0]] == ["right_hardware"]
+    c = coach(STEP2)                                                  # a floor or a desk (about 0.5) is not bad light
+    assert feed(c, [dict(EMPTY, image_poor=noul(0.5))] * 40)[0] == [] and c.belief()["view"] == "ok"
+
+
+def test_a_dark_floor_with_lit_parts_on_it_is_not_a_dark_frame():
+    from server.perception import imaging
+
+    def shot(floor: int, board: int | None = None) -> bytes:
+        im = Image.new("L", (192, 144), floor)
+        if board is not None:
+            im.paste(board, (60, 40, 96, 68))                         # 3.6 % of the picture
+        out = io.BytesIO()
+        im.convert("RGB").save(out, "JPEG")
+        return out.getvalue()
+
+    black, floor = imaging.probe(shot(4)), imaging.probe(shot(10, 215))
+    assert black[2] < T.dark_luma and floor[2] < T.dark_luma          # both are dark on average
+    assert black[3] < T.dark_peak < floor[3]
+    assert imaging.too_dark(black, T.dark_luma, T.dark_peak) and not imaging.too_dark(floor, T.dark_luma, T.dark_peak)
+    assert imaging.too_dark(floor, T.dark_luma, 0)                    # `dark_peak` 0: the mean alone, as before
+    assert not imaging.too_dark(black, 0, T.dark_peak)                # `dark_luma` 0: no check
+    assert imaging.probe(b"not a picture") is None
+
+
+def test_a_close_look_names_hardware_only_on_clear_evidence(tmp_path):
+    from server.perception.session import SHOW_PART_QUESTIONS, PerceptionSession
+
+    s = PerceptionSession(JOB, make_job(tmp_path / "jobs"), T, None, logs=False)
+    s.step = 2
+    s.coach.start_step(STEP2)
+
+    def look(code, conf, empty, right, poor=0.15):
+        hw = {"type": "choice", "choice": code, "confidence": conf, "probabilities": {code: conf, "no_hardware": empty}}
+        return s._show_part_result({"part_in_hand": choice("hardware_only", 0.9), "hardware_in_hand": hw,
+                                    "image_poor": noul(poor), EXTRA: noul(right)}, {"expected": LONG}, (LONG,))
+
+    held = look(LONG, 0.91, 0.03, 0.89)                               # measured: the right screw at 70 cm, `high`
+    assert (held.observed_id, held.reason) == (LONG, None)
+    assert held.evidence["no_hardware"] == 0.03 and held.evidence[EXTRA] == 0.89 and held.evidence["image_poor"] == 0.15
+    empty = look(LONG, 0.77, 0.18, 0.57)                              # measured: an empty pinching hand, `high`
+    assert (empty.observed_id, empty.reason) == (None, "hand_may_be_empty")
+    assert look(LONG, 0.8, 0.05, 0.4).reason == "not_confirmed"       # the yes/no does not say "the right one"
+    assert look(SHORT, 0.89, 0.02, 0.05).observed_id == SHORT         # another code, and the yes/no agrees it is wrong
+    assert look(SHORT, 0.8, 0.02, 0.9).reason == "not_confirmed"      # another code, but the yes/no says "right"
+    assert look("no_hardware", 0.8, 0.8, 0.1).reason == "not_recognised"
+    assert look(SHORT, 0.74, 0.02, 0.05).observed_id == SHORT         # measured: leaning to the wrong code, a sure "no"
+    assert look(SHORT, 0.74, 0.02, 0.4).reason == "not_recognised"    # ...but not without that "no"
+    assert look(SHORT, 0.3, 0.02, 0.05).reason == "not_recognised"    # ...nor on a weak lean
+    assert look(SHORT, 0.74, 0.2, 0.05).reason == "not_recognised"    # ...nor when the hand may be empty
+    assert look(LONG, 0.95, 0.01, 0.9, poor=0.45).observed_id == LONG  # a half-sure "poor" no longer loses the look
+    assert look(LONG, 0.95, 0.01, 0.9, poor=0.7).reason == "image_poor"
+    plain = s._show_part_result({"part_in_hand": choice("hardware_only", 0.9), "hardware_in_hand": choice(SHORT, 0.9),
+                                 "image_poor": noul(0.1)}, {"expected": LONG})
+    assert plain.observed_id == SHORT and EXTRA not in plain.evidence  # answers without the yes/no still work
+
+    guide = Guide(s.dir)
+    ask = build_ask(guide, load_pack(guide, 2), jpeg(), codes={LONG}, resolution="high", only=SHOW_PART_QUESTIONS)
+    assert set(ask.questions) == {"part_in_hand", "hardware_in_hand", "image_poor", EXTRA}
+
+
+def test_frames_are_kept_only_when_asked_and_only_up_to_the_cap(tmp_path):
+    from server.perception.session import FrameKeeper
+
+    folder = tmp_path / "jobs" / "_host" / "frames"
+    off = FrameKeeper(folder, 0)
+    assert not off.on and not off.keep("s", 1, "used", jpeg()) and not folder.exists()
+    assert Settings(_env_file=None).perception_keep_frames == 0       # off unless PERCEPTION_KEEP_FRAMES says so
+    k = FrameKeeper(folder, 2)
+    assert k.keep("s", 1, "used", jpeg()) and k.keep("s", 2, "poor", jpeg()) and not k.keep("s", 3, "used", jpeg())
+    assert sorted(p.name for p in (folder / "s").iterdir()) == ["000001-used.jpg", "000002-poor.jpg"]
+    assert not FrameKeeper(folder, 2).on                              # what is on disk counts after a restart
+    assert not FrameKeeper(tmp_path / "other", 100, megabytes=0).keep("s", 1, "used", jpeg())
+
+    with app_client(tmp_path / "app", perception_keep_frames=2) as c, c.websocket_connect(url("camera")) as ws:
+        cam = Peer(ws)
+        cam.until("status")
+        cam.send(type="start", step=2, action=0)
+        cam.frame(1, jpeg(grey=4))
+        assert cam.until("ack")["dropped"] == "dark"
+        for seq in (2, 3, 4):                                         # within the same second: not kept
+            assert cam.frame_ack(seq)["dropped"] is None
+        cam.send(type="show_part", expected=LONG)                     # a close look is always kept
+        assert cam.frame_ack(5)["dropped"] is None
+        cam.find(lambda m: m["type"] == "event" and m["event"] == "show_part_result")
+        cam.send(type="show_part", expected=LONG)                     # the cap is reached: nothing more
+        assert cam.frame_ack(6)["dropped"] is None
+        cam.until(lambda m: m["type"] == "event" and m["event"] == "show_part_result" and m["seq"] == 6)
+        kept = sorted(p.name for p in (tmp_path / "app" / "jobs" / "_host" / "frames").glob("*/*.jpg"))
+    assert kept == ["000001-dark.jpg", "000005-show.jpg"]

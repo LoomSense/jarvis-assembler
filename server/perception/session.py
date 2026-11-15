@@ -746,7 +746,16 @@ class PerceptionSession:
             else:
                 observed, conf = code, h_conf
         else:
-            why = "not_recognised"
+            # The Coach's measured rule, for one frame: the yes/no is sure it is NOT the hardware needed, and the
+            # choice leans to another code without reaching the line (a dowel at 50 cm on a dark floor: 0.74, with
+            # `right_hardware` at 0.05). That code is named, so the answer is "wrong", not "show it closer".
+            lean = (answers.get("hardware_in_hand") or {}).get("choice")
+            if (t.hardware_veto and codes and right is not None and right <= cfg.no and not (part and part not in SPECIAL)
+                    and lean is not None and lean not in SPECIAL and lean not in codes
+                    and t.hardware_no_floor <= h_conf and empty < t.show_nothing_max):
+                observed, conf = lean, h_conf
+            else:
+                why = "not_recognised"
         expected = show.get("expected") or (x.action_id if x and x.now_kind else None)
         evidence = {"part_in_hand.top": round(p_conf, 3), "hardware_in_hand.top": round(h_conf, 3),
                     "image_poor": round(poor, 3), "no_hardware": round(empty, 3)}
