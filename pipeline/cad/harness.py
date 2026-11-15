@@ -62,7 +62,7 @@ def build_part(script: Path, part_id: str, out: Path, kind: str = "part", params
 def build_all(plan_path: Path, out: Path) -> dict:
     plan = json.loads(plan_path.read_text())
     out.mkdir(parents=True, exist_ok=True)
-    built = {}
+    built, boxed = {}, []
     for kind, items, key in (("part", plan["parts"], "id"), ("hardware", plan["hardware"], "code")):
         for it in items:
             if it.get("generate"):                                # drawn from the guide by an image-to-3D model
@@ -71,13 +71,22 @@ def build_all(plan_path: Path, out: Path) -> dict:
                 continue
             args = (plan_path.parent / it["script"], it[key], out, kind, it.get("params"), plan.get("dims"))
             if os.environ.get("CAD_SANDBOX") == "1":             # scripts a model wrote: run each in the sandbox
-                from pipeline.cad import sandbox
-                r = sandbox.run_part(*args)
-                if not r["ok"]:
-                    raise RuntimeError(f"{it[key]} ({it['script']}): {r['error']}\n{r.get('traceback', '')}")
-                built[it[key]] = r["info"]
+                built[it[key]] = None                            # keeps the plan's order
+                boxed.append((it, key, args))
             else:
                 built[it[key]] = build_part(*args)
+    if boxed:
+        # Each script gets a fresh process, and importing CadQuery there costs 1.5 to 2 s. Run them side by side:
+        # the wait is one import, not one per part.
+        from concurrent.futures import ThreadPoolExecutor
+
+        from pipeline.cad import sandbox
+        with ThreadPoolExecutor(max_workers=min(len(boxed), os.cpu_count() or 2, 8)) as pool:
+            results = list(pool.map(lambda b: sandbox.run_part(*b[2]), boxed))
+        for (it, key, _), r in zip(boxed, results):               # report the first failure in plan order
+            if not r["ok"]:
+                raise RuntimeError(f"{it[key]} ({it['script']}): {r['error']}\n{r.get('traceback', '')}")
+            built[it[key]] = r["info"]
     return built
 
 

@@ -20,6 +20,9 @@ from pipeline import crops, pack, refs
 from pipeline.assemble import collide, placement
 from pipeline.cad import harness
 
+# AGJ_FAST_BUILD=1: stop after the animated scene and its step renders. Part pictures, phase-2 reference sheets,
+# the packed GLB and the guide crops are left out; the server's own stages make them once the plan is approved.
+FAST = os.environ.get("AGJ_FAST_BUILD") == "1"
 BLENDER = os.environ.get("BLENDER_BIN") or shutil.which("blender") or "/Applications/Blender.app/Contents/MacOS/Blender"
 
 
@@ -61,6 +64,11 @@ def main(plan_path: Path, out: Path) -> int:
         print(r.stdout[-2000:], r.stderr[-2000:])
         return 2
     t["blender_s"] = time.perf_counter() - t2
+    if FAST:                                                     # a build the agent iterates on: fit and step renders only
+        print("RESULT " + json.dumps(dict(json.loads(res[-1][7:]), unique_parts=len(built), fast=True,
+                                          worst_residual_mm=max(v["residual_mm"] for v in placed["instances"].values()),
+                                          timings_s={k: round(v, 2) for k, v in t.items()})))
+        return 0
     t3 = time.perf_counter()
     try:                                                         # part pictures and phase-2 reference sheets
         pictures = refs.build(plan_path, out)

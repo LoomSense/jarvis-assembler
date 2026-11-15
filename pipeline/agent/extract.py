@@ -92,7 +92,7 @@ def setup_workspace(job: Path, extra: str) -> Path:
     # ./build runs the repo's pipeline (not a copy the agent could edit), with part scripts in the sandbox
     build = ws / "build"
     build.write_text(f'#!/bin/sh\nWS=$(cd "$(dirname "$0")" && pwd)\ncd "{ROOT}" || exit 9\n'
-                     f'CAD_SANDBOX=1 exec "{sys.executable}" -m pipeline.run "$WS/job/plan.json" "$WS/job/out"\n')
+                     f'CAD_SANDBOX=1 AGJ_FAST_BUILD=1 exec "{sys.executable}" -m pipeline.run "$WS/job/plan.json" "$WS/job/out"\n')
     build.chmod(0o755)
     check = ws / "check"                                       # the same for the step check (pipeline/check/step_check.py)
     check.write_text(f'#!/bin/sh\nWS=$(cd "$(dirname "$0")" && pwd)\ncd "{ROOT}" || exit 9\n'

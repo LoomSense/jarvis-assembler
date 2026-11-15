@@ -22,6 +22,7 @@ The GLB's first animation, `walkthrough`, plays every action of every step in
 order. Then one animation per step, `step_NN`, for viewers that step manually.
 """
 import json
+import os
 import math
 import re
 import struct
@@ -769,8 +770,9 @@ scene.render.engine = "BLENDER_WORKBENCH"
 sh = scene.display.shading
 sh.light = "STUDIO"; sh.color_type = "OBJECT"; sh.show_object_outline = True; sh.object_outline_color = (0.1, 0.1, 0.1)
 sh.show_cavity = True; sh.cavity_type = "BOTH"; sh.show_shadows = False
-scene.display.render_aa = "8"
-scene.render.resolution_x = scene.render.resolution_y = 900
+FAST = os.environ.get("AGJ_FAST_BUILD") == "1"                 # the agent's own builds: smaller check renders, drawn faster
+scene.display.render_aa = "5" if FAST else "8"
+scene.render.resolution_x = scene.render.resolution_y = 720 if FAST else 900
 scene.render.film_transparent = False
 sh.background_type = "VIEWPORT"; sh.background_color = (1, 1, 1)
 scene.view_settings.view_transform = "Standard"
