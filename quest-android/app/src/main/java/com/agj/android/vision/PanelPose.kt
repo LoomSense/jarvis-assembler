@@ -777,7 +777,7 @@ class PanelPoseTracker(
     if (jobId != job) {
       job = jobId
       // only the old drawer job has a built-in target; every other guide gets its target from [setStep]
-      if (jobId != PanelFrames.MALM_JOB) target = null
+      target = if (jobId == PanelFrames.MALM_JOB) PanelTarget.FRONT_PANEL else null
       synchronized(this) {
         consensus.reset()
         lastReported = null
