@@ -28,6 +28,13 @@ class Config:
     done_yes: float = 0.45
     done_orientation: float = 0.4     # ...and the vote counts only if orientation_ok is at least this (a not-yet-turned
                                       # assembly can look finished from its other end)
+    # Fast lane for step_complete: this many usable frames in a row at or above `done_sure` fire without waiting for the
+    # N-of-M window. Unfinished stand-in frames never scored above 0.38, so 0.6 leaves a wide gap. Provisional, like the
+    # line above. Off by default (0): the server's rules and tests were set with the window alone. Switch it on with
+    # PERCEPTION_TUNING='{"watcher": {"done_sure_frames": 4}}'.
+    done_sure: float = 0.6
+    done_sure_frames: int = 0
+    done_sure_away_s: float = 1.0     # the fast lane needs hands out of view only this long
     hands: float = 0.5
     unusable: float = 0.3             # frame skipped when image_poor or view_blocked reaches this
     windows: dict = field(default_factory=lambda: {   # event: (N, M)
@@ -57,6 +64,7 @@ class Watcher:
         self.last = {}                # event -> ts it last fired
         self.last_warning = None
         self.unsure = 0
+        self.sure_run = 0             # usable frames in a row that say "finished" with confidence done_sure or more
         self.hands_seen = None        # ts of the last frame with hands
         self.first_ts = None
         self.state = "WAITING_FOR_PART"
@@ -82,6 +90,7 @@ class Watcher:
                 "flip_needed": (orient is not None and orient <= c.no, None),
                 "out_of_order": (hands and ahead is not None and ahead >= c.yes, None),
                 "step_complete": (done is not None and done >= c.done_yes and (orient is None or orient >= c.done_orientation), None)}
+        self.sure_run = self.sure_run + 1 if seen["step_complete"][0] and done >= c.done_sure else 0
         out = []
         for event, (vote, observed) in seen.items():
             if event not in self.votes:
@@ -92,11 +101,15 @@ class Watcher:
             count = sum(1 for v, _ in w if v)
             if count == 0:
                 self.armed[event] = True          # opposite evidence filled the window: may fire again
-            if count < n or not self.armed[event]:
+            fast = event == "step_complete" and 0 < c.done_sure_frames <= self.sure_run
+            if (count < n and not fast) or not self.armed[event]:
                 continue
             if event == "step_complete":
                 away = ts - (self.hands_seen if self.hands_seen is not None else self.first_ts)
-                if hands or away < c.hands_away_s:
+                if hands or away < (c.hands_away_s if count >= n else c.done_sure_away_s):
+                    continue
+                if count < n:
+                    out.append(self._event(event, ts, None, f"{self.sure_run} sure frames in a row"))
                     continue
             elif not self._free(event, ts):
                 continue

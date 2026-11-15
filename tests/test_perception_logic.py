@@ -103,3 +103,21 @@ def test_step_complete_uses_its_own_lower_threshold():
 def test_step_complete_does_not_count_when_the_assembly_is_not_turned():
     _, ev = run([frame(hands=0.05, done=0.7, orient=0.3)] * 14)
     assert ev == []
+
+
+def test_step_complete_fast_lane_fires_after_four_sure_frames():
+    from pipeline.perception.logic import Config
+    start, on = [frame(hands=0.05, done=0.1)] * 12, Config(done_sure_frames=4)      # nothing finished at first
+    _, ev = run(start + [frame(hands=0.05, done=0.7)] * 4, cfg=on)
+    assert types(ev) == ["step_complete"] and ev[0]["evidence"] == "4 sure frames in a row"
+    _, ev = run(start + [frame(hands=0.05, done=0.7)] * 3, cfg=on)
+    assert ev == []
+    _, ev = run(start + [frame(hands=0.05, done=0.5)] * 6, cfg=on)          # above done_yes, below done_sure: slow lane only
+    assert ev == []
+    _, ev = run(start + [frame(hands=0.05, done=0.7), frame(hands=0.05, done=0.1)] * 3, cfg=on)   # never four in a row
+    assert ev == []
+
+
+def test_step_complete_fast_lane_is_off_by_default():
+    _, ev = run([frame(hands=0.05, done=0.1)] * 12 + [frame(hands=0.05, done=0.9)] * 6)
+    assert ev == []
