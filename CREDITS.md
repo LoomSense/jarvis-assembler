@@ -40,6 +40,10 @@ Everything in this repository that we did not build ourselves during the hackath
 | puppeteer-core | Drives the installed Chrome for the client's automated check (`client/scripts/shots.mjs`). Development only | Apache-2.0 | https://pptr.dev |
 | uv | Python environment | Apache-2.0 or MIT | https://docs.astral.sh/uv |
 | gitleaks | Secret scan before pushing | MIT | https://gitleaks.io |
+| Meta Spatial SDK 0.15.0 and its Gradle plugin | Native Quest app (`quest-android/`): passthrough, panels, glTF, hands, MRUK, shader compile | Meta Platform Technologies SDK licence (UNVERIFIED exact name) | https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-overview |
+| Meta Spatial SDK Samples, Meta Passthrough Camera API Samples | Patterns copied into `quest-android/` (manifest entries, panel registration, Camera2 vendor keys, shader includes); Gradle wrapper jar taken from StarterSample | MIT; Apache-2.0 | https://github.com/meta-quest/Meta-Spatial-SDK-Samples, https://github.com/meta-quest/Meta-Passthrough-Camera-API-Samples |
+| OpenCV for Android 4.10.0 | Marker detection and PnP in `quest-android/` | Apache-2.0 | https://opencv.org |
+| OkHttp, kotlinx.serialization, kotlinx.coroutines, AndroidX, Jetpack Compose | Networking, JSON, threading, panel UI in `quest-android/` | Apache-2.0 | https://square.github.io/okhttp |
 
 ## Prior work reused
 

@@ -39,6 +39,8 @@ Decision 1 step_complete on the MALM drawer, clean renders, no hands (55 calls, 
 
 Goal: the same guidance, plus **real-time tracking of the physical assembly** so the ghost stays on it when it moves or is turned. Everything server-side stays as is; the native app is a new client.
 
+Native Android (Kotlin, Meta Spatial SDK) variant: `quest-android/` (build, install, launch, module map in `quest-android/README.md`; framework research in `quest-android/RESEARCH.md`).
+
 ### 2.1 Reuse as is
 - **Server API** (all need the demo key):
 
