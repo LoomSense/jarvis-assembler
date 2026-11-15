@@ -7,7 +7,9 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
@@ -43,6 +45,31 @@ data class LocateResult(
     val confidence: Double? = null,
 )
 
+/** One `found` item of `POST /api/perception/{job}/parts` (server/perception/README.md). */
+@Serializable
+data class PartsFound(
+    val id: String,
+    /** "part" or "hardware" */
+    val kind: String = "",
+    /** Gemini convention: [ymin, xmin, ymax, xmax], 0–1000, normalised to the picture sent. */
+    val box_2d: List<Double> = emptyList(),
+    val confidence: Double = 0.0,
+    /** Short name in the request's `lang` (hardware: "Name · code"). */
+    val label: String = "",
+)
+
+/** `POST /api/perception/{job}/parts` answer. */
+@Serializable
+data class PartsResult(
+    val found: List<PartsFound> = emptyList(),
+    val missing: List<String> = emptyList(),
+    val message: String? = null,
+    val step: Int? = null,
+    val latency_ms: Long? = null,
+    val model: String? = null,
+    val simulated: Boolean = false,
+)
+
 /**
  * The guide server's REST API (docs/HANDOFF.md §2.1). Every call sends the demo key in `X-Demo-Key`.
  *
@@ -67,6 +94,13 @@ interface ServerApi {
 
   /** `POST /api/tts {text}` → WAV bytes. */
   suspend fun tts(text: String, lang: String): ByteArray
+
+  /**
+   * `POST /api/perception/{job}/parts`: where the [want]ed part ids / hardware codes lie in [jpeg] (send the long
+   * edge at 1280 px for small hardware). Default: unsupported (test fakes).
+   */
+  suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String): PartsResult =
+      throw UnsupportedOperationException("parts")
 }
 
 class HttpServerApi(
@@ -124,6 +158,17 @@ class HttpServerApi(
     }
     val raw = postJson("/api/perception/$jobId/locate", body).decodeToString()
     return GuideJson.decodeFromString(LocateResult.serializer(), raw)
+  }
+
+  override suspend fun parts(jobId: String, jpeg: ByteArray, want: List<String>, step: Int?, lang: String): PartsResult {
+    val body = buildJsonObject {
+      put("image", b64(jpeg))
+      if (want.isNotEmpty()) put("want", JsonArray(want.take(12).map { JsonPrimitive(it) }))
+      if (step != null) put("step", step)
+      put("lang", if (lang == "el") "el" else "en")
+    }
+    val raw = postJson("/api/perception/$jobId/parts", body).decodeToString()
+    return GuideJson.decodeFromString(PartsResult.serializer(), raw)
   }
 
   override suspend fun tts(text: String, lang: String): ByteArray {

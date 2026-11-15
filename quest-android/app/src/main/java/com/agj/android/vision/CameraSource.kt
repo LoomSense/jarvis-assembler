@@ -54,9 +54,31 @@ class CameraFrame(
     val gray: GrayImage? = null,
     private val encode: (() -> ByteArray)? = null,
     val replayFrame: Int? = null,
+    private val encodeAt: ((Int, Int) -> ByteArray)? = null,
 ) {
   val jpeg: ByteArray by lazy { jpegBytes ?: encode?.invoke() ?: ByteArray(0) }
+
+  /**
+   * A JPEG with long edge [longEdge] and [quality] (live frames: encoded now, only valid inside `onFrame`; replay:
+   * the stored file, whatever its size). Same picture and aspect as [jpeg], so normalised boxes map the same way.
+   */
+  fun jpegAt(longEdge: Int, quality: Int): ByteArray = encodeAt?.invoke(longEdge, quality) ?: jpeg
 }
+
+/**
+ * A copy of one frame that outlives the camera callback ([VisionModule.grabFrame]): the encoded picture, the
+ * intrinsics of the full-resolution image ([width] × [height]; the JPEG has the same aspect) and the camera pose at
+ * capture time (null when unknown). [tMs] wall clock when grabbed.
+ */
+class FrameGrab(
+    val jpeg: ByteArray,
+    val width: Int,
+    val height: Int,
+    val intrinsics: Intrinsics,
+    val worldFromCamera: Pose3?,
+    val timestampNs: Long,
+    val tMs: Long,
+)
 
 fun interface FrameListener {
   /** Called on the source's own background thread. Do not block for long: frames are dropped, not queued. */

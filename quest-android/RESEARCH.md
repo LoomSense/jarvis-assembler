@@ -62,3 +62,14 @@ sharpness is not good enough on device, the fallback is a custom SDF text shader
 3. Render fps with passthrough + 2 panels + GLB + OpenCV at 10 Hz on the camera thread (target 72 fps).
 4. Compose panel text sharpness at label size (layer vs. mesh mode).
 5. Greek TTS: server `/api/tts` works; Android `TextToSpeech` Greek voice on Horizon OS is **UNVERIFIED**.
+
+## 5. MRUK and depth in Spatial SDK 0.15.0 (read from the `meta-spatial-sdk-mruk-0.15.0.aar` classes, Sun 15 Nov)
+
+| Item | Finding |
+|---|---|
+| Feature | `MRUKFeature(context, systemManager)`, returned from `registerFeatures()`; `rooms`, `getCurrentRoom()`, `addSceneEventListener(MRUKSceneEventListener)` (room/anchor added/updated/removed) |
+| Scene load | `loadSceneFromDevice(removeMissingRooms, requestSceneCaptureIfNoDataFound, SceneModel)` → `CompletableFuture<MRUKLoadDeviceResult>` (`SUCCESS`, `ERROR_NO_ROOMS_FOUND`, `ERROR_PERMISSION_INSUFFICIENT`, …); `requestSceneCapture()` opens Space Setup (not called by the app) |
+| Anchors | `MRUKRoom.anchors/floors/walls` are entities with `MRUKAnchor` (labels: `hasLabel(MRUKLabel.TABLE)`), `Transform`, and `MRUKPlane` (`min`/`max` `Vector2`) and/or `MRUKVolume` (`min`/`max` `Vector3`). Plane axes: assumed OpenXR (local XY, +Z normal); the app detects the up axis per anchor and logs it (**UNVERIFIED**) |
+| Room raycast | `raycastRoom(roomUuid, origin, dir, maxDist, SurfaceType)` → `MRUKHit` (not used: the app intersects the table rectangle itself) |
+| **Depth** | `startEnvironmentRaycaster()` (`SUCCESS`/`ERROR`/`UNSUPPORTED`), `getEnvironmentRaycasterStatus()` (`READY`/`CREATING`/`STOPPED`), `raycastEnvironment(origin, dir, maxDist)` → `MRUKEnvironmentRaycastHit(result, point, normal)`, result `SUCCESS`, `NOT_READY`, `NO_HIT`, `HIT_POINT_OUTSIDE_OF_FOV`, `HIT_POINT_OCCLUDED`, `RAY_OCCLUDED`. This is the Depth API path for "where is this pixel in 3D"; `world/PartsFinder` uses it first, the table plane is the fallback. Permission and hit quality **UNVERIFIED** |
+| Also there | `configureTrackers(setOf(Tracker…))` with `TrackedQrCode` / `TrackedKeyboard` (QR-code tracking: a possible marker alternative, not explored) |

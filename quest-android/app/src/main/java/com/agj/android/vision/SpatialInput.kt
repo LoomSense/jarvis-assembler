@@ -25,6 +25,11 @@ import java.util.concurrent.atomic.AtomicInteger
  *    The path in use is logged once as `hands_source`.
  *  - render frame counter for `track.fps`.
  *
+ * The head buffer is filled here, in `execute()`, which the SDK calls once per frame on its own loop thread (the
+ * same tick as MainActivity's FrameTick), so `getViewerPose()` is read where the SDK expects. Identity poses at the
+ * origin (before tracking starts) are skipped. The first good sample logs `head_pose` (render frame, thread); 300
+ * frames without one log an `error`. The camera thread reads the buffer ([CameraPoseResolver]).
+ *
  * All poses are converted from the left-handed Spatial frame into our WORLD ([Frames.spatialToWorld]).
  */
 @OptIn(SpatialSDKExperimentalAPI::class)
@@ -57,9 +62,29 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
           if (errors++ < 3) Agq.log.error("head_pose", e.message)
           null
         }
-    if (head != null) heads.push(now, head)
+    // Before tracking starts the viewer pose is the identity at the origin: not a head pose, keep it out of the buffer
+    val valid = head != null && !isOrigin(head)
+    if (valid) {
+      heads.push(now, head!!)
+      headPushes.incrementAndGet()
+      if (!headLogged) {
+        headLogged = true
+        Agq.log.event("head_pose", mapOf("render_frame" to renderFrames.get(), "head_p" to head.t,
+            "invalid_before" to invalidHeads, "thread" to Thread.currentThread().name))
+      }
+    } else if (!headLogged && ++invalidHeads == 300) {
+      Agq.log.error("head_pose", "no valid viewer pose in the first 300 render frames (null or identity at the origin)")
+    }
     if (renderFrames.get() % 2 == 0) hands = readHands(sc, now, head?.t)
   }
+
+  /** Head samples pushed so far (the HUD / `camera_pose_missing` diagnosis). */
+  val headPushes = AtomicInteger()
+  private var headLogged = false
+  private var invalidHeads = 0
+
+  private fun isOrigin(p: Pose3): Boolean =
+      p.t.length() < 1e-4f && kotlin.math.abs(kotlin.math.abs(p.q.w) - 1f) < 1e-5f
 
   private fun readHands(sc: com.meta.spatial.runtime.Scene, now: Long, head: Vec3?): HandsFrame? {
     if (skeleton != false) {
