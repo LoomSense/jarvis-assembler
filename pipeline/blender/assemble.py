@@ -559,6 +559,15 @@ for sa in steps_actions:
     key_staged([i for i in sa["staged_before"] if i not in acting], sa["st_before"], sa["clip_before"], 1)
     for a in sa["acts"]:
         key_action(a, 0, clip=True, rs_clip=rs_clip)
+        if a["type"] in ("place", "fasten") and not a.get("base"):
+            # A piece shows from its own action to the end of the clip, as in `walkthrough`. Without these keys the
+            # clip has no scale of its own, and the exporter (force sampling) writes whatever scale the object was
+            # left with by ANOTHER object's walkthrough track: hidden for every screw after the first.
+            o = objs[a["inst"]]
+            o.scale = HIDDEN; o.keyframe_insert("scale", frame=1)
+            if a["f0"] - 1 > 1:
+                o.keyframe_insert("scale", frame=a["f0"] - 1)
+            o.scale = (1, 1, 1); o.keyframe_insert("scale", frame=a["f0"])
         if main_piece(a) and not a.get("base") and a["f0"] > 1:
             # Hold the start pose from frame 1. The exporter slides each object's keys to time zero on its
             # own, so without this key every piece of the step moved at once at the start of the clip.
