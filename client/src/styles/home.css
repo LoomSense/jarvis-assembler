@@ -123,3 +123,22 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
 
 :root[data-theme="light"] #home :is(.pill, a.pill) { background: var(--ag-primary); color: var(--ag-text-on-primary); box-shadow: var(--ag-shadow-primary); }
 :root[data-theme="light"] #home :is(.ghost, .shelf-list button:focus-visible) { background: var(--ag-surface-glass); }
+
+/* the scan screen: one selector for the three ways in (camera, typed code, the guide's PDF), one way shown at a time */
+#home .seg { width: min(100%, 340px); height: 52px; margin-top: 6px; padding: 4px; box-sizing: border-box; display: flex; gap: 4px; border: 1px solid var(--hair); border-radius: 26px;
+  background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+#home .seg button { flex: 1 1 0; min-width: 0; padding: 0; border: 0; border-radius: 22px; background: none; color: var(--ink-quiet); font-size: 15px; font-weight: 500;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: background 200ms var(--ease), color 200ms var(--ease); }
+#home .seg button svg { width: 18px; height: 18px; }
+#home .seg button[aria-pressed="true"] { background: #fff; color: #000; }
+#home .foot > .shot { position: static; width: 68px; height: 68px; border: 0; background: #fff; color: #000; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.45), 0 0 0 5px #fff; }
+#home .foot > .shot svg { width: 26px; height: 26px; }
+#home .foot[data-way="cam"] :is(.codefield, .go-pdf),
+#home .foot[data-way="code"] :is(.shot, .go-pdf),
+#home .foot[data-way="pdf"] :is(.shot, .codefield) { display: none; }
+#home .cam video, #home .brackets { transition: opacity 300ms var(--ease), filter 300ms var(--ease), color 300ms, transform 600ms var(--ease); }
+#home:is([data-way="code"], [data-way="pdf"]) .brackets { opacity: 0; }
+#home:is([data-way="code"], [data-way="pdf"]) .cam video { opacity: 0.25; filter: blur(8px); }
+:root[data-theme="light"] #home .seg { background: var(--ag-surface-glass); }
+:root[data-theme="light"] #home .seg button[aria-pressed="true"] { background: var(--ag-primary); color: var(--ag-text-on-primary); }
+:root[data-theme="light"] #home .foot > .shot { background: var(--ag-primary); color: var(--ag-text-on-primary); box-shadow: 0 0 0 3px var(--ag-bg), 0 0 0 5px var(--ag-primary); }
