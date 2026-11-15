@@ -24,6 +24,8 @@ namespace AG.World
         /// <summary>World direction of the picture's left-to-right on the table.</summary>
         public Vector3 Across;
         public float Confidence;
+        /// <summary>The server's box as sent: [ymin, xmin, ymax, xmax], 0-1000, y down. Null when not seen.</summary>
+        public int[] Box2d;
         /// <summary>Why not, when not found: busy, no_server, local_job, no_frame, no_pose, no_jpeg, not_seen, simulated, no_plane_hit, http_NNN, cancelled, error.</summary>
         public string Reason;
         public long Ms;
@@ -47,7 +49,8 @@ namespace AG.World
     ///
     /// No jitter: before the user starts the anchor follows the head quietly; at the start it is placed once; a
     /// stronger source's first pose is taken at once; after that a pose moves the anchor only when it disagrees by
-    /// more than 10 cm / 20 degrees and keeps saying so for 3 s (<see cref="PoseGate"/>), or on request. A table / head
+    /// more than 10 cm / 20 degrees and keeps saying so for 3 s (<see cref="PoseGate"/>), or on request. The camera
+    /// looks for the base part every 5 s until it is found, then every 15 s. A table / head
     /// placement is redone only when left more than 1.5 m behind for 3 s or out of view for 6 s, and never once the
     /// anchor sits on the real object. Logs <c>scene</c>, <c>place</c> (source: mruk_table, head_fallback, server_box,
     /// manual, markerless) and <c>parts</c>.
@@ -65,16 +68,25 @@ namespace AG.World
         public PlacementPolicy Policy { get; } = new PlacementPolicy();
         public PoseGate Gate { get; } = new PoseGate();
         public MrukTables Scene { get; } = new MrukTables();
-        public PartMarker Marker => _marker;
         public BaseOutline Outline => _outline;
+
+        /// <summary>
+        /// The pick-up cue to draw (spec §4.6): one target on the table for the part the action needs, or null to clear
+        /// it. Wire to <c>AppRoot.ShowPickTargets</c> (the ghost renderer draws it; this module draws no marker itself).
+        /// </summary>
+        public event Action<IReadOnlyList<PickTarget>> PickTargets;
+        /// <summary>The server's last box on the camera picture as image UV with y up, or null. Wire to <c>AppRoot.PreviewBox</c>.</summary>
+        public event Action<Rect?> PreviewBox;
 
         /// <summary>Raised after every logged placement with its source (for a cue, a voice line, the status pill).</summary>
         public event Action<string> Placed;
 
         /// <summary>Look for the base part with the camera and move the anchor onto it (source server_box).</summary>
         public bool AutoAlign = true;
-        /// <summary>Seconds between camera checks of the base part while nothing tracks it; grows to 20 s while the part is not seen.</summary>
+        /// <summary>Seconds between camera looks for the base part until it is found; grows to 20 s while it is not seen.</summary>
         public float RecheckEveryS = 5f;
+        /// <summary>Seconds between looks once the anchor is on the part (only to notice that the part was moved).</summary>
+        public float AlignedRecheckEveryS = 15f;
         /// <summary>Draw the base part's footprint on the table while no marker tracks the object.</summary>
         public bool ShowOutline = true;
         /// <summary>Poses offered through <see cref="OnObjectPose"/> below this confidence are ignored.</summary>
@@ -83,9 +95,8 @@ namespace AG.World
         public bool ShowSimulated;
         /// <summary>Set when the server pictures turn out upside down on the device (flips the box's y).</summary>
         public bool FlipV;
-        /// <summary>The pick-up marker hides itself after this long.</summary>
+        /// <summary>The pick-up cue is cleared after this long.</summary>
         public float MarkerForS = 25f;
-        public bool ReducedMotion { get => _marker.ReducedMotion; set => _marker.ReducedMotion = value; }
 
         /// <summary>True while the outline is the user's cue: started, no live track. Show <see cref="CoachLine"/> then.</summary>
         public bool WantsOutlineHint { get; private set; }
@@ -96,32 +107,29 @@ namespace AG.World
         readonly Transform _anchor;
         readonly ICameraSource _camera;
         readonly PartsApi _api;
-        readonly PartMarker _marker;
         readonly BaseOutline _outline;
         readonly string _lang;
         readonly List<TableSurface> _tables = new List<TableSurface>();
         readonly Vector3[] _corners = new Vector3[8];
-        float _t0 = -1f, _provisionalAt, _snapTriedForLoadMs = -2f, _alignAt, _alignEvery, _externalAt = -100f;
+        float _t0 = -1f, _provisionalAt, _snapTriedForLoadMs = -2f, _alignAt, _alignEvery;
         bool _sceneBegun, _busy, _forceAlign, _tracked, _started;
         int _step = -1, _action = -1;
         string _lastWant, _shownId, _pendingWant;
         AssemblyGuide _guide;
         PartNode _base;
-        Transform _viewer;
+        float _pickAt;
+        bool _pickShown;
         Vector3 _outlineAt;
         Quaternion _outlineRot;
         float _outlineY = float.NaN;
         CancellationToken _ct;
 
-        /// <param name="font">TMP_FontAsset for the marker's pill (typed Object like GhostRenderer.Font); null: TMP's default.</param>
-        public WorldModule(string server, string key, Transform assemblyAnchor, ICameraSource camera, UnityEngine.Object font, string lang,
-            CancellationToken ct = default)
+        public WorldModule(string server, string key, Transform assemblyAnchor, ICameraSource camera, string lang, CancellationToken ct = default)
         {
             _anchor = assemblyAnchor;
             _camera = camera;
             _api = new PartsApi(server, key);
             _lang = lang == "el" ? "el" : "en";
-            _marker = new PartMarker(font);
             _outline = new BaseOutline();
             _alignEvery = RecheckEveryS;
             _ct = ct;
@@ -152,7 +160,6 @@ namespace AG.World
             bool manual = source == SourceManual;
             if (!manual && confidence < MinConfidence) return false;
             float now = Time.realtimeSinceStartup;
-            _externalAt = now;
             bool stronger = Rank(source) > Rank(PlaceSource);
             var cur = new Pose(_anchor.position, _anchor.rotation);
             bool first = !Gate.HasPose;
@@ -187,15 +194,10 @@ namespace AG.World
             if (_t0 < 0) _t0 = now;
             _tracked = tracked;
             _started = started;
-            _viewer = head;
             // the scene permission dialog must not collide with the camera's: ask once the camera runs (or after 8 s)
             if (!_sceneBegun && (_camera == null || _camera.IsRunning || now - _t0 > 8f)) { _sceneBegun = true; Scene.Begin(); }
             Scene.Tick();
-            if (_marker.Visible)
-            {
-                if (now - _marker.ShownAt > MarkerForS) HidePart();
-                else _marker.Tick(head);
-            }
+            if (_pickShown && now - _pickAt > MarkerForS) HidePart();
             if (head == null || _anchor == null) return;
 
             var h = new Pose(head.position, head.rotation);
@@ -213,12 +215,13 @@ namespace AG.World
             else if (tracked)
             {
                 PlaceSource = SourceTrack;
+                _forceAlign = false;
                 if (ghostWorldBounds.HasValue) { TableY = ghostWorldBounds.Value.min.y; HasTableY = true; }
             }
             else
             {
                 if (PlaceSource == SourceHead && Scene.Loaded && _snapTriedForLoadMs != Scene.LoadMs) SnapHeight();
-                if ((PlaceSource == SourceTable || PlaceSource == SourceBox) && ghostWorldBounds.HasValue)
+                if (Rank(PlaceSource) <= 1 && PlaceSource != SourceNone && ghostWorldBounds.HasValue)
                 {
                     // rest the assembly's box on the table (vertical only; the step pose changes which face is down)
                     float lift = TableY - ghostWorldBounds.Value.min.y;
@@ -228,16 +231,13 @@ namespace AG.World
 
             WantsOutlineHint = started && !tracked && _base != null && HasTableY;
             DrawOutline();
-            if (!_busy && !tracked && started)
+            if (_busy) return;
+            if (_pendingWant != null) { var w = _pendingWant; _pendingWant = null; _ = FindPartAsync(_guide?.JobId, _step, w, _ct); }
+            else if (AutoAlign && started && !tracked && _base != null && Policy.Placed && now >= _alignAt
+                     && (Rank(PlaceSource) <= 1 || _forceAlign))      // a stronger source owns the anchor until a request
             {
-                if (_pendingWant != null) { var w = _pendingWant; _pendingWant = null; _ = FindPartAsync(_guide?.JobId, _step, w, _ct); }
-                else if (AutoAlign && _base != null && Policy.Placed && now >= _alignAt
-                         && (!Policy.EverTracked || _forceAlign)
-                         && !(Rank(PlaceSource) >= 2 && now - _externalAt < 10f && !_forceAlign))
-                {
-                    _alignAt = now + _alignEvery;
-                    _ = AlignToBaseAsync(_ct);
-                }
+                _alignAt = now + _alignEvery;
+                _ = AlignToBaseAsync(_ct);
             }
         }
 
@@ -380,7 +380,9 @@ namespace AG.World
                 }
                 else why = "held";
             }
-            _alignEvery = hit.Found ? RecheckEveryS : Mathf.Min(Mathf.Max(_alignEvery, RecheckEveryS) * 1.5f, 20f);
+            // next look: soon when a disagreement waits for a second opinion, rarely once on the part, backing off while unseen
+            if (!hit.Found) _alignEvery = Mathf.Min(Mathf.Max(_alignEvery, RecheckEveryS) * 1.5f, 20f);
+            else _alignEvery = Gate.HasPending ? Gate.HoldS + 1f : PlaceSource == SourceBox ? AlignedRecheckEveryS : RecheckEveryS;
             _alignAt = Time.realtimeSinceStartup + _alignEvery;
             LogParts(hit, "align", node.PartId, moved, why);
         }
@@ -389,14 +391,22 @@ namespace AG.World
 
         public void HidePart()
         {
-            _marker.Hide();
             _shownId = null;
+            if (!_pickShown) return;
+            _pickShown = false;
+            Raise(null, null);
+        }
+
+        void Raise(IReadOnlyList<PickTarget> targets, Rect? box)
+        {
+            try { PickTargets?.Invoke(targets); PreviewBox?.Invoke(box); }
+            catch (Exception e) { AgLog.Error("WorldModule.PickTargets", e.GetType().Name + ": " + e.Message); }
         }
 
         /// <summary>
         /// Call whenever the coach's guide, step or action may have changed (cheap when nothing did). Remembers the
         /// guide (base part, outline, alignment) and looks for the part or hardware the action needs; an action on the
-        /// item the marker already shows keeps the marker and asks nothing.
+        /// item the cue already shows keeps the cue and asks nothing.
         /// </summary>
         public void OnAction(AssemblyGuide guide, int step, int action)
         {
@@ -416,7 +426,7 @@ namespace AG.World
             string want = a == null ? null : !string.IsNullOrEmpty(a.Code) ? a.Code : a.PartId;
             _pendingWant = null;
             if (string.IsNullOrEmpty(want)) { _lastWant = null; HidePart(); return; }
-            if (want == _lastWant && _marker.Visible && _shownId == want) return;
+            if (want == _lastWant && _pickShown && _shownId == want) return;
             _lastWant = want;
             HidePart();
             if (_busy) _pendingWant = want;         // a camera look is in flight: Tick sends this one when it is back
@@ -425,9 +435,9 @@ namespace AG.World
 
         /// <summary>
         /// One camera frame -> <c>POST /api/perception/{job}/parts</c> -> the box centre as a world ray (the frame's
-        /// intrinsics and camera pose) -> the table plane -> the pick-up marker. <paramref name="want"/>: a part id or
+        /// intrinsics and camera pose) -> the table plane -> <see cref="PickTargets"/>. <paramref name="want"/>: a part id or
         /// hardware code; null lets the server take the step's items (the first one found is shown). Never throws;
-        /// "not found" only hides the marker and logs <c>parts</c> with found false.
+        /// "not found" only clears the cue and logs <c>parts</c> with found false.
         /// </summary>
         public async Task<PartHit> FindPartAsync(string jobId, int step, string want = null, CancellationToken ct = default)
         {
@@ -435,10 +445,15 @@ namespace AG.World
             if (hit.Found)
             {
                 _shownId = want ?? hit.Id;
-                _marker.Show(hit.World, hit.SizeM, hit.Across, WorldText.PickUp(_lang), string.IsNullOrEmpty(hit.Label) ? hit.Id : hit.Label);
-                _marker.Tick(_viewer);
+                _pickShown = true;
+                _pickAt = Time.realtimeSinceStartup;
+                Raise(new[] { new PickTarget
+                {
+                    WorldPosition = hit.World, FootprintM = WorldMath.WorldExtents(hit.SizeM, hit.Across), PartId = hit.Id,
+                    Label = string.IsNullOrEmpty(hit.Label) ? null : hit.Label,
+                } }, WorldMath.BoxToUvRect(hit.Box2d));
             }
-            else if (hit.Reason != "busy" && _shownId == null) _marker.Hide();
+            else if (hit.Reason != "busy" && _shownId == null) HidePart();
             LogParts(hit, "find", want, hit.Found, hit.Reason);
             return hit;
         }
@@ -473,7 +488,7 @@ namespace AG.World
                     // everything that belongs to THIS frame is copied before the await (the source reuses the frame)
                     var k = f.Intrinsics;
                     var camPose = f.CameraPose;
-                    var jpeg = FrameJpeg.Encode(f, 1280, 80);
+                    var jpeg = await FrameJpeg.EncodeAsync(f, 1280, 80);    // CPU pixels when the frame has them: no GPU stall
                     if (jpeg == null) hit.Reason = "no_jpeg";
                     else
                     {
@@ -482,6 +497,7 @@ namespace AG.World
                         hit.Simulated = r.Simulated;
                         hit.Message = r.Message;
                         var found = r.Found != null && r.Found.Count > 0 ? r.Found[0] : null;
+                        hit.Box2d = found?.Box2d;
                         if (found == null || found.Box2d == null || found.Box2d.Length != 4) hit.Reason = "not_seen";
                         else if (r.Simulated && !ShowSimulated) hit.Reason = "simulated";
                         else
@@ -508,7 +524,6 @@ namespace AG.World
 
         public void Dispose()
         {
-            _marker.Destroy();
             _outline.Destroy();
         }
     }

@@ -148,6 +148,19 @@ namespace AG.World.Tests
             Assert.IsFalse(WorldMath.LongAxis(new Vector2(0.30f, 0f), Vector3.right).HasValue);
         }
 
+        [Test]
+        public void BoxToUvRect_FlipsYUp_AndWorldExtents_FollowTheRectangle()
+        {
+            var r = WorldMath.BoxToUvRect(new[] { 100, 200, 300, 600 }).Value;      // near the TOP of the picture
+            Assert.AreEqual(0.2f, r.xMin, 1e-5f); Assert.AreEqual(0.6f, r.xMax, 1e-5f);
+            Assert.AreEqual(0.7f, r.yMin, 1e-5f); Assert.AreEqual(0.9f, r.yMax, 1e-5f);
+            Assert.IsFalse(WorldMath.BoxToUvRect(new[] { 1, 2 }).HasValue);
+            var e = WorldMath.WorldExtents(new Vector2(0.38f, 0.13f), Vector3.right);
+            Assert.AreEqual(0.38f, e.x, 1e-5f); Assert.AreEqual(0.13f, e.y, 1e-5f);
+            e = WorldMath.WorldExtents(new Vector2(0.38f, 0.13f), Vector3.forward);    // seen from the side: long along world Z
+            Assert.AreEqual(0.13f, e.x, 1e-5f); Assert.AreEqual(0.38f, e.y, 1e-5f);
+        }
+
         // ---- placement: head fallback and tables ----------------------------------------------------------------
 
         [Test]

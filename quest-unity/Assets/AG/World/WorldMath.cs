@@ -154,6 +154,29 @@ namespace AG.World
         }
 
         /// <summary>
+        /// A rectangle on the table (size.x along <paramref name="across"/>, size.y along its horizontal perpendicular)
+        /// as extents along world X and world Z: what <c>PickTarget.FootprintM</c> wants.
+        /// </summary>
+        public static Vector2 WorldExtents(Vector2 size, Vector3 across)
+        {
+            var a = Vector3.ProjectOnPlane(across, Vector3.up);
+            if (a.sqrMagnitude < 1e-6f) return size;
+            a.Normalize();
+            var b = Vector3.Cross(Vector3.up, a);
+            return new Vector2(Mathf.Abs(a.x) * size.x + Mathf.Abs(b.x) * size.y, Mathf.Abs(a.z) * size.x + Mathf.Abs(b.z) * size.y);
+        }
+
+        /// <summary>
+        /// A server box ([ymin, xmin, ymax, xmax], 0-1000, y DOWN from the top) as a rectangle in image UV with y UP
+        /// (Unity texture coordinates), for drawing on the camera preview. Null for a malformed box.
+        /// </summary>
+        public static Rect? BoxToUvRect(IReadOnlyList<int> box)
+        {
+            if (box == null || box.Count != 4) return null;
+            return new Rect(box[1] / 1000f, 1f - box[2] / 1000f, (box[3] - box[1]) / 1000f, (box[2] - box[0]) / 1000f);
+        }
+
+        /// <summary>
         /// The long axis of a server box on the table (from <see cref="BoxOnTable"/>'s size and across), or null when
         /// the box is not clearly elongated. The picture's box is upright in the picture, so a part lying askew gives
         /// a squarish box and no axis: with <paramref name="minRatio"/> 2 a 380 x 130 mm board passes only within
@@ -315,6 +338,8 @@ namespace AG.World
 
         /// <summary>True once a pose went through.</summary>
         public bool HasPose { get; private set; }
+        /// <summary>True while a disagreeing pose waits to be confirmed.</summary>
+        public bool HasPending => _hasPending;
 
         Pose _pending;
         float _since;

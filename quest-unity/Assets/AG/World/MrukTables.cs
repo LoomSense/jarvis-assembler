@@ -124,7 +124,7 @@ namespace AG.World
             if (!Loaded || MRUK.Instance == null) return 0;
             try
             {
-                foreach (var room in MRUK.Instance.GetRooms())
+                foreach (var room in MRUK.Instance.Rooms)
                 {
                     if (room == null) continue;
                     foreach (var a in room.Anchors)
