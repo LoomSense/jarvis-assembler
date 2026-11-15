@@ -340,6 +340,8 @@ class Coach:
         self.hw = Latch(t.hold_enter, t.hold_release)
         self.confirm = {"right_part": Window(), "right_hardware": Window()}
         self.confirmed: set[tuple[str, str]] = set()
+        self.sure = {"right_part": Window(), "right_hardware": Window()}    # the same votes, only the very sure ones
+        self.wrong_sure = Window()                  # frames that vote wrong_part with `wrong_part_fast_min` or more
         self.confirm_count: Counter = Counter()     # (kind, id) -> confirmations said on this step
         self.unseen: dict = {}                      # (kind, id) confirmed -> (when last seen in the hand, frames since)
         self.again: set[tuple[str, str]] = set()    # re-armed for the next one of the same item
@@ -498,6 +500,25 @@ class Coach:
             kw.update(expected_id=e.needed(e.now_kind or "part"), p=conf, evidence={"part_in_hand.top": conf})
         return self._emit(name, **kw)
 
+    def _wrong_part_fast(self, seen: dict, w: Watcher, ts: float, busy: bool) -> dict | None:
+        """`wrong_part` one frame sooner when the answers are very sure: `wrong_part_fast` (3 of 4) frames that
+        vote for it as the Watcher counts a vote, each with `wrong_part_fast_min` (0.8) or more, instead of the
+        Watcher's 4 of 5 at 0.75. The event goes into the Watcher's books, so it is not said a second time."""
+        cfg, t = w.cfg, self.t
+        hands = (yes_p(seen, "hands_present") or 0) >= cfg.hands
+        held = pick(seen, "part_in_hand", t.wrong_part_fast_min) if hands else None
+        right = yes_p(seen, "right_part")
+        vote = held if (held is not None and held not in SPECIAL and held not in w.parts
+                        and (right is None or right <= cfg.no)) else None
+        self.wrong_sure.push(ts, vote)
+        need = t.wrong_part_fast
+        if (vote is None or busy or "wrong_part" in self.muted or not w.armed.get("wrong_part", True)
+                or self.wrong_sure.agreed(need, ts, t.window_max_age_s) != vote or not w._free("wrong_part", ts)):
+            return None
+        w.armed["wrong_part"], w.last["wrong_part"], w.last_warning = False, ts, ts
+        recent = [p for _, p in list(self.wrong_sure.votes)[-need.m:]]
+        return {"type": "wrong_part", "observed": vote, "evidence": f"{recent.count(vote)} of last {len(recent)} frames"}
+
     def _wrong_way(self, raw: dict, ts: float, blocked: bool, busy: bool) -> Emitted | None:
         """`flip_needed` with a `reason`: the step's own `wrong_way` question names one mistake (a choice whose
         options are the ways this step goes wrong, plus `ok` and `cannot_tell`) in enough frames. The yes/no
@@ -642,7 +663,8 @@ class Coach:
 
         # 1. The Watcher: the plan's events, as measured.
         before = w.last_warning
-        events = w.feed(raw if poor else self._prefilter(raw, w, rules, blocked), ts)
+        seen = raw if poor else self._prefilter(raw, w, rules, blocked)
+        events = w.feed(seen, ts)
         if poor:
             return self.on_bad_frame(ts, "poor", source, luma)
         self.bad_since, self.light_said = None, False
@@ -654,6 +676,10 @@ class Coach:
             if ev is complete or (complete is None and ev["type"] not in self.muted):
                 out.append(self._from_watcher(ev, raw))
 
+        if complete is None and t.fast:
+            sooner = self._wrong_part_fast(seen, w, ts, any(e.event in WARNINGS for e in out))
+            if sooner is not None:
+                out.append(self._from_watcher(sooner, raw))
         if complete is None:
             flip = self._wrong_way(raw, ts, blocked, any(e.event in WARNINGS for e in out))
             if flip is not None:
@@ -686,14 +712,18 @@ class Coach:
         }
         for name, vote in votes.items():
             self.confirm[name].push(ts, vote)
+            self.sure[name].push(ts, vote if (h_conf if name == "right_hardware" else p_conf) >= t.confirm_fast_min else None)
         if t.reconfirm:
             self._rearm("hardware", votes["right_hardware"], ts)
             self._rearm("part", votes["right_part"], ts)
         if t.confirmations and not out:
             for kind, name, conf in (("hardware", "right_hardware", h_conf), ("part", "right_part", p_conf)):
                 vote = votes[name]
-                if vote is None or (kind, vote) in self.confirmed or self.confirm[name].agreed(rules.confirm, ts, age) != vote:
+                if vote is None or (kind, vote) in self.confirmed:
                     continue
+                if self.confirm[name].agreed(rules.confirm, ts, age) != vote and not (
+                        t.fast and self.sure[name].agreed(t.confirm_fast, ts, age) == vote):
+                    continue                             # neither 3 of 4, nor 2 of 3 very sure ones
                 # the next one of the same item waits for the gap between two utterances only: the 20 s
                 # "same event" rule would swallow a bolt picked up right after the last one
                 free = (name not in self.muted and (w.last_warning is None or ts - w.last_warning >= cfg.global_cooldown_s)

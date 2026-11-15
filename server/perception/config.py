@@ -64,6 +64,11 @@ class Tuning:
 
     # ---- additions to that logic ----
     confirmations: bool = True             # say "right part" / "right hardware" once
+    fast: bool = False                     # verdicts a frame sooner when the answers are very sure:
+    confirm_fast: NofM = NofM(2, 3)        # ...right_part / right_hardware after 2 of 3 frames (not 3 of 4)
+    confirm_fast_min: float = 0.9          # ......each of them at this confidence or more
+    wrong_part_fast: NofM = NofM(3, 4)     # ...wrong_part after 3 of 4 frames (not the Watcher's 4 of 5)
+    wrong_part_fast_min: float = 0.8       # ......each of them at this confidence (the summed one, when it applies)
     reconfirm: bool = True                 # an item the step uses several times (4 cam bolts) is confirmed each time,
     #                                        up to that many times: on a new action index from the display, or
     reconfirm_after_s: float = 4.0         # ...when the confirmed item was not seen in the hand for this long
