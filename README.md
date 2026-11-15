@@ -4,7 +4,7 @@
 
 <https://agj.boxd.sh>
 
-**Status, Sun 15 Nov, 16:10 Athens (corrected 16:35).** On the Quest 3 the app guided the team's own drawer from step 2 to the first peg of step 6 without the Next button, confirmed each of the four cam bolts aloud, reported a wrong item in the hand, and read the boards on the floor by size with the face that is up. In a later session (16:21 to 16:28) it reached the finish, with four presses on Next at the cam locks and the last two pegs not confirmed in the hand. Not yet shown on the headset: a whole build with no press on Next. Not reliable: which way round a side panel goes, a cam bolt against a peg in the hand, board recognition in direct sunlight. Each claim with its log event: [docs/SUBMISSION.md](docs/SUBMISSION.md).
+**Status, Sun 15 Nov, 16:10 Athens (corrected 16:35).** On the Quest 3 the app guided the team's own drawer from step 2 to the first peg of step 6 without the Next button, confirmed each of the four cam bolts aloud, reported a wrong item in the hand, and read the boards on the floor by size with the face that is up. In a later session (16:21 to 16:28) it reached the finish, with four presses on Next at the cam locks and the last two pegs not confirmed in the hand. Not yet shown on the headset: a whole build with no press on Next. Not reliable: which way round a side panel goes, a cam bolt against a peg in the hand, board recognition in direct sunlight.
 
 **Who it's for**
 
