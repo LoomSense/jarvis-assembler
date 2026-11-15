@@ -36,6 +36,7 @@ Everything in this repository that we did not build ourselves during the hackath
 | three.js | 3D viewer and WebXR on the phone and headset; its GLB loader in `eval/glb_check` | MIT | https://threejs.org |
 | gltfpack (meshoptimizer) | Compressing the GLB (`pipeline/pack.py`); the viewer needs its meshopt decoder, which ships with three.js | MIT | https://github.com/zeux/meshoptimizer |
 | MediaPipe Tasks Vision | On-device hand gate on the phone | Apache-2.0 | https://developers.google.com/edge/mediapipe |
+| jsQR | Reading the QR code from the camera where the browser has no barcode reader (Safari on an iPhone), `client/src/home/home.ts` | Apache-2.0 | https://github.com/cozmo/jsQR |
 | Vite, TypeScript, @types/three | Building and type-checking the client | MIT; Apache-2.0; MIT | https://vite.dev |
 | puppeteer-core | Drives the installed Chrome for the client's automated check (`client/scripts/shots.mjs`). Development only | Apache-2.0 | https://pptr.dev |
 | uv | Python environment | Apache-2.0 or MIT | https://docs.astral.sh/uv |
