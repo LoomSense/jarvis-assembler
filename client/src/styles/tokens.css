@@ -287,3 +287,32 @@ html { scroll-behavior: smooth; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
   .theme-toggle { transition: none; }
 }
+
+/* One look on every phone and laptop screen (Sun 15 Nov): the landing page's workshop at night. index.html sets
+   data-theme="dark" on every screen but the headset's, so these warm values replace the black-and-azure ones there. */
+:root[data-theme="dark"] {
+  --ag-bg: #0b0907;
+  --ag-surface: #14100c;
+  --ag-surface-2: #1b1610;
+  --ag-surface-glass: rgba(20, 16, 12, 0.78);
+  --ag-text-strong: #f5efe6;
+  --ag-text: #e9e1d5;
+  --ag-text-muted: #cfc5b6;
+  --ag-text-meta: #b9ad9c;
+  --ag-text-on-primary: #17110b;
+  --ag-border: #2a221a;
+  --ag-border-soft: #332a20;
+  --ag-border-strong: #3a3027;
+  --ag-border-field: #4a3e32;
+  --ag-field-bg: #14100c;
+  --ag-accent: #f0b25a;
+  --ag-accent-deep: #5a3d14;
+  --ag-accent-glow: rgba(240, 178, 90, 0.8);
+  --ag-accent-glow-soft: rgba(240, 178, 90, 0.3);
+  --ag-primary: #f7f2ea;
+  --ag-primary-hover: #ffffff;
+  --ag-info: #f0b25a;
+  --ag-focus-ring: #f0b25a;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] body { background: #0b0907; }

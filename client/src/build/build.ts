@@ -67,6 +67,10 @@ export function startBuild(app: HTMLElement): void {
   const q = new URLSearchParams(location.search)
   const key = q.get('key')
   const auto = q.get('auto') !== '0'
+  // What a person sees while it builds: one picture of the work as it happens (the guide's page, the part just
+  // built turning in 3D, the step just animated) and one line saying what is going on. The full feed of the
+  // agent's steps is for the builders: `&feed=1`, and whenever the plan waits for a tap (`&auto=0`).
+  const calm = auto && q.get('feed') !== '1'
   let lang: Lang = q.get('lang') === 'en' ? 'en' : 'el'
   let job = q.get('job')
 
@@ -102,6 +106,7 @@ export function startBuild(app: HTMLElement): void {
     </section>
     <section id="work" hidden>
       <p id="state" role="status"><i class="dot" aria-hidden="true"></i><span class="stage"></span><span class="clock"></span></p>
+      <div id="now" hidden><h1 class="name"></h1><div class="vis"><i class="wait" aria-hidden="true"></i></div><p class="what" role="status"><i class="dot" aria-hidden="true"></i><span></span></p><p class="why" lang="en" hidden></p></div>
       <div id="feed"><ol class="rows" aria-live="polite"></ol></div>
       <button id="act" type="button" hidden><span class="round"></span><span class="word"></span></button>
     </section>
@@ -131,6 +136,12 @@ export function startBuild(app: HTMLElement): void {
   const stateStage = $<HTMLSpanElement>('#state .stage')
   const stateClock = $<HTMLSpanElement>('#state .clock')
   const feed = $<HTMLDivElement>('#feed')
+  const now = $<HTMLDivElement>('#now')
+  const nowName = $<HTMLHeadingElement>('#now .name')
+  const nowVis = $<HTMLDivElement>('#now .vis')
+  const nowWhat = $<HTMLSpanElement>('#now .what span')
+  const nowWhy = $<HTMLParagraphElement>('#now .why')
+  if (calm) root.dataset.calm = '1'
   const rows = $<HTMLOListElement>('#feed .rows')
   const act = $<HTMLButtonElement>('#act')
   const actButton = act
@@ -483,6 +494,7 @@ export function startBuild(app: HTMLElement): void {
   function openJob(id: string) {
     $<HTMLElement>('#drop').hidden = true
     work.hidden = false
+    now.hidden = !calm
     again.hidden = false
     document.title = tr(lang, 'appTitle')
     setState('running')
@@ -505,6 +517,8 @@ export function startBuild(app: HTMLElement): void {
     const drawState = () => {
       const word = ended === 'error' ? bw(lang, 'stopped') : lost ? bw(lang, 'lost') : (STAGE[lang][stage] ?? stage)
       stateStage.textContent = word
+      // the last two stages are the builders' words (check pictures, packing): to a person it is one thing
+      nowWhat.textContent = !ended && !lost && (stage === 'refs' || stage === 'export') ? (lang === 'el' ? 'Τελειώνει τον οδηγό' : 'Finishing the guide') : word
       root.dataset.ended = ended ?? ''
       root.classList.toggle('lost', lost && !ended)
     }
@@ -546,7 +560,49 @@ export function startBuild(app: HTMLElement): void {
       return null
     }
 
+    // ---- the calm view: the newest picture of the work, and the guide's name
+    let partHost: HTMLElement | null = null
+    const showPicture = (url: string) => {
+      let img = nowVis.querySelector('img')
+      if (!img) nowVis.append((img = el('img')))
+      img.alt = ''
+      img.onload = () => { nowVis.dataset.show = 'img' }
+      img.src = url
+    }
+    const showBuilt = (pid: string) => {
+      if (!partHost) nowVis.append((partHost = el('span', 'partview')))
+      nowVis.dataset.show = 'part'
+      const url = apiUrl(`/files/${encodeURIComponent(id)}/parts/${encodeURIComponent(pid)}.stl`, key)
+      void import('./partview').then((m) => m.showPart(partHost!, pid, url))
+    }
+    const nameIt = (t: string | null | undefined) => {
+      if (t) nowName.textContent = t
+    }
+    let askedPlan = false
+    const learnName = async () => {
+      if (askedPlan || plan?.title) return
+      askedPlan = true
+      try {
+        const res = await apiFetch(`/api/jobs/${encodeURIComponent(id)}/plan`, key)
+        if (res.ok) nameIt(((await res.json()) as { plan?: PlanSummary }).plan?.title)
+        else askedPlan = false
+      } catch {
+        askedPlan = false
+      }
+    }
+    const calmly = (e: AgentEvent) => {
+      if (e.type === 'part_status' && e.level !== 'error' && e.partId) return showBuilt(e.partId)
+      const url = imageOf(e)
+      if (url) showPicture(url)
+      if (e.type === 'error') {
+        nowWhy.textContent = (e.text ?? '').split('\n')[0].slice(0, 200)
+        nowWhy.hidden = false
+      } else if (e.type === 'progress' && /started|Retrying/.test(e.text ?? '')) nowWhy.hidden = true
+      if (['parts', 'place', 'steps', 'refs', 'export', 'done'].includes(e.stage)) void learnName()
+    }
+
     const add = (e: AgentEvent, animate: boolean) => {
+      if (calm) return calmly(e)
       const text = e.text ?? ''
       const prev = latest()
       const row = (kind: string) => {
@@ -625,18 +681,8 @@ export function startBuild(app: HTMLElement): void {
 
       if (e.type === 'part_status') {
         const said = say(lang, text)
-        // the part itself, turning in the row, the moment it is built (src/build/partview.ts, loaded when first needed)
-        const picture = (li: HTMLElement) => {
-          const pid = e.level === 'error' ? '' : e.partId
-          if (!pid) return
-          let host = li.querySelector<HTMLElement>('.partview')
-          if (!host) li.append((host = el('span', 'partview')))
-          const url = apiUrl(`/files/${encodeURIComponent(e.jobId ?? job ?? '')}/parts/${encodeURIComponent(pid)}.stl`, key)
-          void import('./partview').then((m) => m.showPart(host!, pid, url))
-        }
         if (prev?.dataset.group === 'parts') {
           prev.querySelector('.codes')!.append(el('code', '', said.code ?? e.partId ?? ''))
-          picture(prev)
           return
         }
         const li = row(e.level === 'error' ? 'tool fix' : 'tool')
@@ -645,7 +691,6 @@ export function startBuild(app: HTMLElement): void {
         const codes = el('span', 'codes')
         codes.append(el('code', '', said.code ?? e.partId ?? ''))
         li.append(codes)
-        picture(li)
         return
       }
 
@@ -762,6 +807,8 @@ export function startBuild(app: HTMLElement): void {
         const planRes = await apiFetch(`/api/jobs/${encodeURIComponent(id)}/plan`, key)
         if (!planRes.ok || !pendingApproval) return
         plan = ((await planRes.json()) as { plan?: PlanSummary }).plan ?? {}
+        nameIt(plan.title)
+        if (calm) return void approve() // nobody is asked: the plan's flags are on the finished guide's screen
         showPlan(plan)
         setState('approval')
         showAct('approve')
@@ -860,7 +907,7 @@ export function startBuild(app: HTMLElement): void {
       stream?.stop()
       setState('done')
       showAct('open')
-      if (auto && !startedDone) window.setTimeout(leave, 2600)
+      if (auto && !startedDone) window.setTimeout(leave, calm ? 1200 : 2600)
     }
 
     refreshWords = () => {
@@ -883,7 +930,11 @@ export function startBuild(app: HTMLElement): void {
           root.dataset.ended = 'error'
           return
         }
-        if (res.ok) startedDone = ((await res.json()) as JobRow).status === 'done'
+        if (res.ok) {
+          const row = (await res.json()) as JobRow
+          startedDone = row.status === 'done'
+          nameIt(row.title || prettyName(row.filename))
+        }
       } catch {
         /* the stream will say whether the server is there */
       }

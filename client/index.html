@@ -25,10 +25,9 @@
         if (query.get('mode') === 'xr') return
         var root = document.documentElement
         root.lang = query.get('lang') === 'en' ? 'en' : 'el'
-        var theme = 'light' // the light theme unless the person chose the dark one
-        try { theme = localStorage.getItem('ag-theme') === 'dark' ? 'dark' : 'light' } catch {}
+        var theme = 'dark' // one look on every screen: the workshop at night (Sun 15 Nov); no light theme, no switch
         root.dataset.theme = theme
-        document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#ffffff' : '#000000'
+        document.querySelector('meta[name="theme-color"]').content = '#0b0907'
         document.title = 'Jarvis Assembler'
         var scheme = document.createElement('meta')
         scheme.name = 'color-scheme'

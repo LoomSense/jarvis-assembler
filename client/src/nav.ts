@@ -1,5 +1,4 @@
 import './styles/nav.css'
-import { themeButton } from './theme'
 import { appLink } from './routes'
 
 // The same two ways out on every screen (not in the headset): the workbench with its shelf of guides, and
@@ -54,6 +53,6 @@ export function mountNav(here: Here): void {
   }
   label()
   new MutationObserver(label).observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'data-state'] })
-  nav.append(themeButton())
+  // no theme switch: every screen wears the same dark, warm look (tokens.css, end of file)
   document.body.append(nav)
 }
