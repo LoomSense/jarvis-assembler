@@ -146,6 +146,12 @@ data class StepPanelState(
     /** Status pill above the window (§2.5): tracking lost, offline. Null = hidden. */
     val pill: String? = null,
     val pillKind: StatusKind = StatusKind.UNSURE,
+    // ACTION-COACH: the two-dot phase indicator above the title ("1 Πάρε · 2 Βάλε"). 0 = hidden, 1 = take, 2 = put.
+    val phase: Int = 0,
+    val phaseTake: String = "",
+    val phasePut: String = "",
+    /** "1 από 2" for repeated hardware, at the right of the dots; "" = none. */
+    val phaseCount: String = "",
 )
 
 class StepPanelModel {
@@ -369,6 +375,37 @@ private fun SmallButton(label: String, onPress: () -> Unit, onClick: () -> Unit)
 }
 
 /**
+ * ACTION-COACH: "1 Πάρε · 2 Βάλε". The phase shown now is a filled azure dot with its word in full white; the other
+ * is a hollow dot with a dimmed word. The count of repeated hardware ("1 από 2") sits at the right while placing.
+ */
+@Composable
+private fun PhaseDots(s: StepPanelState) {
+  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    for ((n, word) in listOf(1 to s.phaseTake, 2 to s.phasePut)) {
+      val on = s.phase == n
+      Box(
+          Modifier.size(18.dp)
+              .clip(RoundedCornerShape(9.dp))
+              .background(if (on) AgColors.accent else Color.Transparent)
+              .border(1.5.dp, if (on) AgColors.accent else AgColors.border, RoundedCornerShape(9.dp)),
+          contentAlignment = Alignment.Center,
+      ) {
+        Text("$n", color = if (on) AgColors.glyph else AgColors.textMeta, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+      }
+      Text(word, color = if (on) AgColors.textStrong else AgColors.textMeta, fontSize = TextSize.caption,
+          fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, letterSpacing = 0.4.sp, maxLines = 1)
+      if (n == 1) Text("·", color = AgColors.textMeta, fontSize = TextSize.caption, maxLines = 1)
+    }
+    if (s.phaseCount.isNotEmpty()) {
+      Spacer(Modifier.weight(1f))
+      Box(Modifier.clip(RoundedCornerShape(10.dp)).background(AgColors.accentDeep).padding(horizontal = 8.dp, vertical = 2.dp)) {
+        Text(s.phaseCount, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
+      }
+    }
+  }
+}
+
+/**
  * Panel size for [StepPanel]: status pill row (40 mm) + window 0.52 × 0.34 m + the toolbar ornament below
  * (56 mm, overlapping the window's bottom edge by half).
  */
@@ -427,6 +464,7 @@ fun StepPanel(model: StepPanelModel) {
             maxLines = 1,
         )
       }
+      if (s.phase > 0 && !s.compact) PhaseDots(s) // ACTION-COACH
       Text(
           s.title,
           color = AgColors.textStrong,

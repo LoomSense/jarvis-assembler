@@ -77,6 +77,11 @@ object Strings {
           "whereRight" to "on your right",
           "cameraLive" to "camera live · {fps} fps",
           "cameraOff" to "camera · no frames",
+          // ACTION-COACH: the two phases of an action (ui/ActionCoach.kt)
+          "coachPick" to "Take: {name}",
+          "coachPlace" to "Put it here",
+          "coachPhasePut" to "Place",
+          "coachGotIt" to "Got it",
       )
 
   private val el =
@@ -149,6 +154,11 @@ object Strings {
           "whereRight" to "δεξιά σου",
           "cameraLive" to "κάμερα ζωντανά · {fps} fps",
           "cameraOff" to "κάμερα · χωρίς εικόνα",
+          // ACTION-COACH: οι δύο φάσεις μιας κίνησης (ui/ActionCoach.kt)
+          "coachPick" to "Πάρε: {name}",
+          "coachPlace" to "Βάλ' το εδώ",
+          "coachPhasePut" to "Βάλε",
+          "coachGotIt" to "Το πήρα",
       )
 
   /** Every key of a language's table (tests: both languages carry the same keys). */
