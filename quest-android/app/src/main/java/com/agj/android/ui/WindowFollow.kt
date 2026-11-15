@@ -3,13 +3,18 @@ package com.agj.android.ui
 import com.agj.android.core.Pose3
 import com.agj.android.core.Quat
 import com.agj.android.core.Vec3
+import kotlin.math.atan
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.hypot
+import kotlin.math.sin
 
 /**
- * Where the step window goes (XR_NATIVE_SPEC §2.6), pure Kotlin:
- *  - beside the tracked object on the user's right (default right-handed, parts pile on the left), 0.10 m beyond the
- *    object's half-width as seen from the user; centre at the object's top + 0.12 m, clamped to 10°–20° below eye level;
+ * Where the step window goes (XR_NATIVE_SPEC §2.3, §2.6), pure Kotlin:
+ *  - on the user's right of the tracked object (default right-handed, parts pile on the left), 0.8 m from the head,
+ *    30° from the object's direction (its inner edge then stays 10° clear of the work); centre at the object's
+ *    top + 0.12 m, clamped to 10°–20° below eye level, higher only when it would cover the object in view;
  *  - follows the object with a critically damped spring (response 0.6 s) and a 3 cm dead band (no jitter);
  *  - never head-locked: the head pose is only used to choose the side and the facing, both re-evaluated slowly.
  *
@@ -19,12 +24,23 @@ class WindowFollow(
     private val response: Float = 0.6f,
     private val deadBand: Float = 0.03f,
     private val halfWidth: Float = 0.26f,
+    /** Half the panel's height: status pill row above the window, toolbar ornament below it. */
+    private val halfHeight: Float = 0.21f,
 ) {
   var position: Vec3? = null
     private set
 
   private var velocity = Vec3.ZERO
   private var goal: Vec3? = null
+
+  companion object {
+    /** Horizontal distance head → window centre (§2.3: 0.75–0.95 m from the eyes). */
+    const val DIST = 0.80f
+    /** Bearing of the window centre from the object's direction, seen from the head: 30°. */
+    const val BEARING = 0.5236f
+    /** Object margin (§2.3): the window keeps this many metres from the object's box in view. */
+    const val MARGIN = 0.08f
+  }
 
   /** Target for an object at [objectTop] (top centre, WORLD) seen from [head]; [objectHalfWidth] metres. */
   fun target(objectTop: Vec3, objectHalfWidth: Float, head: Vec3): Vec3 {
@@ -33,13 +49,25 @@ class WindowFollow(
     val d = hypot(dx, dz).coerceAtLeast(0.2f)
     // the user's right, horizontally, as seen looking at the object
     val right = Vec3(-dz / d, 0f, dx / d)
-    val side = objectHalfWidth + 0.10f + halfWidth
-    val p = objectTop + right * side + Vec3(0f, 0.12f, 0f)
+    // Window zone (§2.3), not beside a wide near object (that was 45–52° off the work): [DIST] m from the head,
+    // [BEARING] to the right of the object's direction. 30° is the most the zone allows and the least that keeps
+    // the window's inner edge 10° clear of the work (the window is 36° wide at this distance).
+    val flat = (Vec3(dx / d, 0f, dz / d) * cos(BEARING) + right * sin(BEARING)) * DIST
     // 10°–20° below eye level at the window's distance
-    val dist = hypot(p.x - head.x, p.z - head.z)
-    val yMax = head.y - dist * 0.176f // tan 10°
-    val yMin = head.y - dist * 0.364f // tan 20°
-    return Vec3(p.x, p.y.coerceIn(yMin, yMax), p.z)
+    val yMax = head.y - DIST * 0.176f // tan 10°
+    val yMin = head.y - DIST * 0.364f // tan 20°
+    var y = (objectTop.y + 0.12f).coerceIn(yMin, yMax)
+    // A near, wide object is still under the window's inner part in view: the window's lowest edge (the toolbar)
+    // then stays [MARGIN] above the top of the object's box (seen from the head its far top corner is the highest
+    // point), up to just under eye level.
+    val inner = BEARING - atan(halfWidth / DIST)
+    val beside = inner - atan2(objectHalfWidth, (d - objectHalfWidth).coerceAtLeast(0.05f)) >= atan(MARGIN / DIST)
+    if (!beside) {
+      val reach = if (objectTop.y < head.y) hypot(d + objectHalfWidth, objectHalfWidth) else (d - objectHalfWidth).coerceAtLeast(0.1f)
+      val clear = head.y + DIST * (objectTop.y - head.y) / reach + MARGIN + halfHeight
+      y = y.coerceAtLeast(clear.coerceAtMost(head.y - DIST * 0.035f)) // tan 2°
+    }
+    return Vec3(head.x + flat.x, y, head.z + flat.z)
   }
 
   /** Move one step towards [target] (null = stay). Returns the new position. */
@@ -84,6 +112,8 @@ class WindowRelocator(
     private val stillS: Float = 1.0f,
     private val fadeOutS: Float = 0.15f,
     private val fadeInS: Float = 0.25f,
+    /** The head position used for the placement is read again only after the wearer moved this far (m). */
+    private val headStep: Float = 0.10f,
 ) {
   enum class Phase { FOLLOW, FADE_OUT, FADE_IN }
 
@@ -102,7 +132,13 @@ class WindowRelocator(
   val position: Vec3?
     get() = follow.position
 
-  fun target(objectTop: Vec3, objectHalfWidth: Float, head: Vec3) = follow.target(objectTop, objectHalfWidth, head)
+  private var placedHead: Vec3? = null
+
+  /** [WindowFollow.target] from a latched head position: the window is placed, not dragged along by small head moves. */
+  fun target(objectTop: Vec3, objectHalfWidth: Float, head: Vec3): Vec3 {
+    val h = placedHead?.takeIf { (it - head).length() <= headStep } ?: head.also { placedHead = it }
+    return follow.target(objectTop, objectHalfWidth, h)
+  }
 
   /** One frame. [target] null = keep the window where it is (lost). Returns the window position. */
   fun update(target: Vec3?, dtS: Float, hold: Boolean = false): Vec3? {
@@ -150,6 +186,7 @@ class WindowRelocator(
     lastTarget = null
     pending = null
     still = 0f
+    placedHead = null
   }
 }
 
@@ -159,6 +196,17 @@ class WindowRelocator(
  * (FrameConventionTest: the spot is in front of the wearer, not behind).
  */
 object Placement {
+  /** Back tilt of the step window and its side column: top away from the wearer, 8° (§2.6 rule 3). */
+  const val WINDOW_TILT = 0.14f
+
+  /**
+   * WORLD ← PANEL for a panel at [pos] turned about the vertical to face [head], leaning back by [tilt] rad (a window
+   * below eye level then looks up at the wearer). Local +Z is the readable side. Without tilt its `toSdk()` is the
+   * SDK's `lookRotationAroundY(panel − head)` that `facingPose` builds (WindowPlacementTest pins both).
+   */
+  fun facing(pos: Vec3, head: Vec3, tilt: Float = WINDOW_TILT): Pose3 =
+      Pose3(pos, Quat.yaw(atan2(head.x - pos.x, head.z - pos.z)) * Quat.axisAngle(Vec3(1f, 0f, 0f), -tilt))
+
   /** The head's forward direction, horizontal and unit length. */
   fun flatForward(head: Pose3): Vec3 {
     val f = head.q.rotate(Vec3(0f, 0f, -1f))

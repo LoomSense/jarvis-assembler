@@ -22,6 +22,7 @@ import com.agj.android.guide.SpatialGhostRenderer
 import com.agj.android.guide.StubGhostRenderer
 import com.agj.android.guide.facingPose
 import com.agj.android.guide.toPose3
+import com.agj.android.guide.toSdk
 import com.agj.android.net.HandSummary
 import com.agj.android.net.HttpServerApi
 import com.agj.android.net.OkHttpPerceptionSocket
@@ -78,6 +79,7 @@ import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.MeshCreationSystem
 import com.agj.android.vision.PanelPoseTracker
 import com.agj.android.world.PickMarkers
+import com.agj.android.world.PlaceSource
 import com.agj.android.world.WorldModule
 import com.meta.spatial.mruk.MRUKFeature
 import com.meta.spatial.toolkit.PanelRegistration
@@ -144,7 +146,7 @@ class MainActivity : AppSystemActivity() {
   private var voiceCtl: VoiceController? = null
   private val drawings = HashMap<Int, ImageBitmap?>()
   private val wires = HashMap<String, FloatArray>()
-  private var lastRelocations = 0
+  private var lastRelocations = -1 // −1: the first placement beside the object is logged too (`window`)
   private val sounds by lazy { Sounds() }
   private var lostShown = false
   private var advancing = false
@@ -251,6 +253,7 @@ class MainActivity : AppSystemActivity() {
     stepPanel.onNext = { next() }
     stepPanel.onWhere = { whereAmI() }
     stepPanel.onRepeat = { repeat() }
+    stepPanel.onAlign = { realign() }
     stepPanel.onPress = { sounds.play(Sounds.Cue.TICK) }
     ghost.reducedMotion = params.reducedMotion
     side.reducedMotion = params.reducedMotion
@@ -432,7 +435,8 @@ class MainActivity : AppSystemActivity() {
       CoachFlow.Stage.REGISTER -> {
         registerSince = SystemClock.elapsedRealtime()
         card(5, s("coachLockTitle"), s("coachLockBody"))
-        armTouch()
+        // the two-corner touch belongs to the marker flow and no card explains it: armed only with `--ez touch true`
+        if (intent?.getBooleanExtra("touch", false) == true) armTouch()
       }
       CoachFlow.Stage.GUIDE -> {
         val a = assembly?.guide ?: return
@@ -580,6 +584,7 @@ class MainActivity : AppSystemActivity() {
     val st = g.step(step) ?: return
     val act = st.actions.getOrNull(action)
     val firstOfStep = step != curStep || finished
+    val again = !firstOfStep && action == curAction // Repeat: the same action shown again
     val sock = socket
     if (sock != null) {
       when {
@@ -617,14 +622,18 @@ class MainActivity : AppSystemActivity() {
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
     panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
-    world.coachLine(lang)?.let { stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = it) }
+    val coachNow = coachLine() // "Place … inside the blue outline.": first line of the body, spoken before the step line
+    stepPanel.coach = coachNow ?: ""
+    stepPanel.align = alignLabel()
     loadDrawing(step, st.crop)
     showPartCard(act)
     val line =
         if (firstOfStep && st.page != null)
             (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + body
         else body
-    if (speak) voice.say(line, lang)
+    // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
+    if (speak) voice.sayStep(listOfNotNull(stepDone, coachNow?.takeIf { firstOfStep || again }, line), lang)
+    stepDone = null
     // prefetch the next two lines
     var n = g.next(step, action)
     repeat(2) {
@@ -634,6 +643,13 @@ class MainActivity : AppSystemActivity() {
     }
     Agq.log.step(step, action, by)
   }
+
+  /**
+   * The no-marker instruction (`world.coachLine`: "Place the drawer front inside the blue outline.") while it applies:
+   * in the guide, on the base part's own step (the outline is drawn only then), with a ghost that is placed, not followed.
+   */
+  private fun coachLine(): String? =
+      if (coach.stage == CoachFlow.Stage.GUIDE && !finished && curStep == world.basePart?.step) world.coachLine(lang) else null
 
   /** The step's guide drawing (`/files/{job}/crops/step-NN.png`) as white line art in the window's right column. */
   private fun loadDrawing(step: Int, crop: String?) {
@@ -721,6 +737,7 @@ class MainActivity : AppSystemActivity() {
           showStep(t.step, t.action, StepBy.VOICE, speak = false)
           true
         } else false
+    if (r.intent == "where_am_i" && coach.stage == CoachFlow.Stage.GUIDE) world.realign() // as the "Where am I" button
     // HELD-PART: "είναι σωστό αυτό;" checks the part in the hand now; the verdict speaks instead of `answer`
     if (!moved && coach.stage == CoachFlow.Stage.GUIDE && held.onVoice(r.transcript, r.intent)) {
       Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to false, "check" to true, "step" to curStep, "action" to curAction))
@@ -769,10 +786,9 @@ class MainActivity : AppSystemActivity() {
     ghost.setState(GhostState.CORRECT)
     sounds.play(if (stepEnds) Sounds.Cue.STEP else Sounds.Cue.SUCCESS)
     stepPanel.state = stepPanel.state.copy(status = StatusKind.SUCCESS, statusText = Strings.upper(lang, s("correct")))
-    if (stepEnds) {
-      val nextTitle = g.step(n.first)?.actions?.getOrNull(n.second)?.text?.get(lang) ?: ""
-      voice.say(if (lang == "el") "Το βήμα $curStep έγινε. Επόμενο: $nextTitle" else "Step $curStep done. Next: $nextTitle", lang)
-    }
+    // Said by the next step's entry, in front of its own line (one utterance). Spoken here, with the next
+    // instruction appended, it was cut 1.4 s later by that same instruction.
+    if (stepEnds) stepDone = if (lang == "el") "Το βήμα $curStep έγινε." else "Step $curStep done."
     scope.launch {
       delay(if (stepEnds) 1400 else 1000)
       advancing = false
@@ -831,8 +847,44 @@ class MainActivity : AppSystemActivity() {
   }
 
   private fun repeat() {
-    if (coach.stage == CoachFlow.Stage.GUIDE && !finished) showStep(curStep, curAction, StepBy.BUTTON)
-    else if (coach.stage == CoachFlow.Stage.LOOK) scope.launch { identify() }
+    if (coach.stage == CoachFlow.Stage.GUIDE && !finished) {
+      // on the base part's step Repeat also asks the camera where the part is (the ghost may have started off it)
+      if (curStep == world.basePart?.step) world.realign()
+      showStep(curStep, curAction, StepBy.BUTTON)
+    } else if (coach.stage == CoachFlow.Stage.LOOK) scope.launch { identify() }
+  }
+
+  private var realigning = false
+  /** "Step N done.", waiting to be spoken at the head of the next step's entry ([advance] → [showStep]). */
+  private var stepDone: String? = null
+
+  /** "Re-align" is offered in the guide while the ghost is only placed (table, fixed spot, server box, nudge), not followed live. */
+  private fun alignLabel(): String? {
+    if (coach.stage != CoachFlow.Stage.GUIDE || finished) return null
+    val src = world.anchor.source ?: return null
+    val live = (src == PlaceSource.MARKERLESS && world.anchor.markerlessFresh()) || vision.snapshot().method.let { it == "marker" || it == "anchor" }
+    return if (live) null else s("align")
+  }
+
+  /**
+   * «Ευθυγράμμιση», the way out when the ghost sits in the wrong place: the wearer is asked to look at the part; 1.5 s
+   * later the anchor is dropped (`anchor.reset()`: `WorldModule.tick` puts it back on the table, or the fixed spot,
+   * in front of where the head points then) and the next camera answer for the base part moves it onto the real part.
+   */
+  private fun realign() {
+    if (coach.stage != CoachFlow.Stage.GUIDE || finished || realigning) return
+    realigning = true
+    Agq.log.event("align", mapOf("by" to "button", "source" to world.placeSource, "step" to curStep))
+    stepPanel.coach = s("alignLook")
+    voice.say(s("alignLook"), lang)
+    scope.launch {
+      delay(1500)
+      world.anchor.reset()
+      world.realign()
+      delay(500) // placed again on the next frame
+      realigning = false
+      stepPanel.coach = coachLine() ?: ""
+    }
   }
 
   private fun whereAmI() {
@@ -925,7 +977,7 @@ class MainActivity : AppSystemActivity() {
         // the facing is frozen while faded in/out so the window does not swing during a relocation
         if (follow.phase == WindowRelocator.Phase.FOLLOW || windowHead == null) windowHead = head.t
         windowPos = p
-        e.setComponent(Transform(facingPose(p, windowHead!!)))
+        e.setComponent(Transform(Placement.facing(p, windowHead!!).toSdk()))
       }
       if (stepPanel.alpha != follow.alpha) {
         stepPanel.alpha = follow.alpha
@@ -933,7 +985,7 @@ class MainActivity : AppSystemActivity() {
       }
       if (follow.relocations != lastRelocations) {
         lastRelocations = follow.relocations
-        Agq.log.event("window", mapOf("relocate" to lastRelocations, "pos_m" to p))
+        Agq.log.event("window", mapOf("relocate" to lastRelocations, "pos_m" to p, "head_m" to head.t, "object_m" to objectTop))
       }
     }
     placeSide()
@@ -955,7 +1007,7 @@ class MainActivity : AppSystemActivity() {
     val right = Vec3(-dz / d, 0f, dx / d)
     // outer edge = the side away from the object: the window sits right of the object, so further right
     val pos = p + right * (STEP_PANEL_W / 2 + 0.02f + SIDE_PANEL_W / 2) + Vec3(0f, -0.02f, 0f)
-    se.setComponent(Transform(facingPose(pos, h)))
+    se.setComponent(Transform(Placement.facing(pos, h).toSdk()))
   }
 
   /**
@@ -966,7 +1018,7 @@ class MainActivity : AppSystemActivity() {
     panelsPlaced = true
     if (coach.stage == CoachFlow.Stage.GUIDE) return // the window already follows the object
     val step = Placement.ahead(head, 0.8f, 0.21f) // tan 15° × 0.8 m
-    stepEntity?.setComponent(Transform(facingPose(step, head.t)))
+    stepEntity?.setComponent(Transform(Placement.facing(step, head.t).toSdk()))
     windowPos = step
     windowHead = head.t
     val hudPos = Placement.ahead(head, 0.9f, 0.45f, right = -0.55f)
@@ -999,6 +1051,8 @@ class MainActivity : AppSystemActivity() {
             ?.let { t -> showCameraBox(PreviewBox((t.box[1] / 1000).toFloat(), (t.box[0] / 1000).toFloat(), (t.box[3] / 1000).toFloat(), (t.box[2] / 1000).toFloat(), t.label)) }
             ?: showCameraBox(null)
         if (side.showCamera) side.caption = if (camFps > 0.5) s("cameraLive", "fps" to camFps.toInt()) else s("cameraOff")
+        if (!realigning) stepPanel.coach = coachLine() ?: "" // gone once the part is followed live, or the base part's step is over
+        stepPanel.align = alignLabel()
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0
           Agq.log.frame(fps, null, null)

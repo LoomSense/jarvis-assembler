@@ -26,6 +26,12 @@ import kotlinx.coroutines.withContext
 interface Voice {
   fun say(text: String, lang: String, interrupt: Boolean = true)
 
+  /**
+   * A step entry: [lines] in order (the no-marker coach line first, then the step line), spoken as one sentence
+   * group so the second cannot cut the first. Blank lines are skipped.
+   */
+  fun sayStep(lines: List<String>, lang: String) = say(lines.filter { it.isNotBlank() }.joinToString(" "), lang)
+
   /** Fetch [text] ahead of time so the next [say] starts without the TTS round trip. */
   fun prefetch(text: String, lang: String) {}
 
