@@ -162,7 +162,8 @@ class PartsFinder(
     val w = want.filter { it.isNotBlank() }.distinct()
     val next = if (job != null && isPick && w.isNotEmpty()) Action(job, step, action, w, focus.toSet()) else null
     val cur = current
-    if (cur != null && next != null && cur.job == next.job && cur.step == next.step && cur.want == next.want) {
+    // same items in another order (the action's own item is listed first): keep the tracks and markers
+    if (cur != null && next != null && cur.job == next.job && cur.step == next.step && cur.want.toSet() == next.want.toSet()) {
       current = next
       return
     }

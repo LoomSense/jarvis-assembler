@@ -165,6 +165,15 @@ class WorldModule(
    */
   @Volatile var lockedSurfaceY: Float? = null
     private set
+  @Volatile private var heightConfirmedAtMs = 0L
+
+  /**
+   * Should the optical-flow track of the base part move the ghost between panel poses? Off: on the first device run
+   * (13:46) the track picked up the hands working on the part and dragged the ghost 20 cm in 20 s, until the panel
+   * detector snapped it back by 24 cm. The panel detector and the server's box place the ghost; flow still follows
+   * the loose parts' pick markers.
+   */
+  @Volatile var flowFollowsBase = false
   private val partYs = ArrayDeque<Float>()
 
   /** WORLD height of the work surface: the scene's table, else the height at the part, else the steady gaze probe. */
@@ -406,20 +415,13 @@ class WorldModule(
     val cur = anchor.pose ?: return
     val fp = footprint() ?: return
     val camY = g.worldFromCamera?.t?.y
-    if (depthHit != null && camY != null && depthHit.y < camY - 0.25f) {
-      val y =
-          synchronized(partYs) {
-            partYs.addLast(depthHit.y - baseTopM())
-            while (partYs.size > 5) partYs.removeFirst()
-            partYs.sorted()[partYs.size / 2]
-          }
-      val prev = lockedSurfaceY
-      lockedSurfaceY = y
-      if (prev == null || kotlin.math.abs(prev - y) > 0.02f) {
-        Agq.log.event("surface", mapOf("source" to "depth_at_part", "y_m" to y, "hit_y_m" to depthHit.y, "prev_y_m" to prev, "cam_y_m" to camY))
-      }
-    }
-    val planeY = lockedSurfaceY ?: cur.t.y
+    // One depth hit proves little: on the first device run a hand over the part read 12 cm high and lifted the
+    // ghost for 14 s. So the height is taken only from a box that passes the gates below, the first one sets it,
+    // later ones move it only as the median of at least three, and not at all while the panel detector trusts
+    // frames at the current height (its size gate fails when the height is wrong, so a trusted pose confirms it).
+    val confirmed = lockedSurfaceY != null && SystemClock.elapsedRealtime() - heightConfirmedAtMs < HEIGHT_CONFIRMED_MS
+    val candY = depthHit?.takeIf { camY != null && it.y < camY - 0.25f && !confirmed }?.let { it.y - baseTopM() }
+    val planeY = lockedSurfaceY ?: candY ?: cur.t.y
     val bp = BasePlacement.fromBox(found.box_2d, g, planeY, cur, fp, vision.config.detector.useDistortion)
     val onTable = bp != null && (scene.table?.contains(bp.partCenter, 0.10f) ?: true)
     // The box must be about the size of the part: on the first device run a 0.89 m box (not the 0.38 m drawer
@@ -427,6 +429,19 @@ class WorldModule(
     val longSide = 2f * maxOf(fp.halfX, fp.halfZ)
     val sizeOk = bp?.lengthM?.let { it >= 0.6f * longSide && it <= 1.5f * longSide } ?: false
     val ok = bp != null && onTable && sizeOk && found.confidence >= MIN_BASE_CONFIDENCE
+    if (ok && candY != null && depthHit != null) {
+      val prev = lockedSurfaceY
+      val y =
+          synchronized(partYs) {
+            partYs.addLast(candY)
+            while (partYs.size > 5) partYs.removeFirst()
+            if (prev == null || partYs.size >= 3) partYs.sorted()[partYs.size / 2] else prev
+          }
+      lockedSurfaceY = y
+      if (prev == null || kotlin.math.abs(prev - y) > 0.02f) {
+        Agq.log.event("surface", mapOf("source" to "depth_at_part", "y_m" to y, "hit_y_m" to depthHit.y, "prev_y_m" to prev, "cam_y_m" to camY, "samples" to partYs.size))
+      }
+    }
     baseBoxOk = ok // only a box that passed these gates may move the ghost through the flow track too
     val applied = if (ok) anchor.onServerBox(bp!!.worldFromTable) else false
     Agq.log.event(
@@ -446,6 +461,10 @@ class WorldModule(
    */
   @Synchronized
   private fun followBase(from: com.agj.android.core.Vec3, to: com.agj.android.core.Vec3) {
+    if (!flowFollowsBase) { // see the field: off after the first device run
+      basePending = com.agj.android.core.Vec3.ZERO
+      return
+    }
     val cur = anchor.pose
     val betterPose = anchor.sourceName == PlaceSource.MARKERLESS.wire && anchor.markerlessFresh()
     if (cur == null || !baseBoxOk || markerTracking() || anchor.source == PlaceSource.MANUAL || betterPose) {
@@ -474,8 +493,11 @@ class WorldModule(
    * 2° are ignored too (no jitter). [source] is what `track.source` / `place.source` then say (default
    * `markerless`). Returns true when the anchor moved. Any thread.
    */
-  fun onObjectPose(worldFromAssembly: Pose3, confidence: Float, source: String = "markerless"): Boolean =
-      anchor.onObjectPose(worldFromAssembly * heldPose().inverse(), confidence, source)
+  fun onObjectPose(worldFromAssembly: Pose3, confidence: Float, source: String = "markerless"): Boolean {
+    // a trusted panel pose was solved at the current surface height: that height is right (see placeBase)
+    if (source == PlaceSource.MARKERLESS.wire && confidence >= 0.5f) heightConfirmedAtMs = SystemClock.elapsedRealtime()
+    return anchor.onObjectPose(worldFromAssembly * heldPose().inverse(), confidence, source)
+  }
 
   /**
    * The coach line while the object is not tracked: "Place the drawer front inside the blue outline." Null when
@@ -507,6 +529,8 @@ class WorldModule(
     /** Without a scene table this long after the guide is loaded, the fixed spot is used. */
     const val FIXED_SPOT_AFTER_MS = 2500L
     const val FOLLOW_EVERY_MS = 2500L
+    /** A trusted panel pose keeps the surface height from being re-measured for this long. */
+    const val HEIGHT_CONFIRMED_MS = 15_000L
     /** Gaze probe: this many samples (0.7 s apart) within this spread before a looked-at height counts. */
     const val GAZE_WINDOW = 5
     const val GAZE_SPREAD_M = 0.05f

@@ -139,6 +139,9 @@ class MainActivity : AppSystemActivity() {
   private var pickMarkers: PickMarkers? = null
   private var panel: PanelPoseTracker? = null
   private var dump: FrameDump? = null
+  private val showPartHiRes = java.util.concurrent.atomic.AtomicBoolean(false)
+  private var cameraStarted = false
+  private var camDeadTicks = 0
   private var socket: OkHttpPerceptionSocket? = null
   private var socketStarted = false
   private val follow = WindowRelocator()
@@ -176,7 +179,11 @@ class MainActivity : AppSystemActivity() {
           wrists = { vision.input.hands?.hands?.map { it.wrist } ?: emptyList() },
           pickTargets = { coachShown }, // ACTION-COACH: only the part to take now, and only while it is being taken
           window = { windowPos to windowHead },
-          showPart = { expected -> socketStarted && socket?.showPart(expected) == true },
+          showPart = { expected ->
+            val sent = socketStarted && socket?.showPart(expected) == true
+            if (sent) showPartHiRes.set(true) // the next frame is the one the server answers: send it at 1280 px
+            sent
+          },
           nameOf = { id -> heldName(id) },
           cues =
               com.agj.android.guide.VerdictCues { uri, make ->
@@ -237,6 +244,7 @@ class MainActivity : AppSystemActivity() {
                 tableHeight = { world.surfaceY },
                 ghostPose = { vision.worldFromAssembly() },
                 onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
+                reportRefreshMs = 2000, // under the anchor's 3 s freshness, so a server box cannot replace a live panel pose
                 // Size gate tuned on the device: in the first real run (12:36) a clean panel measured 13-18 mm short
                 // and 6-14 mm wide of its true size, and the render-tuned 14 / 12 mm rejected every frame.
                 params =
@@ -336,6 +344,7 @@ class MainActivity : AppSystemActivity() {
     hud.state = hud.state.copy(cameraKind = vision.cameraKind)
     vision.start()
     world.start()
+    cameraStarted = true
   }
 
   /**
@@ -369,7 +378,11 @@ class MainActivity : AppSystemActivity() {
           if (stage == CoachFlow.Stage.GUIDE && socketStarted && !finished && sock != null && sock.canSend()) {
             try {
               val lim = sock.limits
-              val jpeg = downscaleJpeg(frame.jpeg, lim.longEdgePx, (lim.jpegQuality * 100).toInt().coerceIn(30, 95))
+              // a "check this part" look is judged on one frame: full size (measured on real frames: a wrong small
+              // part is caught to about 50 cm at 1280 px, 25 cm at 768 px)
+              val jpeg =
+                  if (showPartHiRes.getAndSet(false)) frame.jpegAt(1280, 85)
+                  else downscaleJpeg(frame.jpeg, lim.longEdgePx, (lim.jpegQuality * 100).toInt().coerceIn(30, 95))
               sock.sendFrame(jpeg, curStep, System.currentTimeMillis())
             } catch (e: Exception) {
               Agq.log.error("perception_frame", e.message)
@@ -1064,6 +1077,7 @@ class MainActivity : AppSystemActivity() {
       event == "step_complete" -> if (!advancing && !finished) coachApply(actionCoach.stepComplete(SystemClock.elapsedRealtime()))
       event == "action_complete" -> if (!advancing && !finished) coachApply(actionCoach.actionComplete(SystemClock.elapsedRealtime()))
       event.startsWith("wrong") -> {
+        actionCoach.wrongPart(SystemClock.elapsedRealtime()) // also "the wrong way round": no automatic advance on top of it
         // red dashed outline + octagon ✕ (label) + the spoken reason (spec §4.8); a generic reason if the event has none
         ghost.setState(GhostState.WRONG)
         sounds.play(Sounds.Cue.WARNING)
@@ -1304,6 +1318,16 @@ class MainActivity : AppSystemActivity() {
         // `track` is logged by VisionModule (10 Hz live, every frame in replay); only the HUD here
         val snap = vision.snapshot()
         val camFps = (vision.hud()["cam_fps"] as? Double) ?: 0.0
+        // The headset taken off closes the camera ("open 50: error 3", seen on the device at 13:56) and nothing
+        // reopened it: tracking and perception stayed dead until the app was relaunched. Reopen it when frames stop.
+        if (cameraStarted && !params.replay) {
+          camDeadTicks = if (camFps < 1.0) camDeadTicks + 1 else 0
+          if (camDeadTicks >= 4) {
+            camDeadTicks = 0
+            Agq.log.event("camera_restart", mapOf("why" to "no frames for 4 s"))
+            runCatching { vision.start() }.onFailure { Agq.log.error("camera_restart", it.message) }
+          }
+        }
         val src = if (snap.worldFromAssembly == null && tableFallback != null) "fixed_spot" else snap.method
         hud.state = hud.state.copy(cameraFps = camFps, tracked = snap.tracked, trackSource = src, reprojPx = snap.reprojPx)
         // the part the server found in the camera frame, drawn on the preview (box_2d = [ymin, xmin, ymax, xmax], 0-1000)
