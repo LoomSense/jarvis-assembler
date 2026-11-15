@@ -68,12 +68,33 @@ class GuideTest {
       val node = a.node ?: continue
       val target = a.target ?: continue
       val pose = assertNotNull(a.finalPose).let { a.finalPose!! }
-      near(target, pose.t, 0.002f) // within 2 mm after Blender Z-up → glTF Y-up
+      near(target, pose.t, 0.001f) // within 1 mm after Blender Z-up → glTF Y-up
       checked++
     }
     assertEquals(19, checked)
+    val maxErr = guide.maxTargetErrorMm()!!
+    println("malm-drawer: $checked nodes, max_err_mm %.4f".format(java.util.Locale.ROOT, maxErr))
+    assertTrue("max_err_mm $maxErr", maxErr <= 1.0)
     // A specific one, by hand: hw_118331_1 target_m [-0.166, 0, 0.055] (Blender) → (-0.166, 0.055, 0) glTF.
-    near(Vec3(-0.166f, 0.055f, 0f), guide.finalPoses["hw_118331_1"]!!.t, 0.002f)
+    near(Vec3(-0.166f, 0.055f, 0f), guide.finalPoses["hw_118331_1"]!!.t, 0.001f)
+  }
+
+  /** A second job (eval/golden/knagglig/out, copied to src/test/resources/knagglig/): same 1 mm bound. */
+  @Test
+  fun knaggligFinalPositionsMatchManifestTargets() {
+    fun kres(name: String) = File(javaClass.classLoader!!.getResource("knagglig/$name")!!.toURI())
+    val g = Guide.build(Manifest.parse(kres("manifest.json").readText()), Glb.read(kres("walkthrough.glb")))
+    var checked = 0
+    for (s in g.steps) for (a in s.actions) {
+      val target = a.target ?: continue
+      if (a.node == null) continue
+      near(target, assertNotNull(a.finalPose).let { a.finalPose!! }.t, 0.001f)
+      checked++
+    }
+    val maxErr = g.maxTargetErrorMm()!!
+    println("knagglig: $checked nodes, max_err_mm %.4f".format(java.util.Locale.ROOT, maxErr))
+    assertTrue("checked $checked", checked > 0)
+    assertTrue("max_err_mm $maxErr", maxErr <= 1.0)
   }
 
   @Test

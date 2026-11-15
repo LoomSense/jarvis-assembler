@@ -9,7 +9,6 @@ import com.agj.android.core.Params
 import com.agj.android.core.Pose3
 import com.agj.android.core.Quat
 import com.agj.android.core.StepBy
-import com.agj.android.core.TrackSource
 import com.agj.android.core.Vec3
 import com.agj.android.guide.ActionKind
 import com.agj.android.guide.Assembly
@@ -17,9 +16,12 @@ import com.agj.android.guide.GhostRenderer
 import com.agj.android.guide.HttpJobRepository
 import com.agj.android.guide.SpatialGhostRenderer
 import com.agj.android.guide.StubGhostRenderer
+import com.agj.android.guide.facingPose
 import com.agj.android.guide.toPose3
-import com.agj.android.guide.toSdk
+import com.agj.android.net.HandSummary
 import com.agj.android.net.HttpServerApi
+import com.agj.android.net.OkHttpPerceptionSocket
+import com.agj.android.net.PerceptionListener
 import com.agj.android.net.ServerApi
 import com.agj.android.ui.CoachFlow
 import com.agj.android.ui.DP_PER_M
@@ -29,6 +31,7 @@ import com.agj.android.ui.LABEL_PANEL_H
 import com.agj.android.ui.LABEL_PANEL_W
 import com.agj.android.ui.LabelModel
 import com.agj.android.ui.LabelPill
+import com.agj.android.ui.Placement
 import com.agj.android.ui.STEP_PANEL_H
 import com.agj.android.ui.STEP_PANEL_W
 import com.agj.android.ui.ServerVoice
@@ -42,17 +45,14 @@ import com.agj.android.ui.StubVoice
 import com.agj.android.ui.Voice
 import com.agj.android.ui.WindowFollow
 import com.agj.android.ui.downscaleJpeg
-import com.agj.android.vision.CameraSource
-import com.agj.android.vision.ExpPoseFilter
-import com.agj.android.vision.LiveCameraSource
-import com.agj.android.vision.MarkerTracker
-import com.agj.android.vision.ReplayCameraSource
-import com.agj.android.vision.TrackResult
+import com.agj.android.vision.Aabb
+import com.agj.android.vision.CameraFrame
+import com.agj.android.vision.TrackSnapshot
+import com.agj.android.vision.VisionListener
+import com.agj.android.vision.VisionModule
 import com.meta.spatial.compose.ComposeFeature
 import com.meta.spatial.compose.ComposeViewPanelRegistration
 import com.meta.spatial.core.Entity
-import com.meta.spatial.core.Pose
-import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.SystemBase
 import com.meta.spatial.core.Vector3
@@ -70,6 +70,7 @@ import com.meta.spatial.toolkit.createPanelEntity
 import com.meta.spatial.vr.LocomotionSystem
 import com.meta.spatial.vr.VRFeature
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,11 +80,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
- * Wiring: launch parameters, passthrough, panels (step window + toolbar, label pill, HUD), camera + tracker (vision/),
- * the coach flow (look → identify → build → locate → register → guide) against [ServerApi], the guide (GLB parsed into
- * [com.agj.android.guide.Guide], drawn by [SpatialGhostRenderer]), voice and the AGQ logs.
+ * Wiring: launch parameters, passthrough, panels (step window + toolbar, label pill, HUD), [VisionModule] (camera,
+ * head pose, marker tracking, filter, touch fallback, hands, the `track` log), the coach flow (look → identify →
+ * build → locate → register → guide) against [ServerApi], the guide (GLB parsed into [com.agj.android.guide.Guide],
+ * drawn by [SpatialGhostRenderer]), the perception socket (frames + hands out, guidance events in →
+ * [onGuidanceEvent]), voice and the AGQ logs.
+ *
+ * Frames: everything here is right-handed WORLD (vision/Frames.kt): `vision.worldFromAssembly()`, the head pose via
+ * `toPose3()`, window and label placement. Only guide/SpatialGhostRenderer.kt's `toSdk`/`toPose3`/`facingPose`
+ * convert to the left-handed Spatial SDK.
  */
 class MainActivity : AppSystemActivity() {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -94,13 +104,15 @@ class MainActivity : AppSystemActivity() {
   private val label = LabelModel()
   private var ghost: GhostRenderer = StubGhostRenderer()
   private var voice: Voice = StubVoice()
-  private val filter = ExpPoseFilter()
-  private val tracker = MarkerTracker()
+  private lateinit var vision: VisionModule
+  private var socket: OkHttpPerceptionSocket? = null
+  private var socketStarted = false
   private val follow = WindowFollow()
   private val sounds by lazy { Sounds() }
   private var lostShown = false
   private var advancing = false
-  private var camera: CameraSource? = null
+  private var panelsPlaced = false
+  private var hudEntity: Entity? = null
   private var assembly: Assembly? = null
   private var sceneReady = false
   private var stepEntity: Entity? = null
@@ -112,10 +124,10 @@ class MainActivity : AppSystemActivity() {
   private var registerSince = 0L
 
   private val renderFrames = AtomicInteger()
-  private val cameraFrames = AtomicInteger()
-  @Volatile private var lastTrack: TrackResult? = null
   @Volatile private var lastJpeg: ByteArray? = null
+  @Volatile private var lastJpegMs = 0L
   @Volatile private var busy = false
+  private val lookQueued = AtomicBoolean(false)
 
   private val lang
     get() = params.lang
@@ -137,6 +149,9 @@ class MainActivity : AppSystemActivity() {
     Agq.log.start(BuildConfig.VERSION_NAME, params)
     hud.state = hud.state.copy(server = params.server)
     label.lang = params.lang
+    vision = VisionModule(this, params.replay)
+    systemManager.registerSystem(vision.input) // head pose + hands + render fps, every frame
+    vision.listener = visionListener
     if (params.server.isNotEmpty()) {
       api = HttpServerApi(params.server, params.key).also { voice = ServerVoice(it, cacheDir) }
     }
@@ -155,7 +170,7 @@ class MainActivity : AppSystemActivity() {
     stepPanel.onWhere = { whereAmI() }
     stepPanel.onRepeat = { repeat() }
     stepPanel.onPress = { sounds.play(Sounds.Cue.TICK) }
-    ghost.reducedMotion = Params.bool(intent?.extras?.get("reduced_motion"))
+    ghost.reducedMotion = params.reducedMotion
 
     systemManager.findSystem<LocomotionSystem>().enableLocomotion(false)
     systemManager.registerSystem(FrameTick())
@@ -198,17 +213,93 @@ class MainActivity : AppSystemActivity() {
   }
 
   private fun startCamera() {
-    val src: CameraSource =
-        if (params.replay) ReplayCameraSource(File(getExternalFilesDir(null), "replay")) else LiveCameraSource(this)
-    camera = src
-    hud.state = hud.state.copy(cameraKind = src.kind)
-    src.start { frame ->
-      cameraFrames.incrementAndGet()
-      lastJpeg = frame.jpeg
-      lastTrack = tracker.onFrame(frame)
-      if (coach.stage == CoachFlow.Stage.LOOK && !busy) scope.launch { identify() }
+    hud.state = hud.state.copy(cameraKind = vision.cameraKind)
+    vision.start()
+  }
+
+  /**
+   * Camera thread. `frame.jpeg` is encoded lazily (live), so it is read only when needed: the LOOK frame for
+   * identify, one frame a second for locate / "Where am I", and the perception frames the socket can take now.
+   */
+  private val visionListener =
+      object : VisionListener {
+        override fun onFrame(frame: CameraFrame, track: TrackSnapshot) {
+          val stage = coach.stage
+          val now = SystemClock.elapsedRealtime()
+          if (stage == CoachFlow.Stage.LOOK) {
+            if (!busy && lookQueued.compareAndSet(false, true)) {
+              keepJpeg(frame, now)
+              scope.launch {
+                lookQueued.set(false)
+                identify()
+              }
+            }
+          } else if (now - lastJpegMs >= 1000) {
+            keepJpeg(frame, now)
+          }
+          val sock = socket
+          if (stage == CoachFlow.Stage.GUIDE && socketStarted && !finished && sock != null && sock.canSend()) {
+            try {
+              val lim = sock.limits
+              val jpeg = downscaleJpeg(frame.jpeg, lim.longEdgePx, (lim.jpegQuality * 100).toInt().coerceIn(30, 95))
+              sock.sendFrame(jpeg, curStep, System.currentTimeMillis())
+            } catch (e: Exception) {
+              Agq.log.error("perception_frame", e.message)
+            }
+          }
+        }
+
+        override fun onHands(h: HandSummary) {
+          socket?.sendHands(h)
+        }
+      }
+
+  private fun keepJpeg(frame: CameraFrame, now: Long) {
+    val j = frame.jpeg
+    if (j.isNotEmpty()) {
+      lastJpeg = j
+      lastJpegMs = now
     }
   }
+
+  // ---- perception socket: frames + hands out, guidance events in (server/perception/README.md) ----
+
+  private fun openSocket(job: String) {
+    if (params.server.isEmpty()) return
+    socket?.close()
+    socketStarted = false
+    socket = OkHttpPerceptionSocket(params.server, params.key, Agq.log).also { it.connect(job, perceptionListener) }
+  }
+
+  /** `say` is `{en, el}` (or a plain string); null when the event has none. */
+  private fun sayOf(raw: JsonObject): String? {
+    val s = raw["say"] ?: return null
+    (s as? JsonPrimitive)?.let { return it.contentOrNull?.takeIf { t -> t.isNotBlank() } }
+    val o = s as? JsonObject ?: return null
+    fun get(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+    return get(lang) ?: get("en")
+  }
+
+  /** OkHttp reader thread → main thread → [onGuidanceEvent]. */
+  private val perceptionListener =
+      object : PerceptionListener {
+        private fun post(event: String, raw: JsonObject, step: Int? = null) {
+          val say = sayOf(raw)
+          runOnUiThread { if (step == null || step == curStep) onGuidanceEvent(event, say) }
+        }
+
+        override fun onStepComplete(step: Int?, raw: JsonObject) = post("step_complete", raw, step)
+
+        override fun onWrongHardware(expected: String?, observed: String?, raw: JsonObject) = post("wrong_hardware", raw)
+
+        override fun onFlipNeeded(raw: JsonObject) = post("wrong_flip", raw)
+
+        override fun onUnsure(raw: JsonObject) = post("unsure", raw)
+
+        override fun onEvent(event: String, raw: JsonObject) {
+          if (event in PASS_THROUGH_EVENTS) post(event, raw)
+        }
+      }
 
   // ---- coach flow (XR_NATIVE_SPEC §5.4) ----
 
@@ -237,6 +328,7 @@ class MainActivity : AppSystemActivity() {
       CoachFlow.Stage.REGISTER -> {
         registerSince = SystemClock.elapsedRealtime()
         card(5, s("coachLockTitle"), s("coachLockBody"))
+        armTouch()
       }
       CoachFlow.Stage.GUIDE -> {
         val a = assembly?.guide ?: return
@@ -319,6 +411,7 @@ class MainActivity : AppSystemActivity() {
         val a = withContext(Dispatchers.IO) { repo.load(id) }
         assembly = a
         if (sceneReady) ghost.load(a)
+        openSocket(a.jobId)
         locate(auto = true)
       } catch (e: Exception) {
         Agq.log.error("job", e.message)
@@ -361,6 +454,19 @@ class MainActivity : AppSystemActivity() {
     }
   }
 
+  /**
+   * Two-corner touch fallback while waiting for the marker (vision/TouchTracker.kt): the front-bottom corners in the
+   * start step's pose. The marker overrides a touch pose whenever it is seen. Corners UNVERIFIED (Assembly.frontCorners).
+   */
+  private fun armTouch() {
+    val a = assembly ?: return
+    val g = a.guide ?: return
+    val start = coach.startStep?.let { g.step(it) } ?: g.steps.firstOrNull() ?: return
+    val plateFromAssembly = start.tableFromAssembly
+    val (l, r) = a.frontCorners()
+    vision.startTouch(plateFromAssembly.transform(l) to plateFromAssembly.transform(r), plateFromAssembly)
+  }
+
   // ---- guide ----
 
   private fun showStep(step: Int, action: Int, by: StepBy) {
@@ -368,6 +474,14 @@ class MainActivity : AppSystemActivity() {
     val st = g.step(step) ?: return
     val act = st.actions.getOrNull(action)
     val firstOfStep = step != curStep || finished
+    val sock = socket
+    if (sock != null) {
+      when {
+        !socketStarted -> sock.start(step, action).also { socketStarted = true }
+        firstOfStep -> sock.step(step, action)
+        action != curAction -> sock.action(action)
+      }
+    }
     curStep = step
     curAction = action
     finished = false
@@ -413,10 +527,18 @@ class MainActivity : AppSystemActivity() {
    * The current action is done (Next, or a perception `step_complete`): correct sequence first (green check, ghost
    * fades over 600 ms, chime; three-note cue when the step ends), then the next action's ghost (spec §4.7).
    */
-  private fun advance(by: StepBy) {
+  private fun advance(by: StepBy, wholeStep: Boolean = false) {
     val g = assembly?.guide ?: return
     if (coach.stage != CoachFlow.Stage.GUIDE || advancing || finished) return
-    val n = g.next(curStep, curAction)
+    val n =
+        if (wholeStep) {
+          // `step_complete`: the whole step is done, go to the first action of the next step
+          val flat = g.flatten()
+          val i = flat.indexOf(curStep to curAction)
+          flat.drop(i + 1).firstOrNull { it.first != curStep }
+        } else {
+          g.next(curStep, curAction)
+        }
     if (n == null) {
       finishGuide()
       return
@@ -446,7 +568,8 @@ class MainActivity : AppSystemActivity() {
   fun onGuidanceEvent(event: String, say: String?) {
     if (coach.stage != CoachFlow.Stage.GUIDE) return
     when {
-      event == "step_complete" || event == "action_complete" -> advance(StepBy.AUTO)
+      event == "step_complete" -> advance(StepBy.AUTO, wholeStep = true)
+      event == "action_complete" -> advance(StepBy.AUTO)
       event.startsWith("wrong") -> {
         ghost.setState(com.agj.android.guide.GhostState.WRONG)
         sounds.play(Sounds.Cue.WARNING)
@@ -513,6 +636,8 @@ class MainActivity : AppSystemActivity() {
         )
     voice.say(s("allDone"), lang)
     sounds.play(Sounds.Cue.COMPLETE)
+    if (socketStarted) socket?.stop()
+    socketStarted = false
     Agq.log.event("finish", mapOf("job" to assembly?.jobId, "steps" to g.steps.size))
   }
 
@@ -525,9 +650,10 @@ class MainActivity : AppSystemActivity() {
     val now = SystemClock.elapsedRealtimeNanos()
     val dt = if (lastTickNs == 0L) 1f / 72f else ((now - lastTickNs) / 1e9f).coerceIn(0f, 0.1f)
     lastTickNs = now
-    val t = lastTrack
-    val pose = filter.update(t?.worldFromAssembly, now)
-    val head = runCatching { scene.getViewerPose().toPose3() }.getOrNull()
+    // WORLD ← ASSEMBLY, filtered; held forever after the marker is hidden (vision/TrackingCore.kt); null = lost
+    val pose = vision.worldFromAssembly()
+    val head = runCatching { scene.getViewerPose().toPose3() }.getOrNull()?.takeIf { it.t.length() > 1e-3f }
+    if (!panelsPlaced && head != null && renderFrames.get() > 30) placePanels(head)
 
     if (assembly != null && sceneReady) {
       when {
@@ -542,6 +668,7 @@ class MainActivity : AppSystemActivity() {
       if (coach.stage == CoachFlow.Stage.REGISTER) {
         if (pose != null) {
           card(5, s("coachLockTitle"), s("coachLocked"))
+          vision.cancelTouch()
           coach.registered()
         } else if (SystemClock.elapsedRealtime() - registerSince > 5000 && head != null) {
           tableFallback = fixedTableSpot(head)
@@ -551,6 +678,7 @@ class MainActivity : AppSystemActivity() {
         }
       }
       ghost.tick(dt)
+      vision.handTarget = ghost.currentTargetBoxWorld()?.let { (lo, hi) -> Aabb(lo, hi) }
     }
 
     trackLostPill()
@@ -560,20 +688,26 @@ class MainActivity : AppSystemActivity() {
     if (objectTop != null && head != null) {
       val target = follow.target(objectTop + Vec3(0f, 0.10f, 0f), 0.22f, head.t)
       val p = follow.update(target, dt) ?: return
-      val f = p - head.t
-      e.setComponent(Transform(Pose(p.toSdk(), Quaternion.lookRotationAroundY(Vector3(f.x, 0f, f.z)))))
+      e.setComponent(Transform(facingPose(p, head.t)))
     }
   }
 
-  /** 0.55 m ahead of the head, 0.45 m below it, turned to face the user: the demo spot when nothing is tracked. */
-  private fun fixedTableSpot(head: Pose3): Pose3 {
-    val fwd = head.q.rotate(Vec3(0f, 0f, -1f))
-    val flat = Vec3(fwd.x, 0f, fwd.z).let { v -> v * (1f / v.length().coerceAtLeast(1e-3f)) }
-    val pos = Vec3(head.t.x, head.t.y - 0.45f, head.t.z) + flat * 0.55f
-    // the assembly's front (+Z in glTF) faces the user
-    val yaw = kotlin.math.atan2(-flat.x, -flat.z)
-    return Pose3(pos, Quat.yaw(yaw))
+  /**
+   * Coach cards 0.8 m ahead of the first real head pose, 15° below eye level, world-locked (spec §5.4); the HUD to
+   * the left. Until then (onSceneReady) they sit at the same spot relative to the session origin.
+   */
+  private fun placePanels(head: Pose3) {
+    panelsPlaced = true
+    if (coach.stage == CoachFlow.Stage.GUIDE) return // the window already follows the object
+    val step = Placement.ahead(head, 0.8f, 0.21f) // tan 15° × 0.8 m
+    stepEntity?.setComponent(Transform(facingPose(step, head.t)))
+    val hudPos = Placement.ahead(head, 0.9f, 0.45f, right = -0.55f)
+    hudEntity?.setComponent(Transform(facingPose(hudPos, head.t)))
+    Agq.log.event("panels", mapOf("head_m" to head.t, "step_m" to step))
   }
+
+  /** The demo spot when nothing is tracked ([Placement.fixedTableSpot], unit-tested in front of the wearer). */
+  private fun fixedTableSpot(head: Pose3): Pose3 = Placement.fixedTableSpot(head)
 
   // ---- periodic logs, HUD, server reachability ----
 
@@ -587,13 +721,11 @@ class MainActivity : AppSystemActivity() {
         val dt = (now - last) / 1000.0
         last = now
         tick++
-        val camFps = cameraFrames.getAndSet(0) / dt
-        val t = lastTrack
-        val pose = filter.current()
-        val src = if (t?.tracked == true) t.source else if (tableFallback != null) TrackSource.NONE else TrackSource.NONE
-        Agq.log.track(camFps, t?.tracked == true, pose?.t, pose?.q?.yawDeg(), t?.reprojPx, src)
-        hud.state =
-            hud.state.copy(cameraFps = camFps, tracked = t?.tracked == true, trackSource = src.wire, reprojPx = t?.reprojPx)
+        // `track` is logged by VisionModule (10 Hz live, every frame in replay); only the HUD here
+        val snap = vision.snapshot()
+        val camFps = (vision.hud()["cam_fps"] as? Double) ?: 0.0
+        val src = if (snap.worldFromAssembly == null && tableFallback != null) "fixed_spot" else snap.method
+        hud.state = hud.state.copy(cameraFps = camFps, tracked = snap.tracked, trackSource = src, reprojPx = snap.reprojPx)
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0
           Agq.log.frame(fps, null, null)
@@ -614,11 +746,12 @@ class MainActivity : AppSystemActivity() {
         sunDirection = -Vector3(1.0f, 3.0f, -2.0f),
         environmentIntensity = 0.3f,
     )
-    // Coach cards: 0.8 m ahead, 15° down, world-locked once (spec §5.4). Session start is at the origin looking −Z.
-    stepEntity =
-        Entity.createPanelEntity(R.id.panel_step, Transform(Pose(Vector3(0f, 1.15f, -0.8f), Quaternion(1f, 0f, 0f, 0f))))
+    // Coach cards: 0.8 m ahead, 15° down (spec §5.4), WORLD (session start at the origin looking −Z); moved in front
+    // of the real head pose once it is known ([placePanels]).
+    val eye = Vec3(0f, 1.36f, 0f)
+    stepEntity = Entity.createPanelEntity(R.id.panel_step, Transform(facingPose(Vec3(0f, 1.15f, -0.8f), eye)))
     if (params.hud) {
-      Entity.createPanelEntity(R.id.panel_hud, Transform(Pose(Vector3(-0.55f, 1.0f, -0.9f), Quaternion(0f, 160f, 0f))))
+      hudEntity = Entity.createPanelEntity(R.id.panel_hud, Transform(facingPose(Vec3(-0.55f, 0.9f, -0.9f), eye)))
     }
     sceneReady = true
     assembly?.let { ghost.load(it) }
@@ -652,7 +785,9 @@ class MainActivity : AppSystemActivity() {
       )
 
   override fun onDestroy() {
-    camera?.stop()
+    vision.stop()
+    socket?.close()
+    socket = null
     voice.stop()
     scope.cancel()
     super.onDestroy()
@@ -671,6 +806,8 @@ class MainActivity : AppSystemActivity() {
 
   companion object {
     private const val REQ_CAMERA = 1
+    /** Server events passed to [onGuidanceEvent] as they are (the typed ones are mapped in [perceptionListener]). */
+    private val PASS_THROUGH_EVENTS = setOf("good", "action_complete", "wrong_part", "wrong_place")
     val CAMERA_PERMISSIONS =
         listOf("android.permission.CAMERA", "horizonos.permission.HEADSET_CAMERA", "com.oculus.permission.USE_SCENE")
   }

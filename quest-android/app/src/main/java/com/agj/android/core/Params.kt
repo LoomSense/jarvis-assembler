@@ -23,6 +23,7 @@ import kotlinx.serialization.json.jsonObject
  * @property lang `el` or `en`; anything else falls back to `en`.
  * @property replay true = read camera frames from the replay folder instead of the headset camera.
  * @property hud true = show the debug HUD panel.
+ * @property reducedMotion true = no breathing, mover or travelling dash (XR_NATIVE_SPEC §7); extra `reduced_motion`.
  */
 data class Params(
     val server: String = "",
@@ -31,6 +32,7 @@ data class Params(
     val lang: String = "en",
     val replay: Boolean = false,
     val hud: Boolean = false,
+    val reducedMotion: Boolean = false,
 ) {
   /** For the `start` log event: the key is reduced to whether it is set. */
   fun toLogMap(): Map<String, Any?> =
@@ -41,10 +43,11 @@ data class Params(
           "lang" to lang,
           "replay" to replay,
           "hud" to hud,
+          "reduced_motion" to reducedMotion,
       )
 
   companion object {
-    val KEYS = listOf("server", "key", "job", "lang", "replay", "hud")
+    val KEYS = listOf("server", "key", "job", "lang", "replay", "hud", "reduced_motion")
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     /**
@@ -85,6 +88,7 @@ data class Params(
           lang = lang,
           replay = bool(m["replay"]),
           hud = bool(m["hud"]),
+          reducedMotion = bool(m["reduced_motion"]),
       )
     }
 

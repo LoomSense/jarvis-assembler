@@ -145,6 +145,15 @@ class Guide(
 ) {
   fun step(n: Int): GuideStep? = steps.firstOrNull { it.n == n }
 
+  /**
+   * Largest distance (mm) between an action's manifest `target_m` (Blender Z-up → glTF) and where its node ends up
+   * at the end of the walkthrough clip; null when no action has both. Logged in `job_loaded` as `max_err_mm`.
+   */
+  fun maxTargetErrorMm(): Double? =
+      steps.flatMap { it.actions }
+          .mapNotNull { a -> val t = a.target ?: return@mapNotNull null; val p = a.finalPose ?: return@mapNotNull null; (t - p.t).length() * 1000.0 }
+          .maxOrNull()
+
   val stepNumbers: List<Int>
     get() = steps.map { it.n }
 

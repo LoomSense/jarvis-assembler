@@ -51,6 +51,9 @@ interface GhostRenderer {
   /** World position of the current action's label anchor (top of the ghost), for panels and the HUD. */
   fun currentAnchorWorld(): com.agj.android.core.Vec3?
 
+  /** WORLD axis-aligned box (min, max) of the current action's part, for the hands' `hand_at_target`; null = none. */
+  fun currentTargetBoxWorld(): Pair<com.agj.android.core.Vec3, com.agj.android.core.Vec3>? = null
+
   /** World-space centre of everything placed so far (the step window follows this). */
   fun assemblyCenterWorld(): com.agj.android.core.Vec3?
 

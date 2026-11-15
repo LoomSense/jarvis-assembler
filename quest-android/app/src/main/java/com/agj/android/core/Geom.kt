@@ -9,8 +9,11 @@ import kotlin.math.sqrt
  * Small math types used by every module interface, so modules do not depend on Spatial SDK or OpenCV types and can be
  * unit-tested on the JVM. Convert at the edges (Spatial SDK `Vector3`/`Quaternion`/`Pose`; OpenCV rvec/tvec).
  *
- * Frames (all right-handed, metres):
- *  - WORLD: the Spatial SDK / OpenXR tracking space; +Y up, -Z forward at session start. glTF Y-up matches it.
+ * Frames (all right-handed, metres; the app's math never sees a left-handed frame):
+ *  - WORLD: the OpenXR tracking space; +X right, +Y up, −Z forward at session start. glTF Y-up matches it. The Meta
+ *    Spatial SDK is LEFT-handed (+Z forward, its Scene docs): its world is WORLD mirrored in Z. Convert only at the
+ *    SDK edge: guide/SpatialGhostRenderer.kt `toSdk` / `toPose3` / `facingPose` and `SpatialMesh.fromGltf` (meshes),
+ *    all built on vision/Frames.kt `mirrorZ`.
  *  - ASSEMBLY: the GLB root node `assembly`; +Y up (glTF). Manifest `target_m`/`from_dir` are Blender Z-up and must
  *    go through [blenderToGltf] first.
  *  - CAMERA (OpenCV convention): +X right, +Y down, +Z forward along the optical axis. Pixels: origin top-left.

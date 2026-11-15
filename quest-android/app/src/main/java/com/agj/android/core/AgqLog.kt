@@ -9,10 +9,13 @@ import kotlinx.serialization.json.JsonPrimitive
 /**
  * Structured log, shared format with the Unity app: one JSON object per line on logcat tag `AGQ`.
  *
- * `{"t": <ms since start>, "app": "android", "ev": "<event>", ...fields}`; `t`, `app`, `ev` always come first.
- * Read it with `adb logcat -s AGQ:I -v raw`.
+ * `{"t": <epoch ms>, "app": "android", "ev": "<event>", "t_rel": <ms since start>, ...fields}`; `t`, `app`, `ev`
+ * always come first. `t` is epoch milliseconds (tools/quest/agq.py reads `t > 1e11` as epoch ms), advanced by the
+ * monotonic clock from the wall time at start, so it never jumps backwards. Read it with
+ * `adb logcat -s AGQ:I -v raw`.
  *
- * Pure Kotlin: [sink] receives finished lines (the Android sink is [Agq]); [clockMs] is a monotonic clock in ms.
+ * Pure Kotlin: [sink] receives finished lines (the Android sink is [Agq]); [clockMs] is a monotonic clock in ms,
+ * [wallMs] the wall clock (epoch ms), read once.
  * Thread-safe: [event] only builds an immutable object and calls [sink], which must itself be thread-safe
  * (`android.util.Log` is).
  *
@@ -22,15 +25,19 @@ class AgqLog(
     private val clockMs: () -> Long,
     private val sink: (String) -> Unit,
     private val app: String = "android",
+    wallMs: () -> Long = { System.currentTimeMillis() },
 ) {
   private val t0 = clockMs()
+  private val wall0 = wallMs()
 
   /** Build the line without emitting it (used by tests and by [event]). */
   fun line(ev: String, fields: Map<String, Any?> = emptyMap()): String {
     val m = LinkedHashMap<String, JsonElement>()
-    m["t"] = JsonPrimitive(clockMs() - t0)
+    val rel = clockMs() - t0
+    m["t"] = JsonPrimitive(wall0 + rel)
     m["app"] = JsonPrimitive(app)
     m["ev"] = JsonPrimitive(ev)
+    m["t_rel"] = JsonPrimitive(rel)
     for ((k, v) in fields) if (k !in RESERVED) m[k] = toJson(v)
     return JsonObject(m).toString()
   }
@@ -87,7 +94,7 @@ class AgqLog(
 
   companion object {
     const val TAG = "AGQ"
-    private val RESERVED = setOf("t", "app", "ev")
+    private val RESERVED = setOf("t", "app", "ev", "t_rel")
 
     fun toJson(v: Any?): JsonElement =
         when (v) {

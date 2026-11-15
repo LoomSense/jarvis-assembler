@@ -45,8 +45,9 @@ interface VisionListener {
  * vision.listener = object : VisionListener { … }  // optional
  * // after the camera permissions (or at once when replay):
  * vision.start()
- * // render/tick: the ghost pose, already in Spatial SDK axes
- * vision.spatialPose()?.let { p -> Pose(Vector3(p[0], p[1], p[2]), Quaternion(p[6], p[3], p[4], p[5])) }
+ * // render/tick: the ghost pose in right-handed WORLD; SpatialGhostRenderer converts to Spatial axes itself
+ * ghost.setAssemblyPose(vision.worldFromAssembly())
+ * // (vision.spatialPose() is the same pose already in Spatial axes, for code that sets a Transform directly)
  * // onDestroy:
  * vision.stop()
  * ```

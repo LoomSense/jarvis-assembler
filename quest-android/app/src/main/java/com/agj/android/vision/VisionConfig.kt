@@ -28,7 +28,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * | `jpeg_long_edge`, `jpeg_quality` | 768, 70 | server frames (perception hello.limits) |
  * | `subpixel`, `aruco3`, `use_distortion` | true, false, false | [DetectorOptions] |
  * | `marker_id`, `marker_size_m` | 0, 0.08 | marker.json |
- * | `marker_offset_m`, `marker_q` | MALM drawer front | ASSEMBLY ← MARKER override ([MarkerPlacement]) |
+ * | `marker_tag_offset_m` | [−0.05, 0, 0] | the 36h11 tag's centre in strip axes (marker.json); [0, 0, 0] = single tag |
+ * | `marker_offset_m`, `marker_q` | MALM drawer front | ASSEMBLY ← MARKER(strip centre) override ([MarkerPlacement]) |
  * | `pos_min_cutoff_hz`, `pos_beta`, `rot_min_cutoff_hz`, `rot_beta` | 1, 20, 1, 2 | [OneEuroParams] |
  */
 data class VisionConfig(
@@ -59,6 +60,7 @@ data class VisionConfig(
           "use_distortion" to detector.useDistortion,
           "marker_id" to marker.markerId,
           "marker_size_m" to marker.sizeM,
+          "marker_tag_offset_m" to marker.tagOffset,
           "marker_offset_m" to marker.assemblyFromMarker.t,
           "marker_q" to marker.assemblyFromMarker.q.let { listOf(it.x, it.y, it.z, it.w) },
       )
@@ -81,6 +83,7 @@ data class VisionConfig(
             LensConvention.entries.firstOrNull { it.name.equals(s, ignoreCase = true) }
           }
       val off = arr("marker_offset_m")?.takeIf { it.size >= 3 }
+      val tagOff = arr("marker_tag_offset_m")?.takeIf { it.size >= 3 }?.let { Vec3(it[0], it[1], it[2]) }
       val mq = arr("marker_q")?.takeIf { it.size >= 4 }
       val place =
           Pose3(
@@ -107,6 +110,7 @@ data class VisionConfig(
               MarkerConfig(
                   markerId = int("marker_id") ?: d.marker.markerId,
                   sizeM = num("marker_size_m") ?: d.marker.sizeM,
+                  tagOffset = tagOff ?: d.marker.tagOffset,
                   assemblyFromMarker = place,
               ),
           filter =

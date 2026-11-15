@@ -17,8 +17,10 @@ import kotlin.math.sqrt
  *  - SPATIAL: the Meta Spatial SDK's world and Pose type. **Left-handed**: +X right, +Y up, +Z forward (Spatial SDK
  *    "Scene" docs: "Spatial SDK uses a left-handed coordinate system: X+ is right, Y+ is up, and Z+ is forward";
  *    `Vector3.Forward` is (0, 0, 1) in the 0.15.0 jar). WORLD ↔ SPATIAL is a mirror of the Z axis: [spatialToWorld],
- *    [worldToSpatial]. The renderer must convert WORLD ← ASSEMBLY with [worldToSpatial] before setting a Transform.
- *    (UNVERIFIED: that the SDK's glTF import is the same Z mirror, so a glTF-space pose maps the same way.)
+ *    [worldToSpatial] / [mirrorZ]. The app works in WORLD/ASSEMBLY (right-handed) everywhere and converts only at
+ *    the SDK edge (guide/SpatialGhostRenderer.kt `toSdk` / `toPose3`, `SpatialMesh.fromGltf`): every entity
+ *    Transform with [mirrorZ], every mesh vertex/normal with [mirrorZ] plus flipped triangle winding. We build our
+ *    own meshes from the GLB (guide/Glb.kt), so the SDK's glTF importer is not involved.
  *  - HEAD: the viewer pose (`scene.getViewerPose()`), mirrored into WORLD: +X right, +Y up, +Z backward.
  *  - CAMERA: OpenCV axes, +X right, +Y down, +Z forward along the optical axis.
  *  - MARKER: OpenCV ArUco axes, +X to the tag's right, +Y to its printed TOP edge, +Z out of the printed face,
@@ -32,6 +34,20 @@ object Frames {
 
   /** WORLD → Spatial SDK: the same mirror (it is its own inverse). Returns (tx, ty, tz, qx, qy, qz, qw). */
   fun worldToSpatial(p: Pose3): FloatArray = floatArrayOf(p.t.x, p.t.y, -p.t.z, -p.q.x, -p.q.y, p.q.z, p.q.w)
+
+  /**
+   * The Z mirror M = diag(1, 1, −1) on a point or direction: right-handed (WORLD, ASSEMBLY, any glTF-space local
+   * frame) ↔ Spatial SDK axes. Its own inverse.
+   */
+  fun mirrorZ(v: Vec3): Vec3 = Vec3(v.x, v.y, -v.z)
+
+  /**
+   * The Z mirror on a rigid transform, M·T·M, for ANY right-handed parent ← child pose (not only WORLD ← X): a
+   * Spatial entity tree whose every local Transform went through this, with mesh vertices through [mirrorZ], renders
+   * exactly M × (the right-handed scene), i.e. un-mirrored in the left-handed SDK. Its own inverse; composes
+   * (mirrorZ(a × b) = mirrorZ(a) × mirrorZ(b)).
+   */
+  fun mirrorZ(p: Pose3): Pose3 = Pose3(mirrorZ(p.t), Quat(-p.q.x, -p.q.y, p.q.z, p.q.w))
 
   /**
    * HEAD ← CAMERA(OpenCV) from Camera2 `LENS_POSE_TRANSLATION` [t] and `LENS_POSE_ROTATION` [q] (x, y, z, w).
@@ -113,18 +129,35 @@ enum class LensConvention {
  *
  * @property dictionary OpenCV predefined dictionary id; 20 = `Objdetect.DICT_APRILTAG_36h11` (checked in a test).
  * @property markerId the id printed on the sticker (marker.json: 0).
- * @property sizeM black-square side length in metres (marker.json: 0.08).
- * @property assemblyFromMarker where the sticker sits on the base part, ASSEMBLY ← MARKER.
+ * @property sizeM black-square side length in metres (marker.json `tags[tag36h11_0].size_m`: 0.08).
+ * @property tagOffset the detected tag's centre in STRIP axes (marker.json `tags[tag36h11_0].offset_m`: the 36h11
+ *   tag sits 50 mm left of the strip centre). "MARKER" everywhere downstream is the **strip centre**:
+ *   STRIP ← TAG = Translation([tagOffset]) (both tags are upright on the strip, `offset_q` identity), so
+ *   WORLD ← STRIP = WORLD ← TAG × Translation(−[tagOffset]). Override with `vision.json` `marker_tag_offset_m`
+ *   (e.g. `[0, 0, 0]` for the old single-tag print).
+ * @property assemblyFromMarker where the strip centre sits on the base part, ASSEMBLY ← MARKER(strip centre).
  */
 data class MarkerConfig(
     val dictionary: Int = 20,
     val markerId: Int = 0,
     val sizeM: Double = 0.08,
+    val tagOffset: Vec3 = STRIP_36H11_OFFSET,
     val assemblyFromMarker: Pose3 = MarkerPlacement.MALM_DRAWER_FRONT,
-)
+) {
+  /** TAG ← STRIP, applied to every PnP result. */
+  val tagFromStrip: Pose3
+    get() = Pose3(tagOffset * -1f)
+
+  companion object {
+    /** tools/quest/marker/marker.json `tags[key=tag36h11_0].offset_m` (a unit test keeps the two in sync). */
+    val STRIP_36H11_OFFSET = Vec3(-0.05f, 0f, 0f)
+  }
+}
 
 /**
- * Marker placements per job, ASSEMBLY ← MARKER.
+ * Marker placements per job, ASSEMBLY ← MARKER, where MARKER is the printed strip's centre (marker.json `object`:
+ * `strip_centre`; the strip centre sits where the single tag's centre was, so the derivation below is unchanged).
+ * The GLB's own `marker` node (manifest `markerNode`) is NOT this: it is the screw-hole ring of the viewer.
  *
  * MALM drawer (`jobs/malm-drawer/walkthrough.glb`, node `part_drawer_front_1`, identity under `assembly`): the
  * front's mesh spans X −0.19…0.19 (380 mm length), Y −0.015…0.115 (130 mm height), Z 0…0.016 (thickness). The sides

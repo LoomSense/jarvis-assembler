@@ -4,7 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * The app-wide [AgqLog] on logcat tag `AGQ` (info level), `t` from [SystemClock.elapsedRealtime] at process start.
+ * The app-wide [AgqLog] on logcat tag `AGQ` (info level), `t` epoch ms (wall time at start + [SystemClock.elapsedRealtime]), `t_rel` ms since start.
  * Callable from any thread.
  */
 object Agq {

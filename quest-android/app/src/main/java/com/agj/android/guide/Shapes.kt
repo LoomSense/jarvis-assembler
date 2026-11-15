@@ -207,3 +207,24 @@ object Shapes {
     return a * (s * s * s) + b * (3 * s * s * t) + c * (3 * s * t * t) + d * (t * t * t)
   }
 }
+
+/**
+ * Meshes built in a right-handed frame (glTF Y-up, our ASSEMBLY, [Shapes]) → the left-handed Spatial SDK: z of
+ * every position and normal negated ([com.agj.android.vision.Frames.mirrorZ]) and every triangle's winding reversed,
+ * so faces keep their outward side and the part is not mirrored (the left side panel stays on the left). Pure.
+ */
+object SpatialMesh {
+  fun fromGltf(d: MeshData): MeshData {
+    val p = d.positions.copyOf()
+    val n = d.normals.copyOf()
+    for (i in 2 until p.size step 3) p[i] = -p[i]
+    for (i in 2 until n.size step 3) n[i] = -n[i]
+    val idx = d.indices.copyOf()
+    for (t in 0 until idx.size - 2 step 3) {
+      val b = idx[t + 1]
+      idx[t + 1] = idx[t + 2]
+      idx[t + 2] = b
+    }
+    return MeshData(p, n, idx)
+  }
+}

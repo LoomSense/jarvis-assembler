@@ -21,19 +21,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgqLogTest {
+  companion object {
+    const val WALL0 = 1_794_700_000_000L // a wall time in Nov 2026, epoch ms
+  }
+
   private var now = 1000L
   private val lines = mutableListOf<String>()
-  private val log = AgqLog({ now }, { lines += it })
+  private val log = AgqLog({ now }, { lines += it }, wallMs = { WALL0 })
 
   private fun last(): JsonObject = Json.parseToJsonElement(lines.last()).jsonObject
 
   @Test
-  fun headerFieldsComeFirstAndTimeIsRelative() {
+  fun headerFieldsComeFirstAndTimeIsEpochMs() {
     now = 1250
     log.event("x", mapOf("a" to 1))
     val o = last()
-    assertEquals(listOf("t", "app", "ev", "a"), o.keys.toList())
-    assertEquals(250L, o["t"]!!.jsonPrimitive.long)
+    assertEquals(listOf("t", "app", "ev", "t_rel", "a"), o.keys.toList())
+    // tools/quest/agq.py treats t > 1e11 as epoch milliseconds
+    assertEquals(WALL0 + 250L, o["t"]!!.jsonPrimitive.long)
+    assertTrue(o["t"]!!.jsonPrimitive.long > 1e11)
+    assertEquals(250L, o["t_rel"]!!.jsonPrimitive.long)
     assertEquals("android", o["app"]!!.jsonPrimitive.content)
     assertEquals("x", o["ev"]!!.jsonPrimitive.content)
     assertFalse(lines.last().contains('\n'))

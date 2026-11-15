@@ -17,6 +17,7 @@ class MarkerSolver(
     private val ambiguityRatio: Double = 1.5,
 ) {
   private val markerFromAssembly = config.assemblyFromMarker.inverse()
+  private val tagFromStrip = config.tagFromStrip
 
   fun solve(det: MarkerDetection, worldFromCamera: Pose3?, prior: Pose3?, ts: Long, replayFrame: Int?): TrackResult {
     val best = det.candidates.first()
@@ -32,7 +33,8 @@ class MarkerSolver(
         if (cost(second) < cost(best)) pick = second
       }
     }
-    val cameraFromMarker = Frames.cameraFromMarker(pick.rvec, pick.tvec)
+    // PnP gives CAMERA ← TAG; everything downstream uses the strip centre (MARKER = STRIP, see [MarkerConfig]).
+    val cameraFromMarker = Frames.cameraFromMarker(pick.rvec, pick.tvec) * tagFromStrip
     if (pick.reprojPx > maxReprojPx) {
       return TrackResult(false, null, pick.reprojPx, TrackSource.NONE, ts, null, cameraFromMarker, det.ms, true, replayFrame)
     }

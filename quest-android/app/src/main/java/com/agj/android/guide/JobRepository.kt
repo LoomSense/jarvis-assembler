@@ -59,6 +59,7 @@ class HttpJobRepository(private val api: ServerApi, private val cacheDir: File) 
             "parse_ms" to (System.nanoTime() - t1) / 1_000_000,
             "parts" to (a.guide?.parts?.size ?: 0),
             "glb_bytes" to glb.length(),
+            "max_err_mm" to a.guide?.maxTargetErrorMm()?.let { Math.round(it * 1000) / 1000.0 },
         ),
     )
     return a

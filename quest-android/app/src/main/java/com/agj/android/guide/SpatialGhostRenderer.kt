@@ -5,6 +5,7 @@ import com.agj.android.core.Agq
 import com.agj.android.core.Pose3
 import com.agj.android.core.Quat
 import com.agj.android.core.Vec3
+import com.agj.android.vision.Frames
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
@@ -24,11 +25,32 @@ import kotlin.math.sin
 /** What the label pill shows (the ui/ layer draws it in a mesh-mode Compose panel). */
 data class LabelInfo(val label: PartLabel, val state: GhostState, val lost: Boolean)
 
-fun Pose3.toSdk() = Pose(Vector3(t.x, t.y, t.z), Quaternion(q.w, q.x, q.y, q.z))
+/*
+ * The ONE place where our right-handed frames meet the left-handed Spatial SDK (vision/Frames.kt has the frame
+ * definitions). Everything in the app (tracker poses, the guide's ASSEMBLY data, the head pose, window and label
+ * placement, touch registration) is right-handed WORLD/ASSEMBLY; these functions apply the Z mirror on the way in
+ * and out. Mesh vertices go through [SpatialMesh.fromGltf].
+ */
 
-fun Vec3.toSdk() = Vector3(x, y, z)
+/** A right-handed parent ← child pose (WORLD ← X, or a local child pose) → Spatial SDK `Pose`. */
+fun Pose3.toSdk(): Pose = Frames.mirrorZ(this).let { m -> Pose(Vector3(m.t.x, m.t.y, m.t.z), Quaternion(m.q.w, m.q.x, m.q.y, m.q.z)) }
 
-fun Pose.toPose3() = Pose3(Vec3(t.x, t.y, t.z), Quat(q.x, q.y, q.z, q.w))
+/** A right-handed point or offset → Spatial SDK `Vector3`. */
+fun Vec3.toSdk(): Vector3 = Vector3(x, y, -z)
+
+/** A Spatial SDK pose (e.g. `scene.getViewerPose()`) → right-handed WORLD. */
+fun Pose.toPose3(): Pose3 = Frames.spatialToWorld(t.x, t.y, t.z, q.x, q.y, q.z, q.w)
+
+/**
+ * A panel at [posWorld] turned about the vertical to face [headWorld] (both WORLD). The rotation is built in Spatial
+ * axes with the SDK's own `lookRotationAroundY(panel − head)` (the SDK's panel convention; UNVERIFIED on device that
+ * the readable side then faces the viewer: if a panel shows its back, negate the vector here, once for all panels).
+ */
+fun facingPose(posWorld: Vec3, headWorld: Vec3): Pose {
+  val p = posWorld.toSdk()
+  val h = headWorld.toSdk()
+  return Pose(p, Quaternion.lookRotationAroundY(Vector3(p.x - h.x, 0f, p.z - h.z)))
+}
 
 /**
  * [GhostRenderer] in the Meta Spatial SDK scene. Every part gets its own mesh built from the parsed GLB ([Guide]),
@@ -40,7 +62,12 @@ fun Pose.toPose3() = Pose3(Vec3(t.x, t.y, t.z), Quat(q.x, q.y, q.z, q.w))
  * guides. Label pill, leader line and anchor dot live in WORLD (billboarded, angular size kept).
  *
  * @param registerMesh registers a mesh creator for a `mesh://…` URI (the activity forwards to the SDK's MeshManager).
- * @param viewer the head pose in WORLD, for billboarding and dynamic scale.
+ * @param viewer the head pose in WORLD (right-handed: convert `scene.getViewerPose()` with [toPose3]), for
+ *   billboarding and dynamic scale.
+ *
+ * Frames: every pose and point this class takes or returns is right-handed WORLD / ASSEMBLY (the tracker's
+ * `vision.worldFromAssembly()`, the guide's glTF data); the conversion to Spatial axes happens only in [toSdk] and
+ * [SpatialMesh.fromGltf].
  * @param labelPanelId a registered panel id for the label pill (mesh render mode), or null for no label.
  * @param onLabel what the label should show now (null = hide).
  */
@@ -163,13 +190,15 @@ class SpatialGhostRenderer(
   private fun toSceneMesh(d: MeshData, mat: SceneMaterial): SceneMesh {
     val n = d.vertexCount
     // One material → materialRanges [0, indexCount] (same under either [start,count] or [start,end] reading).
+    // glTF / ASSEMBLY (right-handed) → Spatial axes: mirrored z + reversed winding (SpatialMesh, unit-tested).
+    val m = SpatialMesh.fromGltf(d)
     return SceneMesh.meshWithMaterials(
-        d.positions,
-        d.normals,
+        m.positions,
+        m.normals,
         FloatArray(n * 2),
         IntArray(n) { -1 },
-        d.indices,
-        intArrayOf(0, d.indices.size),
+        m.indices,
+        intArrayOf(0, m.indices.size),
         arrayOf(mat),
         false,
     )
@@ -373,12 +402,7 @@ class SpatialGhostRenderer(
     val lift = 0.09f * labelScale
     val pill = anchor!! + Vec3(0f, lift + PILL_HALF_H * labelScale, 0f)
     labelE?.let { e ->
-      val q =
-          head?.let { h ->
-            val f = pill - h.t
-            Quaternion.lookRotationAroundY(Vector3(f.x, 0f, f.z)) // UNVERIFIED: panel front faces −forward
-          } ?: Quaternion(1f, 0f, 0f, 0f)
-      e.setComponent(Transform(Pose(pill.toSdk(), q)))
+      e.setComponent(Transform(head?.let { facingPose(pill, it.t) } ?: Pose(pill.toSdk())))
       e.setComponent(Scale(Vector3(labelScale)))
     }
     leader?.let { e ->
@@ -401,16 +425,26 @@ class SpatialGhostRenderer(
     }
   }
 
-  /** Top centre (world up) of the current part's box, in WORLD. */
-  override fun currentAnchorWorld(): Vec3? {
+  /** The current part box's 8 corners in WORLD. */
+  private fun currentCornersWorld(): List<Vec3>? {
     val wft = worldFromTable ?: return null
     val (lo, hi) = currentPartsBox() ?: return null
     val worldFromAssembly = wft * posedNow
-    val corners =
-        listOf(lo.x, hi.x).flatMap { x -> listOf(lo.y, hi.y).flatMap { y -> listOf(lo.z, hi.z).map { z -> Vec3(x, y, z) } } }
-            .map { worldFromAssembly.transform(it) }
+    return listOf(lo.x, hi.x).flatMap { x -> listOf(lo.y, hi.y).flatMap { y -> listOf(lo.z, hi.z).map { z -> Vec3(x, y, z) } } }
+        .map { worldFromAssembly.transform(it) }
+  }
+
+  /** Top centre (world up) of the current part's box, in WORLD. */
+  override fun currentAnchorWorld(): Vec3? {
+    val corners = currentCornersWorld() ?: return null
     val c = corners.reduce { acc, v -> acc + v } * (1f / corners.size)
     return Vec3(c.x, corners.maxOf { it.y }, c.z)
+  }
+
+  override fun currentTargetBoxWorld(): Pair<Vec3, Vec3>? {
+    if (cur?.geometry == null) return null
+    val c = currentCornersWorld() ?: return null
+    return Vec3(c.minOf { it.x }, c.minOf { it.y }, c.minOf { it.z }) to Vec3(c.maxOf { it.x }, c.maxOf { it.y }, c.maxOf { it.z })
   }
 
   override fun assemblyCenterWorld(): Vec3? {
