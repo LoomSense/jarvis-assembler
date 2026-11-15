@@ -96,7 +96,7 @@ namespace AG.UI
             _partsOn = !string.IsNullOrEmpty(name);
 #if AG_HAS_TMP
             _partsLabel.text = Txt.UpperNoTonos(L("Pick up", "Πάρε"));
-            _partsName.text = name ?? "";
+            Txt.SetEllipsized(_partsName, name ?? "");
             _partsCode.text = code != null && count != null ? $"{code} · {count}" : code ?? count ?? "";
 #endif
             if (model != _modelSrc) BuildTurntable(model);

@@ -201,11 +201,11 @@ namespace AG.Tests
             _cam = camGo.AddComponent<Camera>();
             _cam.clearFlags = CameraClearFlags.SolidColor;
             _cam.backgroundColor = new Color(0.55f, 0.53f, 0.50f);
-            _cam.fieldOfView = 64;
+            _cam.fieldOfView = 70;
             _cam.nearClipPlane = 0.03f;
             // a seated user looking down at a table 0.55 m ahead
             camGo.transform.position = new Vector3(-0.05f, 1.28f, -0.80f);
-            camGo.transform.LookAt(new Vector3(0.24f, 0.92f, 0.05f));
+            camGo.transform.LookAt(new Vector3(0.36f, 0.92f, 0.05f));
             var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
             table.transform.position = new Vector3(0, 0.75f - 0.02f, 0.1f);
             table.transform.localScale = new Vector3(1.4f, 0.04f, 0.8f);

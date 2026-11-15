@@ -317,7 +317,7 @@ namespace AG.UI
             SetStatus(v.BadgeKind != StatusKind.None && v.Badge != null ? v.BadgeKind : StatusKind.Info,
                 v.Badge ?? StatusLine(v));
 #if AG_HAS_TMP
-            _title.text = v.Title ?? "";
+            Txt.SetEllipsized(_title, v.Title ?? "");
             _body.text = v.Detail ?? "";
             _page.text = v.Page.HasValue ? L($"p. {v.Page}", $"σ. {v.Page}") : "";
 #endif
@@ -393,7 +393,7 @@ namespace AG.UI
         {
             SetStatus(StatusKind.Info, _cardLabel ?? "");
 #if AG_HAS_TMP
-            _title.text = title ?? "";
+            Txt.SetEllipsized(_title, title ?? "");
             _body.text = detail ?? "";
 #endif
             SetChips(null);
