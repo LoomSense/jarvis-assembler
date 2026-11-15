@@ -188,6 +188,9 @@ class SpatialInput(private val heads: HeadPoseBuffer) : SystemBase() {
     if (state != null) {
       Agq.log.event("hands_status", mapOf("state" to state, "message" to HandsStatusTracker.message(state),
           "source" to src, "skeleton" to skeletonState(), "skeleton_error" to skelError, "avatar" to avatarKinds,
+          // the raw wrist flags (valid = 3, valid + tracked = 15): a session with no hand at all (14:27 device run)
+          // could not be told apart from "controllers in use" or "hands out of view" without them
+          "wrist_flags" to wristFlags.toList(), "seen_tracked_bit" to seenTrackedBit, "joints" to jointCount,
           "avatar_error" to avatarError, "body_permission" to HandSetup.bodyPermission(),
           "hand_permission" to HandSetup.handPermission(), "render_frame" to renderFrames.get()))
     }
