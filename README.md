@@ -2,7 +2,7 @@
 
 Upload a flat-pack furniture guide (PDF). An agent reads it, builds every part in 3D, assembles them step by step in the guide's own order, and checks its work against the guide's drawings. A browser page (`client/`) plays the result as a 3D walkthrough, one action at a time. On a Meta Quest 3, a native app loads the same guide, asks the server which step the real assembly is at from a camera frame, and shows and speaks the next action in Greek or English.
 
-Status on Sun 15 Nov: two native headset apps exist, `quest-android/` (Kotlin, Meta Spatial SDK) and `quest-unity/` (Unity 6.3, Meta XR SDK). Both ran on a Quest 3: they load the guide, reach the server and get the step located in about 1.5 s. Following the real object with the printed marker is measured offline only, not yet on the headset. The WebXR page (`?mode=xr`) is a desktop preview, not the demo path. What is measured and what is not: [docs/SUBMISSION.md](docs/SUBMISSION.md).
+Status on Sun 15 Nov: the demo runs on the native Android app, `quest-android/` (Kotlin, Meta Spatial SDK); `quest-unity/` (Unity 6.3, Meta XR SDK) is the backup. On a Quest 3 the Android app loads the guide, reaches the server, gets the step located in 1.2 to 1.6 s and speaks the instruction in Greek. Nothing is printed or stuck on the furniture: the guide is placed on the work surface, and the server's camera answer moves it onto the real part (logged twice on the headset). `TODO(tracking: confirm on headset)` Following the part when it moves, with an on-device detector of the white drawer front, is measured on renders only (position error p50 4.6 mm) and has not been seen working on the headset. The WebXR page (`?mode=xr`) is a desktop preview, not the demo path. What is measured and what is not: [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
 Built at the Gen AI Summit Hackathon, Athens, 14–15 Nov 2026.
 
@@ -31,7 +31,7 @@ Headset (Quest 3 in developer mode, USB debugging allowed; builds are described 
 
 ```sh
 tools/quest/doctor.sh                                     # adb, headset, server, key, APKs
-tools/quest/install.sh android                            # or: unity
+tools/quest/install.sh android                            # the demo app; unity is the backup
 tools/quest/run.sh android --job malm-drawer --lang el    # launches the app and logs to tools/quest/runs/
 ```
 
@@ -46,7 +46,7 @@ The demo runs on one Mac (boxd sign-ups were closed): `deploy/mac_host.sh` in th
 | Phase 1 guide, KNAGGLIG box | `<URL>/?key=<KEY>&job=1115-0453-7ca85e` |
 | Phase 1 guide, MARKUS office chair | `<URL>/?key=<KEY>&job=1115-0505-4dcc90` |
 | Same in English | add `&lang=en` |
-| WebXR page (desktop preview; not the demo path, the native apps are) | add `&mode=xr` |
+| WebXR page (desktop preview; not the demo path, the native Android app is) | add `&mode=xr` |
 | Build a guide from a PDF | `eval/smoke.sh <URL> <KEY> <guide.pdf>`, or the upload screen at `/?mode=build` once it lands |
 | Live check without a camera | `eval/phase2/replay.py --job 1115-0453-7ca85e --step 6 --base http://127.0.0.1:8000 <frames folder>` |
 
