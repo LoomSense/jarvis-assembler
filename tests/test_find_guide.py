@@ -90,3 +90,17 @@ def test_an_agent_link_to_this_machine_is_refused(monkeypatch):
     monkeypatch.setattr(fg, "ask_agent", fake)
     with pytest.raises(fg.NotFound):
         asyncio.run(fg.find("anything"))
+
+
+def test_a_code_found_once_is_not_searched_again(monkeypatch, tmp_path):
+    asked = []
+
+    async def fake(query, hint, emit):
+        asked.append(query)
+        return {"found": True, "pdf_url": "https://maker.example/g.pdf", "product": "BILLY", "maker": "Maker"}
+    monkeypatch.setattr(fg, "ask_agent", fake)
+    monkeypatch.setattr(fg, "fetch", lambda url, cap, client=None: (PDF, "application/pdf", url))
+    cache = tmp_path / "c" / "found.json"
+    first = asyncio.run(fg.find("5901234123457", cache=cache))
+    again = asyncio.run(fg.find(" 5901234123457 ", cache=cache))
+    assert (first.how, again.how, asked) == ("agent", "remembered", ["5901234123457"]) and again.product == "BILLY"

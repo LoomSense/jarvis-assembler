@@ -200,8 +200,8 @@ def test_open_follows_a_link_from_a_code_to_another_makers_guide(client, monkeyp
     from pipeline import find_guide
     from server.routes import catalog as routes
 
-    async def fake_find(q, emit=None, use_agent=True):
-        assert q == "https://maker.example/qr/123" and use_agent is False     # links only by default: no paid search
+    async def fake_find(q, emit=None, use_agent=True, cache=None):
+        assert cache.name == "found.json" and q == "https://maker.example/qr/123" and use_agent is False     # links only by default: no paid search
         return find_guide.Found(b"%PDF-1.4\n% another maker\n", "shelf.pdf", "Shelf 80", "maker.example", q, "page")
     monkeypatch.setattr(routes.find_guide, "find", fake_find)
     monkeypatch.setattr(routes, "start_job", lambda request, pdf, filename, size, files=None, **st: type("J", (), {"id": "j1", "st": st})())
@@ -213,7 +213,7 @@ def test_open_does_not_search_the_web_for_a_name_unless_switched_on(client, monk
     from server.routes import catalog as routes
     called = []
 
-    async def fake_find(q, emit=None, use_agent=True):
+    async def fake_find(q, emit=None, use_agent=True, cache=None):
         called.append(q)
         raise routes.find_guide.NotFound("nothing")
     monkeypatch.setattr(routes.find_guide, "find", fake_find)

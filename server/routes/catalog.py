@@ -76,9 +76,11 @@ async def open_guide(request: Request, body: OpenBody) -> dict:
     elif FIND != "off" and (FIND == "agent" or find_guide.is_url(q)):
         # any other maker: follow the link from the box's QR code, or let the search agent find the guide (D22)
         try:
-            got = await find_guide.find(q, use_agent=FIND == "agent")
+            got = await find_guide.find(q, use_agent=FIND == "agent", cache=store.root / "_catalog" / "found.json")
         except find_guide.NotFound as e:
-            raise HTTPException(404, f"No guide found for “{q[:80]}”: {e}") from e
+            # some makers' sites refuse automatic visitors; the paper guide always works
+            raise HTTPException(404, f"No guide found for “{q[:80]}”: {e}. "
+                                     "You can photograph the pages of the paper guide instead.") from e
         pdf, filename, product, article = got.data, got.filename, got.product or got.filename, ""
     else:
         raise HTTPException(404, f"No guide matches “{q[:80]}”. Try the IKEA article number "

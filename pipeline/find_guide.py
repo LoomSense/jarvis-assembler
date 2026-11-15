@@ -34,7 +34,7 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML
 MAX_PDF, MAX_PAGE, TIMEOUT_S = 40 << 20, 4 << 20, 25.0
 MODEL = os.environ.get("AGJ_FIND_MODEL", "claude-sonnet-5-5")
 MAX_USD = float(os.environ.get("AGJ_FIND_MAX_USD", "0.6"))
-MAX_S = float(os.environ.get("AGJ_FIND_MAX_S", "120"))
+MAX_S = float(os.environ.get("AGJ_FIND_MAX_S", "75"))   # a hit took 24 s; misses ran 21 to 72 s
 GOOD = ("assembly", "instruction", "manual", "montage", "aufbau", "anleitung", "notice", "istruzioni", "montaje",
         "οδηγ", "συναρμολ", "guide")
 BAD = ("warranty", "catalog", "brochure", "privacy", "terms", "energy", "datasheet", "declaration", "safety-data")
@@ -53,7 +53,7 @@ class Found:
     product: str
     maker: str
     url: str
-    how: str            # "link" | "page" | "agent"
+    how: str            # "link" | "page" | "agent" | "remembered"
 
 
 def is_url(text: str) -> bool:
@@ -204,10 +204,43 @@ async def ask_agent(query_text: str, hint: str, emit) -> dict:
     return answer
 
 
-async def find(text: str, emit=lambda *a, **k: None, use_agent: bool = True) -> Found:
+def _key(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def remembered(cache: Path | None, text: str) -> dict | None:
+    try:
+        return json.loads(cache.read_text()).get(_key(text)) if cache and cache.is_file() else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def remember(cache: Path | None, text: str, f: Found) -> None:
+    """Keep where a guide was found, so the same code scanned again costs one download, not another search."""
+    if not cache:
+        return
+    try:
+        known = json.loads(cache.read_text()) if cache.is_file() else {}
+    except (OSError, json.JSONDecodeError):
+        known = {}
+    known[_key(text)] = {"url": f.url, "product": f.product, "maker": f.maker, "filename": f.filename}
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps(known, indent=1, ensure_ascii=False))
+
+
+async def find(text: str, emit=lambda *a, **k: None, use_agent: bool = True, cache: Path | None = None) -> Found:
     text, hint, t0 = text.strip(), "", time.perf_counter()
     if not text:
         raise NotFound("nothing to look for")
+    was = remembered(cache, text)
+    if was:
+        try:
+            data, _, final = await asyncio.to_thread(fetch, was["url"], MAX_PDF)
+            if is_pdf(data):
+                emit("thought", f"This code was looked up before: {was.get('product') or was['filename']}.")
+                return Found(data, was["filename"], was.get("product", ""), was.get("maker", ""), final, "remembered")
+        except NotFound:
+            pass                                             # the link died: search again
     if is_url(text):
         emit("thought", "Following the link from the code.")
         try:
@@ -216,6 +249,7 @@ async def find(text: str, emit=lambda *a, **k: None, use_agent: bool = True) -> 
             got, hint = None, f"(the link did not open: {e})"
         if got:
             emit("thought", f"Found a guide PDF on {got.maker} ({len(got.data) / 1e6:.1f} MB, {time.perf_counter() - t0:.1f} s).")
+            remember(cache, text, got)
             return got
     if not use_agent:
         raise NotFound("the link does not lead to an assembly guide" if is_url(text) else "only links can be followed without the search agent")
@@ -235,8 +269,10 @@ async def find(text: str, emit=lambda *a, **k: None, use_agent: bool = True) -> 
         data, final = got.data, got.url
     emit("thought", f"Found: {answer.get('product') or 'guide'} from {answer.get('maker') or urlparse(final).hostname} "
                     f"({len(data) / 1e6:.1f} MB, {time.perf_counter() - t0:.0f} s).")
-    return Found(data, name_of(final), str(answer.get("product") or ""), str(answer.get("maker") or urlparse(final).hostname),
-                 final, "agent")
+    got = Found(data, name_of(final), str(answer.get("product") or ""), str(answer.get("maker") or urlparse(final).hostname),
+                final, "agent")
+    remember(cache, text, got)
+    return got
 
 
 if __name__ == "__main__":
