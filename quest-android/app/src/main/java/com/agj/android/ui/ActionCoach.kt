@@ -10,9 +10,12 @@ import com.agj.android.guide.PartLabel
  * result (the `ACTION-COACH` hunks), logging AGQ `coach_phase` on every change.
  *
  *   PICK  → PLACE  the server confirms the right part in the hand ([ActionCoach.rightPart]); the part to take is no
- *                  longer where it lay ([ActionCoach.partMoved], or [ActionCoach.tick] seeing its pick target move
- *                  or vanish); Next or "επόμενο" ([ActionCoach.next]); the hand has been closed for 12 s (`timer`).
- *   PLACE → DONE   Next or "επόμενο"; the server's `step_complete` on the step's last action. Never a timer.
+ *                  longer where it lay ([ActionCoach.partMoved], or [ActionCoach.tick]: a hand closed at the part
+ *                  and carried it off, or its pick target moved or vanished); Next or "επόμενο"
+ *                  ([ActionCoach.next]); the hand has been closed for 12 s (`timer`).
+ *   PLACE → DONE   the server's `step_complete` on the step's last action; the hand was at the target and then left
+ *                  it, or went for the next part (`placed`, [ActionCoach.tick]); Next or "επόμενο". Never a bare
+ *                  timer: without a hand seen at the target, only the server or the wearer ends it.
  *   PICK  → DONE   only the server's `step_complete` on the step's last action (the step advances once).
  *   A turn has nothing to take: it starts at PLACE. Back and Repeat start the action again at PICK ([ActionCoach.start]).
  *   A wrong part in the hand ([ActionCoach.wrongPart]) never moves the phase and holds the automatic signals back.
@@ -42,6 +45,14 @@ data class PickSight(
     val holdingSinceMs: Long = 0L,
     /** The wearer faces where the part lay: a part that is merely out of view is not "gone". */
     val looking: Boolean = true,
+    /** Where the wrist was when the grip that is closed now began; null = not holding, or not known. */
+    val gripStart: Vec3? = null,
+    /** PLACE: a tracked hand (wrist or a fingertip) is at the target now. */
+    val atTarget: Boolean = false,
+    /** Some hand is tracked now (false: nothing is known about the hands this frame). */
+    val tracked: Boolean = hand != null,
+    /** PLACE: where the next action's part lies (its pick targets), for "the hand went for the next part". */
+    val nextSpots: List<Vec3> = emptyList(),
 )
 
 /**
@@ -68,6 +79,14 @@ class ActionCoach(private val cfg: Config = Config()) {
       val nearM: Float = 0.30f,
       /** After a wrong part is reported, the automatic signals wait this long. */
       val wrongMs: Long = 6_000,
+      /** PICK: a hand that closed at the part and has moved this far since has taken it. */
+      val carryM: Float = 0.20f,
+      /** PLACE: a hand must have been at the target this long in all… */
+      val dwellMs: Long = 1_200,
+      /** …and then every tracked hand away from it this long (the step's last action waits [awayLastMs]). */
+      val awayMs: Long = 2_000,
+      /** On the step's last action the server's `step_complete` gets this long to say it first. */
+      val awayLastMs: Long = 4_000,
   )
 
   var step = 0
@@ -87,7 +106,15 @@ class ActionCoach(private val cfg: Config = Config()) {
   var lastOfStep = false
     private set
 
+  /** What the last change made by [tick] saw: `grab`, `moved`, `gone`, `held`, `away`, `next_pick` (for the log). */
+  var how: String? = null
+    private set
+
   private var started = false
+  private var tickMs = 0L
+  private var dwellMs = 0L // PLACE: time a hand has been at the target, in all
+  private var awayMs = 0L // PLACE: time since then with tracked hands and none at the target
+  private var leftAtMs: Long? = null
   private var wanted: Set<String> = emptySet()
   private var sinceMs = FAR_PAST
   private var wrongAtMs = FAR_PAST
@@ -111,6 +138,10 @@ class ActionCoach(private val cfg: Config = Config()) {
     wrongAtMs = FAR_PAST
     rest.clear()
     leftSinceMs = null
+    dwellMs = 0
+    awayMs = 0
+    leftAtMs = null
+    how = null
     return CoachChange(step, action, from, phase, why)
   }
 
@@ -166,10 +197,19 @@ class ActionCoach(private val cfg: Config = Config()) {
    * [Config.holdMs] in this phase.
    */
   fun tick(nowMs: Long, sight: PickSight): CoachChange? {
+    val dt = (nowMs - tickMs).coerceIn(0L, 100L) // a gap between ticks is not time spent at the target
+    tickMs = nowMs
+    if (phase == CoachPhase.PLACE) return placed(nowMs, dt, sight)
     if (phase != CoachPhase.PICK) return null
     for (s in sight.spots) if (s.key !in rest && rest.values.none { (it - s.pos).length() < cfg.sameM }) rest[s.key] = s.pos
     val hand = sight.hand
+    // the hand closed where the part lay and has carried it off: nothing more to wait for
+    val grip = sight.gripStart
+    if (sight.holding && hand != null && grip != null && (hand - grip).length() > cfg.carryM &&
+        rest.values.any { (grip - it).length() < cfg.nearM } && settled(nowMs) && !wrongFresh(nowMs))
+        return move(CoachPhase.PLACE, "part_moved", nowMs, "grab")
     var left = false
+    var goneNow = false
     var handThere = sight.holding
     for ((key, at) in rest) {
       val cur = sight.spots.firstOrNull { it.key == key }
@@ -177,14 +217,40 @@ class ActionCoach(private val cfg: Config = Config()) {
       val moved = cur != null && (cur.pos - at).length() > cfg.movedM
       if (!gone && !(moved && hand != null)) continue // with no hand data only "gone" counts
       left = true
+      if (gone) goneNow = true
       if (hand != null && ((hand - at).length() < cfg.nearM || (cur != null && (hand - cur.pos).length() < cfg.nearM))) handThere = true
     }
     if (left && (hand == null || handThere)) {
       val since = leftSinceMs ?: nowMs.also { leftSinceMs = it }
       val need = if (hand == null) cfg.vanishMs else cfg.confirmMs
-      if (nowMs - since >= need && settled(nowMs) && !wrongFresh(nowMs)) return move(CoachPhase.PLACE, "part_moved", nowMs)
+      if (nowMs - since >= need && settled(nowMs) && !wrongFresh(nowMs))
+          return move(CoachPhase.PLACE, "part_moved", nowMs, if (goneNow) "gone" else "moved")
     } else leftSinceMs = null
-    if (sight.holding && nowMs - maxOf(sight.holdingSinceMs, sinceMs, wrongAtMs) >= cfg.holdMs) return move(CoachPhase.PLACE, "timer", nowMs)
+    if (sight.holding && nowMs - maxOf(sight.holdingSinceMs, sinceMs, wrongAtMs) >= cfg.holdMs)
+        return move(CoachPhase.PLACE, "timer", nowMs, "held")
+    return null
+  }
+
+  /**
+   * PLACE, every frame: `placed` once a hand has been at the target for [Config.dwellMs] in all and then either
+   * every tracked hand has been away from it for [Config.awayMs], or a hand closed anew where the next part lies.
+   * Frames without a tracked hand count for nothing (a hand hidden behind the furniture has not left it).
+   */
+  private fun placed(nowMs: Long, dt: Long, sight: PickSight): CoachChange? {
+    if (sight.atTarget) {
+      dwellMs += dt
+      awayMs = 0
+      leftAtMs = null
+    } else if (sight.tracked) {
+      awayMs += dt
+      if (leftAtMs == null) leftAtMs = nowMs
+    }
+    val leftAt = leftAtMs
+    if (dwellMs < cfg.dwellMs || leftAt == null || wrongFresh(nowMs)) return null
+    if (awayMs >= (if (lastOfStep) cfg.awayLastMs else cfg.awayMs)) return move(CoachPhase.DONE, "placed", nowMs, "away")
+    val hand = sight.hand
+    if (sight.holding && sight.holdingSinceMs > leftAt && hand != null && sight.nextSpots.any { (hand - it).length() < cfg.nearM })
+        return move(CoachPhase.DONE, "placed", nowMs, "next_pick")
     return null
   }
 
@@ -192,11 +258,15 @@ class ActionCoach(private val cfg: Config = Config()) {
 
   private fun settled(nowMs: Long) = nowMs - sinceMs >= cfg.settleMs
 
-  private fun move(to: CoachPhase, why: String, nowMs: Long): CoachChange {
+  private fun move(to: CoachPhase, why: String, nowMs: Long, how: String? = null): CoachChange {
     val c = CoachChange(step, action, phase, to, why)
     phase = to
     sinceMs = nowMs
     leftSinceMs = null
+    dwellMs = 0
+    awayMs = 0
+    leftAtMs = null
+    this.how = how
     return c
   }
 

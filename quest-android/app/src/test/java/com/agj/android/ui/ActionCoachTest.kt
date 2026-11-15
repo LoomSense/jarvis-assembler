@@ -346,6 +346,138 @@ class ActionCoachTest {
     assertEquals(CoachPhase.PLACE, coach.phase)
   }
 
+  // ---- hands only: the phases move without Next ----
+
+  @Test
+  fun aHandThatClosedAtThePartAndCarriedItOffEndsPick() {
+    board()
+    coach.tick(at(1000), PickSight(listOf(PickSpot(7, lay)), wristAway))
+    // the server still lists the part where it lay (its next look is seconds away): the hand is the evidence
+    val closed = PickSight(listOf(PickSpot(7, lay)), wristAtPart, holding = true, holdingSinceMs = now, gripStart = wristAtPart)
+    assertNull("closed at the part, not yet moved", coach.tick(at(300), closed))
+    val c = coach.tick(at(300), closed.copy(hand = wristAtPart + Vec3(-0.15f, 0.15f, 0.1f)))!!
+    assertEquals(CoachChange(2, 0, CoachPhase.PICK, CoachPhase.PLACE, "part_moved"), c)
+    assertEquals("grab", coach.how)
+  }
+
+  @Test
+  fun aClosedHandThatOnlyPassesThePartIsNotAPick() {
+    board()
+    coach.tick(at(1000), PickSight(listOf(PickSpot(7, lay)), wristAway))
+    // the grip began far from the part (a screwdriver in the hand) and then crosses over it
+    val passing = PickSight(listOf(PickSpot(7, lay)), wristAtPart, holding = true, holdingSinceMs = now, gripStart = wristAway)
+    repeat(10) { assertNull(coach.tick(at(300), passing)) }
+    assertEquals(CoachPhase.PICK, coach.phase)
+  }
+
+  private fun toPlace(last: Boolean = false) {
+    board(last = last)
+    coach.next(at(1000))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+  }
+
+  /** [ms] of frames, 50 ms apart, all seeing [sight]: the first change, or null. */
+  private fun frames(ms: Long, sight: PickSight): CoachChange? {
+    var t = 0L
+    while (t < ms) {
+      t += 50
+      coach.tick(at(50), sight)?.let { return it }
+    }
+    return null
+  }
+
+  @Test
+  fun aHandAtTheTargetThatThenLeavesEndsPlace() {
+    toPlace()
+    assertNull(frames(1500, PickSight(hand = wristAway, holding = true, atTarget = true)))
+    assertNull("just left: it may come back", frames(1900, PickSight(hand = wristAway)))
+    val c = frames(300, PickSight(hand = wristAway))!!
+    assertEquals(CoachChange(2, 0, CoachPhase.PLACE, CoachPhase.DONE, "placed"), c)
+    assertEquals("away", coach.how)
+  }
+
+  @Test
+  fun placeDoesNotEndWithoutAHandSeenAtTheTarget() {
+    toPlace()
+    assertNull("hands in view, never at the target", frames(20_000, PickSight(hand = wristAway)))
+    assertNull("no hand data at all", frames(20_000, PickSight()))
+    assertNull("a touch in passing", frames(600, PickSight(hand = wristAway, atTarget = true)))
+    assertNull(frames(20_000, PickSight(hand = wristAway)))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+  }
+
+  @Test
+  fun aHandHiddenBehindTheFurnitureHasNotLeftTheTarget() {
+    toPlace()
+    frames(1500, PickSight(hand = wristAway, atTarget = true))
+    assertNull("tracking lost at the target", frames(10_000, PickSight()))
+    assertNull(frames(1500, PickSight(hand = wristAway)))
+    frames(500, PickSight(hand = wristAway, atTarget = true)) // back at it: the away clock starts again
+    assertNull(frames(1900, PickSight(hand = wristAway)))
+    assertEquals("placed", frames(200, PickSight(hand = wristAway))!!.why)
+  }
+
+  @Test
+  fun theHandGoingForTheNextPartEndsPlaceAtOnce() {
+    toPlace()
+    val pile = listOf(lay)
+    val firstGrip = now - 5000
+    frames(1500, PickSight(hand = wristAway, holding = true, holdingSinceMs = firstGrip, atTarget = true, nextSpots = pile))
+    // still the grip that placed the part, now over the pile: not a new pick
+    assertNull(frames(500, PickSight(hand = wristAtPart, holding = true, holdingSinceMs = firstGrip, nextSpots = pile)))
+    // the hand opens, then closes on the next one
+    assertNull(frames(200, PickSight(hand = wristAtPart, nextSpots = pile)))
+    val c = coach.tick(at(50), PickSight(hand = wristAtPart, holding = true, holdingSinceMs = now, nextSpots = pile))!!
+    assertEquals(CoachChange(2, 0, CoachPhase.PLACE, CoachPhase.DONE, "placed"), c)
+    assertEquals("next_pick", coach.how)
+  }
+
+  @Test
+  fun theStepsLastActionWaitsLongerForTheServer() {
+    toPlace(last = true)
+    frames(1500, PickSight(hand = wristAway, atTarget = true))
+    assertNull(frames(3900, PickSight(hand = wristAway)))
+    assertEquals("placed", frames(200, PickSight(hand = wristAway))!!.why)
+  }
+
+  @Test
+  fun aWrongPartHoldsPlacedBack() {
+    toPlace()
+    frames(1500, PickSight(hand = wristAway, atTarget = true))
+    coach.wrongPart(now)
+    assertNull(frames(5900, PickSight(hand = wristAway)))
+    assertEquals("placed", frames(200, PickSight(hand = wristAway))!!.why)
+  }
+
+  @Test
+  fun twoBoltsWithHandsOnlyNeverNeedNext() {
+    // bolt 1: taken from the pile, put in its hole, the hand goes back for bolt 2
+    bolt(0, last = false)
+    val pile = listOf(PickSpot(1, lay), PickSpot(2, lay + Vec3(0.09f, 0f, 0f)))
+    val hole = Vec3(-0.2f, 0.8f, -0.45f)
+    coach.tick(at(1000), PickSight(pile, wristAway))
+    var grip = now
+    keep(coach.tick(at(400), PickSight(pile, hole, holding = true, holdingSinceMs = grip, gripStart = wristAtPart)))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+    assertNull(frames(1500, PickSight(pile, hole, holding = true, holdingSinceMs = grip, atTarget = true, nextSpots = pile.map { it.pos })))
+    assertNull(frames(300, PickSight(pile, wristAtPart, nextSpots = pile.map { it.pos })))
+    grip = now
+    keep(coach.tick(at(50), PickSight(pile, wristAtPart, holding = true, holdingSinceMs = grip, nextSpots = pile.map { it.pos })))
+    assertEquals(CoachPhase.DONE, coach.phase)
+    // bolt 2: the same grip carries it to the second hole; the hand then rests away from it
+    bolt(1, last = true, why = "placed")
+    assertNull("the action has just appeared", coach.tick(at(100), PickSight(pile, hole, holding = true, holdingSinceMs = grip, gripStart = wristAtPart)))
+    keep(coach.tick(at(600), PickSight(pile, hole, holding = true, holdingSinceMs = grip, gripStart = wristAtPart)))
+    assertEquals(CoachPhase.PLACE, coach.phase)
+    assertNull(frames(1500, PickSight(pile, hole, holding = true, holdingSinceMs = grip, atTarget = true)))
+    keep(frames(4100, PickSight(pile, wristAway)))
+    assertEquals(CoachPhase.DONE, coach.phase)
+    assertEquals(
+        listOf("0:pick:next", "0:place:part_moved", "0:done:placed", "1:pick:placed", "1:place:part_moved", "1:done:placed"),
+        changes.map { "${it.action}:${it.to.wire}:${it.why}" },
+    )
+  }
+
   // ---- the copy ----
 
   @Test

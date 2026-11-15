@@ -820,13 +820,19 @@ class MainActivity : AppSystemActivity() {
   private var coachTargets: List<com.agj.android.world.PickTarget> = emptyList()
   private var coachShown: List<com.agj.android.world.PickTarget> = emptyList()
   private var coachSpot: Vec3? = null
+  /** Part id / hardware code of the action after this one (the hand going for it says this one is placed). */
+  private var coachNextIds: List<String> = emptyList()
+  /** Where the wrist was when the grip that is closed now began (`HeldState.sinceMs` names the grip). */
+  private var coachGripAt: Vec3? = null
+  private var coachGripSince = 0L
 
   private fun coachAct() = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)
 
   private fun coachLog(c: com.agj.android.ui.CoachChange, source: String? = null) =
       Agq.log.event(
           "coach_phase",
-          mapOf("step" to c.step, "action" to c.action, "phase" to c.to.wire, "why" to c.why, "from" to c.from?.wire, "source" to source),
+          mapOf("step" to c.step, "action" to c.action, "phase" to c.to.wire, "why" to c.why, "from" to c.from?.wire, "source" to source,
+              "how" to actionCoach.how.takeIf { source == "hands" }),
       )
 
   /** From `showStep`: the action starts at "take" when it has a part with a name, else (a turn) at "put it here". */
@@ -840,6 +846,7 @@ class MainActivity : AppSystemActivity() {
     coachSpot = null
     val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why)
     coachIds = if (actionCoach.hasPick) ids else emptyList()
+    coachNextIds = next?.let { n -> assembly?.guide?.step(n.first)?.actions?.getOrNull(n.second) }?.let { listOfNotNull(it.partId, it.code) } ?: emptyList()
     ghost.emphasis = if (c.to == com.agj.android.ui.CoachPhase.PICK) COACH_DIM else 1f
     coachLog(c)
   }
@@ -951,25 +958,47 @@ class MainActivity : AppSystemActivity() {
 
   /** Every frame: this frame's pick targets of the action's item, and the signals that end "take" by themselves. */
   private fun coachTick(head: Pose3?) {
+    // where the wrist was when the grip that is closed now began: "the hand closed at the part and carried it off"
+    val h = vision.input.held
+    if (!h.holding) coachGripAt = null
+    else if (h.sinceMs != coachGripSince) {
+      coachGripSince = h.sinceMs
+      coachGripAt = h.handWorldPos
+    }
     if (coach.stage != CoachFlow.Stage.GUIDE || finished || coachIds.isEmpty()) {
       coachTargets = emptyList()
       coachShown = emptyList()
       return
     }
     val now = SystemClock.elapsedRealtime()
-    val mine = world.pickTargets.filter { it.id in coachIds }
+    val all = world.pickTargets
+    val mine = all.filter { it.id in coachIds }
     coachTargets = mine
-    if (actionCoach.phase == com.agj.android.ui.CoachPhase.PICK && !advancing) {
+    val phase = actionCoach.phase
+    if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing) {
       mine.firstOrNull()?.let { coachSpot = it.worldPos }
       val spot = coachSpot
       // a part out of the camera's view is not "gone": the wearer must face where it lay (within 53° of the gaze)
       val looking =
           head == null || spot == null ||
               (spot - head.t).let { d -> d.length() < 1e-3f || d.dot(head.q.rotate(Vec3(0f, 0f, -1f))) / d.length() > 0.6f }
-      val h = vision.input.held
+      // a hand at the target: the wrist or a fingertip within 6 cm of the ghost part's box (hands not older than 0.5 s)
+      val hands = vision.input.hands?.takeIf { SystemClock.elapsedRealtimeNanos() - it.tNs < 500_000_000L }?.hands ?: emptyList()
+      val box = vision.handTarget
+      val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= 0.06f } }
       val sight =
-          com.agj.android.ui.PickSight(mine.map { com.agj.android.ui.PickSpot(it.key, it.worldPos) }, h.handWorldPos, h.holding, h.sinceMs, looking)
-      coachApply(actionCoach.tick(now, sight), source = "targets")
+          com.agj.android.ui.PickSight(
+              spots = mine.map { com.agj.android.ui.PickSpot(it.key, it.worldPos) },
+              hand = h.handWorldPos,
+              holding = h.holding,
+              holdingSinceMs = h.sinceMs,
+              looking = looking,
+              gripStart = coachGripAt,
+              atTarget = atTarget,
+              tracked = hands.isNotEmpty(),
+              nextSpots = if (phase == com.agj.android.ui.CoachPhase.PLACE) all.filter { it.id in coachNextIds }.map { it.worldPos } else emptyList(),
+          )
+      coachApply(actionCoach.tick(now, sight), source = "hands")
     }
     coachShown = if (actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)) mine else emptyList()
   }
