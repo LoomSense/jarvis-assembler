@@ -10,32 +10,18 @@ Gen AI Summit Hackathon, Athens, 14–15 Nov 2026 · Try it: <https://agj.boxd.s
 
 | # | Step | Built with |
 |---|---|---|
-| 1 | **Give the guide.** Scan the QR code or barcode on the box, type the product code or name, photograph the box, or upload the PDF. | Phone web app (Vite, TypeScript, jsQR). `gemini-4-hydrogen` recognises the product from a photo. A web-search agent (Claude Agent SDK) fetches the maker's PDF. |
-| 2 | **The agent reads it.** It works out every part, screw and action in the guide. | Build agent on the Claude Agent SDK. |
-| 3 | **The parts are built in 3D.** Each part is written as CAD code and corrected until everything fits. | CadQuery (Open CASCADE), our own fit checks (NumPy). Image-to-3D on fal for shapes CAD cannot draw. |
-| 4 | **The guide is animated.** One action at a time, each step checked against the guide's own drawing. | Blender 5.3 headless (glTF, USDZ). `gemini-decision-1` compares each step with the drawing. |
-| 5 | **Follow it on the phone.** A 3D walkthrough; life-size on your table on an iPhone. Or hold the camera over the parts and a coach checks them and speaks. | three.js, AR Quick Look (ARKit). Camera frames over a WebSocket to `gemini-decision-1`; Gemini Live (`gemini-3.8-live`) for the voice. |
-| 6 | **Or build with the headset.** It finds each board on the floor, puts the 3D guide on the real part, checks the part in your hand, speaks, and takes voice commands. Nothing is printed or stuck on the furniture. | Native Quest 3 app (Kotlin, Meta Spatial SDK, passthrough camera, hand tracking, OpenCV on the device). Gemini for the checks, part finding and speech. |
+| 1 | **Give the guide.** Scan the QR code or barcode on the box, type the product code or name, photograph the box, or upload the PDF. | ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) ![Gemini 4 Hydrogen](https://img.shields.io/badge/Gemini_4_Hydrogen-4285F4?style=flat-square&logo=googlegemini&logoColor=white) ![Claude Agent SDK](https://img.shields.io/badge/Claude_Agent_SDK-D97757?style=flat-square&logo=claude&logoColor=white)<br/>Phone web app. Gemini recognises the product from a photo; a web-search agent fetches the maker's PDF. |
+| 2 | **The agent reads it.** It works out every part, screw and action in the guide. | ![Claude Agent SDK](https://img.shields.io/badge/Claude_Agent_SDK-D97757?style=flat-square&logo=claude&logoColor=white)<br/>The build agent. |
+| 3 | **The parts are built in 3D.** Each part is written as CAD code and corrected until everything fits. | ![CadQuery](https://img.shields.io/badge/CadQuery-2E7D32?style=flat-square) ![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white) ![fal](https://img.shields.io/badge/fal-6E56CF?style=flat-square)<br/>CAD code and our own fit checks; image-to-3D for shapes CAD cannot draw. |
+| 4 | **The guide is animated.** One action at a time, each step checked against the guide's own drawing. | ![Blender 5.3](https://img.shields.io/badge/Blender_5.3-E87D0D?style=flat-square&logo=blender&logoColor=white) ![Gemini Decision 1](https://img.shields.io/badge/Gemini_Decision_1-4285F4?style=flat-square&logo=googlegemini&logoColor=white)<br/>Headless Blender makes the glTF and USDZ; Gemini compares each step with the drawing. |
+| 5 | **Follow it on the phone.** A 3D walkthrough; life-size on your table on an iPhone. Or hold the camera over the parts and a coach checks them and speaks. | ![three.js](https://img.shields.io/badge/three.js-000000?style=flat-square&logo=threedotjs&logoColor=white) ![AR Quick Look](https://img.shields.io/badge/AR_Quick_Look-555555?style=flat-square&logo=apple&logoColor=white) ![Gemini Decision 1](https://img.shields.io/badge/Gemini_Decision_1-4285F4?style=flat-square&logo=googlegemini&logoColor=white) ![Gemini Live](https://img.shields.io/badge/Gemini_Live-4285F4?style=flat-square&logo=googlegemini&logoColor=white)<br/>Camera frames go over a WebSocket; the coach answers by voice. |
+| 6 | **Or build with the headset.** It finds each board on the floor, puts the 3D guide on the real part, checks the part in your hand, speaks, and takes voice commands. Nothing is printed or stuck on the furniture. | ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white) ![Meta Spatial SDK](https://img.shields.io/badge/Meta_Spatial_SDK-0467DF?style=flat-square&logo=meta&logoColor=white) ![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&logo=opencv&logoColor=white) ![Gemini](https://img.shields.io/badge/Gemini-4285F4?style=flat-square&logo=googlegemini&logoColor=white)<br/>Native Quest 3 app: passthrough camera, hand tracking, vision on the device. |
 
 ## How it fits together
 
-```mermaid
-flowchart LR
-  in["QR · code · photo · PDF"] --> phone["Phone web app<br/>Vite, TypeScript"]
-  phone --> server
-  subgraph server["Server · FastAPI on a boxd VM"]
-    direction TB
-    agent["Build agent<br/>Claude Agent SDK"] --> cad["3D parts<br/>CadQuery"] --> blender["Animation<br/>Blender"]
-    gemini["Live checks and voice<br/>Gemini"]
-  end
-  server --> glb["3D guide<br/>GLB + steps"]
-  glb --> web["Phone<br/>three.js, iPhone AR"]
-  glb --> quest["Quest 3<br/>Kotlin, Meta Spatial SDK"]
-  web -. camera, voice .-> gemini
-  quest -. camera, voice .-> gemini
-```
+![How it fits together](docs/img/architecture.svg)
 
-Every model key stays on the server.
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) Every model key stays on the server.
 
 ## More
 

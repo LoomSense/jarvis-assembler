@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 400" width="1240" height="400" role="img" aria-label="How it fits together: the guide goes from the phone to the server, where the build agent, CadQuery and Blender make the 3D guide and Gemini checks it; the 3D guide plays on the phone and on the Quest 3, which send camera and voice back to Gemini">
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;text-anchor:middle}.t{font-size:15px;font-weight:600;fill:#f5efe6}.s{font-size:13px;fill:#f0b25a}.l{font-size:12px;fill:#b9ad9c}.h{font-size:13px;font-weight:600;fill:#b9ad9c;letter-spacing:.04em}.a{stroke:#b9ad9c;stroke-width:1.6;fill:none}.d{stroke:#f0b25a;stroke-width:1.4;fill:none;stroke-dasharray:5 5}</style>
+<defs><marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#b9ad9c"/></marker><marker id="n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f0b25a"/></marker></defs>
+<rect width="1240" height="400" rx="16" fill="#0b0907"/>
+<rect x="390" y="60" width="490" height="300" rx="14" fill="#14100c" stroke="#2a221a"/>
+<text x="635" y="88" class="h">SERVER · FastAPI on a boxd VM</text>
+<rect x="20" y="120" width="150" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="95.0" y="146.0" class="t">The guide</text><text x="95.0" y="165.0" class="s">QR · code · photo · PDF</text>
+<rect x="200" y="120" width="150" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="275.0" y="146.0" class="t">Phone web app</text><text x="275.0" y="165.0" class="s">Vite, TypeScript</text>
+<rect x="410" y="120" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="475.0" y="146.0" class="t">Build agent</text><text x="475.0" y="165.0" class="s">Claude Agent SDK</text>
+<rect x="565" y="120" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="630.0" y="146.0" class="t">3D parts</text><text x="630.0" y="165.0" class="s">CadQuery</text>
+<rect x="720" y="120" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="785.0" y="146.0" class="t">Animation</text><text x="785.0" y="165.0" class="s">Blender</text>
+<rect x="700" y="270" width="170" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="785.0" y="296.0" class="t">Live checks, voice</text><text x="785.0" y="315.0" class="s">Gemini</text>
+<rect x="910" y="120" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="975.0" y="146.0" class="t">3D guide</text><text x="975.0" y="165.0" class="s">GLB + steps</text>
+<rect x="1070" y="70" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="1135.0" y="96.0" class="t">Phone</text><text x="1135.0" y="115.0" class="s">three.js, iPhone AR</text>
+<rect x="1070" y="170" width="130" height="60" rx="10" fill="#1b1610" stroke="#3a3027"/><text x="1135.0" y="196.0" class="t">Quest 3</text><text x="1135.0" y="215.0" class="s">Kotlin, Spatial SDK</text>
+<path d="M170 150H198" class="a" marker-end="url(#m)"/>
+<path d="M350 150H408" class="a" marker-end="url(#m)"/>
+<path d="M540 150H563" class="a" marker-end="url(#m)"/>
+<path d="M695 150H718" class="a" marker-end="url(#m)"/>
+<path d="M850 150H908" class="a" marker-end="url(#m)"/>
+<path d="M785 180V268" class="a" marker-end="url(#m)"/>
+<path d="M1040 140H1055V100H1068" class="a" marker-end="url(#m)"/>
+<path d="M1040 160H1055V200H1068" class="a" marker-end="url(#m)"/>
+<text x="775" y="229" class="l" style="text-anchor:end">step renders</text>
+<path d="M1135 230V290H872" class="d" marker-end="url(#n)"/>
+<path d="M1200 100H1220V310H872" class="d" marker-end="url(#n)"/>
+<text x="990" y="282" class="l">camera, voice</text>
+</svg>
