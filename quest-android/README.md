@@ -352,6 +352,32 @@ panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
 panel?.stop()
 ```
 
+**Continuous tracking of the parts (Sun 15 Nov).** A server answer takes 3–5 s, so between answers the parts are
+followed in the camera picture. `/parts` is asked with `mode: "step"` for everything the step picks up (the action's
+own item first); every box of every item (`items[].boxes`, e.g. each of 4 screws) becomes a **world-anchored track**
+(`world/PartTracks.kt`, pure) and a `PickTarget` (`key` stable per real thing, `instance`, `name`, `countText`
+"φαίνονται 3 από 4", `tracked`, `moving`, `current`, `pill(lang)`). `world/PartTracking.kt` takes camera frames
+from `VisionModule.frameTap` (camera thread: only a grey copy downscaled to 640 px; busy = the frame is skipped),
+and on its own thread `agj-flow` (≤ 30 Hz, ≤ ⅓ of a core) runs `vision/PartFlowTracker.kt`: Shi–Tomasi corners in
+each box (region grown 15 %, at least 24 px a side for small hardware), pyramidal Lucas–Kanade forward and backward,
+median flow with outlier rejection, translation only; a track is lost on too few points, off the image, or points
+collapsing / scattering, and is looked for again 1 s later where its world point projects.
+**Head motion vs part motion:** each frame the track's WORLD point is projected with that frame's camera pose and
+compared with where the 2D tracker sees the part. Agreement: the point is not touched (a world-locked marker cannot
+swim). More than 10 px apart for 3 frames while the head is fairly steady (< 25°/s, < 0.4 m/s; faster, a few ms of
+pose timing error looks like motion, so the decision waits): the part moved, and its point is re-solved every frame
+(ray onto the horizontal plane at its height, then the depth raycast → table → work height when it rests and every
+0.5 s while it moves), smoothed with an 80 ms time constant. A new answer is matched to the nearest track of the same
+item (where the track was when the picture was taken), so markers keep their part; a part that moved after the picture
+keeps the tracker's newer place. The **base part's** track moves the ghost: its steps go to the assembly anchor as
+source `flow` (position only; not while the marker tracks, after a manual nudge, within 3 s of a `markerless` pose,
+or when the seeding box failed `onBase`'s size gate). AGQ `part_track` (≤ 1 Hz): `tracks`, `alive`, `moving`,
+`seeded`, `lost`, `lost_why`, `pts` (mean points per live track), `ms`, `ms_max`, `frames`, `hz`, `moved` (world
+points that started moving because the part moved), `head_gated` (frames held for head motion), `base_moves`, `ids`;
+`cam_pose: false` every 5 s while frames have no camera pose (then nothing is tracked). Tests:
+`world/PartTracksTest` (synthetic camera motion, identity, loss, pixel mapping, step-mode answer),
+`vision/PartFlowTrackerTest` (LK on synthetic white-on-cream pictures, desktop OpenCV). **UNVERIFIED on device.**
+
 ## Logs (shared with the Unity app)
 
 Tag `AGQ`, `{"t": epoch ms, "app": "android", "ev": ..., "t_rel": ms since start, ...}` (`t` = wall time at start +

@@ -99,7 +99,10 @@ class AssemblyAnchor(
   @Synchronized
   fun setSurfaceHeight(y: Float): Boolean {
     val cur = pose ?: return false
-    if (source != PlaceSource.FIXED_SPOT && source != PlaceSource.SERVER_BOX) return false
+    // a `flow` pose (the part followed in the picture) inherits the height it started from, so it may be corrected too;
+    // a `markerless` pose is solved at the surface height and keeps its own
+    val flow = source == PlaceSource.MARKERLESS && sourceName == "flow"
+    if (source != PlaceSource.FIXED_SPOT && source != PlaceSource.SERVER_BOX && !flow) return false
     if (kotlin.math.abs(cur.t.y - y) < 0.03f) return false
     apply(Pose3(Vec3(cur.t.x, y, cur.t.z), cur.q), source!!, "depth_height")
     return true

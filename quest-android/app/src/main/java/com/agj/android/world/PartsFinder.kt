@@ -3,6 +3,7 @@ package com.agj.android.world
 import com.agj.android.core.AgqLog
 import com.agj.android.core.Vec3
 import com.agj.android.net.PartsFound
+import com.agj.android.net.PartsItem
 import com.agj.android.net.PartsResult
 import com.agj.android.vision.FrameGrab
 
@@ -26,7 +27,31 @@ data class PickTarget(
     val radiusM: Float = 0.05f,
     /** The server box, `[ymin, xmin, ymax, xmax]` 0–1000 over the camera picture (for the camera preview). */
     val box: List<Double> = emptyList(),
-)
+    /** Stable while the same real thing is followed (world/PartTracks.kt): use it to keep a marker on its part. */
+    val key: Int = 0,
+    /** Which instance of [id] (0 = the one easiest to pick up; 0–3 for four screws). */
+    val instance: Int = 0,
+    /** `en` / `el` short names (step mode). */
+    val name: Map<String, String> = emptyMap(),
+    /** `en` / `el`: "3 of 4 in view" / «φαίνονται 3 από 4» (step mode, when the step says how many). */
+    val countText: Map<String, String> = emptyMap(),
+    val countSeen: Int? = null,
+    val countNeeded: Int? = null,
+    /** The 2D tracker is following it now (false: it stands where it was last seen, world-locked). */
+    val tracked: Boolean = false,
+    /** The part itself is moving now. */
+    val moving: Boolean = false,
+    /** Belongs to the action shown now (false: another item of the same step). */
+    val current: Boolean = true,
+) {
+  /** "Wooden dowel · φαίνονται 2 από 2": the name and the count in [lang], for a label pill. */
+  fun pill(lang: String): String {
+    val l = if (lang == "el") "el" else "en"
+    val n = name[l] ?: name["en"] ?: label
+    val c = countText[l] ?: countText["en"]
+    return if (c.isNullOrEmpty()) n else "$n · $c"
+  }
+}
 
 /** What a ray may hit when there is no depth hit: the scene table, the floor, a work-surface height. */
 data class PickSurfaces(val table: TableSurface? = null, val floorY: Float? = null, val workY: Float? = null)
@@ -44,7 +69,9 @@ fun interface DepthRaycaster {
  *    the work-surface plane) → [pickTargets];
  *  - the base part ([setBase]) whenever [baseDue] says so, in the same request → [onBase] (coarse placement of the
  *    assembly anchor, world/AssemblyAnchor.kt).
- * Logs AGQ `parts`.
+ * With `mode: "step"` (the caller's [query]) the answer has every instance of every item the step needs
+ * (`items[].boxes`): each becomes a [PartInstance] in [tracks] (world/PartTracks.kt), which world/PartTracking.kt
+ * follows in the camera picture between answers. Logs AGQ `parts`.
  *
  * Threading: [tick] and the server call run on one worker (the caller's executor; [submit] queues onto it);
  * [grab] answers on the camera thread; [pickTargets] from any thread. Pure apart from the injected functions, so
@@ -65,7 +92,10 @@ class PartsFinder(
     /** A request that got no frame or answer within this is abandoned. */
     private val stuckMs: Long = 30_000L,
 ) {
-  private class Action(val job: String, val step: Int, val action: Int, val want: List<String>)
+  private class Action(val job: String, val step: Int, val action: Int, val want: List<String>, val focus: Set<String>)
+
+  /** One box of an answer: instance [index] of [f] (step mode: `items[].boxes`; else the one `box_2d`). */
+  private class Inst(val f: PartsFound, val item: PartsItem?, val index: Int, val box: List<Double>)
 
   /** One request: the action's wanted items (may be none) plus the base part (may be none). */
   private class Request(val job: String, val a: Action?, val gen: Int, val baseId: String?) {
@@ -73,13 +103,16 @@ class PartsFinder(
       get() = ((a?.want ?: emptyList()) + listOfNotNull(baseId)).distinct()
   }
 
-  private class Stored(val t: PickTarget, val tMs: Long)
+  /**
+   * The parts found, as world-anchored tracks: between answers world/PartTracking.kt follows them in the camera
+   * picture; without it they stand where the last answer put them.
+   */
+  val tracks = PartTracks(log, clockMs, useDistortion = useDistortion)
 
   @Volatile private var current: Action? = null
   @Volatile private var generation = 0
   @Volatile private var inFlightSince: Long? = null
   @Volatile private var lastStart = Long.MIN_VALUE / 2
-  @Volatile private var stored: List<Stored> = emptyList()
   @Volatile private var base: Pair<String, String>? = null // job, part id
   @Volatile private var lastBaseAnswer = Long.MIN_VALUE / 2
   @Volatile var requests = 0
@@ -98,26 +131,31 @@ class PartsFinder(
   @Volatile var hideBaseTarget: () -> Boolean = { false }
 
   fun setBase(job: String?, partId: String?) {
-    base = if (job != null && !partId.isNullOrBlank()) job to partId else null
+    val next = if (job != null && !partId.isNullOrBlank()) job to partId else null
+    if (next != base) tracks.clear()
+    base = next
     lastBaseAnswer = Long.MIN_VALUE / 2
+  }
+
+  init {
+    // a moving part's height: the depth raycast, then the table / work height (only worth asking with depth)
+    depth?.let { d ->
+      tracks.refine = { ray, done -> d.cast(listOf(ray)) { hs -> done(locate(ray, hs.firstOrNull(), surfaces())?.first) } }
+    }
   }
 
   /** The latest targets with their age now; empty when no `place`/`fasten` action is shown. */
   val pickTargets: List<PickTarget>
-    get() {
-      val now = clockMs()
-      val hide = if (hideBaseTarget()) base?.second else null
-      return stored.filter { it.t.id != hide }.map { it.t.copy(ageMs = now - it.tMs) }
-    }
+    get() = tracks.targets(clockMs(), if (hideBaseTarget()) base?.second else null)
 
   /**
    * The action shown now. Only [isPick] actions with a non-empty [want] are searched; anything else stops it and
    * clears the targets. Changing the want list clears the old targets and asks again at the next [tick].
    */
   @Synchronized
-  fun setAction(job: String?, step: Int, action: Int, isPick: Boolean, want: List<String>) {
+  fun setAction(job: String?, step: Int, action: Int, isPick: Boolean, want: List<String>, focus: List<String> = want) {
     val w = want.filter { it.isNotBlank() }.distinct()
-    val next = if (job != null && isPick && w.isNotEmpty()) Action(job, step, action, w) else null
+    val next = if (job != null && isPick && w.isNotEmpty()) Action(job, step, action, w, focus.toSet()) else null
     val cur = current
     if (cur != null && next != null && cur.job == next.job && cur.step == next.step && cur.want == next.want) {
       current = next
@@ -125,7 +163,7 @@ class PartsFinder(
     }
     current = next
     generation++
-    stored = emptyList()
+    tracks.clear(keepBase = true) // the base part's track keeps moving the ghost
     lastStart = Long.MIN_VALUE / 2 // ask at once
   }
 
@@ -148,7 +186,10 @@ class PartsFinder(
     inFlightSince = now
     val job = a?.job ?: b!!.first
     val req = Request(job, a, generation, b?.takeIf { it.first == job }?.second)
-    grab { g -> submit { run(req, g) } }
+    grab { g ->
+      tracks.onGrab() // where every track is in this picture, to match the answer against
+      submit { run(req, g) }
+    }
     return true
   }
 
@@ -174,14 +215,15 @@ class PartsFinder(
         log.error("parts_base", e.message)
       }
     }
-    val a = q.a
-    if (a == null || q.gen != generation) { // base only, or the action changed while asking
+    val a = q.a?.takeIf { q.gen == generation } // null: base only, or the action changed while asking
+    val wanted = (a?.want ?: emptyList()).toSet() + listOfNotNull(q.baseId)
+    if (wanted.isEmpty()) {
       inFlightSince = null
-      if (q.baseId != null) logAnswer(q, g, r, emptyList(), 0, ms)
       return
     }
-    val rays = r.found.map { f -> g.worldFromCamera?.let { PickRays.boxRay(it, f.box_2d, g.intrinsics, useDistortion) } }
-    val finish = { hits: List<Vec3?> -> complete(q, a, g, r, rays, hits, ms) }
+    val insts = instances(r).filter { it.f.id in wanted }
+    val rays = insts.map { i -> g.worldFromCamera?.let { PickRays.boxRay(it, i.box, g.intrinsics, useDistortion) } }
+    val finish = { hits: List<Vec3?> -> complete(q, a, g, r, insts, rays, hits, ms) }
     val d = depth
     val castable = rays.filterNotNull()
     if (d != null && castable.isNotEmpty()) {
@@ -194,29 +236,55 @@ class PartsFinder(
     }
   }
 
-  private fun complete(q: Request, a: Action, g: FrameGrab, r: PartsResult, rays: List<Ray?>, hits: List<Vec3?>, ms: Long) {
+  /** Every box of the answer: step mode gives all instances of an item (`boxes`), the default mode one. */
+  private fun instances(r: PartsResult): List<Inst> =
+      r.found.flatMap { f ->
+        val item = r.items.firstOrNull { it.id == f.id }
+        val boxes = item?.boxes?.filter { it.size == 4 }?.takeIf { it.isNotEmpty() } ?: listOf(f.box_2d)
+        boxes.take(MAX_INSTANCES).mapIndexed { i, b -> Inst(f, item, i, b) }
+      }
+
+  private fun complete(q: Request, a: Action?, g: FrameGrab, r: PartsResult, insts: List<Inst>, rays: List<Ray?>,
+      hits: List<Vec3?>, ms: Long) {
     inFlightSince = null
-    if (q.gen != generation) return
+    if (a != null && q.gen != generation) return
     val s = surfaces()
     val logFound = ArrayList<Map<String, Any?>>()
-    val fresh = ArrayList<Stored>()
-    r.found.forEachIndexed { i, f ->
+    val fresh = ArrayList<PartInstance>()
+    insts.forEachIndexed { i, inst ->
+      val f = inst.f
       val ray = rays.getOrNull(i)
       val loc = if (ray == null) null else locate(ray, hits.getOrNull(i), s)
-      logFound +=
-          mapOf("id" to f.id, "confidence" to f.confidence, "box_2d" to f.box_2d, "method" to (loc?.second ?: "none"),
-              "pos_m" to loc?.first)
-      if (loc != null && f.id in a.want && !r.simulated) { // a simulated box is a placeholder: never invent a position
-        val radius = footprintRadius(f.box_2d, g, loc.first)
+      if (inst.index == 0) {
+        logFound +=
+            mapOf("id" to f.id, "confidence" to f.confidence, "box_2d" to f.box_2d, "method" to (loc?.second ?: "none"),
+                "pos_m" to loc?.first, "boxes" to (inst.item?.boxes?.size ?: 1), "count" to inst.item?.count_text?.get("en"))
+      }
+      val px = PickRays.boxToPx(inst.box, g.intrinsics.width, g.intrinsics.height)
+      val cam = g.worldFromCamera
+      if (loc != null && px != null && cam != null && !r.simulated) { // a simulated box is a placeholder: never invent a position
+        val pick = a != null && f.id in a.want
+        val item = inst.item
         fresh +=
-            Stored(PickTarget(f.id, f.label.ifEmpty { f.id }, loc.first, f.confidence, 0, f.kind, loc.second, radius,
-                f.box_2d), g.tMs)
+            PartInstance(
+                f.id, inst.index, loc.first, loc.second, inst.box, (px[2] - px[0]) / 2, (px[3] - px[1]) / 2,
+                (loc.first - cam.t).length(), item?.confidence?.takeIf { it > 0 } ?: f.confidence,
+                f.label.ifEmpty { item?.label ?: f.id }, item?.kind?.ifEmpty { null } ?: f.kind,
+                footprintRadius(inst.box, g, loc.first), clean(item?.name), clean(item?.count_text), item?.count_seen,
+                item?.count_needed, pick = pick, base = f.id == q.baseId,
+                current = a == null || a.focus.isEmpty() || f.id in a.focus)
       }
     }
-    // keep older targets the server did not answer for (neither found nor missing) this time
-    val answered = r.found.map { it.id }.toSet() + r.missing.toSet()
-    stored = fresh + stored.filter { it.t.id !in answered }
-    logAnswer(q, g, r, logFound, fresh.size, ms)
+    // older tracks the server did not answer for (neither found nor missing) this time stay
+    val answered = (r.found.map { it.id } + r.missing + r.items.map { it.id }).filter { it in (a?.want ?: emptyList()) || it == q.baseId }
+    tracks.onAnswer(answered.toSet(), fresh, g.tMs)
+    if (a != null || q.baseId != null) logAnswer(q, g, r, logFound, fresh.count { it.pick }, ms)
+  }
+
+  private fun clean(m: Map<String, String?>?): Map<String, String> {
+    val out = LinkedHashMap<String, String>()
+    m?.forEach { (k, v) -> if (!v.isNullOrEmpty()) out[k] = v }
+    return out
   }
 
   private fun logAnswer(q: Request, g: FrameGrab, r: PartsResult, found: List<Map<String, Any?>>, targets: Int, ms: Long) {
@@ -239,6 +307,8 @@ class PartsFinder(
             "jpeg_bytes" to g.jpeg.size,
             "simulated" to r.simulated,
             "model" to r.model,
+            "mode" to r.mode,
+            "all_in_view" to r.all_in_view,
         ),
     )
   }
@@ -254,6 +324,9 @@ class PartsFinder(
     /** Depth hits nearer than this or farther than [MAX_M] from the camera are ignored. */
     const val MIN_M = 0.15f
     const val MAX_M = 4f
+
+    /** Boxes followed per item (the server sends at most 12). */
+    const val MAX_INSTANCES = 6
 
     /**
      * WORLD point for one ray: the [depthHit] when plausible, else the table rectangle (grown 10 cm), else the floor,

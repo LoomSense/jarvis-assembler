@@ -104,7 +104,7 @@ class WorldModule(
           grab = { cb -> vision.grabFrame(1280, 80, cb) },
           query = { job, jpeg, want, step ->
             val a = api() ?: throw IllegalStateException("no server")
-            runBlocking { a.parts(job, jpeg, want, step, lang) }
+            runBlocking { a.parts(job, jpeg, want, step, lang, mode = "step") } // every item of the step, every instance
           },
           surfaces = { PickSurfaces(scene.table, scene.floorY, anchor.pose?.t?.y ?: workSurfaceY ?: vision.worldFromAssembly()?.t?.y) },
           submit = { r -> worker?.execute(r) },
@@ -120,6 +120,7 @@ class WorldModule(
         }
         p.onBase = ::onBase
         p.hideBaseTarget = { anchor.serverPlaced }
+        p.tracks.onBaseMoved = ::followBase
       }
 
   /** Height of the surface the wearer looks down at, from Meta's depth raycast: works without a room scan. */
@@ -163,6 +164,11 @@ class WorldModule(
     }
   }
 
+  /** Follows the parts in the camera picture between server answers (vision/PartFlowTracker.kt → [PartTracks]). */
+  private val tracking = PartTracking(vision, parts.tracks, Agq.log)
+  @Volatile private var baseBoxOk = false
+  private var basePending = com.agj.android.core.Vec3.ZERO
+
   /** The table chosen from the room model, null until (or unless) one is found. */
   val table: TableSurface?
     get() = scene.table
@@ -183,6 +189,7 @@ class WorldModule(
     started = true
     scene.start()
     depth?.start()
+    tracking.start()
     if (worker == null) {
       val w = Executors.newSingleThreadScheduledExecutor { Thread(it, "agj-parts").apply { isDaemon = true } }
       worker = w
@@ -204,6 +211,7 @@ class WorldModule(
   fun stop() {
     worker?.shutdownNow()
     worker = null
+    tracking.stop()
     depth?.stop()
   }
 
@@ -236,7 +244,11 @@ class WorldModule(
     curStep = step
     curKind = act?.kind
     val pick = act != null && (act.kind == ActionKind.PLACE || act.kind == ActionKind.FASTEN)
-    parts.setAction(jobId, step, action, pick, listOfNotNull(act?.partId, act?.code))
+    // the action's own item first, then everything else the step picks up (all tracked, every instance)
+    val own = listOfNotNull(act?.partId, act?.code)
+    val rest = guide?.step(step)?.actions?.filter { it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN }
+        ?.flatMap { listOfNotNull(it.partId, it.code) } ?: emptyList()
+    parts.setAction(jobId, step, action, pick, own + rest, own)
     inject() // the step's pose may have changed (a turn): keep WORLD ← TABLE where it is
   }
 
@@ -326,6 +338,7 @@ class WorldModule(
     val longSide = 2f * maxOf(fp.halfX, fp.halfZ)
     val sizeOk = bp?.lengthM?.let { it >= 0.6f * longSide && it <= 1.5f * longSide } ?: false
     val ok = bp != null && onTable && sizeOk && found.confidence >= MIN_BASE_CONFIDENCE
+    baseBoxOk = ok // only a box that passed these gates may move the ghost through the flow track too
     val applied = if (ok) anchor.onServerBox(bp!!.worldFromTable) else false
     Agq.log.event(
         "place_candidate",
@@ -334,6 +347,25 @@ class WorldModule(
             "dist_m" to bp?.let { AssemblyAnchor.flatDist(it.worldFromTable.t, cur.t) }, "on_table" to onTable, "size_ok" to sizeOk,
             "cam_pose" to (g.worldFromCamera != null), "applied" to applied),
     )
+  }
+
+  /**
+   * The base part's flow track moved on the table ([from] → [to], WORLD; flow thread, at the tracker's rate): the
+   * anchor follows by the same step, position only (yaw and height kept), as source `flow`. Not while the marker
+   * tracks, after a manual nudge, within 3 s of a `markerless` pose (that one is better), or when the box that
+   * seeded the track failed [onBase]'s size / table / confidence gates.
+   */
+  @Synchronized
+  private fun followBase(from: com.agj.android.core.Vec3, to: com.agj.android.core.Vec3) {
+    val cur = anchor.pose
+    val betterPose = anchor.sourceName == PlaceSource.MARKERLESS.wire && anchor.markerlessFresh()
+    if (cur == null || !baseBoxOk || markerTracking() || anchor.source == PlaceSource.MANUAL || betterPose) {
+      basePending = com.agj.android.core.Vec3.ZERO
+      return
+    }
+    basePending = basePending + com.agj.android.core.Vec3(to.x - from.x, 0f, to.z - from.z)
+    // the anchor ignores steps under its 1.5 cm dead band: keep what is left for the next frame
+    if (anchor.onObjectPose(Pose3(cur.t + basePending, cur.q), 1f, "flow")) basePending = com.agj.android.core.Vec3.ZERO
   }
 
   /** "Re-align": the next camera answer for the base part moves the anchor (also after a manual nudge). */

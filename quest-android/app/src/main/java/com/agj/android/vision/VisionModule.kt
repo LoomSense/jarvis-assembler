@@ -69,6 +69,9 @@ class VisionModule(
 
   @Volatile var listener: VisionListener? = null
 
+  /** Camera thread, every frame after tracking, before [listener] (world/PartTracking.kt copies the grey image). */
+  @Volatile var frameTap: ((CameraFrame) -> Unit)? = null
+
   /** WORLD box of what the wearer should touch now (ghost part bounds), for `hand_at_target`. Null = none. */
   @Volatile var handTarget: Aabb? = null
 
@@ -128,6 +131,7 @@ class VisionModule(
           Agq.log.error("frame_grab", e.message)
         }
       }
+      frameTap?.invoke(frame)
       listener?.onFrame(frame, s)
     }
     touch.onSnap = { r, pose ->
