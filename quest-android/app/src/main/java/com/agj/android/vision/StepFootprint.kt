@@ -131,7 +131,10 @@ object StepFootprints {
         val done = of(guide, manifest, step, done = true)
         // sizes to 0.1 mm: the drawer front comes out as exactly 0.380 × 0.130 × 0.016, the numbers of [PanelParams]
         fun tenthMm(v: Double) = Math.round(v * 1e4) / 1e4
-        return PanelTarget(tenthMm(base.lengthM), tenthMm(base.widthM), tenthMm(top), done != null && done.heightM > top + SLAB_REST_M, base.assemblyFromFootprint, node)
+        // RECESS-CUE: the slab's grooves and holes, for the detector's 180° choice (null when it has none)
+        val slab = guide.parts[node]!!
+        val recess = RecessCue.map(slab.positions, slab.indices, base.assemblyFromFootprint, tenthMm(base.lengthM), tenthMm(base.widthM), tenthMm(top))
+        return PanelTarget(tenthMm(base.lengthM), tenthMm(base.widthM), tenthMm(top), done != null && done.heightM > top + SLAB_REST_M, base.assemblyFromFootprint, node, recess)
       }
     }
     return null
