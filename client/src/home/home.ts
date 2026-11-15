@@ -11,7 +11,7 @@ import { appLink } from '../routes'
 import '../styles/home.css'
 import {
   ACESFilmicToneMapping, Box3, BoxGeometry, CanvasTexture, Color, CylinderGeometry, DirectionalLight, Euler, Fog, Group,
-  HemisphereLight, MathUtils, Mesh, MeshStandardMaterial, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry,
+  HemisphereLight, MathUtils, Mesh, MeshStandardMaterial, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, RepeatWrapping,
   AnimationMixer, LoopOnce, PointLight, Quaternion, Raycaster, SRGBColorSpace, Scene, SpotLight, Texture, Vector2, Vector3, WebGLRenderer,
 } from 'three'
 import { apiFetch, fileUrl } from '../api'
@@ -239,6 +239,99 @@ export function startHome(app: HTMLElement): void {
     }
   }
 
+  // ------------------------------------------------------------------ the ready screen: the spot where it was just unpacked
+  // A wooden floor instead of the bench and its shelf, and around the furniture what unpacking leaves behind: the
+  // opened carton with one flap torn off, foam blocks, scraps of cardboard, the bag of screws, the instruction sheet.
+  // No product names here: the shelf of boxes belongs to the home screen.
+  const floorMap = woodTexture('#5b3a20', 11, 1024, 1024, 220)
+  floorMap.wrapS = floorMap.wrapT = RepeatWrapping
+  floorMap.repeat.set(3, 3)
+  const floor = new Mesh(new PlaneGeometry(9, 9), new MeshStandardMaterial({ map: floorMap, roughness: 0.78 }))
+  floor.rotation.x = -Math.PI / 2
+  floor.position.y = 0.0008
+  floor.receiveShadow = true
+  const unpacked = new Group()
+  {
+    const board = new MeshStandardMaterial({ color: 0xb08556, roughness: 0.93 })
+    const inside = new MeshStandardMaterial({ color: 0x8a6540, roughness: 0.96 })
+    const foam = new MeshStandardMaterial({ color: 0xf1efe9, roughness: 0.85 })
+    const tape = new MeshStandardMaterial({ color: 0xe6d3ad, roughness: 0.5 })
+    const piece = (parent: Object3D, mat: MeshStandardMaterial, size: [number, number, number], pos: [number, number, number], rot: [number, number, number] = [0, 0, 0]) => {
+      const m = new Mesh(new BoxGeometry(...size), mat)
+      m.position.set(...pos)
+      m.rotation.set(...rot)
+      m.castShadow = m.receiveShadow = true
+      parent.add(m)
+      return m
+    }
+    const W = 0.5, H = 0.11, D = 0.3, T = 0.006
+    const carton = new Group()
+    piece(carton, inside, [W, T, D], [0, T / 2, 0])
+    piece(carton, board, [W, H, T], [0, H / 2, D / 2])
+    piece(carton, board, [W, H, T], [0, H / 2, -D / 2])
+    piece(carton, board, [T, H, D], [W / 2, H / 2, 0])
+    piece(carton, board, [T, H, D], [-W / 2, H / 2, 0])
+    piece(carton, tape, [0.05, 0.002, 0.012], [0.02, H * 0.55, D / 2 + T / 2], [Math.PI / 2, 0, 0.1]) // what is left of the tape
+    const flap = (at: [number, number, number], size: [number, number, number], off: [number, number, number], rot: [number, number, number]) => {
+      const hinge = new Group()
+      hinge.position.set(...at)
+      hinge.rotation.set(...rot)
+      piece(hinge, board, size, off)
+      carton.add(hinge)
+    }
+    flap([0, H, D / 2], [W, T, D / 2], [0, 0, D / 4], [0.5, 0, 0]) // the front flap hangs open
+    flap([0, H, -D / 2], [W, T, D / 2], [0, 0, -D / 4], [1.05, 0, 0]) // the back one stands up
+    flap([W / 2, H, 0], [0.12, T, D], [0.06, 0, 0], [0, 0, -0.65])
+    flap([-W / 2, H, 0], [0.045, T, D * 0.8], [-0.022, 0, 0.02], [0, 0, 0.35]) // torn: only a stub is left
+    carton.position.set(-0.31, 0, -0.27)
+    carton.rotation.y = 0.42
+    unpacked.add(carton)
+    piece(unpacked, board, [0.085, T, D * 0.78], [-0.4, T / 2, 0.16], [0, 1.15, 0]) // the torn-off flap
+    piece(unpacked, board, [0.07, 0.004, 0.035], [0.33, 0.002, 0.27], [0, 0.7, 0])
+    piece(unpacked, board, [0.04, 0.004, 0.05], [-0.16, 0.002, 0.34], [0, -0.4, 0])
+    piece(unpacked, tape, [0.11, 0.002, 0.014], [0.2, 0.001, 0.36], [0, -0.25, 0])
+    piece(unpacked, foam, [0.13, 0.04, 0.05], [0.37, 0.02, 0.1], [0, 0.6, 0])
+    piece(unpacked, foam, [0.13, 0.04, 0.05], [0.33, 0.06, 0.12], [0.02, 1.1, 0.03])
+    piece(unpacked, foam, [0.06, 0.035, 0.06], [-0.3, 0.0175, 0.3], [0, 0.3, 0])
+    { // the instruction sheet, face up
+      const c = document.createElement('canvas')
+      c.width = 256
+      c.height = 360
+      const g = c.getContext('2d')!
+      g.fillStyle = '#f6f4ee'
+      g.fillRect(0, 0, 256, 360)
+      g.strokeStyle = '#4d4a44'
+      g.lineWidth = 3
+      g.strokeRect(54, 46, 148, 96)
+      g.strokeRect(78, 142, 12, 70)
+      g.strokeRect(166, 142, 12, 70)
+      g.fillStyle = '#b9b5ab'
+      for (let i = 0; i < 5; i++) g.fillRect(40, 244 + i * 20, i === 4 ? 96 : 176, 6)
+      const t = new CanvasTexture(c)
+      t.colorSpace = SRGBColorSpace
+      const sheet = new Mesh(new PlaneGeometry(0.105, 0.148), new MeshStandardMaterial({ map: t, roughness: 0.9 }))
+      sheet.rotation.set(-Math.PI / 2, 0, -0.35)
+      sheet.position.set(0.02, 0.0016, 0.37)
+      sheet.receiveShadow = true
+      unpacked.add(sheet)
+    }
+    { // the bag of screws
+      const bag = new Mesh(new BoxGeometry(0.085, 0.012, 0.06), new MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, transparent: true, opacity: 0.32 }))
+      bag.position.set(0.25, 0.006, 0.2)
+      bag.rotation.y = -0.5
+      unpacked.add(bag)
+      const brass = new MeshStandardMaterial({ color: 0xefd176, roughness: 0.32, metalness: 0.62 })
+      for (const [x, z, r] of [[0.24, 0.195, 0.3], [0.262, 0.205, 1.2], [0.25, 0.21, 2.2], [0.238, 0.21, 0.9]]) {
+        const sc = new Mesh(new CylinderGeometry(0.003, 0.003, 0.028, 8), brass)
+        sc.rotation.set(Math.PI / 2, 0, r)
+        sc.position.set(x, 0.005, z)
+        unpacked.add(sc)
+      }
+    }
+  }
+  floor.visible = unpacked.visible = false
+  scene.add(floor, unpacked)
+
   // ------------------------------------------------------------------ boxes: one per guide that opens at once
   const BOX = { w: 0.46, h: 0.072, d: 0.3 }
   const cardboard = new MeshStandardMaterial({ color: 0xa87a4c, roughness: 0.92 })
@@ -282,6 +375,7 @@ export function startHome(app: HTMLElement): void {
     const p = stackPose(boxes.length)
     mesh.position.copy(p.pos)
     mesh.rotation.set(0, p.rotY, 0)
+    mesh.visible = screen !== 'ready'
     scene.add(mesh)
     const button = document.createElement('button') // the boxes, for a keyboard or a screen reader
     button.type = 'button'
@@ -362,6 +456,9 @@ export function startHome(app: HTMLElement): void {
   const setScreen = (s: typeof screen) => {
     screen = s
     root.dataset.s = s
+    floor.visible = unpacked.visible = s === 'ready' // the unpacking spot instead of the bench, its shelf and the boxes
+    shelf.visible = s !== 'ready'
+    for (const b of boxes) b.mesh.visible = s !== 'ready'
     for (const f of root.querySelectorAll<HTMLElement>('.foot')) f.hidden = f.dataset.for !== s
     $('.back').classList.toggle('hide', s === 'home')
     $('.find').classList.toggle('hide', s !== 'home')
