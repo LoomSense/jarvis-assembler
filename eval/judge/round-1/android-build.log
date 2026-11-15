@@ -1,0 +1,127 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+w: ⚠️ 'org.jetbrains.kotlin:kotlin-compiler-embeddable' Artifact Present in Build Classpath
+The artifact `org.jetbrains.kotlin:kotlin-compiler-embeddable` is present in the build classpath along Kotlin Gradle plugin.
+This may lead to unpredictable and inconsistent behavior.
+Solution: Please remove the `org.jetbrains.kotlin:kotlin-compiler-embeddable` artifact from the build classpath.
+See https://kotl.in/gradle/internal-compiler-symbols for more details.
+
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:resolveComponentXmls
+> Task :app:generateSchematizedComponents
+> Task :app:processDebugNavigationResources
+> Task :app:checkDebugAarMetadata
+> Task :app:generateDebugResValues
+> Task :app:compileDebugNavigationResources
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:buildKotlinToolingMetadata
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseBuildConfig
+> Task :app:checkReleaseAarMetadata
+> Task :app:processReleaseNavigationResources
+> Task :app:compileReleaseNavigationResources
+> Task :app:generateReleaseResValues
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:javaPreCompileRelease
+> Task :app:processReleaseManifestForPackage
+> Task :app:preReleaseUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileReleaseUnitTest
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:mergeReleaseResources
+> Task :app:resolveAppComponentXmls
+> Task :app:assignDebugSpatialIds
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:findLibraryTask
+> Task :app:shadersExtractTask
+> Task :app:processReleaseResources
+
+> Task :app:compileShadersFordebug
+Merging 228 SDK shader manifest redirect entries
+Shader manifest written: 12 variants, 10 unique files, 2 duplicates removed, 230 redirect entries (2 app + 228 SDK)
+
+> Task :app:exportComponentXmls
+> Task :app:export
+> Task :app:exportOutput
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugResources
+> Task :app:mergeDebugNativeLibs
+> Task :app:stripDebugDebugSymbols
+
+> Task :app:compileReleaseKotlin
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/main/java/com/agj/android/MainActivity.kt:158:55 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugKotlin
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/main/java/com/agj/android/MainActivity.kt:158:55 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+
+> Task :app:mergeExtDexDebug
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:processReleaseJavaRes
+> Task :app:bundleReleaseClassesToRuntimeJar
+> Task :app:bundleReleaseClassesToCompileJar
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/test/java/com/agj/android/ModulesTest.kt:109:15 'fun createTempDir(prefix: String = ..., suffix: String? = ..., directory: File? = ...): File' is deprecated. Avoid creating temporary directories in the default temp location with this function due to too wide permissions on the newly created directory. Use kotlin.io.path.createTempDirectory instead.
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/test/java/com/agj/android/vision/VisionMathTest.kt:337:15 'fun createTempDir(prefix: String = ..., suffix: String? = ..., directory: File? = ...): File' is deprecated. Avoid creating temporary directories in the default temp location with this function due to too wide permissions on the newly created directory. Use kotlin.io.path.createTempDirectory instead.
+
+> Task :app:compileReleaseUnitTestKotlin
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/test/java/com/agj/android/ModulesTest.kt:109:15 'fun createTempDir(prefix: String = ..., suffix: String? = ..., directory: File? = ...): File' is deprecated. Avoid creating temporary directories in the default temp location with this function due to too wide permissions on the newly created directory. Use kotlin.io.path.createTempDirectory instead.
+w: file:///private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/quest-android/app/src/test/java/com/agj/android/vision/VisionMathTest.kt:337:15 'fun createTempDir(prefix: String = ..., suffix: String? = ..., directory: File? = ...): File' is deprecated. Avoid creating temporary directories in the default temp location with this function due to too wide permissions on the newly created directory. Use kotlin.io.path.createTempDirectory instead.
+
+> Task :app:dexBuilderDebug
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :app:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processReleaseUnitTestJavaRes
+> Task :app:testReleaseUnitTest
+> Task :app:test
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 29s
+82 actionable tasks: 82 executed
+exit=0 secs=31

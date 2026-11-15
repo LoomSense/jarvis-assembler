@@ -1,0 +1,18 @@
+## Track score
+
+| Metric | Value |
+|---|---|
+| Dataset | marker-synthetic (300 frames) |
+| Track events / tracked / matched | 300 / 300 / 300 |
+| Interpretation | world frame |
+| Frame coverage | 1.0 |
+| Position error p50 / p90 / max | 1.367 / 1.829 / 1.971 mm |
+| Bias (mean error vector) | 1.186 mm |
+| Still-phase jitter (RMS) | 0.014 mm over 40 events |
+| Yaw error p50 | 0.01 |
+| Rotation error p50 | – |
+| Time offset (no frame field) | – |
+
+Other interpretations (p50 mm): world 1.367, camera/opencv 550.597, camera/unity 550.551, camera/openxr 549.04
+
+wrote tools/quest/runs/android-jvm-marker-synthetic/score.json

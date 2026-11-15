@@ -1,0 +1,13 @@
+/Users/foivospro/Projects/hackathon                                           0ef9168 [main]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a07b58c353c4744ea e57d543 [worktree-agent-a07b58c353c4744ea] locked
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a0936dd3b8eb391ec 8bc4ed1 [worktree-agent-a0936dd3b8eb391ec]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a0ca69b816537fe93 0ef9168 [worktree-agent-a0ca69b816537fe93] locked
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a4c3e39275dfbcab4 13da04f [worktree-agent-a4c3e39275dfbcab4]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a600e6acc36560dd5 27873ef [worktree-agent-a600e6acc36560dd5]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a68f8e6c349eb25a4 a7afcfc [worktree-agent-a68f8e6c349eb25a4]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a764d1590cc533306 e57d543 [worktree-agent-a764d1590cc533306] locked
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-a7bdaecdd90821110 e57d543 [worktree-agent-a7bdaecdd90821110] locked
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-ab7dc0a850f41457b aed10b0 [worktree-agent-ab7dc0a850f41457b]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-ac2691cb40e3496fd 61f51fd [worktree-agent-ac2691cb40e3496fd]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-ae14c24f307be3777 2eb9d43 [worktree-agent-ae14c24f307be3777]
+/Users/foivospro/Projects/hackathon/.claude/worktrees/agent-aea6ae0025aca4b46 b5d8d96 [worktree-agent-aea6ae0025aca4b46]

@@ -1,0 +1,37 @@
+## android run agq
+job –, lang –, replay True, version –
+
+| Metric | Value |
+|---|---|
+| Events / bad lines / restarts | 301 / 0 / 0 |
+| Duration | 9966 s |
+| Time to job_loaded | – s (– steps) |
+| Identify | 0x, p50 – ms, max – ms, ok –, results [] |
+| Locate | 0x, p50 – ms, max – ms, ok – |
+| Tracked (time / samples) | 0 / 1, 300 samples at 0.03 Hz |
+| First tracked | 0 s after start |
+| Losses / longest gap | 0 / 0 s |
+| Sources (tracked) | marker 300 |
+| Reprojection p50 / p90 | 0.02 / 0.04 px |
+| Still jitter p50 / p90 | – / – mm (0 windows, 0 moving), yaw – deg |
+| FPS p50 / p5 / min | – / – / – |
+| Perception events | 0 (–) |
+| Step advances | 0: auto 0, button 0, by via –, max step – |
+| Frames sent | 0 at – Hz, p50 – B, – ms |
+| Errors / crashes | 0 / 0 |
+
+Gates: 3 pass, 1 fail, 5 no data
+
+| Gate | Value | Result |
+|---|---|---|
+| job loads within 10 s (time_to_job_loaded_s <= 10) | – | no data |
+| identify answers within 4 s (identify.latency_ms_p50 <= 4000) | – | no data |
+| locate answers within 6 s (locate.latency_ms_p50 <= 6000) | – | no data |
+| tracked at least 80% of the time (tracking.tracked_frac >= 0.8) | 0 | FAIL |
+| median reprojection error at most 3 px (tracking.reproj_px_p50 <= 3) | 0.02 | PASS |
+| still jitter (median) at most 3 mm (tracking.jitter_mm_p50 <= 3) | – | no data |
+| p5 frame rate at least 60 fps (fps.p5 >= 60) | – | no data |
+| no errors (errors.count <= 0) | 0 | PASS |
+| no crashes (crashes.count <= 0) | 0 | PASS |
+
+wrote /private/tmp/claude-501/-Users-foivospro-Projects-hackathon/5dd57866-1f33-4d7e-baba-8d08c393f429/scratchpad/judge-r1/main/tools/quest/runs/agq/summary.json and summary.md

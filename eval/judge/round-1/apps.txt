@@ -1,0 +1,12 @@
+agent-a07b58c353c4744ea ahead=0 dirty_quest=17 quest-unity: Unity 6.3 LTS Quest 3 project skeleton, module interfaces, batchmod
+agent-a0936dd3b8eb391ec ahead=1 dirty_quest=0 POST /api/identify and POST /api/perception/{job_id}/locate
+agent-a0ca69b816537fe93 ahead=0 dirty_quest=7 CREDITS: apriltag-imgs tag used in the dual marker strip
+agent-a4c3e39275dfbcab4 ahead=1 dirty_quest=0 tools/quest: Quest 3 test harness (doctor, install, run, capture, mirror, summar
+agent-a600e6acc36560dd5 ahead=2 dirty_quest=0 quest-android: apply XR_NATIVE_SPEC v1 numbers to the guide UI
+agent-a68f8e6c349eb25a4 ahead=1 dirty_quest=0 quest-android round 1: vision (live Camera2, AprilTag tracking, One-Euro filter,
+agent-a764d1590cc533306 ahead=1 dirty_quest=0 quest-tools: dual-tag marker strip (36h11 + 41h12), strip-centre ground truth, p
+agent-a7bdaecdd90821110 ahead=1 dirty_quest=4 wip: vision round 1
+agent-ab7dc0a850f41457b ahead=1 dirty_quest=0 quest-android: phase 1 native Quest 3 app skeleton (Kotlin, Meta Spatial SDK 0.1
+agent-ac2691cb40e3496fd ahead=1 dirty_quest=0 quest-unity: Unity 6.3 LTS Quest 3 project skeleton, module interfaces, batchmod
+agent-ae14c24f307be3777 ahead=1 dirty_quest=0 Headset: scan, identify, locate, two-corner snap, coach, bigger UI
+agent-aea6ae0025aca4b46 ahead=1 dirty_quest=0 Instruction text: verb from the hardware kind, correct Greek articles
