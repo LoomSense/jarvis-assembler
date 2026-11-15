@@ -1,0 +1,108 @@
+{
+ "step": 5,
+ "frame": 738,
+ "objects": [
+  {
+   "name": "hw_101345_1",
+   "tris": 164,
+   "material": [
+    "hw_101345"
+   ]
+  },
+  {
+   "name": "hw_101345_2",
+   "tris": 164,
+   "material": [
+    "hw_101345"
+   ]
+  },
+  {
+   "name": "hw_110519_1",
+   "tris": 878,
+   "material": [
+    "hw_110519"
+   ]
+  },
+  {
+   "name": "hw_110519_2",
+   "tris": 878,
+   "material": [
+    "hw_110519"
+   ]
+  },
+  {
+   "name": "hw_118331_1",
+   "tris": 332,
+   "material": [
+    "hw_118331"
+   ]
+  },
+  {
+   "name": "hw_118331_2",
+   "tris": 332,
+   "material": [
+    "hw_118331"
+   ]
+  },
+  {
+   "name": "hw_120076_1",
+   "tris": 96,
+   "material": [
+    "hw_120076"
+   ]
+  },
+  {
+   "name": "hw_120076_2",
+   "tris": 96,
+   "material": [
+    "hw_120076"
+   ]
+  },
+  {
+   "name": "part_drawer_back_1",
+   "tris": 380,
+   "material": [
+    "pine"
+   ]
+  },
+  {
+   "name": "part_drawer_bottom_1",
+   "tris": 12,
+   "material": [
+    "pine"
+   ]
+  },
+  {
+   "name": "part_drawer_front_1",
+   "tris": 732,
+   "material": [
+    "pine"
+   ]
+  },
+  {
+   "name": "part_drawer_side_left_1",
+   "tris": 1122,
+   "material": [
+    "pine"
+   ]
+  },
+  {
+   "name": "part_drawer_side_right_1",
+   "tris": 1386,
+   "material": [
+    "pine"
+   ]
+  }
+ ],
+ "tris": 6572,
+ "size_m": [
+  0.3800000250339508,
+  0.4180000126361847,
+  0.1300000100628514
+ ],
+ "offset_world": [
+  0.0,
+  0.12821064889431,
+  6.993822188050558e-11
+ ]
+}
