@@ -115,3 +115,58 @@
   #landing .spin { animation-duration: 4s; }
   #landing .card, #landing .primary, #landing .ghost { transition: none; }
 }
+
+/* The brand's airy typography and a quiet stream of stars. */
+#landing .bar { height: 80px; padding-inline: max(24px, calc((100vw - 1200px) / 2)); background: var(--ag-surface-glass); }
+#landing .brand { font-weight: 500; letter-spacing: -.025em; }
+#landing .brand svg { width: 32px; height: 32px; padding: 4px; border: 1px solid var(--ag-border-strong); border-radius: 10px; }
+#landing .bar nav { gap: 8px; }
+#landing main { width: min(1200px, 100%); padding-inline: 24px; }
+#landing .hero { position: relative; isolation: isolate; padding: clamp(64px, 9vw, 120px) 16px 96px; }
+#landing .hero-stars { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; mask-image: linear-gradient(transparent, black 18%, black 82%, transparent); }
+#landing .eyebrow { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 24px; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ag-accent); font-weight: 600; }
+#landing .eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 14px var(--ag-accent-glow); flex: none; }
+#landing h1 { max-width: 16ch; font-size: clamp(38px, 6vw, 76px); font-weight: 500; letter-spacing: -.045em; line-height: 1.06; }
+#landing .lead { max-width: 55ch; margin-top: 28px; line-height: 1.65; }
+#landing .actions { margin-top: 36px; }
+#landing .actions > * { backdrop-filter: blur(12px); }
+#landing .primary, #landing .ghost { font-weight: 500; }
+#landing .primary:hover, #landing .ghost:hover { transform: translateY(-2px); }
+#landing .how { border-top: 1px solid var(--ag-border); padding-top: 32px; }
+#landing .how h2, #landing .guides > h2 { font-weight: 500; letter-spacing: -.025em; }
+#landing .how ol { margin-top: 24px; gap: 16px; }
+#landing .how li { padding: 28px 24px; background: var(--ag-card-fill); box-shadow: inset 0 1px 0 var(--ag-border); flex-direction: column; gap: 20px; }
+#landing .how b { background: transparent; border: 1px solid var(--ag-border-strong); border-radius: 10px; }
+#landing .how h3 { font-weight: 500; font-size: 20px; }
+#landing .how p { margin-top: 10px; line-height: 1.65; }
+#landing .guides { margin-top: 64px; }
+#landing .grid { margin-top: 24px; }
+#landing .veil { background: var(--ag-surface-glass); backdrop-filter: blur(16px); }
+#landing .spin { border: 0; background: var(--ag-accent); width: 8px; height: 8px; animation: agPulse 2.4s ease-in-out infinite; }
+@media (max-width: 560px) {
+  #landing .bar { height: 72px; padding-inline: 16px; gap: 8px; }
+  #landing .bar nav { gap: 4px; }
+  #landing .brand { font-size: 15px; gap: 8px; }
+  #landing .brand svg { flex: none; }
+  #landing .lang { padding-inline: 10px; }
+  #landing main { padding-inline: 16px; }
+  #landing .hero { padding: 64px 0; }
+  #landing .eyebrow { font-size: 11px; letter-spacing: .05em; }
+  #landing .how ol { grid-template-columns: 1fr; }
+  #landing .how li { flex-direction: row; gap: 16px; padding: 24px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #landing .spin { animation: none; }
+  #landing .primary:hover, #landing .ghost:hover { transform: none; }
+}
+
+#landing .actions > * { padding-block: 14px; }
+
+#landing .navlink { gap: 8px; }
+#landing .navlink svg { display: none; }
+#landing .primary:disabled { opacity: .55; cursor: wait; transform: none; }
+@media (max-width: 560px) {
+  #landing .navlink { display: inline-flex; justify-content: center; width: 44px; padding: 0; }
+  #landing .navlink svg { display: block; }
+  #landing .navlink span { display: none; }
+}

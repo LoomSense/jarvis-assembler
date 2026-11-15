@@ -264,3 +264,26 @@ body {
      ghostEdge:      '#ffffff',   // EdgesGeometry line, opacity 0.6
    } as const;
    ============================================================ */
+
+/* Shared controls and native navigation transitions. */
+* { box-sizing: border-box; }
+body { margin: 0; }
+html { scroll-behavior: smooth; }
+.theme-toggle {
+  width: 44px; height: 44px; flex: none; display: inline-grid; place-items: center;
+  border: 1px solid var(--ag-border-strong); border-radius: 50%;
+  background: var(--ag-surface-glass); color: var(--ag-text-strong); cursor: pointer;
+  backdrop-filter: blur(16px); transition: background 200ms, transform 200ms;
+}
+.theme-toggle:hover { background: var(--ag-surface-2); transform: translateY(-2px); }
+.theme-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: ag-page-out 160ms ease both; }
+::view-transition-new(root) { animation: ag-page-in 260ms var(--ag-ease) both; }
+@keyframes ag-page-out { to { opacity: 0; } }
+@keyframes ag-page-in { from { opacity: 0; transform: translateY(5px); } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  .theme-toggle { transition: none; }
+}

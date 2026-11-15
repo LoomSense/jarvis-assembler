@@ -17,12 +17,12 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(246, 236, 219, 0.2);
+  border: 1px solid var(--ag-border-strong);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--ag-surface-glass);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  color: rgba(246, 236, 219, 0.82);
+  color: var(--ag-text);
   font: 500 15px/1 "Google Sans", Arial, system-ui, sans-serif;
   text-decoration: none;
   white-space: nowrap;
@@ -37,20 +37,20 @@
 }
 #appnav a:hover,
 #appnav a:focus-visible {
-  color: #f6ecdb;
-  border-color: #f6ecdb;
+  color: var(--ag-text-strong);
+  border-color: var(--ag-text-strong);
 }
 #appnav a:focus-visible {
-  outline: 2px solid #f6ecdb;
+  outline: 2px solid var(--ag-text-strong);
   outline-offset: 2px;
 }
 #appnav a:active {
   transform: scale(0.96);
 }
 #appnav a[aria-current='page'] {
-  color: #f6ecdb;
-  border-color: rgba(246, 236, 219, 0.46);
-  background: rgba(246, 236, 219, 0.1);
+  color: var(--ag-text-strong);
+  border-color: var(--ag-accent);
+  background: var(--ag-info-bg);
   cursor: default;
 }
 #appnav svg {

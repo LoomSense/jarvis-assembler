@@ -2,10 +2,10 @@
    One lamp, one bench, a shelf of finished guides as flat-pack boxes. Tokens come from tokens.css (BRAND.md). */
 
 :root {
-  --ink: #f6ecdb;
-  --ink-quiet: rgba(246, 236, 219, 0.64);
-  --hair: rgba(246, 236, 219, 0.2);
-  --hair-strong: rgba(246, 236, 219, 0.46);
+  --ink: var(--ag-text-strong);
+  --ink-quiet: var(--ag-text-meta);
+  --hair: var(--ag-border-strong);
+  --hair-strong: var(--ag-text-meta);
   --brass: #efd176;
   --accent: #9ecfff;
   --success: #6fdc9b;
@@ -114,3 +114,12 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   #home .foot, #home .round, #home .cam, #home .brackets, #home canvas.view { transition: none !important; }
   #home .spinner { animation: none; }
 }
+
+:root[data-theme="light"] #home { --brass: #805c25; --accent: var(--ag-accent); --success: var(--ag-success); --warn: var(--ag-warn); }
+:root[data-theme="light"] #home * { text-shadow: none; }
+:root[data-theme="light"] #home .shade { background: linear-gradient(180deg, rgba(255,255,255,.7), transparent 25%, transparent 55%, rgba(255,255,255,.9)); }
+:root[data-theme="light"] #home :is(.round, .results button) { background: var(--ag-surface-glass); }
+:root[data-theme="light"] #home :focus-visible { outline-color: var(--ag-focus-ring); }
+
+:root[data-theme="light"] #home :is(.pill, a.pill) { background: var(--ag-primary); color: var(--ag-text-on-primary); box-shadow: var(--ag-shadow-primary); }
+:root[data-theme="light"] #home :is(.ghost, .shelf-list button:focus-visible) { background: var(--ag-surface-glass); }

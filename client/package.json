@@ -6,6 +6,7 @@
   "description": "Assembly guide client: the guide page for phone and laptop (one full-screen 3D scene that plays a flat-pack guide action by action), and two Quest headset experiences (?mode=xr and ?mode=headset)",
   "scripts": {
     "dev": "vite",
+    "dev:standalone": "AGJ_STANDALONE=1 vite",
     "dev:https": "HTTPS=1 vite",
     "quest": "adb reverse tcp:5173 tcp:5173 && echo 'Quest Browser: http://localhost:5173/?mode=xr'",
     "tunnel": "cloudflared tunnel --url http://localhost:5173",

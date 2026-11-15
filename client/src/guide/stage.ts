@@ -175,6 +175,19 @@ export class Stage {
     this.disc.receiveShadow = true
     this.disc.castShadow = true
     this.scene.add(this.floor, this.disc)
+    const daylight = new HemisphereLight(0xffffff, 0xdce5f0, 0)
+    this.scene.add(daylight)
+    const applyTheme = () => {
+      const light = document.documentElement.dataset.theme === 'light'
+      daylight.intensity = light ? 2.2 : 0
+      r.setClearColor(light ? 0xf5f7fa : 0x000000, 1)
+      ;(this.scene.fog as Fog).color.set(light ? 0xf5f7fa : 0x000000)
+      ;(this.floor.material as MeshStandardMaterial).color.set(light ? '#e1e5eb' : '#191512')
+      ;(this.disc.material as MeshStandardMaterial).color.set(light ? '#c5cbd3' : '#48423d')
+    }
+    applyTheme()
+    new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
 
     // ---- dust in the beam
     this.dust = new Points(

@@ -1,3 +1,4 @@
+import { appLink } from '../routes'
 // The workbench: where the app starts (no mode, no job) and where a finished guide waits (`?mode=ready&job=<id>`).
 // One lamp over a bench, and a shelf of flat-pack boxes, one per guide the server can open at once (GET /api/catalog).
 // A box taken from the shelf, a code typed or scanned, or a guide found by name opens the ready screen: the real
@@ -125,6 +126,14 @@ export function startHome(app: HTMLElement): void {
   const scene = new Scene()
   scene.background = new Color(0x000000)
   scene.fog = new Fog(0x000000, 3.2, 6.5)
+  const applyTheme = () => {
+    const color = document.documentElement.dataset.theme === 'light' ? 0xf5f7fa : 0x000000
+    ;(scene.background as Color).set(color)
+    ;(scene.fog as Fog).color.set(color)
+  }
+  applyTheme()
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
   const camera = new PerspectiveCamera(30, 1, 0.02, 30)
 
   const rng = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
@@ -162,6 +171,15 @@ export function startHome(app: HTMLElement): void {
   shelf.position.set(0, 0.34, -0.47)
   shelf.castShadow = shelf.receiveShadow = true
   scene.add(bench, wall, shelf)
+  const daylight = new HemisphereLight(0xffffff, 0xdce5f0, 0)
+  scene.add(daylight)
+  const lightRoom = () => {
+    const light = document.documentElement.dataset.theme === 'light'
+    daylight.intensity = light ? 2.5 : 0
+    wall.material.color.set(light ? 0xe1e5eb : 0x2a2019)
+  }
+  lightRoom()
+  new MutationObserver(lightRoom).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
   scene.add(new HemisphereLight(0x3a2a1c, 0x050403, 0.22))
   const lamp = new SpotLight(0xffd9ae, 26, 4, 0.34, 0.8, 1.4)
@@ -336,11 +354,7 @@ export function startHome(app: HTMLElement): void {
     void tween(900, (k) => (spill.intensity = s0 + (s1 - s0) * k))
   }
   const link = (params: Record<string, string>) => {
-    const url = new URL(location.pathname, location.href)
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-    if (key) url.searchParams.set('key', key)
-    url.searchParams.set('lang', lang)
-    return url.toString()
+    return appLink({ ...params, key, lang })
   }
   const say = (text: string) => (status.textContent = text)
 

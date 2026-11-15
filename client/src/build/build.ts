@@ -1,3 +1,4 @@
+import { appLink } from '../routes'
 // The build screen (`?mode=build`): find a guide by name, code or link, or drop a flat-pack guide (a PDF or
 // photos of its pages), watch the agent turn it into the 3D guide, approve its plan, open the result. The same workshop at night as the guide page: one dark room, a single
 // column of light words, the latest line brightest, two round controls at most.
@@ -160,12 +161,7 @@ export function startBuild(app: HTMLElement): void {
   new ResizeObserver(toEnd).observe(rows)
 
   const link = (params: Record<string, string | null>): string => {
-    const url = new URL(location.pathname, location.href)
-    for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v)
-    if (key) url.searchParams.set('key', key)
-    url.searchParams.set('lang', lang)
-    if (import.meta.env.DEV && q.get('api')) url.searchParams.set('api', q.get('api')!)
-    return url.toString()
+    return appLink({ ...params, key, lang })
   }
   // a finished guide opens on the "ready" screen (?mode=ready, src/home/), which leads on to the guide page;
   // while a build of the client has no such screen, an unknown mode falls through to the guide page itself

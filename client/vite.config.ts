@@ -184,16 +184,28 @@ function pcmToWav(pcm: Buffer, rate: number): Buffer {
   return Buffer.concat([h, pcm]);
 }
 
-export default defineConfig({
-  // The built page refers to its own assets relatively. /files, /api and /demo-job stay absolute in the code.
-  base: './',
-  plugins: [geminiTts(), jobFiles(), ...(process.env.HTTPS ? [basicSsl()] : [])],
-  server: {
-    host: true,
-    port: 5173,
-    strictPort: true,
-    allowedHosts: ['.trycloudflare.com', '.boxd.sh'],
-  },
-  preview: { host: true },
-  build: { outDir: 'dist', target: 'es2022', chunkSizeWarningLimit: 900 },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, REPO_ROOT, 'AGJ_');
+  const standalone = process.env.AGJ_STANDALONE === '1';
+  const target = process.env.AGJ_API_PROXY || env.AGJ_API_PROXY || 'http://127.0.0.1:8000';
+  const proxy = standalone ? undefined : {
+    '/api': { target, changeOrigin: true },
+    '/files': { target, changeOrigin: true },
+    '/ws': { target, changeOrigin: true, ws: true },
+    '/healthz': { target, changeOrigin: true },
+  };
+  return {
+    // The built page refers to its own assets relatively. /files, /api and /demo-job stay absolute in the code.
+    base: './',
+    plugins: [...(standalone ? [geminiTts(), jobFiles()] : []), ...(process.env.HTTPS ? [basicSsl()] : [])],
+    server: {
+      host: true,
+      proxy,
+      port: 5173,
+      strictPort: true,
+      allowedHosts: ['.trycloudflare.com', '.boxd.sh'],
+    },
+    preview: { host: true, proxy },
+    build: { outDir: 'dist', target: 'es2022', chunkSizeWarningLimit: 900 },
+  };
 });

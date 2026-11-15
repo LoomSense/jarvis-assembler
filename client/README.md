@@ -1,12 +1,20 @@
 # Client (phone, laptop and Quest 3)
 
+For the connected app, run `make dev` at the repository root, then `npm run dev` in `client`.
+Vite forwards `/api`, `/files`, `/ws` and `/healthz` to `http://127.0.0.1:8000`.
+Enter the team's access key on the landing page; the proxy does not bypass authentication.
+Set `AGJ_API_PROXY` to use another backend. `npm run dev:standalone` preserves the local-file viewer and development TTS without a backend.
+Production continues to serve `client/dist` from FastAPI on the same origin.
+
 Vite + TypeScript + vanilla three.js `0.187.0` (pinned; PLAN §7, D14). No framework.
 
-One page, two experiences. `mode` in the address picks one, and only that one is loaded: its code, its styles and its markup.
+One page, several experiences. `mode` in the address picks one, and only that one is loaded: its code, its styles and its markup.
 
 | Address | What it opens | Where it lives |
 |---|---|---|
-| `/` (no `mode`) | [The guide page](#the-guide-page-no-mode) for phone and laptop | `src/guide/`, `src/styles/page.css`, the `<template>` in `index.html` |
+| `/` | Branded landing page, upload and live guide library | `src/landing/` |
+| `/?mode=ready&job=<id>` | Finished model, walkthrough, assisted assembly and headset entry | `src/home/` |
+| `/?job=<id>` | [The guide page](#the-guide-page-no-mode) for phone and laptop | `src/guide/`, `src/styles/page.css`, the `<template>` in `index.html` |
 | `/?mode=build` | [The build screen](#the-build-screen-modebuild): drop a guide PDF, watch the agent build the 3D guide, approve its plan, open the result | `src/build/`, `src/styles/build.css` |
 | `/?mode=xr` | [Quest 3 experience `xr`](#quest-3-modexr-plan-60): glass panels, step-by-step guidance, parts card, voice; built-in products or a pipeline job | `src/xr/`, `src/styles/xr.css` |
 

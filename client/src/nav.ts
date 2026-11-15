@@ -1,4 +1,6 @@
 import './styles/nav.css'
+import { themeButton } from './theme'
+import { appLink } from './routes'
 
 // The same two ways out on every screen (not in the headset): the workbench with its shelf of guides, and
 // "new guide". Each screen was written as its own experience (src/main.ts); this is what ties them into one app.
@@ -16,17 +18,6 @@ const ICON = {
   build: '<path d="M12 5.5v13M5.5 12h13" />',
 }
 
-function link(params: Record<string, string>): string {
-  const now = new URLSearchParams(location.search)
-  const url = new URL(location.pathname, location.href)
-  for (const keep of ['key', 'lang']) {
-    const v = now.get(keep)
-    if (v) url.searchParams.set(keep, v)
-  }
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  return url.toString()
-}
-
 export function mountNav(here: Here): void {
   if (document.getElementById('appnav')) return
   const nav = document.createElement('nav')
@@ -38,10 +29,11 @@ export function mountNav(here: Here): void {
     if (current) a.setAttribute('aria-current', 'page')
     // read the address when it is used, so a language chosen on the screen since then is kept
     a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
       e.preventDefault()
-      if (!current) location.assign(link(name === 'build' ? { mode: 'build' } : {}))
+      if (!(name === 'build' && here === 'build' && !new URLSearchParams(location.search).get('job'))) location.assign(appLink(name === 'build' ? { mode: 'build' } : {}, name === 'home' ? 'guides' : ''))
     })
-    a.href = link(name === 'build' ? { mode: 'build' } : {})
+    a.href = appLink(name === 'build' ? { mode: 'build' } : {}, name === 'home' ? 'guides' : '')
     nav.append(a)
     return a
   }
@@ -49,6 +41,10 @@ export function mountNav(here: Here): void {
   // a job's feed is also `mode=build`: from there "new guide" leads to the empty drop screen
   const build = item('build', here === 'build' && !new URLSearchParams(location.search).get('job'))
   const label = () => {
+    if (here === 'build' && !new URLSearchParams(location.search).get('job')) build.setAttribute('aria-current', 'page')
+    else build.removeAttribute('aria-current')
+    home.href = appLink({}, 'guides')
+    build.href = appLink({ mode: 'build' })
     const w = WORDS[document.documentElement.lang === 'en' ? 'en' : 'el']
     nav.setAttribute('aria-label', w.nav)
     for (const [a, text] of [[home, w.home], [build, w.build]] as const) {
@@ -57,6 +53,7 @@ export function mountNav(here: Here): void {
     }
   }
   label()
-  new MutationObserver(label).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
+  new MutationObserver(label).observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'data-state'] })
+  nav.append(themeButton())
   document.body.append(nav)
 }

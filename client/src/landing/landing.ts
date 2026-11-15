@@ -1,4 +1,8 @@
 import '../styles/landing.css'
+import { themeButton } from '../theme'
+import { mountStars } from './stars'
+import { appLink } from '../routes'
+import { bw } from '../build/words'
 import { apiFetch, fileUrl } from '../api'
 import { choose, sendGuide, type Chosen } from '../build/intake'
 
@@ -12,7 +16,8 @@ interface JobRow { job_id: string; status: string; stage: string; title: string 
 const WORDS = {
   en: {
     brand: 'Assembly Guide', guides: 'My guides', add: 'New guide', other: 'ελ', otherAria: 'Ελληνικά',
-    h1: 'Any assembly guide, as a 3D walkthrough',
+    eyebrow: 'From the first piece to the final fit',
+    h1: 'Build with a little more clarity.',
     lead: 'Add the PDF, or photos of the pages. An agent reads the guide, builds every part in 3D and shows each step in the guide’s own order, one screw at a time.',
     upload: 'Upload a guide', find: 'Find a product by name or code', drop: 'or drop a PDF or photos anywhere on this page',
     dropping: 'Drop it to start', sending: 'Sending the guide',
@@ -29,7 +34,8 @@ const WORDS = {
   },
   el: {
     brand: 'Οδηγός συναρμολόγησης', guides: 'Οι οδηγοί μου', add: 'Νέος οδηγός', other: 'en', otherAria: 'English',
-    h1: 'Κάθε οδηγός συναρμολόγησης, βήμα βήμα σε 3D',
+    eyebrow: 'Από το πρώτο κομμάτι μέχρι την τελευταία βίδα',
+    h1: 'Κάθε κομμάτι στη θέση του.',
     lead: 'Βάλε το PDF ή φωτογραφίες των σελίδων. Ένας πράκτορας διαβάζει τον οδηγό, φτιάχνει κάθε κομμάτι σε 3D και δείχνει κάθε βήμα με τη σειρά του οδηγού, βίδα βίδα.',
     upload: 'Ανέβασε έναν οδηγό', find: 'Βρες ένα προϊόν με όνομα ή κωδικό', drop: 'ή άφησε ένα PDF ή φωτογραφίες οπουδήποτε στη σελίδα',
     dropping: 'Άφησέ το για να ξεκινήσει', sending: 'Στέλνω τον οδηγό',
@@ -65,11 +71,7 @@ export function startLanding(app: HTMLElement): void {
   document.title = w.brand
 
   const link = (params: Record<string, string>, withKey: string | null = key): string => {
-    const url = new URL(location.pathname, location.href)
-    if (withKey) url.searchParams.set('key', withKey)
-    url.searchParams.set('lang', params.lang ?? lang)
-    for (const [k, v] of Object.entries(params)) if (k !== 'lang') url.searchParams.set(k, v)
-    return url.toString()
+    return appLink({ ...params, key: withKey, lang: params.lang ?? lang })
   }
 
   app.innerHTML = `
@@ -77,7 +79,7 @@ export function startLanding(app: HTMLElement): void {
     <header class="bar">
       <a class="brand" href="${esc(link({}))}">${svg(ICON.mark)}<span>${w.brand}</span></a>
       <nav aria-label="${w.guides}">
-        <a class="navlink" href="#guides">${w.guides}</a>
+        <a class="navlink" href="#guides" aria-label="${w.guides}">${svg(ICON.mark)}<span>${w.guides}</span></a>
         <a class="navadd" href="${esc(link({ mode: 'build' }))}">${svg(ICON.plus)}<span>${w.add}</span></a>
         <a class="lang" href="${esc(link({ lang: lang === 'en' ? 'el' : 'en' }))}" lang="${lang === 'en' ? 'el' : 'en'}" aria-label="${w.otherAria}">${w.other}</a>
       </nav>
@@ -85,6 +87,7 @@ export function startLanding(app: HTMLElement): void {
 
     <main>
       <section class="hero">
+        <p class="eyebrow"><i></i>${w.eyebrow}</p>
         <h1>${w.h1}</h1>
         <p class="lead">${w.lead}</p>
         <div class="actions">
@@ -113,11 +116,15 @@ export function startLanding(app: HTMLElement): void {
   </div>`
 
   const $ = <T extends HTMLElement>(sel: string) => app.querySelector<T>(sel)!
+  $('.bar nav').insertBefore(themeButton(), $('.lang'))
+  mountStars($('.hero'))
+
   const list = $('#list')
   const hint = $('#hint')
 
   // ---- the access key: say which problem it is, and take the key here instead of asking for an edited address
   const askForKey = () => {
+    if ($('.hero').querySelector('.keybox')) return
     $<HTMLElement>('.hero .actions').hidden = true
     hint.hidden = true
     list.innerHTML = ''
@@ -133,7 +140,7 @@ export function startLanding(app: HTMLElement): void {
       if (v) location.assign(link({}, v))
     })
     $('.hero').append(box)
-    box.querySelector('input')!.focus()
+    if (location.hash !== '#guides') box.querySelector('input')!.focus()
   }
 
   // ---- the guides
@@ -190,30 +197,43 @@ export function startLanding(app: HTMLElement): void {
       $('#again').addEventListener('click', () => void load())
     }
   }
-  void load()
+  void load().then(() => {
+    if (location.hash === '#guides') $('#guides').scrollIntoView()
+  })
 
   // ---- adding a guide from here: the button, or a drop anywhere on the page
+  let sending = false
   const send = async (files: File[]) => {
-    if (!files.length) return
+    if (!files.length || sending) return
     const picked = choose(null, files)
     if ('word' in picked) {
-      hint.textContent = picked.word === 'tooBig' || picked.word === 'tooMany' ? w.tooBig : w.notGuide
+      hint.textContent = bw(lang, picked.word)
       hint.className = 'hint bad'
       return
     }
+    sending = true
+    $<HTMLButtonElement>('#pick').disabled = true
+    $('.hero').setAttribute('aria-busy', 'true')
     hint.textContent = w.sending
     hint.className = 'hint busy'
     const out = await sendGuide(picked.chosen as Chosen, '', key)
+    sending = false
+    $<HTMLButtonElement>('#pick').disabled = false
+    $('.hero').removeAttribute('aria-busy')
     if (out.ok) location.assign(link({ mode: 'build', job: out.job }))
     else if (out.word === 'noKey') askForKey()
     else {
-      hint.textContent = out.word === 'offline' ? w.offline : out.word === 'tooBig' ? w.tooBig : out.word === 'notGuide' ? w.notGuide : w.failedSend
+      hint.textContent = bw(lang, out.word)
       hint.className = 'hint bad'
     }
   }
   const file = $<HTMLInputElement>('#file')
   $('#pick').addEventListener('click', () => file.click())
-  file.addEventListener('change', () => void send([...(file.files ?? [])]))
+  file.addEventListener('change', () => {
+    const files = [...(file.files ?? [])]
+    file.value = ''
+    void send(files)
+  })
   const veil = $('#veil')
   let depth = 0
   const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files')

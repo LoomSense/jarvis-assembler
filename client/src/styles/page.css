@@ -2,10 +2,10 @@
    Tokens come from tokens.css (BRAND.md); the few values below are the ones this page adds. */
 
 :root {
-  --ink: #f6ecdb; /* lamp light on paper: every word on the page */
-  --ink-quiet: rgba(246, 236, 219, 0.66);
-  --hair: rgba(246, 236, 219, 0.2);
-  --hair-strong: rgba(246, 236, 219, 0.46);
+  --ink: var(--ag-text-strong); /* lamp light on paper: every word on the page */
+  --ink-quiet: var(--ag-text-meta);
+  --hair: var(--ag-border-strong);
+  --hair-strong: var(--ag-text-meta);
   --warm: #e9d8b8; /* the one warm accent; the page replaces it with the plating of the product's own hardware */
   --reach: min(232px, 50vw - 44px); /* from the middle of the screen to the middle of a button */
   --foot: calc(28px + env(safe-area-inset-bottom, 0px));
@@ -542,3 +542,7 @@ noscript {
 @media (prefers-reduced-motion: reduce) {
   #watch.invite { animation: none; }
 }
+
+:root[data-theme="light"] { --warm: #805c25; }
+:root[data-theme="light"] #stage { text-shadow: none; }
+:root[data-theme="light"] #stage * { text-shadow: none; }
