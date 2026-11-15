@@ -95,7 +95,9 @@ class WorldModule(
   @Volatile var workSurfaceY: Float? = null
 
   /** The assembly anchor (WORLD ← TABLE) and its source; see [AssemblyAnchor]. */
-  val anchor = AssemblyAnchor(Agq.log, onChange = { _, _ -> inject() })
+  // Follow the real part between camera answers (no marker, 15 Nov device run: one placement then "held" read as
+  // "tracking does not work"): a second answer that agrees with the first and is > 5 cm from the ghost moves it.
+  val anchor = AssemblyAnchor(Agq.log, onChange = { _, _ -> inject() }, disagreeM = 0.05f, agreeM = 0.06f, disagreeMs = 0L)
 
   val parts =
       PartsFinder(
@@ -114,7 +116,7 @@ class WorldModule(
         // assembly, and a wrong jump mid-guide is worse than a small offset); a re-align asks at any time.
         p.baseDue = { since ->
           val onBaseStep = curStep == null || curStep == basePart?.step
-          !markerTracking() && (anchor.realignRequested || onBaseStep) && anchor.wantsServerBox(since)
+          !markerTracking() && (anchor.realignRequested || onBaseStep) && anchor.wantsServerBox(since, FOLLOW_EVERY_MS)
         }
         p.onBase = ::onBase
         p.hideBaseTarget = { anchor.serverPlaced }
@@ -337,6 +339,7 @@ class WorldModule(
   companion object {
     /** Without a scene table this long after the guide is loaded, the fixed spot is used. */
     const val FIXED_SPOT_AFTER_MS = 2500L
+    const val FOLLOW_EVERY_MS = 2500L
     const val MIN_BASE_CONFIDENCE = 0.4
   }
 }
