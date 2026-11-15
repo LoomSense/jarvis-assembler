@@ -129,7 +129,9 @@ object StepFootprints {
       if (abs(nlo[1] - lo[1]) <= SLAB_REST_M && top <= SLAB_MAX_M &&
           abs((nhi[0] - nlo[0]) - (hi[0] - lo[0])) <= SLAB_SPAN_M && abs((nhi[2] - nlo[2]) - (hi[2] - lo[2])) <= SLAB_SPAN_M) {
         val done = of(guide, manifest, step, done = true)
-        return PanelTarget(base.lengthM, base.widthM, top, done != null && done.heightM > top + SLAB_REST_M, base.assemblyFromFootprint, node)
+        // sizes to 0.1 mm: the drawer front comes out as exactly 0.380 × 0.130 × 0.016, the numbers of [PanelParams]
+        fun tenthMm(v: Double) = Math.round(v * 1e4) / 1e4
+        return PanelTarget(tenthMm(base.lengthM), tenthMm(base.widthM), tenthMm(top), done != null && done.heightM > top + SLAB_REST_M, base.assemblyFromFootprint, node)
       }
     }
     return null

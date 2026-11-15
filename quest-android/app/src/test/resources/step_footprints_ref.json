@@ -195,9 +195,9 @@
     "axis_aligned": true
    },
    "target": {
-    "length_m": 0.3800000250339508,
-    "width_m": 0.13000000753751875,
-    "top_m": 0.016000044053203065,
+    "length_m": 0.38,
+    "width_m": 0.13,
+    "top_m": 0.016,
     "slab": "part_drawer_front_1",
     "fill_hull": false,
     "assembly_from_footprint": [
@@ -424,9 +424,9 @@
     "axis_aligned": true
    },
    "target": {
-    "length_m": 0.3800000250339508,
-    "width_m": 0.13000000753751875,
-    "top_m": 0.016000044053203065,
+    "length_m": 0.38,
+    "width_m": 0.13,
+    "top_m": 0.016,
     "slab": "part_drawer_front_1",
     "fill_hull": true,
     "assembly_from_footprint": [
@@ -655,9 +655,9 @@
     "axis_aligned": true
    },
    "target": {
-    "length_m": 0.3800000250339508,
-    "width_m": 0.13000000753751875,
-    "top_m": 0.016000044053203065,
+    "length_m": 0.38,
+    "width_m": 0.13,
+    "top_m": 0.016,
     "slab": "part_drawer_front_1",
     "fill_hull": true,
     "assembly_from_footprint": [

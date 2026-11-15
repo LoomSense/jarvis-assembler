@@ -9,6 +9,7 @@ import com.agj.android.guide.Manifest
 import java.io.File
 import kotlin.math.abs
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.double
@@ -80,6 +81,36 @@ class StepFootprintTest {
     }
     assertEquals(14, checked) // 7 steps × {base, done}
     println("step footprints, Kotlin vs Python: $checked variants, max size diff %.5f mm, max transform entry diff %.2e".format(java.util.Locale.ROOT, maxSizeMm, maxPose))
+  }
+
+  @Test
+  fun detectorTargetPerStepMatchesThePythonReference() {
+    for (n in guide.stepNumbers) {
+      val r = ref[n.toString()]!!.jsonObject["target"]
+      val t = StepFootprints.target(guide, manifest, n)
+      if (r == null || r is JsonNull) {
+        assertNull("step $n has no flat base part", t)
+        continue
+      }
+      val o = r.jsonObject
+      assertTrue("step $n", t != null)
+      assertEquals("step $n length", o["length_m"]!!.jsonPrimitive.double, t!!.lengthM, 1e-9)
+      assertEquals("step $n width", o["width_m"]!!.jsonPrimitive.double, t.widthM, 1e-9)
+      assertEquals("step $n top", o["top_m"]!!.jsonPrimitive.double, t.topM, 1e-9)
+      assertEquals("step $n hull", o["fill_hull"]!!.jsonPrimitive.boolean, t.fillHull)
+      assertEquals("step $n slab", o["slab"]!!.jsonPrimitive.content, t.slab)
+      val m = o["assembly_from_footprint"]!!.jsonArray.flatMap { row -> row.jsonArray.map { it.jsonPrimitive.double } }.toDoubleArray()
+      assertPose("step $n target ASSEMBLY ← FOOTPRINT", m, t.assemblyFromFootprint)
+    }
+    // the drawer: the front panel lying flat in steps 1–3 (hull once sides stand on it), nothing once it is turned over
+    assertEquals(listOf(1, 2, 3), guide.stepNumbers.filter { StepFootprints.target(guide, manifest, it) != null })
+    assertEquals(listOf(false, true, true), (1..3).map { StepFootprints.target(guide, manifest, it)!!.fillHull })
+    val t1 = StepFootprints.target(guide, manifest, 1)!!
+    assertEquals(PanelParams(), t1.params()) // step 1 is exactly the detector as it was
+    assertEquals(PanelParams(fillHull = true), StepFootprints.target(guide, manifest, 3)!!.params())
+    assertTrue(t1.sameRectangle(PanelTarget.FRONT_PANEL))
+    assertTrue(t1.sameRectangle(StepFootprints.target(guide, manifest, 3)))
+    assertEquals("part_drawer_front_1", t1.slab)
   }
 
   @Test
