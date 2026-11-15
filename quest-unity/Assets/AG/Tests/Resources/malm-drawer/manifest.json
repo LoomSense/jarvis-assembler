@@ -1,0 +1,1440 @@
+{
+ "title": "MALM desk drawer",
+ "guideId": "AA-516949-7",
+ "glb": "walkthrough.glb",
+ "units": "m",
+ "fps": 24,
+ "rootNode": "assembly",
+ "markerNode": "marker",
+ "overall_mm": {
+  "L": 380,
+  "W": 418,
+  "H": 130,
+  "estimated": true,
+  "basis": "front 380 x 130 mm and 16 mm thick estimated; box from the published inner size 320 W x 390 D x 70 H mm"
+ },
+ "walkthrough": {
+  "clip": "walkthrough",
+  "duration_s": 44.88,
+  "steps": [
+   {
+    "n": 1,
+    "start_s": 0.0,
+    "end_s": 6.042
+   },
+   {
+    "n": 2,
+    "start_s": 6.042,
+    "end_s": 14.5
+   },
+   {
+    "n": 3,
+    "start_s": 14.5,
+    "end_s": 19.958
+   },
+   {
+    "n": 4,
+    "start_s": 19.958,
+    "end_s": 23.833
+   },
+   {
+    "n": 5,
+    "start_s": 23.833,
+    "end_s": 30.792
+   },
+   {
+    "n": 6,
+    "start_s": 30.792,
+    "end_s": 36.417
+   },
+   {
+    "n": 7,
+    "start_s": 36.417,
+    "end_s": 42.792
+   },
+   {
+    "n": "finish",
+    "start_s": 42.792,
+    "end_s": 44.875,
+    "text": {
+     "en": "Turn the drawer the right way up.",
+     "el": "Γύρισε το συρτάρι στην κανονική του θέση."
+    }
+   }
+  ]
+ },
+ "parts": [
+  {
+   "id": "drawer_front",
+   "name": "Drawer front",
+   "short": "drawer front",
+   "names": {
+    "en": "drawer front",
+    "el": "πρόσοψη του συρταριού"
+   },
+   "count": 1,
+   "cite": {
+    "page": 4,
+    "box_2d": [
+     644,
+     492,
+     753,
+     879
+    ],
+    "note": "step 1, lying face down with the groove along one long edge",
+    "label": null
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_front_1"
+   ],
+   "thumb": "renders/part-drawer_front-shaded.png"
+  },
+  {
+   "id": "drawer_side_left",
+   "name": "Drawer side panel, left",
+   "short": "left side panel",
+   "names": {
+    "en": "left side panel",
+    "el": "αριστερό πλαϊνό"
+   },
+   "count": 1,
+   "cite": {
+    "page": 5,
+    "box_2d": [
+     57,
+     540,
+     296,
+     610
+    ],
+    "note": "step 2, left panel, cam hole on its outer face",
+    "label": null
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_side_left_1"
+   ],
+   "thumb": "renders/part-drawer_side_left-shaded.png"
+  },
+  {
+   "id": "drawer_side_right",
+   "name": "Drawer side panel, right",
+   "short": "right side panel",
+   "names": {
+    "en": "right side panel",
+    "el": "δεξί πλαϊνό"
+   },
+   "count": 1,
+   "cite": {
+    "page": 5,
+    "box_2d": [
+     57,
+     760,
+     296,
+     823
+    ],
+    "note": "step 2, right panel (mirror image of the left one)",
+    "label": null
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_side_right_1"
+   ],
+   "thumb": "renders/part-drawer_side_right-shaded.png"
+  },
+  {
+   "id": "drawer_bottom",
+   "name": "Drawer bottom",
+   "short": "drawer bottom",
+   "names": {
+    "en": "drawer bottom",
+    "el": "πάτο του συρταριού"
+   },
+   "count": 1,
+   "cite": {
+    "page": 6,
+    "box_2d": [
+     239,
+     339,
+     359,
+     742
+    ],
+    "note": "step 4, thin board slid into the grooves (drawn grey)",
+    "label": null
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_bottom_1"
+   ],
+   "thumb": "renders/part-drawer_bottom-shaded.png"
+  },
+  {
+   "id": "drawer_back",
+   "name": "Drawer back panel",
+   "short": "back panel",
+   "names": {
+    "en": "back panel",
+    "el": "πλάτη του συρταριού"
+   },
+   "count": 1,
+   "cite": {
+    "page": 6,
+    "box_2d": [
+     798,
+     621,
+     907,
+     879
+    ],
+    "note": "step 5, swung in between the sides at their back ends",
+    "label": null
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_back_1"
+   ],
+   "thumb": "renders/part-drawer_back-shaded.png"
+  },
+  {
+   "id": "drawer_runner_left",
+   "name": "Drawer runner DL (left)",
+   "short": "left runner",
+   "names": {
+    "en": "left runner",
+    "el": "αριστερό οδηγό DL"
+   },
+   "count": 1,
+   "cite": {
+    "page": 7,
+    "box_2d": [
+     285,
+     323,
+     376,
+     468
+    ],
+    "note": "step 6, label DL; drawer half of runner set 112482 (page 4, 1x)",
+    "label": "DL"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_runner_left_1"
+   ],
+   "thumb": "renders/part-drawer_runner_left-shaded.png"
+  },
+  {
+   "id": "drawer_runner_right",
+   "name": "Drawer runner DR (right)",
+   "short": "right runner",
+   "names": {
+    "en": "right runner",
+    "el": "δεξί οδηγό DR"
+   },
+   "count": 1,
+   "cite": {
+    "page": 7,
+    "box_2d": [
+     316,
+     556,
+     348,
+     718
+    ],
+    "note": "step 6, label DR; drawer half of runner set 112482 (page 4, 1x)",
+    "label": "DR"
+   },
+   "dimsEstimated": true,
+   "nodes": [
+    "part_drawer_runner_right_1"
+   ],
+   "thumb": "renders/part-drawer_runner_right-shaded.png"
+  }
+ ],
+ "hardware": [
+  {
+   "code": "118331",
+   "name": "Cam bolt",
+   "short": "cam bolt",
+   "names": {
+    "en": "cam bolt",
+    "el": "βίδα έκκεντρου"
+   },
+   "kind": "bolt",
+   "count": 2,
+   "cite": {
+    "page": 3,
+    "label": "118331",
+    "note": "used on page 4"
+   },
+   "color": [
+    0.72,
+    0.74,
+    0.77
+   ],
+   "nodes": [
+    "hw_118331_1",
+    "hw_118331_2"
+   ],
+   "thumb": "renders/part-118331-shaded.png"
+  },
+  {
+   "code": "101345",
+   "name": "Wooden dowel (short)",
+   "short": "wooden dowel",
+   "names": {
+    "en": "wooden dowel",
+    "el": "ξύλινη καβίλια"
+   },
+   "kind": "dowel",
+   "count": 2,
+   "cite": {
+    "page": 3,
+    "label": "101345",
+    "note": "used on page 5"
+   },
+   "color": [
+    0.86,
+    0.64,
+    0.18
+   ],
+   "nodes": [
+    "hw_101345_1",
+    "hw_101345_2"
+   ],
+   "thumb": "renders/part-101345-shaded.png"
+  },
+  {
+   "code": "120076",
+   "name": "Cam lock (small)",
+   "short": "cam lock",
+   "names": {
+    "en": "cam lock",
+    "el": "κλειδαριά έκκεντρου"
+   },
+   "kind": "cam",
+   "count": 2,
+   "cite": {
+    "page": 3,
+    "label": "120076",
+    "note": "used on page 5"
+   },
+   "color": [
+    0.16,
+    0.16,
+    0.18
+   ],
+   "nodes": [
+    "hw_120076_1",
+    "hw_120076_2"
+   ],
+   "thumb": "renders/part-120076-shaded.png"
+  },
+  {
+   "code": "110519",
+   "name": "Plastic pin",
+   "short": "plastic pin",
+   "names": {
+    "en": "plastic pin",
+    "el": "πλαστική πρόκα"
+   },
+   "kind": "pin",
+   "count": 2,
+   "cite": {
+    "page": 3,
+    "label": "110519",
+    "note": "used on page 6"
+   },
+   "color": [
+    0.76,
+    0.4,
+    0.24
+   ],
+   "nodes": [
+    "hw_110519_1",
+    "hw_110519_2"
+   ],
+   "thumb": "renders/part-110519-shaded.png"
+  },
+  {
+   "code": "100365",
+   "name": "Small screw",
+   "short": "small screw",
+   "names": {
+    "en": "small screw",
+    "el": "μικρή βίδα"
+   },
+   "kind": "screw",
+   "count": 4,
+   "cite": {
+    "page": 3,
+    "label": "100365",
+    "note": "used on page 7"
+   },
+   "color": [
+    0.45,
+    0.6,
+    0.45
+   ],
+   "nodes": [
+    "hw_100365_1",
+    "hw_100365_2",
+    "hw_100365_3",
+    "hw_100365_4"
+   ],
+   "thumb": "renders/part-100365-shaded.png"
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "clip": "step_01",
+   "title": "Screw two cam bolts (118331) into the drawer front",
+   "pose": "drawer front lying face down, inner face up",
+   "assemblyRotationDeg": [
+    90,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "place",
+     "text": {
+      "en": "Lay the drawer front flat in front of you.",
+      "el": "Ακούμπησε την πρόσοψη του συρταριού μπροστά σου."
+     },
+     "t0_s": 0.0,
+     "t1_s": 0.333,
+     "node": "part_drawer_front_1",
+     "partId": "drawer_front",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "type": "note",
+     "text": {
+      "en": "Use the cam bolts 118331, not 114613.",
+      "el": "Χρησιμοποίησε τις βίδες έκκεντρου 118331, όχι τις 114613."
+     },
+     "t0_s": 0.583,
+     "t1_s": 2.25
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a cam bolt (118331) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια βίδα έκκεντρου (118331) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 2.5,
+     "t1_s": 3.667,
+     "node": "hw_118331_1",
+     "partId": "118331",
+     "target_m": [
+      -0.166,
+      0.0,
+      0.055
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "118331"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a cam bolt (118331) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια βίδα έκκεντρου (118331) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 3.917,
+     "t1_s": 5.083,
+     "node": "hw_118331_2",
+     "partId": "118331",
+     "target_m": [
+      0.166,
+      0.0,
+      0.055
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "118331"
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2"
+   ],
+   "moving": [
+    "hw_118331_1",
+    "hw_118331_2"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [
+    "drawer_front"
+   ],
+   "hardware": [
+    {
+     "code": "118331",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_01",
+    "pos": [
+     -0.732,
+     -1.4264,
+     1.0215
+    ],
+    "target": [
+     0.0,
+     0.1434,
+     0.0215
+    ],
+    "ortho_height": 0.5391,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 6.04,
+   "walkthrough": {
+    "start_s": 0.0,
+    "end_s": 6.042
+   },
+   "cite": {
+    "page": 4,
+    "label": "1",
+    "box_2d": [
+     388,
+     73,
+     918,
+     935
+    ]
+   },
+   "crop": "crops/step-01.png",
+   "refRender": "refs/step-01-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-01-sheet.png",
+   "questions": "refs/step-01-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 2,
+   "clip": "step_02",
+   "title": "Stand the two side panels on the drawer front, with a wooden dowel (101345) at each",
+   "pose": "drawer front lying face down, inner face up",
+   "assemblyRotationDeg": [
+    90,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "note",
+     "text": {
+      "en": "A short wooden dowel (101345, not 101350 or 101356) goes into the end of each side panel; the side slides over the cam bolt.",
+      "el": "Μια κοντή ξύλινη καβίλια (101345, όχι 101350 ή 101356) μπαίνει στην άκρη κάθε πλαϊνού· το πλαϊνό περνάει πάνω από τη βίδα έκκεντρου."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.667
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the left side panel and put it in place here.",
+      "el": "Πάρε το αριστερό πλαϊνό και βάλε το στη θέση που φαίνεται."
+     },
+     "t0_s": 1.917,
+     "t1_s": 3.167,
+     "node": "part_drawer_side_left_1",
+     "partId": "drawer_side_left",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the right side panel and put it in place here.",
+      "el": "Πάρε το δεξί πλαϊνό και βάλε το στη θέση που φαίνεται."
+     },
+     "t0_s": 3.417,
+     "t1_s": 4.667,
+     "node": "part_drawer_side_right_1",
+     "partId": "drawer_side_right",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a wooden dowel (101345) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια ξύλινη καβίλια (101345) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 4.917,
+     "t1_s": 6.083,
+     "node": "hw_101345_1",
+     "partId": "101345",
+     "target_m": [
+      -0.166,
+      0.0,
+      0.03
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "101345"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a wooden dowel (101345) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια ξύλινη καβίλια (101345) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 6.333,
+     "t1_s": 7.5,
+     "node": "hw_101345_2",
+     "partId": "101345",
+     "target_m": [
+      0.166,
+      0.0,
+      0.03
+     ],
+     "from_dir": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "code": "101345"
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2"
+   ],
+   "moving": [
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [
+    "drawer_side_left",
+    "drawer_side_right"
+   ],
+   "hardware": [
+    {
+     "code": "101345",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_02",
+    "pos": [
+     -0.732,
+     -1.4264,
+     1.209
+    ],
+    "target": [
+     0.0,
+     0.1434,
+     0.209
+    ],
+    "ortho_height": 0.6623,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 8.46,
+   "walkthrough": {
+    "start_s": 6.042,
+    "end_s": 14.5
+   },
+   "cite": {
+    "page": 5,
+    "label": "2",
+    "box_2d": [
+     51,
+     73,
+     365,
+     839
+    ]
+   },
+   "crop": "crops/step-02.png",
+   "refRender": "refs/step-02-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-02-sheet.png",
+   "questions": "refs/step-02-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 3,
+   "clip": "step_03",
+   "title": "Lock each side panel with a cam lock (120076)",
+   "pose": "drawer front lying face down, inner face up",
+   "assemblyRotationDeg": [
+    90,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "note",
+     "text": {
+      "en": "Use the small cam locks 120076, not 103430. Push one into the round hole in each side and turn it with a flat screwdriver until it locks.",
+      "el": "Χρησιμοποίησε τις μικρές κλειδαριές έκκεντρου 120076, όχι τις 103430. Βάλε μία στη στρογγυλή τρύπα κάθε πλαϊνού και γύρισέ την με ίσιο κατσαβίδι μέχρι να κλειδώσει."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.667
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a cam lock (120076) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια κλειδαριά έκκεντρου (120076) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 1.917,
+     "t1_s": 3.083,
+     "node": "hw_120076_1",
+     "partId": "120076",
+     "target_m": [
+      -0.172,
+      0.024,
+      0.055
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "120076"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a cam lock (120076) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια κλειδαριά έκκεντρου (120076) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 3.333,
+     "t1_s": 4.5,
+     "node": "hw_120076_2",
+     "partId": "120076",
+     "target_m": [
+      0.172,
+      0.024,
+      0.055
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "120076"
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2",
+    "hw_120076_1",
+    "hw_120076_2"
+   ],
+   "moving": [
+    "hw_120076_1",
+    "hw_120076_2"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [],
+   "hardware": [
+    {
+     "code": "120076",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_03",
+    "pos": [
+     -0.732,
+     -1.4264,
+     1.209
+    ],
+    "target": [
+     0.0,
+     0.1434,
+     0.209
+    ],
+    "ortho_height": 0.6623,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 5.46,
+   "walkthrough": {
+    "start_s": 14.5,
+    "end_s": 19.958
+   },
+   "cite": {
+    "page": 5,
+    "label": "3",
+    "box_2d": [
+     502,
+     73,
+     906,
+     774
+    ]
+   },
+   "crop": "crops/step-03.png",
+   "refRender": "refs/step-03-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-03-sheet.png",
+   "questions": "refs/step-03-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 4,
+   "clip": "step_04",
+   "title": "Turn the drawer over and slide the bottom into the grooves",
+   "pose": "upside down, front standing at the far side against the edge of a table",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "turn",
+     "text": {
+      "en": "Turn the drawer over so it is upside down, with the front standing against the edge of a table.",
+      "el": "Γύρισε το συρτάρι ανάποδα, με την πρόσοψη όρθια στην άκρη ενός τραπεζιού."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.417,
+     "rotation_deg": [
+      180,
+      0,
+      0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the drawer bottom and put it in place here.",
+      "el": "Πάρε τον πάτο του συρταριού και βάλε τον στη θέση που φαίνεται."
+     },
+     "t0_s": 1.667,
+     "t1_s": 2.917,
+     "node": "part_drawer_bottom_1",
+     "partId": "drawer_bottom",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2",
+    "hw_120076_1",
+    "hw_120076_2",
+    "part_drawer_bottom_1"
+   ],
+   "moving": [
+    "part_drawer_bottom_1"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [
+    "drawer_bottom"
+   ],
+   "hardware": [],
+   "flipWholeAssembly": true,
+   "camera": {
+    "node": "cam_step_04",
+    "pos": [
+     -0.8192,
+     -1.2906,
+     1.2122
+    ],
+    "target": [
+     0.0,
+     0.1282,
+     0.065
+    ],
+    "ortho_height": 0.7054,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 3.88,
+   "walkthrough": {
+    "start_s": 19.958,
+    "end_s": 23.833
+   },
+   "cite": {
+    "page": 6,
+    "label": "4",
+    "box_2d": [
+     46,
+     73,
+     462,
+     718
+    ]
+   },
+   "crop": "crops/step-04.png",
+   "refRender": "refs/step-04-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-04-sheet.png",
+   "questions": "refs/step-04-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 5,
+   "clip": "step_05",
+   "title": "Fit the back panel and hammer in two plastic pins (110519)",
+   "pose": "upside down, front standing at the far side against the edge of a table",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "note",
+     "text": {
+      "en": "Swing the back panel in between the sides so the drawer bottom sits under its edge. Tap the plastic pins in with a hammer.",
+      "el": "Βάλε την πλάτη ανάμεσα στα πλαϊνά, ώστε ο πάτος να μπει κάτω από την άκρη της. Κάρφωσε τις πλαστικές πρόκες με ένα σφυρί."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.667
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the back panel and put it in place here.",
+      "el": "Πάρε την πλάτη του συρταριού και βάλε την στη θέση που φαίνεται."
+     },
+     "t0_s": 1.917,
+     "t1_s": 3.167,
+     "node": "part_drawer_back_1",
+     "partId": "drawer_back",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a plastic pin (110519) and screw it in here. Screw 1 of 2.",
+      "el": "Πάρε μια πλαστική πρόκα (110519) και βίδωσέ την εδώ. Βίδα 1 από 2."
+     },
+     "t0_s": 3.417,
+     "t1_s": 4.583,
+     "node": "hw_110519_1",
+     "partId": "110519",
+     "target_m": [
+      -0.172,
+      0.396,
+      0.05
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "110519"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a plastic pin (110519) and screw it in here. Screw 2 of 2.",
+      "el": "Πάρε μια πλαστική πρόκα (110519) και βίδωσέ την εδώ. Βίδα 2 από 2."
+     },
+     "t0_s": 4.833,
+     "t1_s": 6.0,
+     "node": "hw_110519_2",
+     "partId": "110519",
+     "target_m": [
+      0.172,
+      0.396,
+      0.05
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "110519"
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2",
+    "hw_120076_1",
+    "hw_120076_2",
+    "part_drawer_bottom_1",
+    "part_drawer_back_1",
+    "hw_110519_1",
+    "hw_110519_2"
+   ],
+   "moving": [
+    "part_drawer_back_1",
+    "hw_110519_1",
+    "hw_110519_2"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [
+    "drawer_back"
+   ],
+   "hardware": [
+    {
+     "code": "110519",
+     "qty": 2
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_05",
+    "pos": [
+     -0.8192,
+     -1.2906,
+     1.2122
+    ],
+    "target": [
+     0.0,
+     0.1282,
+     0.065
+    ],
+    "ortho_height": 0.7082,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 6.96,
+   "walkthrough": {
+    "start_s": 23.833,
+    "end_s": 30.792
+   },
+   "cite": {
+    "page": 6,
+    "label": "5",
+    "box_2d": [
+     507,
+     73,
+     912,
+     927
+    ]
+   },
+   "crop": "crops/step-05.png",
+   "refRender": "refs/step-05-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-05-sheet.png",
+   "questions": "refs/step-05-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 6,
+   "clip": "step_06",
+   "title": "Put the runners on the sides: DL on the left, DR on the right",
+   "pose": "upside down, front standing at the far side against the edge of a table",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "note",
+     "text": {
+      "en": "Check the letters on the runners: DL goes on the left side, DR on the right, wheel at the back end.",
+      "el": "Δες τα γράμματα στους οδηγούς: ο DL μπαίνει στο αριστερό πλαϊνό, ο DR στο δεξί, με τη ροδίτσα στο πίσω μέρος."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.667
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the left runner and put it in place here.",
+      "el": "Πάρε τον αριστερό οδηγό DL και βάλε τον στη θέση που φαίνεται."
+     },
+     "t0_s": 1.917,
+     "t1_s": 3.167,
+     "node": "part_drawer_runner_left_1",
+     "partId": "drawer_runner_left",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "type": "place",
+     "text": {
+      "en": "Take the right runner and put it in place here.",
+      "el": "Πάρε τον δεξί οδηγό DR και βάλε τον στη θέση που φαίνεται."
+     },
+     "t0_s": 3.417,
+     "t1_s": 4.667,
+     "node": "part_drawer_runner_right_1",
+     "partId": "drawer_runner_right",
+     "target_m": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2",
+    "hw_120076_1",
+    "hw_120076_2",
+    "part_drawer_bottom_1",
+    "part_drawer_back_1",
+    "hw_110519_1",
+    "hw_110519_2",
+    "part_drawer_runner_left_1",
+    "part_drawer_runner_right_1"
+   ],
+   "moving": [
+    "part_drawer_runner_left_1",
+    "part_drawer_runner_right_1"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [
+    "drawer_runner_left",
+    "drawer_runner_right"
+   ],
+   "hardware": [],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_06",
+    "pos": [
+     -0.8192,
+     -1.2906,
+     1.2122
+    ],
+    "target": [
+     0.0,
+     0.1282,
+     0.065
+    ],
+    "ortho_height": 0.7132,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 5.62,
+   "walkthrough": {
+    "start_s": 30.792,
+    "end_s": 36.417
+   },
+   "cite": {
+    "page": 7,
+    "label": "6",
+    "box_2d": [
+     51,
+     73,
+     468,
+     726
+    ]
+   },
+   "crop": "crops/step-06.png",
+   "refRender": "refs/step-06-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-06-sheet.png",
+   "questions": "refs/step-06-questions.json",
+   "cropSource": "box"
+  },
+  {
+   "n": 7,
+   "clip": "step_07",
+   "title": "Screw each runner to its side with two small screws (100365)",
+   "pose": "upside down, front standing at the far side against the edge of a table",
+   "assemblyRotationDeg": [
+    180,
+    0,
+    0
+   ],
+   "actions": [
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a small screw (100365) and screw it in here. Screw 1 of 4.",
+      "el": "Πάρε μια μικρή βίδα (100365) και βίδωσέ την εδώ. Βίδα 1 από 4."
+     },
+     "t0_s": 0.0,
+     "t1_s": 1.167,
+     "node": "hw_100365_1",
+     "partId": "100365",
+     "target_m": [
+      -0.1732,
+      0.04,
+      0.007
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "100365"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a small screw (100365) and screw it in here. Screw 2 of 4.",
+      "el": "Πάρε μια μικρή βίδα (100365) και βίδωσέ την εδώ. Βίδα 2 από 4."
+     },
+     "t0_s": 1.417,
+     "t1_s": 2.583,
+     "node": "hw_100365_2",
+     "partId": "100365",
+     "target_m": [
+      -0.1732,
+      0.36,
+      0.007
+     ],
+     "from_dir": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "code": "100365"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a small screw (100365) and screw it in here. Screw 3 of 4.",
+      "el": "Πάρε μια μικρή βίδα (100365) και βίδωσέ την εδώ. Βίδα 3 από 4."
+     },
+     "t0_s": 2.833,
+     "t1_s": 4.0,
+     "node": "hw_100365_3",
+     "partId": "100365",
+     "target_m": [
+      0.1732,
+      0.36,
+      0.007
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "100365"
+    },
+    {
+     "type": "fasten",
+     "text": {
+      "en": "Take a small screw (100365) and screw it in here. Screw 4 of 4.",
+      "el": "Πάρε μια μικρή βίδα (100365) και βίδωσέ την εδώ. Βίδα 4 από 4."
+     },
+     "t0_s": 4.25,
+     "t1_s": 5.417,
+     "node": "hw_100365_4",
+     "partId": "100365",
+     "target_m": [
+      0.1732,
+      0.04,
+      0.007
+     ],
+     "from_dir": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "code": "100365"
+    }
+   ],
+   "visible": [
+    "part_drawer_front_1",
+    "hw_118331_1",
+    "hw_118331_2",
+    "part_drawer_side_left_1",
+    "part_drawer_side_right_1",
+    "hw_101345_1",
+    "hw_101345_2",
+    "hw_120076_1",
+    "hw_120076_2",
+    "part_drawer_bottom_1",
+    "part_drawer_back_1",
+    "hw_110519_1",
+    "hw_110519_2",
+    "part_drawer_runner_left_1",
+    "part_drawer_runner_right_1",
+    "hw_100365_1",
+    "hw_100365_2",
+    "hw_100365_3",
+    "hw_100365_4"
+   ],
+   "moving": [
+    "hw_100365_1",
+    "hw_100365_2",
+    "hw_100365_3",
+    "hw_100365_4"
+   ],
+   "subassembly": null,
+   "subassemblyRotationDeg": null,
+   "joins": [],
+   "stagedPoses": {},
+   "pickParts": [],
+   "hardware": [
+    {
+     "code": "100365",
+     "qty": 4
+    }
+   ],
+   "flipWholeAssembly": false,
+   "camera": {
+    "node": "cam_step_07",
+    "pos": [
+     -0.8192,
+     -1.2906,
+     1.2122
+    ],
+    "target": [
+     0.0,
+     0.1282,
+     0.065
+    ],
+    "ortho_height": 0.7132,
+    "up": "Z (Blender); the GLB is Y-up"
+   },
+   "duration_s": 6.38,
+   "walkthrough": {
+    "start_s": 36.417,
+    "end_s": 42.792
+   },
+   "cite": {
+    "page": 7,
+    "label": "7",
+    "box_2d": [
+     502,
+     73,
+     912,
+     790
+    ]
+   },
+   "crop": "crops/step-07.png",
+   "refRender": "refs/step-07-ref.png",
+   "flags": [],
+   "refSheet": "refs/step-07-sheet.png",
+   "questions": "refs/step-07-questions.json",
+   "cropSource": "box"
+  }
+ ],
+ "flags": [
+  {
+   "ref": "part:drawer_side_left",
+   "kind": "unclear_drawing",
+   "message": "The guide does not label the side panels. They are modelled as a mirrored left/right pair because the cam hole is on each panel's outer face (page 5, steps 2-3)."
+  },
+  {
+   "ref": "step:2",
+   "kind": "unclear_drawing",
+   "message": "The guide pushes the dowels into the side panels' ends before standing them up. The pipeline animates parts before hardware within a step, so the dowels go in after the sides, into the same final holes; a note gives the guide's order."
+  },
+  {
+   "ref": "step:5",
+   "kind": "unclear_drawing",
+   "message": "The back panel is drawn being swung in with the drawer bottom passing under a small notch in its edge (inset). Modelled as a plain panel resting on the bottom; the notch is not modelled. The plastic pins are hammered in; the animation shows them driven like screws."
+  },
+  {
+   "ref": "part:drawer_front",
+   "kind": "estimated_dims",
+   "message": "No dimensions are printed. Only the inner size 320 x 390 x 70 mm is published (IKEA product drawing); board thicknesses, front size, hole positions and hardware sizes are estimates."
+  },
+  {
+   "ref": "part:drawer_runner_left",
+   "kind": "approximate_shape",
+   "message": "Runner modelled as a thin steel L-profile with one wheel at the back end; the real pressed profile and its tabs are simplified."
+  },
+  {
+   "ref": "step:7",
+   "kind": "unclear_drawing",
+   "message": "The final turn back to the right way up is added by the animation; the guide goes on to the desk after step 7."
+  }
+ ],
+ "subassemblies": []
+}

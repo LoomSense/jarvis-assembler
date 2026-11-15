@@ -10,9 +10,9 @@ namespace AG.Guide
     /// so     Blender (x, y, z) -> Unity (-x, z, -y).
     ///
     /// All results are in the ASSEMBLY FRAME: the local frame of the GLB root node <c>assembly</c> as glTFast
-    /// instantiates it (metres). UNVERIFIED until checked once: compare
-    /// <c>BlenderPointToUnity(action.target_m)</c> with the node's final local position from the walkthrough
-    /// clip for one action (HANDOFF §2.4 milestone 1). If they disagree, fix it HERE only.
+    /// instantiates it (metres). VERIFIED 15 Nov 2026 by the EditMode test
+    /// <c>AG.Tests.GuideLoadTests</c>: <c>BlenderPointToUnity(action.target_m)</c> equals the node's final local
+    /// position at the end of the walkthrough clip within 2 mm for every hardware action of the MALM job.
     /// </summary>
     public static class FrameConvert
     {
@@ -26,6 +26,12 @@ namespace AG.Guide
         /// <summary>Point or offset in metres, Blender Z-up -> Unity assembly frame.</summary>
         public static Vector3 BlenderPointToUnity(float[] v) =>
             v == null || v.Length < 3 ? Vector3.zero : new Vector3(-v[0], v[2], -v[1]);
+
+        /// <summary>glTF (right-handed, Y up) position -> Unity, the way glTFast imports it (negate X).</summary>
+        public static Vector3 GltfPointToUnity(float x, float y, float z) => new Vector3(-x, y, z);
+
+        /// <summary>glTF rotation quaternion (x, y, z, w) -> Unity, the way glTFast imports it.</summary>
+        public static Quaternion GltfRotationToUnity(float x, float y, float z, float w) => new Quaternion(x, -y, -z, w);
 
         /// <summary>Direction (normalised), Blender Z-up -> Unity assembly frame.</summary>
         public static Vector3 BlenderDirToUnity(float[] v) => BlenderPointToUnity(v).normalized;

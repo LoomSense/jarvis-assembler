@@ -47,6 +47,10 @@ namespace AG.UI
         public Transform GuideParent;
         /// <summary>Set by the coach once loaded.</summary>
         public AssemblyGuide Guide;
+        /// <summary>Spatialised source for guidance cues (success, warning, ...), near the object. Optional.</summary>
+        public AudioSource Sfx;
+        /// <summary>Seconds to wait for the tracker in the Register stage before guiding untracked.</summary>
+        public float RegisterTimeoutS = 12f;
     }
 
     /// <summary>
@@ -70,5 +74,9 @@ namespace AG.UI
         void Back();
         void Repeat();
         void Rescan();
+        /// <summary>"Where am I": a new /locate on the current frame, jump to the step it finds.</summary>
+        void WhereAmI();
+        /// <summary>Retry after a failed stage (the Failed card's button).</summary>
+        void Retry();
     }
 }

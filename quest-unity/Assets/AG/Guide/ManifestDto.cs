@@ -41,7 +41,10 @@ namespace AG.Guide
 
     public sealed class WalkStepDto
     {
-        [JsonProperty("n")] public int N;
+        /// <summary>Step number, or the string "finish" for the closing segment of the walkthrough.</summary>
+        [JsonProperty("n")] public Newtonsoft.Json.Linq.JToken N;
+        [JsonProperty("text")] public LocalizedText Text;
+        public int? Number => N != null && N.Type == Newtonsoft.Json.Linq.JTokenType.Integer ? (int)N : (int?)null;
         [JsonProperty("start_s")] public float StartS;
         [JsonProperty("end_s")] public float EndS;
     }

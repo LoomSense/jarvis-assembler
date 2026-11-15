@@ -1,7 +1,7 @@
 {
     "name": "AG.Guide",
     "rootNamespace": "AG.Guide",
-    "references": ["AG.Core", "glTFast"],
+    "references": ["AG.Core", "glTFast", "Unity.TextMeshPro"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -10,7 +10,8 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
-        { "name": "com.unity.cloud.gltfast", "expression": "6.0.0", "define": "AG_HAS_GLTFAST" }
+        { "name": "com.unity.cloud.gltfast", "expression": "6.0.0", "define": "AG_HAS_GLTFAST" },
+        { "name": "com.unity.ugui", "expression": "2.0.0", "define": "AG_HAS_TMP" }
     ],
     "noEngineReferences": false
 }

@@ -31,6 +31,11 @@ namespace AG.Guide
         /// <summary>The raw manifest, for anything not modelled here.</summary>
         public ManifestDto Manifest;
 
+        /// <summary>Bounds of the finished assembly in the assembly frame (all part nodes at their final transform).</summary>
+        public Bounds FinalBounds;
+        /// <summary>Last keyframe of the <c>walkthrough</c> clip in seconds (0 when the GLB was not loaded).</summary>
+        public float WalkthroughEndS;
+
         public int ActionCount { get { int n = 0; foreach (var s in Steps) n += s.Actions.Count; return n; } }
         public GuideStep StepByNumber(int n) => Steps.Find(s => s.N == n);
     }
@@ -71,6 +76,8 @@ namespace AG.Guide
         public Quaternion? Turn;
         /// <summary>Seconds in the step clip.</summary>
         public float T0S, T1S;
+        /// <summary>1-based position among the step's actions on the same part id / hardware code ("2 of 4"), and that total.</summary>
+        public int CountIndex = 1, CountTotal = 1;
     }
 
     /// <summary>One GLB node that is a part or a piece of hardware.</summary>

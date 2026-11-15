@@ -1,7 +1,7 @@
 {
     "name": "AG.App",
     "rootNamespace": "AG.App",
-    "references": ["AG.Core", "AG.Guide", "AG.Vision", "AG.Net", "AG.UI"],
+    "references": ["AG.Core", "AG.Guide", "AG.Vision", "AG.Net", "AG.UI", "Oculus.VR"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

@@ -85,6 +85,8 @@ namespace AG.UI
         }
 
         public void SetVisible(bool visible) => gameObject.SetActive(visible);
+        public void SetButtons(PanelButton[] buttons, PanelButton? primary = null) { }
+        public void SetStatusPill(string text, StatusKind kind = StatusKind.Unsure) { }
 
         public void Set(HudState s) =>
             SetText($"{s.Fps:0} fps  cam {s.Camera}\ntrack {s.Tracker}\nstep {s.Step}.{s.Action}  {s.LastEvent} {s.LastEventMs} ms\nserver {(s.ServerOk ? "ok" : "unreachable")}");

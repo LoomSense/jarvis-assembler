@@ -36,6 +36,19 @@ namespace AG.UI
             catch (Exception e) { AgLog.Error("voice", e.Message); }
         }
 
+        readonly HashSet<string> _pending = new HashSet<string>();
+
+        /// <summary>Fetch the next line's audio in the background so it plays without the ~1 s TTS wait.</summary>
+        public async void Prefetch(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || _api == null) return;
+            if (text.Length > 400) text = text.Substring(0, 400);
+            if (_cache.ContainsKey(text) || !_pending.Add(text)) return;
+            try { _cache[text] = Wav.ToClip(await _api.TtsAsync(text), "tts"); }
+            catch (Exception e) { AgLog.Error("voice.prefetch", e.Message); }
+            finally { _pending.Remove(text); }
+        }
+
         public void StopSpeaking() { _queue.Clear(); if (Source != null) Source.Stop(); }
 
         void Update()

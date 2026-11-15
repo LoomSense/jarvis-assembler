@@ -47,6 +47,13 @@ namespace AG.Guide
                     });
                     if (a.Node != null && g.Nodes.TryGetValue(a.Node, out var node) && node.PlacedInStep == 0) node.PlacedInStep = s.N;
                 }
+                foreach (var ga in step.Actions)
+                {
+                    if (ga.PartId == null) continue;
+                    var same = step.Actions.FindAll(x => x.PartId == ga.PartId || (x.Type == ga.Type && x.Code == null && ga.Code == null && x.Node != null && ga.Node != null && ga.Type == ActionType.Place));
+                    ga.CountTotal = same.Count;
+                    ga.CountIndex = same.IndexOf(ga) + 1;
+                }
                 g.Steps.Add(step);
             }
             return g;

@@ -39,6 +39,17 @@ namespace AG.Guide
         }
 
         public void SetPartState(string node, PartVisualState state) { }
+        public void ShowFeedback(GuideFeedback kind, string observedPartId = null) { }
+        public void SetTracking(GhostTracking state) { }
+        public void ShowComplete() { }
+        public bool ReducedMotion { get; set; }
+        public bool TryGetWorldBounds(out Bounds b)
+        {
+            b = default;
+            if (_anchor == null) return false;
+            b = new Bounds(_anchor.position, Vector3.one * 0.3f);
+            return true;
+        }
 
         public void Clear() { if (_marker != null) _marker.SetActive(false); }
     }
