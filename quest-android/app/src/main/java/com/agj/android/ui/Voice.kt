@@ -180,7 +180,9 @@ class ServerVoice(private val api: ServerApi, private val cacheDir: File) : Voic
                   MediaPlayer().apply {
                     setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                            // MEDIA: the headset's own recorder (and casting) capture only media, game and unknown
+                            // audio; as "navigation guidance" the voice was missing from every recording
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
