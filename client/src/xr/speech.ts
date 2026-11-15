@@ -1,7 +1,10 @@
 import type { Lang } from './i18n';
+import { apiFetch } from '../api';
+
+const DEMO_KEY = new URLSearchParams(location.search).get('key'); // the real server wants it on every /api route
 
 // Reads each instruction aloud so the user can keep their eyes on the part.
-// 1. Gemini TTS through the dev server's POST /api/tts (vite.config.ts; the key stays on
+// 1. Gemini TTS through POST /api/tts (the real server, or the dev server's in vite.config.ts; the key stays on
 //    the server). Clips are fetched ahead with `prefetch` and kept, so steps speak at once.
 // 2. If that endpoint is missing or fails, the browser's own voice (Web Speech API).
 // `?voice=0` turns speech off. Gemini Live (PLAN §6) replaces this once it lands.
@@ -17,10 +20,10 @@ let ticket = 0;
 function fetchClip(text: string): Promise<string | null> {
   let p = clips.get(text);
   if (!p) {
-    p = fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
+    p = apiFetch('/api/tts', DEMO_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
       .then(async (r) => {
         if (!r.ok) {
-          if (r.status === 503 || r.status === 404) gemini = false; // no key / no endpoint: stop trying
+          if (r.status === 503 || r.status === 404 || r.status === 401) gemini = false; // no key, no endpoint or wrong demo key: stop trying
           clips.delete(text);
           return null;
         }
