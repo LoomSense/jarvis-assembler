@@ -27,12 +27,13 @@ from pathlib import Path
 from pipeline.perception.logic import SPECIAL, pick
 from pipeline.perception.stream import Stream
 from server.perception import imaging
+from server.perception import look as careful
 from server.perception.config import SOURCES, Tuning
 from server.perception.decider import REFUSED, DecisionError, GeminiDecider, SimulatedDecider
 from server.perception.guide import Guide
 from server.perception.logic import Coach, Emitted, Hands, Health
 from server.perception.phrases import perception_line, sentences, show_part_sentences, spoken
-from server.perception.questions import EXTRA, StepPack, build_ask, forget, load_pack, normalise
+from server.perception.questions import EXTRA, StepPack, build_ask, forget, load_pack, normalise, real_look_note
 from server.perception.wire import FrameError, parse_frame
 
 log = logging.getLogger("agj.perception")
@@ -186,6 +187,8 @@ class PerceptionSession:
         self.stats: Counter = Counter()
         self.decision_ms: deque = deque(maxlen=50)
         self._packs: dict = {}                       # step -> StepPack, or the ValueError that says why there is none
+        # the careful look (look.py): what it is looking at now, and what it has said
+        self._look = {"key": None, "near": deque(maxlen=4), "busy": False, "last": float("-inf"), "count": 0, "fired": False}
         self._pack_lock = threading.Lock()
         self._told: set = set()                      # steps whose missing questions were reported
         self._ticker: asyncio.Task | None = None
@@ -728,10 +731,65 @@ class PerceptionSession:
             hands = self.hands if self.hands.fresh(now) else None
             events = self.coach.on_frame(answers, ts, frame.source, hands, now, answers.luma)
             self._emit(events, frame)
+            self._maybe_look(frame, answers, now)
             following = self.coach.expect.next_step if self.coach.expect else None
             if following is not None and any(e.event == "step_complete" for e in events):
                 self._warm(following)                # §6.2: load the next step's questions and sheet
         self._dirty = True
+
+    # ---- the careful look: one slower-model look when a board is at its place -------------------------
+
+    def _maybe_look(self, frame: Frame, answers: dict, now: float) -> None:
+        """Start one careful look (look.py) when the board has been near its place for about a second. It only
+        ever raises the mistakes the step's question file lists under `wrong_way_look` (the drawer: the side panel
+        on the wrong end of the front): what that model answered right on every real frame. One look at a time,
+        `look_gap_s` apart, `look_max` a step, and none once it has fired for this action."""
+        t, st = self.t, self._look
+        key = (self.epoch, self.step, self.action)
+        if st["key"] != key:
+            st.update(key=key, busy=st["busy"], last=float("-inf"), count=0, fired=False)
+            st["near"].clear()
+        if not t.careful_look or self.simulated or self.step is None:
+            return
+        got = self._packs.get(self.step)
+        allowed = got.pack.get("wrong_way_look") if isinstance(got, StepPack) else None
+        way = answers.get(careful.QUESTION)
+        if not allowed or not isinstance(way, dict):
+            return
+        probs = way.get("probabilities") or {}
+        blocked = float((answers.get("view_blocked") or {}).get("noul") or 0.0) >= self.t.watcher_config().unusable
+        st["near"].append(not blocked and float(probs.get(careful.NOT_PLACED) or 0.0) < 0.5)
+        at_target = (self.hands.fresh(now) and self.hands.at_target and self.hands.target_reached_at is not None
+                     and now - self.hands.target_reached_at >= t.look_near_s)
+        near = sum(st["near"]) >= t.look_near.n or at_target
+        if (not near or st["busy"] or st["fired"] or st["count"] >= t.look_max or now - st["last"] < t.look_gap_s
+                or "flip_needed" in self.coach.muted):
+            return
+        st.update(busy=True, last=now, count=st["count"] + 1)
+        threading.Thread(target=self._look_worker, args=(key, frame, got.pack, list(allowed)), daemon=True).start()
+
+    def _look_worker(self, key: tuple, frame: Frame, pack: dict, allowed: list) -> None:
+        try:
+            result = careful.look(pack, bytes(frame), real_look_note(self.guide), timeout=self.t.look_timeout_s)
+        except Exception as e:                                         # noqa: BLE001 - a look that fails says nothing
+            log.warning("perception: the careful look for step %s failed (%s: %s)", key[1], type(e).__name__, e)
+            result = None
+        self._post(self._on_look, key, frame, result, allowed)
+
+    def _on_look(self, key: tuple, frame: Frame, result: dict | None, allowed: list) -> None:
+        st = self._look
+        st["busy"] = False
+        if result is not None:
+            self.log.write("events", {"clip": self._clip_time(frame)[0], "t": self._clip_time(frame)[2], "event": "look",
+                                      "step": key[1], "answer": result["answer"], "why": result["why"],
+                                      "latency_ms": result["latency_ms"], "seq": frame.seq})
+        if (result is None or st["key"] != key or key != (self.epoch, self.step, self.action) or result["answer"] not in allowed
+                or self.coach.watcher is None or "flip_needed" in self.coach.muted):
+            return
+        st["fired"] = True
+        self.coach.way_said.add(result["answer"])                      # the stream does not say it a second time
+        self._emit([self.coach._say("flip_needed", frame.ts, reason=result["answer"], evidence={"look": 1.0},
+                                    votes="one careful look")], frame)
 
     def _show_part_result(self, answers: dict, show: dict, codes: tuple = ()) -> Emitted:
         """One close look at what the person holds up (PLAN §6.4 `show_part_request`). No smoothing, so a piece
