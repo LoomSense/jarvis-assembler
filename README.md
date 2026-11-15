@@ -87,6 +87,30 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 
 **A `make tunnel` URL (trycloudflare) buffers SSE: no event arrives until the stream ends** (measured 14 Nov). Everything else works through it. A client must fall back to `/events/poll` when the stream stays silent: the server sends `retry: 2000` at once, so a stream with no bytes after a few seconds is a buffered one. Whether the boxd URL streams SSE is not tested yet.
 
+## Use it from an agent (MCP)
+
+`server/mcp_server.py` is an MCP server over the HTTP API above, so Claude Code, Claude Desktop or any MCP client can turn a guide into a walkthrough. It needs a running backend (`make dev`, or the demo host).
+
+```sh
+python -m server.mcp_server                      # stdio
+python -m server.mcp_server --http --port 8765   # streamable HTTP at http://127.0.0.1:8765/mcp
+```
+
+Settings: `AGJ_BASE_URL` (default `http://127.0.0.1:8000`) and `AGJ_DEMO_KEY` (else `DEMO_KEY` from `.env`). For Claude Code, copy `.mcp.json.example` to `.mcp.json` (ignored by git) and fill in the paths and the key, or run `claude mcp add assembly-guide -e AGJ_DEMO_KEY=<key> -- "$PWD/.venv/bin/python" -m server.mcp_server` from the repo root.
+
+| Tool | What it does |
+|---|---|
+| `create_guide(pdf_path, size?)` | Uploads a local PDF guide; returns `job_id` |
+| `guide_status(job_id)` | Stage, status, progress, error, and what to do next |
+| `wait_for_guide(job_id, until="approval"\|"done", timeout_s=900)` | Long-polls the events until the plan needs approval, the walkthrough is done, or the job fails |
+| `get_plan(job_id)` | Parts, hardware codes and counts, steps, flags, page links, and the raw plan |
+| `approve_plan(job_id, note?)` | Approves the plan so the 3D build starts |
+| `get_steps(job_id, lang="en"\|"el")` | Per step: title, guide page, parts, hardware, action sentences, check score, render and crop links |
+| `guide_links(job_id)` | Phone and headset (`&mode=xr`) links for the person |
+| `list_guides()` | All jobs, newest first (and the catalog when the backend has one) |
+
+Resource: `guide://{job_id}/manifest` is a finished job's `manifest.json`. File links carry `?key=` only when the backend is local; otherwise they are paths.
+
 ## How a job runs
 
 One job builds at a time. Every stage runs in its own process with a time limit, and writes `stages/<stage>.done` when it succeeds. After a crash or a restart the job continues from the first unfinished stage. `retry` clears the markers from one stage onward.
