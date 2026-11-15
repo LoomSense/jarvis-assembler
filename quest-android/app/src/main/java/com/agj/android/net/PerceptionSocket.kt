@@ -441,6 +441,18 @@ class OkHttpPerceptionSocket(
     }
   }
 
+  /**
+   * `{type:"show_part", expected?}`: the next frame is looked at closely (resolution `high`, only the "what is held"
+   * questions, ahead of the hand gate) and answered with the event `show_part_result` (`match` true | false | null).
+   * The server waits 8 s for a frame. Returns false when there is no started session to ask.
+   */
+  fun showPart(expected: String?): Boolean =
+      synchronized(lock) {
+        if (ws == null || !connected || started == null) return false
+        sendJson(if (expected != null) mapOf("type" to "show_part", "expected" to expected) else mapOf("type" to "show_part"))
+        true
+      }
+
   override fun stop() {
     synchronized(lock) {
       started = null

@@ -9,6 +9,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +57,15 @@ import kotlin.math.sin
 data class PreviewBox(val x0: Float, val y0: Float, val x1: Float, val y1: Float, val label: String = "")
 
 /** The parts ornament (§2.5): "ΠΑΡΕ", a turntable wireframe of the next part, its name, code and count. */
-data class PartCard(val take: String, val name: String, val code: String?, val count: String?, val wire: FloatArray)
+data class PartCard(
+    val take: String,
+    val name: String,
+    val code: String?,
+    val count: String?,
+    val wire: FloatArray,
+    /** How many the step needs and how many are in view ("Χρειάζεσαι 2", "φαίνονται 1 από 2"); null = no line. */
+    val note: String? = null,
+)
 
 object PartWire {
   /** Feature-edge segments → flat [x0,y0,z0,x1,y1,z1,…] centred on the part and scaled into the unit sphere. Pure. */
@@ -81,11 +98,17 @@ class SidePanelModel {
   var reducedMotion by mutableStateOf(false)
   /** Fades with the step window (fade-relocate, §2.6 rule 5). */
   var alpha by mutableStateOf(1f)
+  /** The held-part verdict on the card's header, used when the badge cannot sit at the wrist; null = "ΠΑΡΕ". */
+  var verdict by mutableStateOf<VerdictBadgeState?>(null)
+  /** "Έλεγχος" under the part: pinch it to check the part in the hand now. Null label = no button. */
+  var checkLabel by mutableStateOf<String?>(null)
+  var onCheck: () -> Unit = {}
+  var onPress: () -> Unit = {}
 }
 
-/** Side column: 0.15 × 0.32 m. Camera preview 12 × 9 cm on top (hud only), parts card 14 × 18 cm below. */
+/** Side column: 0.15 × 0.40 m. Camera preview 12 × 9 cm on top (hud only), parts card 14 × 26 cm below. */
 const val SIDE_PANEL_W = 0.15f
-const val SIDE_PANEL_H = 0.32f
+const val SIDE_PANEL_H = 0.40f
 
 @Composable
 fun SidePanel(model: SidePanelModel) {
@@ -95,7 +118,7 @@ fun SidePanel(model: SidePanelModel) {
       horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     if (model.showCamera) CameraPreview(model)
-    model.part?.let { PartsCard(it, model.reducedMotion) }
+    model.part?.let { PartsCard(it, model) }
   }
 }
 
@@ -129,12 +152,24 @@ private fun CameraPreview(model: SidePanelModel) {
 }
 
 @Composable
-private fun PartsCard(p: PartCard, reducedMotion: Boolean) {
+private fun PartsCard(p: PartCard, model: SidePanelModel) {
+  val reducedMotion = model.reducedMotion
+  val check = model.checkLabel
   Column(
-      Modifier.width(140.dp).height(180.dp).glass(18.dp).padding(12.dp),
+      // header 16 + wireframe 84 + name 36 + code 16 + count 16 (+ button 34), gaps and padding: 258 / 196 mm
+      Modifier.width(140.dp).height(if (check != null) 258.dp else 196.dp).glass(18.dp).padding(12.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    Text(p.take, color = AgColors.textMeta, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
+    val v = model.verdict
+    if (v == null) {
+      Text(p.take, color = AgColors.textMeta, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
+    } else {
+      // the verdict takes the header's place (shape + colour + word), so the card never carries two signals
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        StatusGlyph(v.kind, 12.dp)
+        Text(v.title, color = v.kind.color(), fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      }
+    }
     val angle =
         if (reducedMotion) 0.6f
         else {
@@ -168,5 +203,33 @@ private fun PartsCard(p: PartCard, reducedMotion: Boolean) {
     Text(p.name, color = AgColors.textStrong, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
     val meta = listOfNotNull(p.code, p.count).joinToString(" · ")
     if (meta.isNotEmpty()) Text(meta, color = AgColors.textMeta, fontSize = TextSize.caption, maxLines = 1)
+    p.note?.takeIf { it.isNotBlank() }?.let {
+      Text(it, color = AgColors.accent, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (check != null) {
+      Spacer(Modifier.weight(1f))
+      CheckButton(check, model.onPress, model.onCheck)
+    }
+  }
+}
+
+/** "Έλεγχος": a capsule the width of the card; pinch = look at the part in the hand now. */
+@Composable
+private fun CheckButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
+  val src = remember { MutableInteractionSource() }
+  val hovered by src.collectIsHoveredAsState()
+  val pressed by src.collectIsPressedAsState()
+  LaunchedEffect(pressed) { if (pressed) onPress() }
+  Box(
+      Modifier.fillMaxWidth()
+          .height(34.dp)
+          .clip(RoundedCornerShape(17.dp))
+          .background(if (pressed) Color(0x3DFFFFFF) else if (hovered) Color(0x2EFFFFFF) else AgColors.button)
+          .border(1.dp, if (hovered) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(17.dp))
+          .hoverable(src)
+          .clickable(interactionSource = src, indication = null, onClick = onClick),
+      contentAlignment = Alignment.Center,
+  ) {
+    Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
   }
 }

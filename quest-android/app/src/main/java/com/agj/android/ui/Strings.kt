@@ -55,6 +55,24 @@ object Strings {
           "voiceFailed" to "Didn't catch that. Use the buttons.",
           "take" to "Take",
           "wrongSay" to "That's not the part for this step. Check the drawing.",
+          // held part: the verdict badge, the check action, the pick prompt (ui/HeldVerdict.kt)
+          "heldRight" to "Right part",
+          "heldWrong" to "Wrong part",
+          "heldNeed" to "You need: {name}",
+          "heldUnsure" to "Show me the part closer",
+          "heldRightSay" to "Correct. {name}.",
+          "heldRightSayPlain" to "Correct.",
+          "heldUnsureSay" to "Show me the part closer.",
+          "heldChecking" to "Checking…",
+          "heldNoAnswer" to "No answer. Show it again.",
+          "check" to "Check",
+          "needN" to "You need {n}",
+          "inViewN" to "{seen} of {n} in view",
+          "pickSay" to "Take: {name}, {where}.",
+          "pickSayPlain" to "Take: {name}.",
+          "whereLeft" to "on your left",
+          "whereAhead" to "in front of you",
+          "whereRight" to "on your right",
           "cameraLive" to "camera live · {fps} fps",
           "cameraOff" to "camera · no frames",
       )
@@ -107,9 +125,30 @@ object Strings {
           "voiceFailed" to "Δεν το έπιασα. Πάτα τα κουμπιά.",
           "take" to "Πάρε",
           "wrongSay" to "Αυτό δεν είναι το κομμάτι του βήματος. Δες το σχέδιο.",
+          // κρατημένο εξάρτημα: σήμα ετυμηγορίας, έλεγχος, «ποιο να πάρεις» (ui/HeldVerdict.kt)
+          "heldRight" to "Σωστό",
+          "heldWrong" to "Λάθος εξάρτημα",
+          "heldNeed" to "Χρειάζεσαι: {name}",
+          "heldUnsure" to "Δείξε μου το εξάρτημα πιο κοντά",
+          "heldRightSay" to "Σωστό. {name}.",
+          "heldRightSayPlain" to "Σωστό.",
+          "heldUnsureSay" to "Δείξε μου το εξάρτημα πιο κοντά.",
+          "heldChecking" to "Ελέγχω…",
+          "heldNoAnswer" to "Δεν πήρα απάντηση. Δείξε το ξανά.",
+          "check" to "Έλεγχος",
+          "needN" to "Χρειάζεσαι {n}",
+          "inViewN" to "φαίνονται {seen} από {n}",
+          "pickSay" to "Πάρε: {name}, {where}.",
+          "pickSayPlain" to "Πάρε: {name}.",
+          "whereLeft" to "αριστερά σου",
+          "whereAhead" to "μπροστά σου",
+          "whereRight" to "δεξιά σου",
           "cameraLive" to "κάμερα ζωντανά · {fps} fps",
           "cameraOff" to "κάμερα · χωρίς εικόνα",
       )
+
+  /** Every key of a language's table (tests: both languages carry the same keys). */
+  internal fun keys(lang: String): Set<String> = if (lang == "el") el.keys else en.keys
 
   fun t(lang: String, key: String, vararg vars: Pair<String, Any?>): String {
     val raw = (if (lang == "el") el[key] else en[key]) ?: en[key] ?: key

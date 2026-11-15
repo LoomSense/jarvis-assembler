@@ -117,6 +117,9 @@ enum class StatusKind {
   UNSURE,
 }
 
+/** The status shape (circle ✓, octagon ✕, diamond ?) for the package's other files: the held-part badge, the parts card. */
+@Composable internal fun StatusGlyph(kind: StatusKind, sizeDp: Dp) = StatusShape(kind, sizeDp)
+
 /** What the step window shows (coach card or guide step). */
 data class StepPanelState(
     /** Uppercase status label: "ΒΗΜΑ 3 ΑΠΟ 7" or "2 ΑΠΟ 5" on coach cards. */
