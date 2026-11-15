@@ -34,7 +34,9 @@ namespace AG.UI
             bg.transform.SetParent(transform, false);
             bg.transform.localScale = new Vector3(0.34f, 0.2f, 1f);
             bg.transform.localPosition = new Vector3(0, 0, 0.002f);
-            if (Theme != null && Theme.GlassMaterial != null) bg.GetComponent<Renderer>().sharedMaterial = Theme.GlassMaterial;
+            // never the primitive's default material: its shader is not in a URP build and draws magenta
+            bg.GetComponent<Renderer>().sharedMaterial = Theme != null && Theme.GlassMaterial != null
+                ? Theme.GlassMaterial : AG.Guide.GuideMaterials.Flat(new Color(0.07f, 0.07f, 0.08f, 0.72f), AG.Guide.Tokens.QGlass);
             var go = new GameObject("Text");
             go.transform.SetParent(transform, false);
 #if AG_HAS_TMP
