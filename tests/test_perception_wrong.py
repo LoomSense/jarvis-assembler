@@ -398,3 +398,34 @@ def test_right_way_says_the_step_files_sentence_for_ok(tmp_path):
             assert (event["event"], event["reason"], event["step"]) == ("right_way", "ok", 2)
             assert event["say"] == {"en": "Right: the holes are up.", "el": "Σωστά: οι τρύπες είναι από πάνω."}
             assert event["speak"] and event["evidence"] == {"wrong_way.ok": 0.93} and event["observed_id"] is None
+
+
+# ---- the careful look (server/perception/look.py): built and measured, not wired into the session ----
+
+def test_the_careful_look_asks_the_steps_own_question_and_takes_only_its_keys(monkeypatch):
+    from server.perception import look as careful
+    pack = {"header": "STEP 3 of 6. Image 1 is the live camera view of the user's work area.",
+            "questions": {"wrong_way": {"type": "choice", "instructions": "In Image 1, which of these describes the panel?",
+                                        "criteria": {"side_rail_in": "The rail looks inwards in Image 1", "ok": "The rail looks outwards",
+                                                     "cannot_tell": "No panel touches the front"}}}}
+    text, keys = careful.prompt_for(pack, "Real colours: grey.")
+    assert keys == ["side_rail_in", "ok", "cannot_tell"] and "Image 1" not in text and "Real colours: grey." in text
+    assert "- side_rail_in: The rail looks inwards in the photo" in text and "choose cannot_tell" in text
+    assert careful.prompt_for({"questions": {}}) is None
+    calls = []
+
+    def fake(model, parts, **kw):
+        calls.append((model, parts, kw))
+        return json.dumps({"seen": "a panel, rail inwards", "answer": "side_rail_in"})
+    monkeypatch.setattr(careful.gemini, "generate", fake)
+    out = careful.look(pack, b"\\xff\\xd8jpeg")
+    assert (out["answer"], out["why"]) == ("side_rail_in", "a panel, rail inwards") and out["latency_ms"] >= 0
+    model, parts, kw = calls[0]
+    assert model == "gemini-4-hydrogen" and parts[1][0] == "image/jpeg" and kw["schema"]["properties"]["answer"]["enum"] == keys
+    monkeypatch.setattr(careful.gemini, "generate", lambda *a, **k: json.dumps({"seen": "x", "answer": "upside_down"}))
+    try:
+        careful.look(pack, b"jpeg")
+    except ValueError as e:
+        assert "upside_down" in str(e)
+    else:
+        raise AssertionError("an answer outside the options must not be taken")
