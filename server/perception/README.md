@@ -367,6 +367,46 @@ Three plain REST calls: which product is this, how far along is it (both before 
 - **Errors.** 401 without the key, 404 for an unknown job, 409 when there is no manifest yet, 413 for audio over 1.5 MB decoded, 415 for another mime, 422 for bad base64, a non-Ogg body sent as `audio/ogg`, or neither `audio` nor `text`, 429 past 60 model calls a minute over all callers, 502 when the model fails.
 - **Measured** (real calls, Sun 15 Nov, from a laptop): 8 clips made with the `/api/tts` voice ("επόμενο", "πήγαινε πίσω", "ποια βίδα χρειάζομαι τώρα;", "next", "where am I?", "επανάλαβε, σε παρακαλώ", "τι είναι αυτό;", "which screw do I need for this step?") against `malm-drawer` at step 2. Intent was right on 8 of 8, and all 8 transcripts were exact. Both questions were answered with the dowel 101345 and highlighted it. The model took 2.0 to 4.6 s per call (median 2.9 s). In repeat runs the same call ranged from 1.7 to 10.8 s. The time is the API's: a 430-token prompt is no faster than the full 3200-token one. Through the route with `speak: true`, the synthesis added 1.9 to 2.3 s for a new sentence (cached sentences add none). A typed `text` command takes 0 ms of model time.
 
+## Panel endpoint: the drawer front on the table, without a marker [added Sun 15 Nov]
+
+`POST /api/perception/{job_id}/panel` (demo key as the other routes; route in `server/routes/panel.py`, detector in `server/perception/panel.py`). It finds the MALM drawer front (white, 380 × 130 × 16 mm) lying flat on the table in one camera frame and returns its pose on the table plane. No model call: plain OpenCV, about 10 ms. It is for the native apps, mainly Unity, which has no OpenCV.
+
+**Measured on renders only**, never on a real Quest frame (`tools/markerless/FRONT_PANEL.md`): 71 of 90 frames trusted, position error p50 4.6 mm, p90 10.8 mm, max 17 mm, yaw p50 0.2°. Use the pose only when `trusted` is true; otherwise keep the last good one.
+
+Request:
+```json
+{"image": "<base64 JPEG>", "fx": 870.0, "fy": 870.0, "cx": 640.0, "cy": 480.0,
+ "cam_in_table": [0.99773, -0.0547, 0.03921, -0.06248,
+                  -0.06492, -0.62834, 0.77522, -0.58243,
+                  -0.01776, -0.77601, -0.63047, 0.4681,
+                  0.0, 0.0, 0.0, 1.0],
+ "prev_yaw": 1.4}
+```
+Reply (this request is `tools/markerless/sample/img/s00_f010.jpg`; the true pose is 3.8 mm and 0.12° away):
+```json
+{"trusted": true, "reason": "ok", "x": -0.09058, "y": -0.03513, "yaw": 1.40756,
+ "corners_px": [[625.15, 685.13], [668.47, 369.46], [537.3, 364.59], [427.09, 671.43]], "ms": 8.4}
+```
+
+Frame conventions:
+- **Image and intrinsics.** `fx fy cx cy` are in pixels of the JPEG as sent: if the app downscales the frame, it scales all four. Pixel origin top-left, u right, v down. The image must be undistorted.
+- **Camera frame.** OpenCV axes: x right, y down, z forward into the scene. Metres.
+- **Table frame.** Right-handed, z along the table normal (up), origin anywhere on the table surface, x and y in the surface. Metres.
+- **`cam_in_table`.** The 4 × 4 pose of the camera in the table frame, 16 numbers **row-major**: `p_table = R · p_camera + t`, so the numbers are `r00 r01 r02 tx, r10 r11 r12 ty, r20 r21 r22 tz, 0 0 0 1`. It must be the pose at the frame's exposure time. A column-major matrix, a scale, or a left-handed rotation is refused with 422.
+- **Reply.** `x, y` (metres) is the panel centre in the table frame. `yaw` (radians, about table z, from table x towards table y) is the direction of the 380 mm side. A rectangle looks the same turned round, so yaw is only known modulo π: without `prev_yaw` it is in [0, π); with `prev_yaw` (the app's current yaw) the reply is the nearer of the two.
+- **`corners_px`.** The four corners of the panel's **top face** (16 mm above the table) in the sent image, in the order (−190, −65), (+190, −65), (+190, +65), (−190, +65) mm in the panel's own axes (x along the 380 mm side). `null` when nothing was found.
+- **From Unity** (left-handed, y up; derived, not run on a device). Work in the local axes of the table anchor, whose y is the normal. With the camera's position `p` and its `right`, `up`, `forward` in those axes, and `S(v) = (v.x, v.z, v.y)`: the rotation columns are `S(right)`, `−S(up)`, `S(forward)` and the translation is `S(p)`. In the reply, the panel centre is `(x, 0, y)` and its 380 mm side is along `(cos yaw, 0, sin yaw)` in the anchor's local axes.
+- **Simpler for both apps:** ignore `x, y, yaw` and use `corners_px`. Cast a ray through each corner with the app's own camera pose and intrinsics, intersect the plane 16 mm above the app's own table, and take the centre and long side of the four hits.
+
+Reasons when `trusted` is false: `no candidate`, `size is not 380 x 130 mm`, `not a clean rectangle (hand or object over it)`, `panel partly out of the camera view`, `low contrast against the table`, `camera not looking down at the table`, `table not in view`. In the first case and the last two, `x`, `y`, `yaw` and `corners_px` are `null`; in the others they hold the rejected candidate, for debugging only.
+
+Errors: 401 without the key, 404 for an unknown job, 413 for an image over 2 MB, 422 for a bad image, intrinsics or pose. The job is only checked to exist: the panel size is the MALM drawer front's, fixed in `server/perception/panel.py`.
+
+```sh
+curl -s -X POST "$BASE/api/perception/malm-drawer/panel" -H "X-Demo-Key: $DEMO_KEY" -H 'Content-Type: application/json' \
+  -d "{\"image\": \"$(base64 -i frame.jpg)\", \"fx\": 870, \"fy\": 870, \"cx\": 640, \"cy\": 480, \"cam_in_table\": [ ...16 numbers... ]}"
+```
+
 ## Settings
 
 In `server/settings.py`, with commented lines in `.env.example`:

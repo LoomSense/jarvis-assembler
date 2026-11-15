@@ -1,6 +1,6 @@
 # Front panel on the table without a marker: what to port today
 
-Reference: `tools/markerless/panel_pose.py`, function `detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None)`.
+Reference: `server/perception/panel.py`, function `detect_front_panel(img, K, T_world_cam, T_world_table, prev_yaw=None)` (the only copy). `tools/markerless/panel_pose.py` evaluates it on a dataset.
 
 **Status, plainly.** It is measured on synthetic renders only. There are no real
 Quest camera frames with a pose in the repo, so nothing here is proven on the
@@ -65,7 +65,7 @@ states as negatives. Table plane noise σ 3 mm / 0.4°, camera pose noise
   between 10 and 17 mm off. None is grossly wrong.
 - Untrusted reasons on the 19 other frames: size mismatch 10, not a clean
   rectangle 7 (includes all hand frames), partly out of view 2.
-- Speed: 20 ms p50, 34 ms p90 per frame in Python on an M4 (most of it is the
+- Speed: 12 to 20 ms p50 and 25 to 34 ms p90 per frame over two runs in Python on an M4 (most of it is the
   warp and the Lab conversion of a 560 × 560 image).
 
 Reproduce: `python panel_pose.py data/synth out/panel_pose.json` (dataset from
@@ -82,11 +82,11 @@ the panel does not move, so head tracking carries the ghost between results.
 
 **Unity C# (no OpenCV).** Two options:
 
-- Server (recommended for today, serves both apps): one endpoint that takes the
-  JPEG, `fx fy cx cy` and the 4 × 4 camera pose in the table frame, calls
-  `detect_front_panel(img, K, T_table_cam, np.eye(4))` and returns
-  `{trusted, reason, x, y, yaw, corners_px}`. This is a 15-line wrapper round
-  the reference; I have not added it to the server.
+- Server (recommended for today, serves both apps): `POST /api/perception/{job}/panel`
+  takes the JPEG, `fx fy cx cy` and the 4 × 4 camera pose in the table frame,
+  and returns `{trusted, reason, x, y, yaw, corners_px, ms}`. Route:
+  `server/routes/panel.py`; request, reply and frame conventions:
+  `server/perception/README.md`; tests: `tests/test_panel.py`.
 - Native: the warp as a shader or a CPU loop, then threshold, connected
   components, convex hull and a rotating-calipers minimum-area rectangle.
   About 250 lines of C#; not realistic before the freeze.
