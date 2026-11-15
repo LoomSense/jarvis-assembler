@@ -21,6 +21,8 @@ Give it one of four things: the code on the box, a photo of the box, the product
 
 Under the hood it combines a coding agent that reads the drawings and writes CAD (Claude Agent SDK, CadQuery), 3D animation in Blender, decision models that check live camera frames (Gemini Decisions API), a voice agent (Gemini Live), and object tracking on the Quest 3 itself with OpenCV that locks the 3D guide onto the real boards. It is hosted on one boxd VM, because the build needs a whole Linux machine for headless Blender and the agent's code, behind a public HTTPS address.
 
+![The home screen on a desktop: 'The box is here. Let's build it.', one button, and two boxes under a lamp](docs/img/desktop-home.jpg)
+
 ![The phone flow in six screens: start, scan the code on the box, the agent reads the guide, a part being built in 3D, the guide is ready, a step](docs/img/phone-flow.jpg)
 
 ## How it works
