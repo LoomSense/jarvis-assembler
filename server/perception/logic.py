@@ -46,6 +46,7 @@ SILENT = ("vision_paused", "vision_resumed")     # a badge on the screen (§6.5)
 RIGHT_HARDWARE = "right_hardware"                # the question this layer adds to the request
 SCENE_QUESTIONS = ("step_complete", "next_step_part_used", "orientation_ok")   # about the assembly, not the hand
 WRONG_WAY = "wrong_way"                          # optional choice question of a step: WHICH way round is wrong
+HARDWARE_COLOUR = "hardware_colour"              # optional question (`Tuning.hardware_colour`): colour before code
 WAY_FINE = ("ok", "cannot_tell", "other")        # its answers that name no mistake
 REFUSALS = ("auth", "billing")                   # the API will not answer at all: do not keep asking
 
@@ -81,6 +82,7 @@ class Expect:
     next_step: int | None = None
     next_page: int | None = None
     times: tuple = ()                       # (id, n) for what this step uses more than once: 4 cam bolts, 2 dowels
+    colours: tuple = ()                     # (code, "dark" | "grey" | "light") from the manifest, for `hardware_colour`
 
     def uses(self, item: str) -> int:
         """How many of this part or hardware code the step uses."""
@@ -381,6 +383,16 @@ class Coach:
                 w.votes["wrong_hardware"].clear()        # votes cast against what the last action needed
             w.parts, w.hardware = set(expect.parts), set(expect.ok_hardware)
 
+    def _other_colour(self, raw: dict, code) -> bool:
+        """`hardware_colour` is on, the model is sure of the held item's colour, and `code` has another one:
+        a dark metal item is not the white plastic peg, however much the step expects a peg."""
+        answer = raw.get(HARDWARE_COLOUR)
+        if not self.t.hardware_colour or not isinstance(answer, dict) or code is None or self.expect is None:
+            return False
+        seen, mine = answer.get("choice"), dict(self.expect.colours).get(code)
+        return (mine is not None and seen in ("dark", "grey", "light") and seen != mine
+                and float(answer.get("confidence") or 0.0) >= self.t.hardware_colour_min)
+
     def _again(self, key: tuple[str, str]) -> None:
         """A confirmed item may be confirmed once more, while the step still uses more of it than were confirmed."""
         if self.confirm_count[key] < self.expect.uses(key[1]):
@@ -557,6 +569,8 @@ class Coach:
                 # reaching the threshold (seen with a short screw in hand: right_hardware 0.05, 108560 at 0.51).
                 # Let that code count as seen, so the measured N-of-M window decides the warning.
                 raw = {**raw, "hardware_in_hand": {**raw["hardware_in_hand"], "confidence": w.cfg.choice}}
+        if self._other_colour(raw, (raw.get("hardware_in_hand") or {}).get("choice")):
+            drop.add("hardware_in_hand")                         # neither right nor wrong: the code is not believed
         if t.wrong_part_sum:
             raw = self._wrong_part_sum(raw, w)
         return {k: v for k, v in raw.items() if k not in drop} if drop else raw
@@ -665,7 +679,7 @@ class Coach:
         # 3. Confirmations: the right thing in the hand, said once.
         right_part, right_hw = yes_p(raw, "right_part"), yes_p(raw, RIGHT_HARDWARE)
         votes = {
-            "right_hardware": code if (is_code and code in e.confirm_hardware
+            "right_hardware": code if (is_code and code in e.confirm_hardware and not self._other_colour(raw, code)
                                        and not (t.hardware_veto and right_hw is not None and right_hw <= cfg.no)) else None,
             "right_part": held if (is_part and held in e.confirm_parts
                                    and not (right_part is not None and right_part <= cfg.no)) else None,

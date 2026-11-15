@@ -36,6 +36,12 @@ MODEL = "gemini-decision-1"            # what pipeline.check.decisions sends. PL
 RESOLUTIONS = ("low", "medium", "high", "ultra_high")
 EXTRA = "right_hardware"               # the one question added to the benchmarked set
 WRONG_WAY = "wrong_way"                # a step file's optional choice: which way round is wrong (README)
+COLOUR = "hardware_colour"             # optional (`Tuning.hardware_colour`): material and colour first, then the code
+COLOUR_WORDS = {"dark": "DARK grey or black METAL, like steel: darker than the fingers that hold it",
+                "grey": "SILVER or mid-grey metal: about as bright as the fingers that hold it",
+                "light": "WHITE or cream, like PLASTIC: lighter than the fingers that hold it"}
+COLOUR_NONE = {"nothing": "No small item is held: the fingers are empty, or hold only a board or a tool handle",
+               "cannot_tell": "Something small is held, but its colour and material cannot be made out"}
 NOT_A_CODE = ("no_hardware", "other")
 
 
@@ -242,6 +248,27 @@ def right_hardware_question(guide: Guide, sp: StepPack, codes) -> dict | None:
                          "false_description": f"The hardware in the user's hands is a different item{other}, or no hardware is held"}}
 
 
+def colour_questions(guide: Guide, sp: StepPack) -> dict | None:
+    """`hardware_colour` and the step's `hardware_in_hand` told to decide by it. The model names the hardware the
+    step expects when it cannot see the item (real frames, Sun 15 Nov: a cam bolt in the hand during step 6 was
+    read as the peg that step needs in 5 of 8 frames; asked for the colour first, in 1 of 8). The colours are the
+    manifest's (`Guide.colour`). None when the hardware offered has fewer than two of them: nothing to tell apart."""
+    hw = (sp.pack["questions"].get("hardware_in_hand") or {})
+    colours = {c: guide.colour(c) for c in (hw.get("criteria") or {}) if c not in SPECIAL and guide.colour(c)}
+    if len(set(colours.values())) < 2:
+        return None
+    first = {"type": "choice",
+             "instructions": "Look only at the small item between the user's fingertips, or at the tip of the tool, in "
+                             "Image 1. What is it made of and what colour is it? Judge the item itself, not the boards "
+                             "or the floor behind it.",
+             "criteria": {**{c: COLOUR_WORDS[c] for c in COLOUR_WORDS if c in colours.values()}, **COLOUR_NONE}}
+    told = "; ".join(f"{code} is {colour}" for code, colour in colours.items())
+    second = {**hw, "instructions": f"{hw.get('instructions', '')} Decide by its MATERIAL and COLOUR first (your answer "
+                                    f"to {COLOUR}), then by its shape: {told}. An item of another colour cannot be "
+                                    f"that code, whatever this step needs."}
+    return {COLOUR: first, "hardware_in_hand": second}
+
+
 NOTE_MAX = 400
 
 
@@ -259,8 +286,9 @@ def real_look_note(guide: Guide) -> str | None:
 
 
 def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str = "medium",
-              only: tuple | None = None, extra: bool = True) -> Ask:
-    """The request for one frame. `only` keeps a subset of the questions (a `show_part` look)."""
+              only: tuple | None = None, extra: bool = True, colour: bool = False) -> Ask:
+    """The request for one frame. `only` keeps a subset of the questions (a `show_part` look). `colour`: ask for
+    the held item's material and colour before its code (`colour_questions`), in the stream and in a look."""
     # the four blocks of `pipeline.perception.request.build`, from the pack in memory (a file's pack may carry a
     # newer step_complete question than the file: `_current`)
     pack = sp.pack
@@ -272,6 +300,11 @@ def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str
     if note:
         inputs.append(note)
     questions = dict(questions)
+    if colour:
+        more = colour_questions(guide, sp)
+        if more:                                                     # the colour first: it is answered before the code
+            questions = {COLOUR: more[COLOUR], **{k: more.get(k, v) for k, v in questions.items()}}
+            only = None if only is None else (COLOUR, *only)
     if only is not None:
         questions = {k: v for k, v in questions.items() if k in only}
         added = right_hardware_question(guide, sp, codes) if extra and EXTRA in only else None

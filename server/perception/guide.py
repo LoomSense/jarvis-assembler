@@ -99,6 +99,17 @@ class Guide:
         theirs = self.parts(nxt["n"]) + [c for c, _ in self.hardware(nxt["n"])]
         return [i for i in theirs if i not in mine]
 
+    def colour(self, item: str) -> str | None:
+        """`dark`, `grey` or `light`: how bright the manifest's `color` (linear RGB, 0-1) of a hardware code is.
+        A cam bolt of dark steel is `dark`, a white plastic peg `light`. None when the manifest gives no colour."""
+        entry = next((h for h in self.manifest.get("hardware", []) if str(h.get("code")) == str(item)), None)
+        try:
+            r, g, b = (float(v) for v in list(entry["color"])[:3])
+        except (TypeError, ValueError, KeyError):
+            return None
+        lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return "dark" if lum < 0.3 else "light" if lum > 0.7 else "grey"
+
     def expect(self, n: int, action: int | None = None) -> Expect:
         actions = self.actions(n)
         act = actions[action] if action is not None and 0 <= action < len(actions) else None
@@ -112,6 +123,8 @@ class Guide:
                 times[part] = placed
         return Expect(step=n, page=self.page(n), parts=frozenset(self.parts(n)),
                       hardware=frozenset(c for c, _ in self.hardware(n)), times=tuple(sorted(times.items())),
+                      colours=tuple(sorted((str(h.get("code")), self.colour(h.get("code")))
+                                           for h in self.manifest.get("hardware", []) if self.colour(h.get("code")))),
                       action=action if act else None, action_kind=kind, action_id=str(item) if item else None,
                       last_action=act is None or action == len(actions) - 1, last_step=nxt is None,
                       next_step=nxt["n"] if nxt else None, next_page=self.page(nxt["n"]) if nxt else None)

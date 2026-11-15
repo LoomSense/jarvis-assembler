@@ -287,3 +287,59 @@ def test_greek_names_come_from_the_manifest_when_the_job_folder_has_no_plan(tmp_
     assert guide.spoken_el(part["id"]) == "πάτο του συρταριού"
     say = sentences(Emitted("wrong_part", 3, 4, expected_id=other["id"], observed_id=part["id"]), guide)
     assert say["el"].startswith("Κρατάς πάτο του συρταριού. Το βήμα 3 θέλει αριστερό πλαϊνό")
+
+
+# ---- `hardware_colour`: material and colour before the code (off by default) ---------------------------
+
+PEGS = Expect(step=6, page=7, hardware=frozenset({"PEG-W"}), times=(("PEG-W", 4),),
+              colours=(("BOLT-C", "dark"), ("PEG-W", "light")))
+
+
+def coloured(code: str, colour: str, sure: float = 0.6, **kw) -> dict:
+    answers = frame("hardware_only", code, **kw)
+    answers["hardware_colour"] = {"type": "choice", "choice": colour, "confidence": sure,
+                                  "probabilities": {colour: sure, "cannot_tell": round(1 - sure, 3)}}
+    return answers
+
+
+def test_a_code_of_another_colour_is_neither_confirmed_nor_called_wrong():
+    names = lambda c, frames: [name for _, name in feed(c, frames)[0]]              # noqa: E731
+    peg_but_dark = coloured("PEG-W", "dark", right_hardware=0.9)                    # the bolt, read as the peg needed
+    assert names(coach(PEGS, hardware_colour=True), [peg_but_dark] * 20) == []
+    assert names(coach(PEGS), [peg_but_dark] * 4) == ["right_hardware"]             # off: as before
+    assert names(coach(PEGS, hardware_colour=True), [coloured("PEG-W", "light", right_hardware=0.9)] * 4) == ["right_hardware"]
+    assert names(coach(PEGS, hardware_colour=True), [coloured("PEG-W", "dark", 0.4, right_hardware=0.9)] * 4) == ["right_hardware"]
+    bolt_but_light = coloured("BOLT-C", "light", right_hardware=0.05)
+    assert names(coach(PEGS, hardware_colour=True), [bolt_but_light] * 20) == []
+    assert names(coach(PEGS), [bolt_but_light] * 5) == ["wrong_hardware"]
+    assert names(coach(PEGS, hardware_colour=True), [coloured("BOLT-C", "dark", right_hardware=0.05)] * 5) == ["wrong_hardware"]
+    unseen = coloured("PEG-W", "nothing", 0.8, right_hardware=0.9)                  # no colour named: no veto
+    assert names(coach(PEGS, hardware_colour=True), [unseen] * 4) == ["right_hardware"]
+
+
+def test_the_colour_question_comes_first_and_only_when_colours_differ(tmp_path):
+    from server.perception.questions import COLOUR
+    job = make_job(tmp_path)
+    manifest = json.loads((job / "manifest.json").read_text())
+    first, second = manifest["hardware"][0], manifest["hardware"][1]
+    first["color"], second["color"] = [0.17, 0.18, 0.19], [0.89, 0.89, 0.86]
+    (job / "manifest.json").write_text(json.dumps(manifest))
+    guide = Guide(job)
+    n = next(k for k in guide.order if {str(first["code"]), str(second["code"])} <= set(
+        load_pack(guide, k).pack["questions"]["hardware_in_hand"]["criteria"]))
+    assert (guide.colour(first["code"]), guide.colour(second["code"]), guide.colour("nope")) == ("dark", "light", None)
+    assert dict(guide.expect(n).colours) == {str(first["code"]): "dark", str(second["code"]): "light"}
+    pack = load_pack(guide, n)
+    plain, asked = build_ask(guide, pack, jpeg()), build_ask(guide, pack, jpeg(), colour=True)
+    assert COLOUR not in plain.questions and list(asked.questions)[0] == COLOUR
+    assert list(asked.questions[COLOUR]["criteria"]) == ["dark", "light", "nothing", "cannot_tell"]
+    told = asked.questions["hardware_in_hand"]["instructions"]
+    assert told.startswith(plain.questions["hardware_in_hand"]["instructions"]) and f"{first['code']} is dark" in told
+    assert {k: v for k, v in asked.questions.items() if k not in (COLOUR, "hardware_in_hand")} == {
+        k: v for k, v in plain.questions.items() if k != "hardware_in_hand"}
+    look = build_ask(guide, pack, jpeg(), colour=True, only=("part_in_hand", "hardware_in_hand", "image_poor"))
+    assert list(look.questions) == [COLOUR, "part_in_hand", "hardware_in_hand", "image_poor"]
+    second["color"] = first["color"]                                                 # one colour: nothing to tell apart
+    (job / "manifest.json").write_text(json.dumps(manifest))
+    same = Guide(job)
+    assert build_ask(same, load_pack(same, n), jpeg(), colour=True).questions == build_ask(same, load_pack(same, n), jpeg()).questions

@@ -754,6 +754,8 @@ class PerceptionSession:
         elif code and code not in SPECIAL:
             if empty >= t.show_nothing_max:
                 why = "hand_may_be_empty"
+            elif self.coach._other_colour(answers, code):
+                why = "not_confirmed"                # the item's colour is not this code's (`hardware_colour`)
             elif right is not None and code in codes and right < t.show_right_min:
                 why = "not_confirmed"                # the choice names the needed code, the yes/no does not
             elif right is not None and codes and code not in codes and right >= cfg.yes:
@@ -805,7 +807,8 @@ class PerceptionSession:
             resolution = (t.show_part_resolution if frame.show else
                           "high" if frame.header.get("hint") == "high" else t.resolution)
             ask = build_ask(self.guide, pack, jpeg, codes=frame.codes, resolution=resolution,
-                            only=SHOW_PART_QUESTIONS if frame.show else None, extra=t.ask_right_hardware)
+                            only=SHOW_PART_QUESTIONS if frame.show else None, extra=t.ask_right_hardware,
+                            colour=t.hardware_colour)
             frame.started = self.clock()
             t0 = time.perf_counter()
             raw = decider.decide(ask)
