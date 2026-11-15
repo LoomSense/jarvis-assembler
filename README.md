@@ -9,6 +9,8 @@
 - Anyone who buys flat-pack furniture and builds it at home.
 - The shops that sell it, who take the calls when a build goes wrong.
 
+![A person sits on the floor holding their head, with a hundred furniture parts scattered around and a paper guide with a question mark](docs/img/frustrated.svg)
+
 **The problem**
 
 You need three hours to build one drawer, because the guide is all drawings and not a single word. It will not tell you which of two look-alike boards you are holding, or which way round it goes. You find out three steps later, with the screwdriver still in your hand.
