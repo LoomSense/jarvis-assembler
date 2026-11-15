@@ -142,3 +142,21 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
 :root[data-theme="light"] #home .seg { background: var(--ag-surface-glass); }
 :root[data-theme="light"] #home .seg button[aria-pressed="true"] { background: var(--ag-primary); color: var(--ag-text-on-primary); }
 :root[data-theme="light"] #home .foot > .shot { background: var(--ag-primary); color: var(--ag-text-on-primary); box-shadow: 0 0 0 3px var(--ag-bg), 0 0 0 5px var(--ag-primary); }
+
+/* The scan screen wears the landing page's workshop-at-night look, whatever the theme of the other screens:
+   one press on "Συναρμολόγησε" must not jump from a dark room into a white one. */
+#home[data-s="scan"], body:has(#home[data-s="scan"]) #appnav {
+  --ink: #f5efe6; --ink-quiet: #b9ad9c; --hair: #3a3027; --hair-strong: #8f8474; --accent: #f0b25a; --success: #8fd3a0; --warn: #f0c674;
+  --ag-bg: #0b0907; --ag-text: #e9e1d5; --ag-text-strong: #f5efe6; --ag-text-meta: #b9ad9c; --ag-border: #2a221a; --ag-border-strong: #3a3027;
+  --ag-surface: #14100c; --ag-surface-glass: rgba(20, 16, 12, 0.72); --ag-field-bg: #14100c; --ag-primary: #f7f2ea; --ag-primary-hover: #fff; --ag-text-on-primary: #17110b;
+  --ag-shadow-primary: none; --ag-accent: #f0b25a; --ag-focus-ring: #f0b25a;
+  color: var(--ink);
+}
+#home[data-s="scan"] { background: #0b0907; }
+#home[data-s="scan"] canvas.view { filter: blur(14px) brightness(0.22) sepia(0.5); }
+#home[data-s="scan"] .shade, :root[data-theme="light"] #home[data-s="scan"] .shade { background: linear-gradient(180deg, rgba(11, 9, 7, 0.7) 0, rgba(11, 9, 7, 0) 20%, rgba(11, 9, 7, 0) 50%, rgba(11, 9, 7, 0.86) 100%); }
+#home[data-s="scan"] .brackets { color: #f0b25a; }
+#home[data-s="scan"] .seg button[aria-pressed="true"] { background: #f7f2ea; color: #17110b; }
+#home[data-s="scan"] :is(.pill, .foot > .shot) { background: #f7f2ea; color: #17110b; }
+#home[data-s="scan"] .foot > .shot { box-shadow: 0 0 0 3px #0b0907, 0 0 0 5px #f7f2ea; }
+#home[data-s="scan"] .round:not(.shot) { background: rgba(20, 16, 12, 0.6); }

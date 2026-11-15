@@ -267,13 +267,11 @@ html:has(#landing) { background: #0b0907; }
 #landing .ws .hint { margin-top: 14px; }
 #landing .ws .hint:empty { display: none; }
 
-#landing .steps3 { max-width: 480px; margin: 30px 0 0; padding: 0; list-style: none; display: flex; align-items: center; gap: 6px; }
-#landing .steps3 .t { flex: 1 1 0; min-width: 0; height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--ag-border); border-radius: 14px; background: var(--ag-surface); color: var(--ag-text); font-size: 14px; font-weight: 500; white-space: nowrap; animation: ws-step 6s ease-in-out infinite; }
-#landing .steps3 .t:nth-child(3) { animation-delay: 2s; }
-#landing .steps3 .t:nth-child(5) { animation-delay: 4s; }
-#landing .steps3 .t svg { width: 40px; height: 40px; color: var(--ag-accent); stroke-width: 2; }
-#landing .steps3 .t svg[viewBox="0 0 24 24"] { stroke-width: 1.3; }
-#landing .steps3 .ar { flex: none; display: grid; color: #6b5f51; }
+/* what happens next, as three pictures with a word each: not buttons, so no boxes around them */
+#landing .steps3 { max-width: 420px; margin: 34px 0 0; padding: 0; list-style: none; display: flex; align-items: flex-start; gap: 4px; }
+#landing .steps3 .t { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--ag-text); font-size: 14px; font-weight: 500; text-align: center; white-space: nowrap; }
+#landing .steps3 .t svg { width: 44px; height: 44px; color: var(--ag-accent); stroke-width: 2; }
+#landing .steps3 .ar { flex: none; height: 44px; display: grid; place-items: center; color: #6b5f51; }
 #landing .steps3 .ar svg { width: 16px; height: 16px; }
 
 #landing .scene { position: relative; height: 340px; overflow: hidden; border-radius: 20px; }
@@ -282,7 +280,7 @@ html:has(#landing) { background: #0b0907; }
 #landing .scene .cord { left: 50%; top: 0; width: 2px; height: 46px; margin-left: -1px; background: #3a3027; }
 #landing .scene .shade { left: 50%; top: 46px; width: 72px; height: 30px; margin-left: -36px; background: #221b15; clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%); }
 #landing .scene .bulb { left: 50%; top: 74px; width: 44px; height: 7px; margin-left: -22px; border-radius: 4px; background: #ffe6b8; box-shadow: 0 0 46px 20px rgba(255, 205, 130, 0.42); }
-#landing .scene .cone { left: 50%; top: 80px; width: 360px; height: 206px; margin-left: -180px; background: linear-gradient(rgba(255, 214, 150, 0.17), rgba(255, 214, 150, 0.02)); clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
+#landing .scene .cone { left: 50%; top: 80px; bottom: 72px; width: 360px; margin-left: -180px; background: linear-gradient(rgba(255, 214, 150, 0.17), rgba(255, 214, 150, 0.02)); clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
 #landing .scene .table { left: 0; right: 0; bottom: 22px; height: 64px; border-top: 1px solid #b07a48;
   background: radial-gradient(ellipse 62% 120% at 50% 20%, rgba(255, 214, 150, 0.34), transparent 70%), repeating-linear-gradient(90deg, transparent 0 76px, rgba(0, 0, 0, 0.28) 76px 78px), linear-gradient(#8a5a31, #5c3a1e); }
 #landing .scene .edge { left: 0; right: 0; bottom: 0; height: 22px; background: linear-gradient(#3b2413, #1c1109); }
@@ -312,7 +310,6 @@ html:has(#landing) { background: #0b0907; }
 
 @keyframes ws-lid { 0%, 12%, 92%, 100% { transform: skewX(-45deg) scaleY(1); } 28%, 76% { transform: skewX(-20deg) scaleY(-1); } }
 @keyframes ws-pop { 0%, 18%, 84%, 100% { opacity: 0; transform: translateY(14px); } 34%, 70% { opacity: 1; transform: translateY(-22px); } }
-@keyframes ws-step { 0%, 34%, 100% { border-color: var(--ag-border); } 10%, 24% { border-color: var(--ag-accent); } }
 
 @media (min-width: 900px) {
   #landing .ws { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); padding: 40px 0 80px; }
@@ -321,6 +318,7 @@ html:has(#landing) { background: #0b0907; }
   #landing .scene .row { bottom: 60px; gap: 30px; }
   #landing .scene .table { height: 84px; bottom: 28px; }
   #landing .scene .edge { height: 28px; }
+  #landing .scene .cone { bottom: 100px; width: 520px; margin-left: -260px; }
   #landing .bx.c1 { --w: 164px; --h: 116px; --d: 32px; }
   #landing .bx.c2 { --w: 130px; --h: 158px; --d: 30px; }
   #landing .bx em { font-size: 21px; }
@@ -328,8 +326,8 @@ html:has(#landing) { background: #0b0907; }
 }
 @media (max-width: 560px) {
   #landing .ws { padding-bottom: 40px; }
-  #landing .ws .scene { margin: 0 -16px; border-radius: 0; }
+  #landing .ws .scene { height: clamp(340px, 48dvh, 460px); margin: 0 -16px; border-radius: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #landing .bx, #landing .bx .lid, #landing .bx .pop, #landing .steps3 .t { animation: none; transition: none; }
+  #landing .bx, #landing .bx .lid, #landing .bx .pop { animation: none; transition: none; }
 }

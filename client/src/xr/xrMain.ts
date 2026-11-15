@@ -1313,7 +1313,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
   const overlay = document.createElement('div');
   overlay.className = 'xr-overlay';
   overlay.innerHTML = `
-    <h1>Assembly Guide · XR</h1>
+    <h1>Jarvis Assembler · XR</h1>
     <p class="xr-status" role="status">Checking WebXR…</p>
     <button class="xr-guide xr-camera" type="button" hidden>${CAMERA_LABEL}</button>
     <button class="xr-guide" type="button" hidden>${GUIDE_LABEL}</button>

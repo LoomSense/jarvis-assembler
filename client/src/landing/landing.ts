@@ -57,13 +57,14 @@ const ICON = {
   scan: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5C4.7 20 4 19.3 4 18.5V16M7 12h10"/>',
   home: '<path d="M4.5 11 12 4.5 19.5 11M6.5 9.5V19h11V9.5"/>',
   shelf: '<rect x="4" y="4.5" width="7" height="6" rx="1.2"/><rect x="13" y="4.5" width="7" height="6" rx="1.2"/><rect x="4" y="13.5" width="7" height="6" rx="1.2"/><rect x="13" y="13.5" width="7" height="6" rx="1.2"/>',
-  scanbox: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5C4.7 20 4 19.3 4 18.5V16"/><path d="m12 8 4 2v4l-4 2-4-2v-4zM8 10l4 2 4-2M12 12v4"/>',
   steps: '<rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="m10.2 12 1.4 1.5 2.4-3"/>',
 }
 const svg = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
 const FILL = 'fill="rgba(240,178,90,.18)"'
 const CUBE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path ${FILL} d="M24 10l14 7v16l-14 7-14-7V17z"/><path d="M10 17l14 7 14-7M24 24v16"/></svg>`
 const HALF = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 33l14-7 14 7-14 7z"/><path ${FILL} d="M10 17l14-7v16l-14 7zM24 10l14 7v16l-14-7z"/></svg>`
+/** Step one, whichever way the guide comes in: a sheet of instructions standing in an open box. */
+const GIVE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 26l8-4M30 22l8 4"/><path ${FILL} d="M18 6h12v22H18z"/><path d="M21 12h6M21 17h6"/><path d="M10 26l14 7 14-7M10 26v9l14 7 14-7v-9M24 33v9"/></svg>`
 /** The mark: a cardboard box, and above it the dashed ghost of the piece that goes on next. */
 const LOGO = `<svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#c59a68" d="M8 29l16 7v10L8 39z"/><path fill="#8f6639" d="M24 36l16-7v10l-16 7z"/><path fill="#dcb585" d="M24 22l16 7-16 7-16-7z"/><path stroke="#f0b25a" stroke-width="1.2" stroke-dasharray="2 3" opacity=".6" d="M8 13v12M40 13v12"/><path fill="rgba(240,178,90,.2)" stroke="#f0b25a" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" d="M24 3l16 7-16 7-16-7z"/></svg>`
 /** One cardboard box on the table: its lid lifts, a glowing piece rises out of it, and it closes again. */
@@ -88,7 +89,6 @@ export function startLanding(app: HTMLElement): void {
       <a class="brand" href="${esc(link({}))}">${LOGO}<span>${w.brand}</span></a>
       <nav aria-label="${w.guides}">
         <a class="navlink" href="#guides" aria-label="${w.guides}">${svg(ICON.mark)}<span>${w.guides}</span></a>
-        <a class="navadd" href="${esc(link({ mode: 'build' }))}">${svg(ICON.plus)}<span>${w.add}</span></a>
         <a class="lang" href="${esc(link({ lang: lang === 'en' ? 'el' : 'en' }))}" lang="${lang === 'en' ? 'el' : 'en'}" aria-label="${w.otherAria}">${w.other}</a>
       </nav>
     </header>
@@ -105,7 +105,7 @@ export function startLanding(app: HTMLElement): void {
             <a class="primary" href="${esc(link({ mode: 'shelf', scan: '1' }))}"><span>${w.cta}</span>${svg(ICON.arrow)}</a>
           </div>
           <ol class="steps3" aria-label="${w.how}">
-            <li class="t">${svg(ICON.scanbox)}<span>${w.s1}</span></li>
+            <li class="t">${GIVE}<span>${w.s1}</span></li>
             <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
             <li class="t">${HALF}<span>${w.s2}</span></li>
             <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
