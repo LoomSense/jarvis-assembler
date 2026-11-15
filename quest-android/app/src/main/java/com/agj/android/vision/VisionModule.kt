@@ -207,6 +207,19 @@ class VisionModule(
     touch.reset()
   }
 
+  /**
+   * Put the assembly at [worldFromAssembly] from a source other than the marker or the touch (world/WorldModule:
+   * `table`, `fixed_spot`, `server_box`, `manual`, `markerless`). [worldFromAssembly] then returns it (held) and
+   * `track` logs `source: <method>`. Ignored (false) while the marker itself is tracking.
+   */
+  fun placeAssembly(worldFromAssembly: Pose3, method: String): Boolean {
+    val s = core.snapshot()
+    if (s.method == "marker" && s.tracked) return false
+    touchActive = false
+    notifyState(core.onExternal(worldFromAssembly, clock(), method))
+    return true
+  }
+
   val touching: Boolean
     get() = touchActive
 
