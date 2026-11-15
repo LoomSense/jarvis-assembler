@@ -305,7 +305,13 @@ class HeldPartGuide(
           val w = followed?.let { BadgePlacement.follow(it, ws) }
           if (w != null) followed = w
           if (w != null && headPose != null) BadgePlacement.atWrist(w, headPose.t) else pos
-        } else wPos?.let { BadgePlacement.atWindow(it, wHead) }
+        } else
+            wPos?.let { w ->
+              // UI-FLOOR: the window leans to the eyes, so "above it" is along its own up axis (straight up in the
+              // world would put the badge over the window's top edge when it is seen from above)
+              wHead?.let { h -> w + Placement.facingEyes(w, h).q.rotate(Vec3(0f, BadgePlacement.ABOVE_WINDOW_M, 0.015f)) }
+                  ?: BadgePlacement.atWindow(w, wHead)
+            }
     val cur = pos
     val p =
         when {
@@ -318,8 +324,12 @@ class HeldPartGuide(
     val e = badgeE ?: return
     val facing = headPose?.t ?: wHead
     if (p == null || facing == null) return
-    // UI-FLOOR: upright in the view also when the wearer looks down at the hand from above
-    e.setComponent(Transform(headPose?.let { Placement.billboard(p, it).toSdk() } ?: facingPose(p, facing)))
+    // UI-FLOOR: at the hand it faces the eyes and is upright in the view, also seen from above; above the window it
+    // lies in the window's own plane
+    val pose =
+        if (where == BadgePlacement.WINDOW && wPos != null && wHead != null) Pose3(p, Placement.facingEyes(wPos, wHead).q)
+        else headPose?.let { Placement.billboard(p, it) }
+    e.setComponent(Transform(pose?.toSdk() ?: facingPose(p, facing)))
     e.setComponent(Scale(Vector3(BadgePlacement.scale((p - facing).length()))))
     if (!badgeShown) {
       badgeShown = true

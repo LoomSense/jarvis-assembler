@@ -550,7 +550,7 @@ fun StepPanel(model: StepPanelModel, side: SidePanelModel? = null) {
       ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
           // a name too long for two lines at the hero size steps down once rather than being cut
-          val hero = !s.compact && s.title.length <= 32
+          val hero = !s.compact && s.title.length <= 28
           Text(
               s.title,
               color = AgColors.textStrong,
@@ -598,7 +598,7 @@ fun StepPanel(model: StepPanelModel, side: SidePanelModel? = null) {
           s.micLabel?.let { QuietButton(it, Glyph.MIC, model.onPress, {}, mic = model.mic, onDown = model.onMicDown, onUp = model.onMicUp) }
           s.whereLabel?.takeIf { s.micLabel == null }?.let { QuietButton(it, Glyph.WHERE, model.onPress, { model.onWhere() }) }
           model.align?.let { QuietButton(it, Glyph.ALIGN, model.onPress, { model.onAlign() }) }
-          if (side != null && check != null) QuietButton(check, Glyph.CHECK, side.onPress, { side.onCheck() })
+          if (side != null && check != null) QuietButton(check, Glyph.CHECK, model.onPress, { side.onCheck() })
         }
       }
     }
