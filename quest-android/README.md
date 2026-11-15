@@ -294,6 +294,64 @@ still wins when a strip is seen.
 - **UNVERIFIED on device:** all of it. In particular the anchor height without a scene table (the fixed spot is a
   guess, so a server box lands with parallax error), and the box quality on real photos.
 
+## Markerless front panel (`vision/PanelPose.kt`)
+
+A Kotlin port of `server/perception/panel.py` (method, gates, numbers and failure cases:
+`tools/markerless/FRONT_PANEL.md`): x, y and yaw of the 380 × 130 × 16 mm drawer front lying flat on the table, from
+one colour frame, the camera pose and the table height. **Measured on renders only; not yet seen on the headset.**
+
+- `PanelMath` (pure): the rectification homography, the smear correction, the far-corner anchor, the gates.
+  `PanelPose.detect` (OpenCV Java API): warp, Lab whiteness, 8 thresholds, contours, `minAreaRect`. Every constant
+  of the reference is a named field of `PanelParams`.
+- `PanelFrames`: the detector's TABLE frame (+Z up, origin on the surface; `tableAtHeight(y)` = WORLD +X, −Z, +Y)
+  and ASSEMBLY ← PANEL = 180° about X, t = (0, 0.05, 0.016) m, from the same mesh numbers as `MarkerPlacement` (the
+  front lies inside face up; PANEL is 15 mm from the strip centre along the marker's +Y and 16 mm below it). All
+  right-handed WORLD; nothing here touches the Spatial SDK's left-handed frame.
+- `PanelPoseTracker`: on the camera thread it checks the rate (3 Hz), the job (`malm-drawer` only), the camera pose,
+  the table height and that the camera looks down, then encodes one 1280 px JPEG (`CameraFrame.jpegAt`, the only
+  colour path) for its own thread. Three trusted results in a row that agree within 10 mm and 3° → their median →
+  `onObjectPose(worldFromAssembly, confidence, "markerless")`. `prevYaw` = the yaw of the pose the ghost shows now.
+- AGQ `panel`, at most once a second: `trusted`, `reason`, `ms`, `pos_m` (WORLD, panel centre on the table),
+  `xy_m`, `yaw_deg`, `size_err_mm`, `rectness`, `contrast`, `streak`, `reports`, `table_y_m`, `img`.
+- Launch extra `--ez markerless false` (default true; `Params.markerless`).
+
+Tests (`PanelPoseTest`): the maths against numbers exported from the Python reference
+(`tools/markerless/export_kotlin_ref.py` → `src/test/resources/panel_pose_ref.json`), and the whole detector on the
+eight sample frames with the desktop OpenCV bindings: same trusted / reason as Python, x, y within 1 mm, yaw 0.2°.
+
+Optional, on the whole render set (git-ignored): export the reference with
+`python tools/markerless/export_kotlin_ref.py <data/synth> <ref.json>`, then
+`AGQ_PANEL_DATASET=<data/synth> AGQ_PANEL_REF=<ref.json> ./gradlew testDebugUnitTest --tests '*PanelPoseTest'`.
+Measured (360 un-degraded frames, the evaluation's noisy camera pose and table prior): the same 73 frames trusted
+as Python, the same reason on 358 of 360, at most 2.0 mm between the two, Kotlin against the ground truth p50 4.4 /
+p90 10.7 / max 16.5 mm, 9 ms p50 on the Mac. One of the 73 is a later assembly state (`s08_f012`, step 4,
+rectness 0.862), trusted by the reference too on un-degraded frames: switch the tracker off after step 1
+(`panel?.enabled = …` below).
+
+**Not wired in MainActivity yet.** The lines (compiled against this tree, then taken out again):
+
+```kotlin
+import com.agj.android.vision.PanelPoseTracker
+private var panel: PanelPoseTracker? = null
+// onCreate, after `world = WorldModule(…)`:
+if (params.markerless) {
+  panel =
+      PanelPoseTracker(
+          tableHeight = { world.table?.y },
+          ghostPose = { vision.worldFromAssembly() },
+          onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
+      )
+}
+// openJob(), after world.setAssembly(a):
+panel?.setJob(a.jobId)
+// visionListener.onFrame, first line:
+panel?.onFrame(frame)
+// showStep(), after world.setAction(…): only while the front is alone on the table
+panel?.enabled = step == assembly?.stepNumbers?.firstOrNull()
+// onDestroy, after world.stop():
+panel?.stop()
+```
+
 ## Logs (shared with the Unity app)
 
 Tag `AGQ`, `{"t": epoch ms, "app": "android", "ev": ..., "t_rel": ms since start, ...}` (`t` = wall time at start +
