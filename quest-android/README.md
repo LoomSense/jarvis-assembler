@@ -20,9 +20,18 @@ replay set is generated). **Never run on a headset** yet: everything that touche
   `target_m`, `max_err_mm` printed and logged in `job_loaded`), frame conventions end to end (`FrameConventionTest`),
   marker pipeline on the synthetic replay set with the device code path, perception socket (MockWebServer), params,
   AGQ JSON, coach flow, window follow.
-- **Not yet:** hole ripple rings, dashed edges (wrong / lost: the ghost only fades), the guide drawing in the
-  window's right column, parts ornament, mic state, voice commands, hand-dwell confirmation, window fade-relocate,
-  Depth API occlusion.
+- **Round 2 (guide/UI, not yet on a headset):** ghost shader fix + unlit fallback + `ghost_material` event; hard
+  edges (dihedral > 30°, 1.5 mm) on the ghost; wrong = red dashed outline (8/5 mm, 2 mm) pulsing 3 × at 0.83 Hz +
+  octagon ✕ in the label + a spoken reason (the event's `say`, else a generic line); lost = ghost 30 % + dashed
+  edges; hole lip ring + two ripples (0.5 Hz) on fasten/tighten/press actions, dim static rings on the step's other
+  holes of the same code; the guide drawing (`/files/{job}/crops/step-NN.png`, or the step's `crop`) as white line
+  art in the window's right column (40 %); the parts card ("ΠΑΡΕ", turntable wireframe of the part's hard edges at
+  20°/s, name, code, count) on the window's outer edge; window fade-relocate (`WindowRelocator`); push-to-talk voice
+  commands on the toolbar mic (Back, Repeat, mic, Next); camera preview (hud only). 70 JVM tests (1 skipped without
+  the synthetic replay set).
+- **Not yet:** hand-dwell confirmation, Depth API occlusion, long pinch on the window for push-to-talk, the wrong
+  part's own position (the red outline is drawn on the current target, the server does not send where the wrong
+  part is), check badge as a separate 3D badge (the status shapes live in the label pill and the window).
 
 ## Toolchain (macOS arm64, as installed on Sun 15 Nov 2026)
 
@@ -120,6 +129,40 @@ tools/quest/run.sh android --replay --secs 40
 .venv/bin/python tools/quest/replay/score_track.py tools/quest/runs/<latest>-android
 ```
 
+## Ghost material (first device run: solid orange ghost)
+
+Cause, from the SDK 0.15.0 classes and Meta's custom-shader docs: a custom material's vec4 attributes are packed
+into `set 3, binding 0` **in the order they are declared**, while the round-1 shaders included the SDK's default
+`MaterialUniform` block (`matParams, alphaParams, stereoParams, emissiveFactor, albedoFactor, …`) and so read the
+tint from past the end of the 4-vec4 buffer; and `SceneMaterial.custom(name, attrs)` defaults to
+`AlphaMode.OPAQUE`. Round 2: `ghost_fresnel.vert/.frag` declare their own block (`albedoFactor, matParams,
+stereoParams`, = `GhostMaterial.ATTRIBUTES`, a JVM test keeps them equal), the material is created
+`AlphaMode.TRANSLUCENT`, and the plugin now also emits `ghost_fresnel.frag.mv.spv` (the native loader looks for
+`.frag.mv.spv` under multiview; round 1 had only `.frag.spv`). If creating the custom material throws, or with
+`--es ghost_material unlit`, every role uses the SDK's unlit shader, translucent, azure `#9ecfff`, alpha = fill +
+30 % of the rim (0.14 + 0.195), and the hard-edge meshes give the brighter edges. AGQ `ghost_material` (once, at
+the first ghost): `kind` (`custom_fresnel` | `unlit_translucent`), `shader`, `alpha_mode`, `attributes`,
+`preferred`. **UNVERIFIED on device**: check the event and the look (azure glass with a rim, not orange).
+
+## Voice commands (R7)
+
+Toolbar mic (`VoiceController`, `MicRecorder`, `VoiceCommandClient` in `ui/`): hold ≥ 450 ms = push-to-talk (release
+sends); a short tap records hands-free until 1.2 s of silence, 7 s, or a second tap. 16 kHz mono PCM16
+(`AudioRecord`, `VOICE_RECOGNITION`, `RECORD_AUDIO` asked at start) → WAV → `POST /api/voice/{job}` with
+`{audio, mime: audio/wav, lang, step, action, speak: true, rate}` and `X-Demo-Key`. The reply's `target` is applied
+with `showStep(…, StepBy.VOICE)` (AGQ `step` with `by: "voice"`), `answer` is spoken from the reply's `tts` WAV (also
+cached as that line), else through `/api/tts`; the transcript shows in the status line for 3 s ("ΑΚΟΥΣΑ: «…»").
+Speech is stopped when recording starts (barge-in). Logs: `mic` (on/off, ms), `voice_cmd` (transcript, intent,
+target, ms round trip, server_ms, model, simulated, audio_ms), `voice_apply` (moved). Tests:
+`ui/VoiceCommandsTest` (MockWebServer: path, key, body fields, WAV header, reply mapping, null target, ask, 422).
+
+## Camera preview (hud)
+
+With `hud=true` the side column shows the latest camera frame (≈ 12 × 9 cm, world-locked beside the step window,
+8 fps, decoded at 320 px off the main thread from `VisionListener.onFrame`'s lazy JPEG) with the caption
+"camera live · N fps". `MainActivity.showCameraBox(PreviewBox(x0, y0, x1, y1, label))` (normalized 0..1, main
+thread) draws a box on it, for the parts-in-pile / perception results.
+
 ## Frames (one convention)
 
 All app math is right-handed, metres:
@@ -172,7 +215,8 @@ monotonic clock). Events: `start` (version, params; key only as `key_set`), `job
 `parts`, `glb_bytes`, `max_err_mm`), `identify`, `locate`, `coach`, `panels`, `ghost_load`, `ghost_show`, `step`,
 `guidance`, `tracking`, `voice`, `voice_fetch`, `finish`, `frame` (every 5 s: render_fps), `error`; from vision:
 `vision` (config), `camera` (all Camera2 values), `camera_frame` (first frame: capture age, head-pose availability),
-`hands_source`, `track`, `touch_start`, `touch`; from the socket: `perception` (hello, events with latency,
+`hands_source`, `track`, `touch_start`, `touch`; round 2: `ghost_material`, `mic`, `voice_cmd`, `voice_apply`,
+`drawing` (guide crop loaded: step, path, bytes), `window` (fade-relocations); from the socket: `perception` (hello, events with latency,
 closed/failure), `perception_stats`.
 
 `track` (10 Hz live, every frame in replay): `fps` (render), `tracked`, `pos_m` (strip centre, WORLD), `yaw_deg`,
@@ -190,13 +234,14 @@ Each module sits behind an interface; `MainActivity.kt` only wires them.
 | | `AgqLog.kt`, `Agq.kt` | AGQ JSON logger (pure) + logcat sink |
 | | `Geom.kt` | `Vec3`, `Quat`, `Pose3`, `blenderToGltf` |
 | `guide/` | `Assembly.kt` | manifest model (lenient), `Assembly` |
+| | `Edges.kt` | hard edges (dihedral > 30°), dashed outline, tube meshes (pure, tested) |
 | | `Glb.kt` | GLB reader: nodes, meshes, animation sampling (pure, tested) |
 | | `Guide.kt` | steps → actions, geometry, labels, step poses, `maxTargetErrorMm` (pure, tested) |
 | | `JobRepository.kt` | `HttpJobRepository` (download + parse + build, `job_loaded`) |
 | | `GhostRenderer.kt` | `GhostRenderer` interface + stub |
 | | `SpatialGhostRenderer.kt` | the Spatial SDK implementation; **the only RH → LH conversion** (`toSdk`, `toPose3`, `facingPose`) |
 | | `Shapes.kt` | procedural meshes, insertion path, `SpatialMesh.fromGltf` |
-| | `GhostMaterial.kt` + `app/src/shaders/ghost_fresnel.*` | fresnel material, token tints |
+| | `GhostMaterial.kt` + `app/src/shaders/ghost_fresnel.*` | `GhostMat`: fresnel custom material or unlit fallback, token tints |
 | `vision/` | `VisionModule.kt` | **the one vision entry point for MainActivity** |
 | | `CameraSource.kt`, `LiveCameraSource.kt`, `ReplayCameraSource.kt` | Camera2 capture (YUV → gray + lazy JPEG, intrinsics, lens pose, head pose) / replay folder |
 | | `SpatialInput.kt`, `HeadPoseBuffer.kt` | Spatial SDK system: head pose ring buffer, hand joints, render fps |
@@ -211,7 +256,10 @@ Each module sits behind an interface; `MainActivity.kt` only wires them.
 | | `Panels.kt` | glass `StepPanel` + toolbar ornament, `LabelPill`, `Hud` (Compose, world-space panels) |
 | | `Strings.kt` | EL/EN copy |
 | | `WindowFollow.kt` | step window beside the object (spring + dead band); `Placement` (fixed spot, panels ahead) |
-| | `Voice.kt`, `Sounds.kt`, `Jpeg.kt` | server TTS + cache, synthesised cues, JPEG downscale |
+| | `Voice.kt`, `Sounds.kt`, `Jpeg.kt` | server TTS + cache (+ play a reply's WAV), synthesised cues, JPEG downscale |
+| | `VoiceCommands.kt`, `VoiceController.kt` | WAV, `/api/voice` client, AudioRecord capture; push-to-talk flow |
+| | `SidePanel.kt`, `Images.kt` | parts card + camera preview panel; guide crop → white line art, preview feed |
+| | `WindowFollow.kt` | + `WindowRelocator` (fade-relocate, hold during turns) |
 
 ## First device run: what to check
 
@@ -229,7 +277,10 @@ that answers each:
    vector in `facingPose` (one place).
 5. Marker: with the strip on the drawer front, `track` `state: tracked` at ~10 Hz and the ghost on the drawer. If
    it is offset by a constant, try `lens_convention` and `head_time_offset_ms` in `vision.json`.
-6. Socket: `perception` `kind: hello`, then `perception_stats` with frames sent and acks; hands every 100 ms.
+6. Ghost: `ghost_material` `kind: custom_fresnel` and the ghost is azure glass with a brighter rim and edges. If it
+   is still wrong, relaunch with `--es ghost_material unlit` and compare.
+7. Voice: hold the mic, say "επόμενο" / "next": `voice_cmd` with `intent: next`, then `step` `by: voice`.
+8. Socket: `perception` `kind: hello`, then `perception_stats` with frames sent and acks; hands every 100 ms.
 
 ## Open questions
 
