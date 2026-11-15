@@ -61,6 +61,26 @@ def auto_boxes(im: Image.Image, k: int) -> list[tuple[int, int, int, int]]:
     return boxes
 
 
+def step_boxes(im: Image.Image, steps: list[dict]) -> dict[int, tuple[tuple[int, int, int, int], str]]:
+    """For the steps that cite this page: {n: ((ymin, xmin, ymax, xmax) in pixels, "box" | "auto")}."""
+    need = sorted((s for s in steps if not s["cite"].get("box_2d")), key=lambda s: s["n"])
+    auto = dict(zip([s["n"] for s in need], auto_boxes(im, len(need)))) if need else {}
+    out = {}
+    for s in steps:
+        b = s["cite"].get("box_2d")
+        if b:
+            out[s["n"]] = ((b[0] * im.height // 1000, b[1] * im.width // 1000, b[2] * im.height // 1000, b[3] * im.width // 1000), "box")
+        else:
+            out[s["n"]] = (auto[s["n"]], "auto")
+    return out
+
+
+def cut(im: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
+    pad = int(im.width * PAD)
+    y0, x0, y1, x1 = (int(v) for v in box)
+    return im.crop((max(0, x0 - pad), max(0, y0 - pad), min(im.width, x1 + pad), min(im.height, y1 + pad)))
+
+
 def build(plan_path: Path, job: Path) -> dict:
     plan = json.loads(plan_path.read_text())
     if not plan.get("guide"):
@@ -79,17 +99,10 @@ def build(plan_path: Path, job: Path) -> dict:
         if not 1 <= page_no <= len(doc):
             continue
         im = page_image(doc, page_no)
-        pad = int(im.width * PAD)
-        need = [s for s in steps if not s["cite"].get("box_2d")]
-        auto = dict(zip([s["n"] for s in sorted(need, key=lambda s: s["n"])], auto_boxes(im, len(need)))) if need else {}
+        boxes = step_boxes(im, steps)
         for s in steps:
-            b = s["cite"].get("box_2d")
-            if b:
-                box, source = (b[0] * im.height // 1000, b[1] * im.width // 1000, b[2] * im.height // 1000, b[3] * im.width // 1000), "box"
-            else:
-                box, source = auto[s["n"]], "auto"
-            y0, x0, y1, x1 = (int(v) for v in box)
-            crop = im.crop((max(0, x0 - pad), max(0, y0 - pad), min(im.width, x1 + pad), min(im.height, y1 + pad)))
+            box, source = boxes[s["n"]]
+            crop = cut(im, box)
             name = f"step-{s['n']:02d}.png"
             crop.save(job / "crops" / name, optimize=True)
             made[s["n"]] = {"crop": f"crops/{name}", "cropSource": source, "size_px": list(crop.size), "page": page_no}

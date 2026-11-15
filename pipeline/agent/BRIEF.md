@@ -11,7 +11,19 @@ Then the pipeline must pass:
 
     ./py -m pipeline.run job/plan.json job/out
 
-It exits 0 and prints `RESULT {...}` when every part builds, every mate fits (within 0.5 mm and 2°), no two parts overlap, and the counts match. Otherwise it prints `FIT PROBLEMS:` with one line per problem. Fix the scripts or the plan and run again until it passes. Then look at `job/out/renders/step_NN.png` and `job/out/renders/cover.png` and compare them with the guide's drawings. If a step looks different from the guide (a part on the wrong side, upside down, wrong screws), fix it.
+It exits 0 and prints `RESULT {...}` when every part builds, every mate fits (within 0.5 mm and 2°), no two parts overlap, and the counts match. Otherwise it prints `FIT PROBLEMS:` with one line per problem. Fix the scripts or the plan and run again until it passes.
+
+Then check every step against the guide's own drawing:
+
+    ./py -m pipeline.check.step_check job/plan.json job/out [N]
+
+It sends each step's render (`job/out/renders/step_NN.png`) and the guide's drawing of that step to an independent verifier and prints one line per step: `pass`, or `FAIL` with what looks different (missing or extra part, joined elsewhere, turned another way, screws elsewhere) and the two images to compare. Give a step number to check only that step. For each failing step:
+
+1. Look at both images it names. Fix the plan or the scripts (`add`, mates, `pose`, `assembly_rotation_deg`, `view_az_el_deg`), build again, and check that step again.
+2. At most 3 fixes per step. If it still fails after the third (the line says so), keep the best attempt, add the flag `{"ref": "step:N", "kind": "unclear_drawing", "message": "Drawing check: <what still differs>"}` and move on.
+3. The verifier can be wrong. If you compare both images and are sure the render matches the drawing (for example a small turn-over hint in the corner of the drawing confused it), add that flag right away, saying why, and move on.
+
+Never break the build to make the check pass, and never change counts or labels for it. Also look at `job/out/renders/cover.png` and compare it with the guide's cover drawing.
 
 ## Rules
 
