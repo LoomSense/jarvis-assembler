@@ -12,7 +12,11 @@ import com.agj.android.core.StepBy
 import com.agj.android.core.Vec3
 import com.agj.android.guide.ActionKind
 import com.agj.android.guide.Assembly
+import com.agj.android.guide.Edges
+import com.agj.android.guide.GhostMaterial
+import com.agj.android.guide.GhostMaterialKind
 import com.agj.android.guide.GhostRenderer
+import com.agj.android.guide.GhostState
 import com.agj.android.guide.HttpJobRepository
 import com.agj.android.guide.SpatialGhostRenderer
 import com.agj.android.guide.StubGhostRenderer
@@ -23,7 +27,17 @@ import com.agj.android.net.HttpServerApi
 import com.agj.android.net.OkHttpPerceptionSocket
 import com.agj.android.net.PerceptionListener
 import com.agj.android.net.ServerApi
+import com.agj.android.ui.CameraPreviewFeed
 import com.agj.android.ui.CoachFlow
+import com.agj.android.ui.Images
+import com.agj.android.ui.MicState
+import com.agj.android.ui.PartCard
+import com.agj.android.ui.PartWire
+import com.agj.android.ui.PreviewBox
+import com.agj.android.ui.SIDE_PANEL_H
+import com.agj.android.ui.SIDE_PANEL_W
+import com.agj.android.ui.SidePanel
+import com.agj.android.ui.SidePanelModel
 import com.agj.android.ui.DP_PER_M
 import com.agj.android.ui.Hud
 import com.agj.android.ui.HudModel
@@ -43,7 +57,10 @@ import com.agj.android.ui.StepPanelState
 import com.agj.android.ui.Strings
 import com.agj.android.ui.StubVoice
 import com.agj.android.ui.Voice
-import com.agj.android.ui.WindowFollow
+import com.agj.android.ui.VoiceCommandClient
+import com.agj.android.ui.VoiceController
+import com.agj.android.ui.VoiceReply
+import com.agj.android.ui.WindowRelocator
 import com.agj.android.ui.downscaleJpeg
 import com.agj.android.vision.Aabb
 import com.agj.android.vision.CameraFrame
@@ -66,6 +83,7 @@ import com.meta.spatial.toolkit.QuadShapeOptions
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.toolkit.UIPanelRenderOptions
 import com.meta.spatial.toolkit.UIPanelSettings
+import com.meta.spatial.toolkit.Visible
 import com.meta.spatial.toolkit.createPanelEntity
 import com.meta.spatial.vr.LocomotionSystem
 import com.meta.spatial.vr.VRFeature
@@ -80,6 +98,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -107,7 +126,17 @@ class MainActivity : AppSystemActivity() {
   private lateinit var vision: VisionModule
   private var socket: OkHttpPerceptionSocket? = null
   private var socketStarted = false
-  private val follow = WindowFollow()
+  private val follow = WindowRelocator()
+  private val side = SidePanelModel()
+  private var sideEntity: Entity? = null
+  private var sideShown: Boolean? = null
+  private var windowPos: Vec3? = null
+  private var windowHead: Vec3? = null
+  private var preview: CameraPreviewFeed? = null
+  private var voiceCtl: VoiceController? = null
+  private val drawings = HashMap<Int, ImageBitmap?>()
+  private val wires = HashMap<String, FloatArray>()
+  private var lastRelocations = 0
   private val sounds by lazy { Sounds() }
   private var lostShown = false
   private var advancing = false
@@ -155,6 +184,8 @@ class MainActivity : AppSystemActivity() {
     if (params.server.isNotEmpty()) {
       api = HttpServerApi(params.server, params.key).also { voice = ServerVoice(it, cacheDir) }
     }
+    // `--es ghost_material unlit` forces the SDK unlit fallback (default: our fresnel shader, see GhostMaterial.kt)
+    if (intent?.getStringExtra("ghost_material") == "unlit") GhostMaterial.preferred = GhostMaterialKind.UNLIT
     ghost =
         SpatialGhostRenderer(
             registerMesh = { uri, make ->
@@ -171,6 +202,13 @@ class MainActivity : AppSystemActivity() {
     stepPanel.onRepeat = { repeat() }
     stepPanel.onPress = { sounds.play(Sounds.Cue.TICK) }
     ghost.reducedMotion = params.reducedMotion
+    side.reducedMotion = params.reducedMotion
+    side.showCamera = params.hud
+    side.caption = s("cameraOff")
+    if (params.hud) preview = CameraPreviewFeed(scope, side)
+    if (params.server.isNotEmpty()) voiceCtl = VoiceController(VoiceCommandClient(params.server, params.key), scope, voiceHost)
+    stepPanel.onMicDown = { voiceCtl?.down() }
+    stepPanel.onMicUp = { voiceCtl?.up() }
 
     systemManager.findSystem<LocomotionSystem>().enableLocomotion(false)
     systemManager.registerSystem(FrameTick())
@@ -196,20 +234,20 @@ class MainActivity : AppSystemActivity() {
   // ---- permissions and camera ----
 
   private fun requestCameraPermissions() {
-    if (params.replay) {
-      startCamera()
-      return
-    }
-    val missing = CAMERA_PERMISSIONS.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-    if (missing.isEmpty()) startCamera() else requestPermissions(missing.toTypedArray(), REQ_CAMERA)
+    val wanted = if (params.replay) listOf(MIC_PERMISSION) else CAMERA_PERMISSIONS + MIC_PERMISSION
+    val missing = wanted.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+    if (params.replay) startCamera()
+    if (missing.isEmpty()) {
+      if (!params.replay) startCamera()
+    } else requestPermissions(missing.toTypedArray(), if (params.replay) REQ_MIC else REQ_CAMERA)
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    if (requestCode != REQ_CAMERA) return
+    if (requestCode != REQ_CAMERA && requestCode != REQ_MIC) return
     val denied = permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) != PackageManager.PERMISSION_GRANTED }
     if (denied.isNotEmpty()) Agq.log.error("permission", "denied: ${denied.joinToString()}")
-    startCamera()
+    if (requestCode == REQ_CAMERA) startCamera()
   }
 
   private fun startCamera() {
@@ -226,6 +264,7 @@ class MainActivity : AppSystemActivity() {
         override fun onFrame(frame: CameraFrame, track: TrackSnapshot) {
           val stage = coach.stage
           val now = SystemClock.elapsedRealtime()
+          preview?.offer { frame.jpeg }
           if (stage == CoachFlow.Stage.LOOK) {
             if (!busy && lookQueued.compareAndSet(false, true)) {
               keepJpeg(frame, now)
@@ -469,7 +508,7 @@ class MainActivity : AppSystemActivity() {
 
   // ---- guide ----
 
-  private fun showStep(step: Int, action: Int, by: StepBy) {
+  private fun showStep(step: Int, action: Int, by: StepBy, speak: Boolean = true) {
     val g = assembly?.guide ?: return
     val st = g.step(step) ?: return
     val act = st.actions.getOrNull(action)
@@ -502,15 +541,19 @@ class MainActivity : AppSystemActivity() {
             whereLabel = s("whereAmI"),
             repeatLabel = s("repeat"),
             nextLabel = if (last) s("finish") else s("next"),
+            micLabel = if (voiceCtl != null) s("speak") else null,
+            drawing = drawings[step],
             pill = if (lostShown) s("lost") else null,
         )
     hud.state = hud.state.copy(step = step, action = action)
     ghost.setStep(step, action)
+    loadDrawing(step, st.crop)
+    showPartCard(act)
     val line =
         if (firstOfStep && st.page != null)
             (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + body
         else body
-    voice.say(line, lang)
+    if (speak) voice.say(line, lang)
     // prefetch the next two lines
     var n = g.next(step, action)
     repeat(2) {
@@ -519,6 +562,108 @@ class MainActivity : AppSystemActivity() {
       n = g.next(p.first, p.second)
     }
     Agq.log.step(step, action, by)
+  }
+
+  /** The step's guide drawing (`/files/{job}/crops/step-NN.png`) as white line art in the window's right column. */
+  private fun loadDrawing(step: Int, crop: String?) {
+    if (drawings.containsKey(step)) return
+    val api = api ?: return
+    val job = assembly?.jobId ?: return
+    drawings[step] = null
+    val path = crop?.takeIf { it.isNotBlank() }?.removePrefix("/")?.removePrefix("files/$job/") ?: "crops/step-%02d.png".format(step)
+    scope.launch {
+      try {
+        val bytes = api.file(job, path)
+        val img = withContext(Dispatchers.Default) { Images.decodeLineArt(bytes) }
+        drawings[step] = img
+        if (img != null && curStep == step) stepPanel.state = stepPanel.state.copy(drawing = img)
+        Agq.log.event("drawing", mapOf("step" to step, "path" to path, "bytes" to bytes.size, "ok" to (img != null)))
+      } catch (e: Exception) {
+        Agq.log.error("drawing", "$path: ${e.message}")
+      }
+    }
+  }
+
+  /** Parts ornament (§2.5): the part to pick for this action, as a turntable wireframe + name, code, count. */
+  private fun showPartCard(act: com.agj.android.guide.GuideAction?) {
+    val node = act?.node
+    val geo = node?.let { assembly?.guide?.parts?.get(it) }
+    val l = act?.label(lang)
+    if (act == null || geo == null || l == null || act.kind == ActionKind.TURN) {
+      side.part = null
+      return
+    }
+    val wire = wires.getOrPut(node) { PartWire.of(Edges.featureEdges(geo.positions, geo.indices)) }
+    side.part = PartCard(Strings.upper(lang, s("take")), l.name, l.code, l.count, wire)
+  }
+
+  /** For the world/perception side: a box on the camera preview (normalized 0..1), or null to clear. Main thread. */
+  fun showCameraBox(box: PreviewBox?) {
+    side.box = box
+  }
+
+  // ---- voice commands (push-to-talk on the toolbar mic, POST /api/voice/{job}) ----
+
+  private val voiceHost =
+      object : VoiceController.Host {
+        override val job: String?
+          get() = assembly?.jobId
+        override val lang: String
+          get() = params.lang
+        override val step: Int
+          get() = curStep
+        override val action: Int
+          get() = curAction
+
+        override fun hasPermission() = checkSelfPermission(MIC_PERMISSION) == PackageManager.PERMISSION_GRANTED
+
+        override fun requestPermission() = requestPermissions(arrayOf(MIC_PERMISSION), REQ_MIC)
+
+        override fun onMicState(state: MicState) {
+          stepPanel.mic = state
+          if (state == MicState.LISTENING) voice.stop() // barge-in: the user talks, the guide stops
+          val text =
+              when (state) {
+                MicState.LISTENING -> s("listening")
+                MicState.THINKING -> s("thinking")
+                MicState.IDLE -> null
+              }
+          if (text != null && coach.stage == CoachFlow.Stage.GUIDE)
+              stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = Strings.upper(lang, text))
+        }
+
+        override fun onReply(reply: VoiceReply, roundTripMs: Long) = onVoiceReply(reply)
+
+        override fun onVoiceError(message: String) {
+          if (coach.stage == CoachFlow.Stage.GUIDE)
+              stepPanel.state = stepPanel.state.copy(status = StatusKind.UNSURE, statusText = Strings.upper(lang, s("voiceFailed")))
+        }
+      }
+
+  /** Apply `target` (logs `step` with `by: "voice"`), speak `answer` (the reply's WAV when present), show the transcript. */
+  private fun onVoiceReply(r: VoiceReply) {
+    val g = assembly?.guide
+    val t = r.target
+    val moved =
+        if (coach.stage == CoachFlow.Stage.GUIDE && g != null && t != null && r.isCommand && g.step(t.step) != null &&
+            (t.step != curStep || t.action != curAction || r.intent == "repeat")) {
+          showStep(t.step, t.action, StepBy.VOICE, speak = false)
+          true
+        } else false
+    if (r.answer.isNotBlank()) {
+      val wav = r.ttsWav()
+      if (wav != null) voice.play(wav, r.answer, lang) else voice.say(r.answer, lang)
+    }
+    if (coach.stage == CoachFlow.Stage.GUIDE && r.transcript.isNotBlank()) {
+      val heard = s("heard", "t" to "«${r.transcript}»")
+      stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = heard)
+      val shown = stepPanel.state
+      scope.launch {
+        delay(3000)
+        if (stepPanel.state === shown) stepPanel.state = stepPanel.state.copy(status = StatusKind.NONE, statusText = "")
+      }
+    }
+    Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to moved, "step" to curStep, "action" to curAction))
   }
 
   private fun next() = advance(StepBy.BUTTON)
@@ -545,7 +690,7 @@ class MainActivity : AppSystemActivity() {
     }
     advancing = true
     val stepEnds = n.first != curStep
-    ghost.setState(com.agj.android.guide.GhostState.CORRECT)
+    ghost.setState(GhostState.CORRECT)
     sounds.play(if (stepEnds) Sounds.Cue.STEP else Sounds.Cue.SUCCESS)
     stepPanel.state = stepPanel.state.copy(status = StatusKind.SUCCESS, statusText = Strings.upper(lang, s("correct")))
     if (stepEnds) {
@@ -571,18 +716,20 @@ class MainActivity : AppSystemActivity() {
       event == "step_complete" -> advance(StepBy.AUTO, wholeStep = true)
       event == "action_complete" -> advance(StepBy.AUTO)
       event.startsWith("wrong") -> {
-        ghost.setState(com.agj.android.guide.GhostState.WRONG)
+        // red dashed outline + octagon ✕ (label) + the spoken reason (spec §4.8); a generic reason if the event has none
+        ghost.setState(GhostState.WRONG)
         sounds.play(Sounds.Cue.WARNING)
-        stepPanel.state = stepPanel.state.copy(status = StatusKind.ERROR, statusText = Strings.upper(lang, s("wrong")), body = say ?: stepPanel.state.body)
-        say?.let { voice.say(it, lang) }
+        val reason = say ?: s("wrongSay")
+        stepPanel.state = stepPanel.state.copy(status = StatusKind.ERROR, statusText = Strings.upper(lang, s("wrong")), body = reason)
+        voice.say(reason, lang)
       }
       event == "unsure" -> {
-        ghost.setState(com.agj.android.guide.GhostState.UNSURE)
+        ghost.setState(GhostState.UNSURE)
         sounds.play(Sounds.Cue.UNSURE)
         stepPanel.state = stepPanel.state.copy(status = StatusKind.UNSURE, statusText = Strings.upper(lang, s("unsure")))
         voice.say(say ?: s("unsureSay"), lang)
       }
-      event == "good" -> ghost.setState(com.agj.android.guide.GhostState.GOOD)
+      event == "good" -> ghost.setState(GhostState.GOOD)
     }
     Agq.log.event("guidance", mapOf("event" to event, "step" to curStep, "action" to curAction))
   }
@@ -623,7 +770,7 @@ class MainActivity : AppSystemActivity() {
   private fun finishGuide() {
     val g = assembly?.guide ?: return
     finished = true
-    ghost.setState(com.agj.android.guide.GhostState.CORRECT)
+    ghost.setState(GhostState.CORRECT)
     stepPanel.state =
         StepPanelState(
             stepLabel = Strings.upper(lang, s("step", "n" to g.steps.size, "total" to g.steps.size)),
@@ -687,9 +834,44 @@ class MainActivity : AppSystemActivity() {
     val objectTop = if (coach.stage == CoachFlow.Stage.GUIDE) ghost.assemblyCenterWorld() else null
     if (objectTop != null && head != null) {
       val target = follow.target(objectTop + Vec3(0f, 0.10f, 0f), 0.22f, head.t)
-      val p = follow.update(target, dt) ?: return
-      e.setComponent(Transform(facingPose(p, head.t)))
+      // a turn step rotates the object: the window holds still (no orbit), §2.6 rule 5
+      val turning = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)?.kind == ActionKind.TURN
+      val p = follow.update(target, dt, hold = turning)
+      if (p != null) {
+        // the facing is frozen while faded in/out so the window does not swing during a relocation
+        if (follow.phase == WindowRelocator.Phase.FOLLOW || windowHead == null) windowHead = head.t
+        windowPos = p
+        e.setComponent(Transform(facingPose(p, windowHead!!)))
+      }
+      if (stepPanel.alpha != follow.alpha) {
+        stepPanel.alpha = follow.alpha
+        side.alpha = follow.alpha
+      }
+      if (follow.relocations != lastRelocations) {
+        lastRelocations = follow.relocations
+        Agq.log.event("window", mapOf("relocate" to lastRelocations, "pos_m" to p))
+      }
     }
+    placeSide()
+  }
+
+  /** Side column (parts card + camera preview) on the window's outer edge, same facing (§2.5). */
+  private fun placeSide() {
+    val se = sideEntity ?: return
+    val show = side.part != null || side.showCamera
+    if (sideShown != show) {
+      sideShown = show
+      se.setComponent(Visible(show))
+    }
+    val p = windowPos ?: return
+    val h = windowHead ?: return
+    val dx = p.x - h.x
+    val dz = p.z - h.z
+    val d = kotlin.math.hypot(dx, dz).coerceAtLeast(0.2f)
+    val right = Vec3(-dz / d, 0f, dx / d)
+    // outer edge = the side away from the object: the window sits right of the object, so further right
+    val pos = p + right * (STEP_PANEL_W / 2 + 0.02f + SIDE_PANEL_W / 2) + Vec3(0f, -0.02f, 0f)
+    se.setComponent(Transform(facingPose(pos, h)))
   }
 
   /**
@@ -701,6 +883,8 @@ class MainActivity : AppSystemActivity() {
     if (coach.stage == CoachFlow.Stage.GUIDE) return // the window already follows the object
     val step = Placement.ahead(head, 0.8f, 0.21f) // tan 15° × 0.8 m
     stepEntity?.setComponent(Transform(facingPose(step, head.t)))
+    windowPos = step
+    windowHead = head.t
     val hudPos = Placement.ahead(head, 0.9f, 0.45f, right = -0.55f)
     hudEntity?.setComponent(Transform(facingPose(hudPos, head.t)))
     Agq.log.event("panels", mapOf("head_m" to head.t, "step_m" to step))
@@ -726,6 +910,7 @@ class MainActivity : AppSystemActivity() {
         val camFps = (vision.hud()["cam_fps"] as? Double) ?: 0.0
         val src = if (snap.worldFromAssembly == null && tableFallback != null) "fixed_spot" else snap.method
         hud.state = hud.state.copy(cameraFps = camFps, tracked = snap.tracked, trackSource = src, reprojPx = snap.reprojPx)
+        if (side.showCamera) side.caption = if (camFps > 0.5) s("cameraLive", "fps" to camFps.toInt()) else s("cameraOff")
         if (tick % 5 == 0) {
           val fps = renderFrames.getAndSet(0) / 5.0
           Agq.log.frame(fps, null, null)
@@ -753,6 +938,9 @@ class MainActivity : AppSystemActivity() {
     if (params.hud) {
       hudEntity = Entity.createPanelEntity(R.id.panel_hud, Transform(facingPose(Vec3(-0.55f, 0.9f, -0.9f), eye)))
     }
+    sideEntity = Entity.createPanelEntity(R.id.panel_side, Transform(facingPose(Vec3(0.38f, 1.15f, -0.8f), eye)))
+    windowPos = Vec3(0f, 1.15f, -0.8f)
+    windowHead = eye
     sceneReady = true
     assembly?.let { ghost.load(it) }
   }
@@ -763,6 +951,10 @@ class MainActivity : AppSystemActivity() {
             ComposeView(it).apply { setContent { StepPanel(stepPanel) } }
           },
           panel(R.id.panel_hud, 0.42f, 0.30f, layer = true) { ComposeView(it).apply { setContent { Hud(hud) } } },
+          // Parts ornament + camera preview beside the window (§2.5; preview only with hud=true).
+          panel(R.id.panel_side, SIDE_PANEL_W, SIDE_PANEL_H, layer = true) {
+            ComposeView(it).apply { setContent { SidePanel(side) } }
+          },
           // The label sits on the object: mesh mode, depth-sorted with the 3D guidance (RESEARCH.md §2).
           panel(R.id.panel_label, LABEL_PANEL_W, LABEL_PANEL_H, layer = false) {
             ComposeView(it).apply { setContent { LabelPill(label) } }
@@ -785,6 +977,7 @@ class MainActivity : AppSystemActivity() {
       )
 
   override fun onDestroy() {
+    voiceCtl?.cancel()
     vision.stop()
     socket?.close()
     socket = null
@@ -806,6 +999,8 @@ class MainActivity : AppSystemActivity() {
 
   companion object {
     private const val REQ_CAMERA = 1
+    private const val REQ_MIC = 2
+    const val MIC_PERMISSION = "android.permission.RECORD_AUDIO"
     /** Server events passed to [onGuidanceEvent] as they are (the typed ones are mapped in [perceptionListener]). */
     private val PASS_THROUGH_EVENTS = setOf("good", "action_complete", "wrong_part", "wrong_place")
     val CAMERA_PERMISSIONS =

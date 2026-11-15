@@ -28,12 +28,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
@@ -81,6 +83,8 @@ object AgColors {
   val unsure = Color(0xFFE8C14B)
   val button = Color(0x1AFFFFFF)
   val border = Color(0x29FFFFFF)
+  /** Glyph on a status shape (✕ ? ✓): the window's dark glass. */
+  val glyph = Color(0xFF14171B)
 }
 
 /** Everything the debug HUD shows. Immutable snapshot; the activity replaces it (main thread). */
@@ -130,6 +134,10 @@ data class StepPanelState(
     val whereLabel: String? = null,
     val repeatLabel: String? = null,
     val nextLabel: String? = null,
+    /** Mic button label ("Μίλα" / "Speak"); null = no mic in the toolbar. */
+    val micLabel: String? = null,
+    /** The step's guide drawing as white line art (right column, §2.4); null = text only. */
+    val drawing: ImageBitmap? = null,
     /** Coach cards use the compact window, 0.36 × 0.20 m (§2.4). */
     val compact: Boolean = false,
     /** Status pill above the window (§2.5): tracking lost, offline. Null = hidden. */
@@ -145,6 +153,12 @@ class StepPanelModel {
   var onRepeat: () -> Unit = {}
   /** Called at pinch-down on any button (the tick sound, §5.2). */
   var onPress: () -> Unit = {}
+  /** Push-to-talk: pinch-down / release on the mic button. */
+  var onMicDown: () -> Unit = {}
+  var onMicUp: () -> Unit = {}
+  var mic by mutableStateOf(MicState.IDLE)
+  /** Fade-relocate (§2.6 rule 5): 0..1, written by the frame tick. */
+  var alpha by mutableStateOf(1f)
 }
 
 class LabelModel {
@@ -156,7 +170,7 @@ class LabelModel {
 private fun glassShape(r: Dp): Shape = RoundedCornerShape(r)
 
 /** Glass recipe (§3.1): vertical tint, top-left sheen, rim brighter at the top, inner shadow at the bottom. */
-private fun Modifier.glass(radius: Dp): Modifier =
+internal fun Modifier.glass(radius: Dp): Modifier =
     this.clip(glassShape(radius))
         .background(Brush.verticalGradient(listOf(AgColors.glassTop, AgColors.glassBottom)))
         .drawWithContent {
@@ -215,15 +229,79 @@ private fun StatusShape(kind: StatusKind, sizeDp: Dp) {
         }
         p.close()
         drawPath(p, c)
+        // ✕
+        val k = w * 0.30f
+        val sw = w * 0.13f
+        drawLine(AgColors.glyph, Offset(k, k), Offset(w - k, w - k), sw)
+        drawLine(AgColors.glyph, Offset(w - k, k), Offset(k, w - k), sw)
       }
-      StatusKind.UNSURE -> { // diamond
+      StatusKind.UNSURE -> { // diamond with "?"
         val p = Path().apply {
           moveTo(w / 2, 0f); lineTo(w, w / 2); lineTo(w / 2, w); lineTo(0f, w / 2); close()
         }
         drawPath(p, c)
+        val sw = w * 0.11f
+        drawArc(AgColors.glyph, 200f, 250f, false, Offset(w * 0.37f, w * 0.24f), androidx.compose.ui.geometry.Size(w * 0.26f, w * 0.24f), style = androidx.compose.ui.graphics.drawscope.Stroke(sw))
+        drawLine(AgColors.glyph, Offset(w / 2, w * 0.48f), Offset(w / 2, w * 0.60f), sw)
+        drawCircle(AgColors.glyph, sw * 0.6f, Offset(w / 2, w * 0.72f))
+      }
+      StatusKind.SUCCESS -> { // circle with ✓
+        drawCircle(c)
+        val sw = w * 0.13f
+        drawLine(AgColors.glyph, Offset(w * 0.28f, w * 0.52f), Offset(w * 0.44f, w * 0.68f), sw)
+        drawLine(AgColors.glyph, Offset(w * 0.44f, w * 0.68f), Offset(w * 0.74f, w * 0.36f), sw)
       }
       else -> drawCircle(c)
     }
+  }
+}
+
+@Composable
+private fun MicButton(label: String, mic: MicState, onPress: () -> Unit, onDown: () -> Unit, onUp: () -> Unit) {
+  val src = androidx.compose.runtime.remember { MutableInteractionSource() }
+  val hovered by src.collectIsHoveredAsState()
+  val pressed by src.collectIsPressedAsState()
+  val scale by androidx.compose.animation.core.animateFloatAsState(
+      if (pressed) 0.97f else if (hovered) 1.03f else 1f,
+      androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 630f),
+      label = "mic",
+  )
+  androidx.compose.runtime.LaunchedEffect(pressed) {
+    if (pressed) {
+      onPress()
+      onDown()
+    } else onUp()
+  }
+  val fill =
+      when {
+        mic == MicState.LISTENING -> Color(0x4DFF8A7A) // error tint 30 %: recording
+        mic == MicState.THINKING -> Color(0x33E8C14B)
+        pressed -> Color(0x3DFFFFFF)
+        hovered -> Color(0x2EFFFFFF)
+        else -> AgColors.button
+      }
+  Row(
+      Modifier.scale(scale)
+          .height(44.dp)
+          .width(88.dp)
+          .clip(RoundedCornerShape(22.dp))
+          .background(fill)
+          .border(1.dp, if (hovered || mic != MicState.IDLE) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(22.dp))
+          .hoverable(src)
+          .clickable(interactionSource = src, indication = null, onClick = {}),
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
+    // mic glyph: capsule + stand; red dot while recording
+    Canvas(Modifier.size(16.dp)) {
+      val w = size.width
+      val col = if (mic == MicState.LISTENING) AgColors.error else AgColors.textStrong
+      drawRoundRect(col, Offset(w * 0.34f, 0f), androidx.compose.ui.geometry.Size(w * 0.32f, w * 0.62f), androidx.compose.ui.geometry.CornerRadius(w * 0.16f))
+      drawArc(col, 0f, 180f, false, Offset(w * 0.2f, w * 0.3f), androidx.compose.ui.geometry.Size(w * 0.6f, w * 0.5f), style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.09f))
+      drawLine(col, Offset(w / 2, w * 0.8f), Offset(w / 2, w), w * 0.09f)
+    }
+    Spacer(Modifier.width(6.dp))
+    Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
   }
 }
 
@@ -274,7 +352,7 @@ fun StepPanel(model: StepPanelModel) {
   val s = model.state
   val w = if (s.compact) 360.dp else 520.dp
   val h = if (s.compact) 200.dp else 340.dp
-  Box(Modifier.fillMaxSize()) {
+  Box(Modifier.fillMaxSize().alpha(model.alpha)) {
     s.pill?.let { text ->
       Row(
           Modifier.align(Alignment.TopCenter).wrapContentSize().glass(18.dp).padding(horizontal = 14.dp, vertical = 7.dp),
@@ -294,6 +372,8 @@ fun StepPanel(model: StepPanelModel) {
           Box(Modifier.fillMaxWidth(p.coerceIn(0f, 1f)).height(4.dp).background(AgColors.accent))
         }
       }
+      Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+      Column(Modifier.weight(0.6f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // Status: colour + shape + word (an accent dot when there is nothing to report).
         StatusShape(if (s.status == StatusKind.NONE) StatusKind.INFO else s.status, 12.dp)
@@ -335,12 +415,22 @@ fun StepPanel(model: StepPanelModel) {
           Box(Modifier.clip(RoundedCornerShape(15.dp)).background(Color(0x1FFFFFFF)).padding(horizontal = 12.dp, vertical = 6.dp)) {
             Text(s.hardware, color = AgColors.text, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
           }
+      }
+      // Right column (40 %): the guide drawing as white line art on the glass, radius 14 mm (§2.4).
+      s.drawing?.let { img ->
+        Box(Modifier.weight(0.4f).fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Color(0x0FFFFFFF)).padding(6.dp)) {
+          androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        }
+      }
+      }
     }
     // Toolbar ornament: glass capsule centred under the window, overlapping its bottom edge by half its height.
+    // Four items at most (§2.5): Back, Repeat, mic, Next. "Where am I" only when there is no mic (coach: Retry).
     val buttons = listOfNotNull(
         s.backLabel?.let { Triple(it, false, model.onBack) },
-        s.whereLabel?.let { Triple(it, false, model.onWhere) },
+        s.whereLabel?.takeIf { s.micLabel == null }?.let { Triple(it, false, model.onWhere) },
         s.repeatLabel?.let { Triple(it, false, model.onRepeat) },
+        s.micLabel?.let { Triple(it, false, {}) },
         s.nextLabel?.let { Triple(it, true, model.onNext) },
     )
     if (buttons.isNotEmpty()) {
@@ -353,7 +443,10 @@ fun StepPanel(model: StepPanelModel) {
           horizontalArrangement = Arrangement.spacedBy(12.dp),
           verticalAlignment = Alignment.CenterVertically,
       ) {
-        for ((label, primary, cb) in buttons) AgButton(label, primary, model.onPress) { cb() }
+        for ((label, primary, cb) in buttons) {
+          if (label == s.micLabel) MicButton(label, model.mic, model.onPress, model.onMicDown, model.onMicUp)
+          else AgButton(label, primary, model.onPress) { cb() }
+        }
       }
     }
   }

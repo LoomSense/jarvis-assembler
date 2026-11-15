@@ -48,6 +48,15 @@ object Strings {
           "stageWait" to "Waiting for approval",
           "stageParts" to "Making the parts",
           "stageSteps" to "Making the steps",
+          "speak" to "Speak",
+          "listening" to "Listening…",
+          "thinking" to "One moment…",
+          "heard" to "Heard: {t}",
+          "voiceFailed" to "Didn't catch that. Use the buttons.",
+          "take" to "Take",
+          "wrongSay" to "That's not the part for this step. Check the drawing.",
+          "cameraLive" to "camera live · {fps} fps",
+          "cameraOff" to "camera · no frames",
       )
 
   private val el =
@@ -91,6 +100,15 @@ object Strings {
           "stageWait" to "Περιμένει έγκριση",
           "stageParts" to "Φτιάχνω τα κομμάτια",
           "stageSteps" to "Φτιάχνω τα βήματα",
+          "speak" to "Μίλα",
+          "listening" to "Ακούω…",
+          "thinking" to "Μια στιγμή…",
+          "heard" to "Άκουσα: {t}",
+          "voiceFailed" to "Δεν το έπιασα. Πάτα τα κουμπιά.",
+          "take" to "Πάρε",
+          "wrongSay" to "Αυτό δεν είναι το κομμάτι του βήματος. Δες το σχέδιο.",
+          "cameraLive" to "κάμερα ζωντανά · {fps} fps",
+          "cameraOff" to "κάμερα · χωρίς εικόνα",
       )
 
   fun t(lang: String, key: String, vararg vars: Pair<String, Any?>): String {

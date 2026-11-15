@@ -72,6 +72,88 @@ class WindowFollow(
 }
 
 /**
+ * Fade-relocate on top of [WindowFollow] (XR_NATIVE_SPEC §2.6 rules 5–6, checklist 3 and 32): small moves (a slid
+ * drawer, ≤ [jump] m) follow with the spring; a bigger jump (the user walked round, the object was moved far, the
+ * side rule changed) never slides across the work zone: it waits until the target has been still for [stillS], fades
+ * out in [fadeOutS], snaps, and fades in over [fadeInS]. While [update]'s hold flag is set (a turn step: the object
+ * rotates) the window does not move at all. Pure, one thread.
+ */
+class WindowRelocator(
+    private val follow: WindowFollow = WindowFollow(),
+    private val jump: Float = 0.25f,
+    private val stillS: Float = 1.0f,
+    private val fadeOutS: Float = 0.15f,
+    private val fadeInS: Float = 0.25f,
+) {
+  enum class Phase { FOLLOW, FADE_OUT, FADE_IN }
+
+  var phase = Phase.FOLLOW
+    private set
+  var alpha = 1f
+    private set
+  /** Number of fade-relocations so far (logged). */
+  var relocations = 0
+    private set
+
+  private var lastTarget: Vec3? = null
+  private var still = 0f
+  private var pending: Vec3? = null
+
+  val position: Vec3?
+    get() = follow.position
+
+  fun target(objectTop: Vec3, objectHalfWidth: Float, head: Vec3) = follow.target(objectTop, objectHalfWidth, head)
+
+  /** One frame. [target] null = keep the window where it is (lost). Returns the window position. */
+  fun update(target: Vec3?, dtS: Float, hold: Boolean = false): Vec3? {
+    val pos = follow.position
+    if (target == null) return pos
+    val lt = lastTarget
+    still = if (lt == null || (target - lt).length() > 0.02f) 0f else still + dtS
+    lastTarget = target
+    when (phase) {
+      Phase.FADE_OUT -> {
+        alpha = (alpha - dtS / fadeOutS).coerceAtLeast(0f)
+        if (alpha <= 0f) {
+          follow.reset()
+          follow.update(pending ?: target, dtS)
+          pending = null
+          phase = Phase.FADE_IN
+          relocations++
+        }
+        return follow.position
+      }
+      Phase.FADE_IN -> {
+        alpha = (alpha + dtS / fadeInS).coerceAtMost(1f)
+        if (alpha >= 1f) phase = Phase.FOLLOW
+        return follow.position
+      }
+      Phase.FOLLOW -> {
+        if (pos == null) return follow.update(target, dtS)
+        if (hold) return pos
+        if ((target - pos).length() > jump) {
+          if (still >= stillS) {
+            pending = target
+            phase = Phase.FADE_OUT
+          }
+          return pos
+        }
+        return follow.update(target, dtS)
+      }
+    }
+  }
+
+  fun reset() {
+    follow.reset()
+    phase = Phase.FOLLOW
+    alpha = 1f
+    lastTarget = null
+    pending = null
+    still = 0f
+  }
+}
+
+/**
  * Placements relative to the head, pure, in right-handed WORLD (head pose from `scene.getViewerPose().toPose3()`,
  * which mirrors the SDK's left-handed pose; the head looks down its −Z). Unit-tested in Spatial axes too
  * (FrameConventionTest: the spot is in front of the wearer, not behind).
