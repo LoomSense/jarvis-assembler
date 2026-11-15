@@ -192,7 +192,10 @@ class MainActivity : AppSystemActivity() {
       api = HttpServerApi(params.server, params.key).also { voice = ServerVoice(it, cacheDir) }
     }
     // table from the room scan, parts in the pile in 3D (world/)
-    world = WorldModule(this, vision, mruk, { api }, params.lang)
+    world =
+        WorldModule(this, vision, mruk, { api }, params.lang) { uri, make ->
+          systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
+        }
     pickMarkers =
         PickMarkers { uri, make ->
               systemManager.findSystem<MeshCreationSystem>().meshManager.registerMeshCreator(uri) { _, _ -> make() }
@@ -464,6 +467,7 @@ class MainActivity : AppSystemActivity() {
       try {
         val a = withContext(Dispatchers.IO) { repo.load(id) }
         assembly = a
+        world.setAssembly(a)
         if (sceneReady) ghost.load(a)
         openSocket(a.jobId)
         locate(auto = true)
@@ -563,6 +567,7 @@ class MainActivity : AppSystemActivity() {
     hud.state = hud.state.copy(step = step, action = action)
     ghost.setStep(step, action)
     world.setAction(assembly?.jobId, step, action, act)
+    world.coachLine(lang)?.let { stepPanel.state = stepPanel.state.copy(status = StatusKind.INFO, statusText = it) }
     loadDrawing(step, st.crop)
     showPartCard(act)
     val line =
@@ -777,7 +782,10 @@ class MainActivity : AppSystemActivity() {
 
   private fun whereAmI() {
     when (coach.stage) {
-      CoachFlow.Stage.GUIDE -> locate(auto = false)
+      CoachFlow.Stage.GUIDE -> {
+        locate(auto = false)
+        world.realign()
+      }
       CoachFlow.Stage.LOOK -> scope.launch { identify() }
       else -> {}
     }
@@ -819,6 +827,7 @@ class MainActivity : AppSystemActivity() {
     if (!panelsPlaced && head != null && renderFrames.get() > 30) placePanels(head)
 
     if (assembly != null && sceneReady) {
+      world.tick(dt) // no-marker registration: table, then the server's box for the base part
       when {
         pose != null -> {
           tableFallback = null
@@ -830,7 +839,7 @@ class MainActivity : AppSystemActivity() {
       // REGISTER: marker pose → guide; no pose for 5 s → a fixed table spot in front of the user (demo fallback).
       if (coach.stage == CoachFlow.Stage.REGISTER) {
         if (pose != null) {
-          card(5, s("coachLockTitle"), s("coachLocked"))
+          card(5, s("coachLockTitle"), world.coachLine(lang) ?: s("coachLocked"))
           vision.cancelTouch()
           coach.registered()
         } else if (SystemClock.elapsedRealtime() - registerSince > 5000 && head != null) {

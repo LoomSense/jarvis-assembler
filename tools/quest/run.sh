@@ -47,9 +47,9 @@ version="$(pkg_version "$pkg")"
 q() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 
 "$ADB" logcat -c 2>/dev/null || true
-"$ADB" logcat -v raw -s AGQ:V 2>/dev/null | tr -d '\r' | grep --line-buffered '^{' > "$run/agq.jsonl" &
+"$ADB" logcat -v raw -s AGQ:V 2>/dev/null | grep --line-buffered '^{' > "$run/agq.jsonl" &   # no `tr` here: it block-buffers and loses a short run's events when killed
 pid_agq=$!
-"$ADB" logcat -v threadtime 'AGQ:V' 'AndroidRuntime:E' 'Unity:W' 'DEBUG:E' 'libc:F' "*:E" 2>/dev/null | tr -d '\r' > "$run/logcat.txt" &
+"$ADB" logcat -v threadtime 'AGQ:V' 'AndroidRuntime:E' 'Unity:W' 'DEBUG:E' 'libc:F' "*:E" 2>/dev/null > "$run/logcat.txt" &
 pid_full=$!
 
 cleanup_done=0
