@@ -182,6 +182,7 @@ class AssemblyAnchor(
       val turned = yawDiff(yawOf(worldFromTable.q), yawOf(cur.q))
       if (moved < deadbandM && turned < deadbandRad) return false
     }
+    if (name == PlaceSource.MARKERLESS.wire) realignRequested = false // the detector found the part: nothing left to ask the server
     apply(worldFromTable, PlaceSource.MARKERLESS, if (source == PlaceSource.MARKERLESS) "update" else "first")
     return true
   }

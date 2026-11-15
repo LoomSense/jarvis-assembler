@@ -231,7 +231,22 @@ class WorldModule(
   /** Targets for the UI: real parts in the pile, WORLD positions; empty outside `place`/`fasten` actions. */
   val pickTargets: List<PickTarget>
     // FLAT-PARTS: while the needed part's rectangle is live it stands in for the server's boxes of that part
-    get() = flat.merge(parts.pickTargets, if (parts.hideBaseTarget()) basePart?.partId else null)
+    get() = flat.merge(parts.pickTargets, if (parts.hideBaseTarget()) basePart?.partId else null).filterNot { onAssembly(it) }
+
+  /**
+   * Is this "take it" target really a piece already on the assembly? The server boxes every bolt it sees, also the
+   * ones already screwed into the front (14:15 device run: the pick marker sat on the installed bolts). True when
+   * the ghost is locked on the real part by the detector and the target lies over the base part's rectangle (3 cm
+   * margin): everything built stands on that rectangle. A board found on the floor by its size is never one.
+   */
+  private fun onAssembly(t: PickTarget): Boolean {
+    if (t.method == "rect") return false
+    if (anchor.sourceName != PlaceSource.MARKERLESS.wire) return false
+    val a = anchor.pose ?: return false
+    val fp = footprint() ?: return false
+    val p = a.inverse().transform(t.worldPos)
+    return kotlin.math.abs(p.x - fp.cx) <= fp.halfX + 0.03f && kotlin.math.abs(p.z - fp.cz) <= fp.halfZ + 0.03f
+  }
 
   /** `table`, `fixed_spot`, `server_box`, `manual`, `markerless`; null before anything is placed. */
   val placeSource: String?
@@ -423,7 +438,10 @@ class WorldModule(
     // later ones move it only as the median of at least three, and not at all while the panel detector trusts
     // frames at the current height (its size gate fails when the height is wrong, so a trusted pose confirms it).
     val confirmed = lockedSurfaceY != null && SystemClock.elapsedRealtime() - heightConfirmedAtMs < HEIGHT_CONFIRMED_MS
-    val candY = depthHit?.takeIf { camY != null && it.y < camY - 0.25f && !confirmed }?.let { it.y - baseTopM() }
+    // only on the base part's own step: later the depth ray hits the parts standing on it (14:15 device run: a
+    // re-align at step 3 measured the top of the standing side and lifted the ghost 22 cm)
+    val onBaseStep = curStep == null || curStep == basePart?.step
+    val candY = depthHit?.takeIf { camY != null && it.y < camY - 0.25f && !confirmed && onBaseStep }?.let { it.y - baseTopM() }
     val planeY = lockedSurfaceY ?: candY ?: cur.t.y
     val bp = BasePlacement.fromBox(found.box_2d, g, planeY, cur, fp, vision.config.detector.useDistortion)
     val onTable = bp != null && (scene.table?.contains(bp.partCenter, 0.10f) ?: true)
@@ -484,8 +502,11 @@ class WorldModule(
 
   /** "Re-align": the next camera answer for the base part moves the anchor (also after a manual nudge). */
   fun realign() {
-    lockedSurfaceY = null // measured again at the part on the next camera answer
-    synchronized(partYs) { partYs.clear() }
+    // the surface height is measured again at the part, but only on the base part's own step (see placeBase)
+    if (curStep == null || curStep == basePart?.step) {
+      lockedSurfaceY = null
+      synchronized(partYs) { partYs.clear() }
+    }
     anchor.requestRealign()
   }
 
