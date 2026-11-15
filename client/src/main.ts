@@ -8,7 +8,8 @@ import './styles/tokens.css'
 //   ?mode=xr         the Quest experience of src/xr         src/xr/xrMain.ts      with src/styles/xr.css
 //   ?mode=build      upload a guide, watch the agent build  src/build/build.ts    with src/styles/build.css
 //   every screen but the headset's   the app's navigation: my guides, new guide   src/nav.ts   with src/styles/nav.css
-//   (no job) / ?mode=ready&job=   the workbench: shelf of guides, or one ready   src/home/home.ts   with src/styles/home.css
+//   (no mode, no job)   the landing page: upload a guide, my guides   src/landing/landing.ts   with src/styles/landing.css
+//   ?mode=ready&job= / ?mode=shelf   the workbench: one guide ready, or the shelf   src/home/home.ts   with src/styles/home.css
 //
 // index.html is the document `?mode=xr` was written for: an empty #app. For the guide page, the small script in
 // its <head> has already made the document dark and Greek-first.
@@ -19,10 +20,13 @@ const mode = new URLSearchParams(location.search).get('mode')
 if (mode === 'xr') {
   // Quest 3 phase-2 experience (PLAN §6.0). Loaded lazily so the phone bundle stays small.
   import('./xr/xrMain').then((m) => m.startXR(app))
-} else if (mode === 'ready' || (!mode && !new URLSearchParams(location.search).get('job'))) {
-  // The workbench: the shelf of guides (no mode, no job), or one guide ready to open (`?mode=ready&job=`).
+} else if (!mode && !new URLSearchParams(location.search).get('job')) {
+  // The landing page: what the app does, "upload a guide", and the guides that exist. It has its own top bar.
+  void import('./landing/landing').then((m) => m.startLanding(app))
+} else if (mode === 'ready' || mode === 'shelf') {
+  // The workbench: one guide ready to open (`?mode=ready&job=`), or its shelf of boxes (`?mode=shelf`).
   void import('./home/home').then((m) => m.startHome(app))
-  void import('./nav').then((m) => m.mountNav(mode === 'ready' ? 'ready' : 'home'))
+  void import('./nav').then((m) => m.mountNav('ready'))
 } else if (mode === 'build') {
   // Drop a flat-pack guide (PDF), watch the agent build the 3D guide, approve its plan, open the result.
   void import('./build/build').then((m) => m.startBuild(app))

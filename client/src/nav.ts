@@ -11,8 +11,8 @@ const WORDS = {
   en: { nav: 'Navigation', home: 'My guides', build: 'New guide' },
 }
 const ICON = {
-  // a shelf with boxes on it; a plus
-  home: '<path d="M3.5 19.5h17M5.5 19.5v-6h6v6M12.5 19.5v-9h6v9M7 10.5V6h4.5" />',
+  // a house; a plus
+  home: '<path d="M4 11.5 12 5l8 6.5M6.5 10v9h11v-9" />',
   build: '<path d="M12 5.5v13M5.5 12h13" />',
 }
 
@@ -34,7 +34,7 @@ export function mountNav(here: Here): void {
   const item = (name: 'home' | 'build', current: boolean) => {
     const a = document.createElement('a')
     a.dataset.to = name
-    a.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`
+    a.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg><span></span>`
     if (current) a.setAttribute('aria-current', 'page')
     // read the address when it is used, so a language chosen on the screen since then is kept
     a.addEventListener('click', (e) => {
@@ -53,7 +53,7 @@ export function mountNav(here: Here): void {
     nav.setAttribute('aria-label', w.nav)
     for (const [a, text] of [[home, w.home], [build, w.build]] as const) {
       a.setAttribute('aria-label', text)
-      a.title = text
+      a.querySelector('span')!.textContent = text // the words are always shown on a wide screen: no mystery icons
     }
   }
   label()
