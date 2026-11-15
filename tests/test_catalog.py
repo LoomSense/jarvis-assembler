@@ -176,3 +176,20 @@ def test_a_query_that_names_several_guides_is_not_opened_blindly(client):
     r = client.post("/api/catalog/open", json={"q": "a"})
     assert r.status_code == 409
     assert len(r.json()["detail"]["items"]) > 1
+
+
+def test_ikea_product_search_by_name(client, monkeypatch):
+    import httpx
+    import server.fetch_guide as fg
+    page = {"searchResultPage": {"products": {"main": {"items": [
+        {"product": {"name": "BILLY", "typeName": "Bookcase", "itemNo": "20522046",
+                     "pipUrl": "https://www.ikea.com/us/en/p/billy-bookcase-white-20522046/", "mainImageUrl": "https://x/i.jpg"}},
+        {"product": {"name": "Gift card", "itemNo": "not-a-number"}}]}}}}
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=page))
+    real = httpx.Client
+    monkeypatch.setattr(fg.httpx, "Client", lambda **kw: real(transport=transport, **kw))
+    fg._search_cache.clear()
+    items = client.get("/api/catalog/ikea?q=billy").json()["items"]
+    assert items == [{"name": "BILLY", "type": "Bookcase", "article": "20522046",
+                      "url": "https://www.ikea.com/us/en/p/billy-bookcase-white-20522046/", "image": "https://x/i.jpg"}]
+    assert client.get("/api/catalog/ikea?q=b").json()["items"] == []

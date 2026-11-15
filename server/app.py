@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
+import os
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -82,6 +83,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.demo_key:
         raise RuntimeError("DEMO_KEY is not set. Run `make env`, or add DEMO_KEY to .env (see .env.example).")
     hide_key_in_logs()                                 # `?key=` must not end up in the request log
+    if settings.agj_build_agent:                       # the agent hooks read the environment (orchestrator/stages.py)
+        os.environ.setdefault("AGJ_BUILD_AGENT", settings.agj_build_agent)
     store = JobStore(settings.jobs_dir)
     orch = Orchestrator(store, settings, STAGES)
 

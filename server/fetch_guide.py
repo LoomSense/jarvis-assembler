@@ -138,3 +138,43 @@ def fetch_ikea_guide(query: str, cache_dir: Path, client: httpx.Client | None = 
     write_atomic(meta_file, json.dumps({"product": product, "filename": filename, "page": final_url,
                                         "pdf": links[0]}, ensure_ascii=False))
     return FetchedGuide(pdf, filename, product, article)
+
+
+SEARCH_URL = "https://sik.search.blue.cdtapps.com/us/en/search-result-page"
+_search_cache: dict[str, tuple[float, list[dict]]] = {}
+
+
+def search_ikea(query: str, client: httpx.Client | None = None, size: int = 8) -> list[dict]:
+    """Products whose name matches, from IKEA's public product search (the one ikea.com's own search box calls).
+    The international (US) catalogue: the Greek shop is run separately and has no such search, but the product
+    names and article numbers are the same. Each: {name, type, article, url, image}. Cached for 10 minutes."""
+    import time
+
+    query = " ".join((query or "").split())[:60]
+    if len(query) < 2:
+        return []
+    hit = _search_cache.get(query.lower())
+    if hit and time.monotonic() - hit[0] < 600:
+        return hit[1]
+    own = client is None
+    client = client or httpx.Client(headers={"User-Agent": UA}, timeout=10, follow_redirects=True)
+    try:
+        r = client.get(SEARCH_URL, params={"q": query, "types": "PRODUCT", "size": size})
+        if r.status_code != 200:
+            raise FetchError(f"IKEA's search answered {r.status_code}", 502)
+        items = ((r.json().get("searchResultPage") or {}).get("products") or {}).get("main", {}).get("items") or []
+    except (httpx.HTTPError, ValueError) as e:
+        raise FetchError(f"Could not reach IKEA's search ({type(e).__name__})", 502) from e
+    finally:
+        if own:
+            client.close()
+    out = []
+    for it in items:
+        p = it.get("product") or {}
+        article = str(p.get("itemNo") or "")
+        if not re.fullmatch(r"s?\d{8}", article, re.I):
+            continue
+        out.append({"name": p.get("name"), "type": p.get("typeName"), "article": article.lower(),
+                    "url": p.get("pipUrl"), "image": p.get("mainImageUrl")})
+    _search_cache[query.lower()] = (time.monotonic(), out)
+    return out

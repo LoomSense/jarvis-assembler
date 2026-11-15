@@ -32,6 +32,7 @@ const WORDS = {
     title: 'Οδηγός συναρμολόγησης', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
     findAria: 'Αναζήτηση', back: 'Πίσω', other: 'en', otherAria: 'English', go: 'Βρες',
     aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή γράψε τον κωδικό', looking: 'Ψάχνω', noCamera: 'Γράψε τον κωδικό ή το όνομα',
+    noKey: 'Λείπει ο κωδικός πρόσβασης από τη διεύθυνση (?key=).', fromIkea: 'Από την IKEA',
     notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', several: 'Ταιριάζουν πολλά. Γράψε πιο συγκεκριμένα.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
     steps: 'Δες τα βήματα', help: 'Συναρμολόγησε με βοήθεια', quest: 'Άνοιξε στο Quest',
     nsteps: (n: number) => (n === 1 ? '1 βήμα' : `${n} βήματα`), loading: 'Φέρνω το έπιπλο',
@@ -41,6 +42,7 @@ const WORDS = {
     title: 'Assembly guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
     findAria: 'Search', back: 'Back', other: 'ελ', otherAria: 'Ελληνικά', go: 'Find',
     aim: 'Point at the code on the box', type: 'or type the code', looking: 'Looking', noCamera: 'Type the code or the name',
+    noKey: 'The access key is missing from the address (?key=).', fromIkea: 'From IKEA',
     notFound: 'I could not find that guide. Upload it.', several: 'Several match. Be more specific.', offline: 'The server does not answer. Try again.',
     steps: 'See the steps', help: 'Build with help', quest: 'Open in Quest',
     nsteps: (n: number) => (n === 1 ? '1 step' : `${n} steps`), loading: 'Bringing the furniture',
@@ -86,6 +88,7 @@ export function startHome(app: HTMLElement): void {
     <button class="round back hide" type="button">${svg(ICON.back)}</button>
     <div class="searchbar hide"><label class="sr" for="home-q"></label><input id="home-q" class="q" type="search" autocomplete="off" enterkeyhint="go" /></div>
     <button class="hit hide" type="button"></button>
+    <ul class="results hide" role="listbox"></ul>
     <button class="lang" type="button"></button>
     <div class="foot" data-for="home">
       <p class="line empty" hidden></p>
@@ -375,6 +378,7 @@ export function startHome(app: HTMLElement): void {
 
   // ------------------------------------------------------------------ search
   const closeSearch = () => {
+    $('.results').classList.add('hide')
     $('.searchbar').classList.add('hide')
     $('.hit').classList.add('hide')
     $<HTMLInputElement>('.q').value = ''
@@ -402,7 +406,43 @@ export function startHome(app: HTMLElement): void {
     $('.searchbar').classList.remove('hide')
     $<HTMLInputElement>('.q').focus()
   })
-  $<HTMLInputElement>('.q').addEventListener('input', (e) => dim((e.target as HTMLInputElement).value))
+  let searchTimer = 0
+  let searchSeq = 0
+  const results = $<HTMLUListElement>('.results')
+  const showIkea = async (text: string) => {
+    const my = ++searchSeq
+    if (text.trim().length < 2) { results.classList.add('hide'); return }
+    try {
+      const res = await apiFetch(`/api/catalog/ikea?q=${encodeURIComponent(text.trim())}`, key)
+      if (my !== searchSeq || !res.ok) return
+      const items = ((await res.json()) as { items: { name: string; type?: string; article: string; image?: string }[] }).items
+      results.replaceChildren()
+      for (const it of items.slice(0, 6)) {
+        const li = document.createElement('li')
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.setAttribute('role', 'option')
+        const code = /^\d{8}$/.test(it.article) ? `${it.article.slice(0, 3)}.${it.article.slice(3, 6)}.${it.article.slice(6)}` : it.article.toUpperCase()
+        b.innerHTML = `${it.image ? `<img alt="" loading="lazy" src="${it.image}?f=xxs" />` : '<i></i>'}<span><b></b> <em></em><small></small></span>`
+        b.querySelector('b')!.textContent = it.name
+        b.querySelector('em')!.textContent = it.type ?? ''
+        b.querySelector('small')!.textContent = code
+        b.addEventListener('click', () => void openByText(it.article))
+        li.append(b)
+        results.append(li)
+      }
+      results.dataset.label = w().fromIkea
+      results.classList.toggle('hide', !items.length)
+    } catch {
+      results.classList.add('hide')
+    }
+  }
+  $<HTMLInputElement>('.q').addEventListener('input', (e) => {
+    const text = (e.target as HTMLInputElement).value
+    dim(text)
+    clearTimeout(searchTimer)
+    searchTimer = window.setTimeout(() => void showIkea(text), 350)
+  })
   $<HTMLInputElement>('.q').addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSearch()
     if (e.key !== 'Enter') return
@@ -611,6 +651,13 @@ export function startHome(app: HTMLElement): void {
   void (async () => {
     try {
       const res = await apiFetch('/api/catalog', key)
+      if (res.status === 401) {
+        const e = $<HTMLParagraphElement>('.empty')
+        e.textContent = w().noKey
+        e.hidden = false
+        say(w().noKey)
+        return
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const items = ((await res.json()) as { items: Item[] }).items
       for (const it of items.filter((i) => i.ready && i.job_id).slice(0, 5)) addBox(it)

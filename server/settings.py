@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     allow_golden_plan: bool = True          # known guides may use their hand-checked plan until AGT-02 lands
     max_upload_mb: int = 40
     job_wall_budget_s: int = 40 * 60        # PLAN §5.6
+    agj_build_agent: str = ""               # "claude": new guides are read by the build agent (pipeline/agent/extract.py)
     live_model: str = "gemini-3.8-live"
     live_token_min_interval_s: float = 10.0
     perception_simulate: bool = False       # phase 2 answers come from a debug script, not from Decision 1

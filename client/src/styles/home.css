@@ -46,6 +46,19 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   text-shadow: 0 0 14px #000, 0 0 4px #000; font-variant-numeric: tabular-nums; }
 #home .hit span { color: var(--ink-quiet); font-weight: 400; }
 
+/* products found on IKEA's site while typing */
+#home .results { position: absolute; left: 72px; right: 16px; top: calc(var(--top) + 104px); margin: 0; padding: 0; list-style: none;
+  max-width: 460px; display: flex; flex-direction: column; gap: 2px; transition: opacity 300ms var(--ease); }
+#home .results::before { content: attr(data-label); display: block; font-size: 12.5px; color: var(--ink-quiet); margin: 0 0 6px; letter-spacing: 0.02em; }
+#home .results button { width: 100%; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 6px 8px; border: 0; border-radius: 12px;
+  background: rgba(10, 8, 6, 0.72); text-align: left; transition: background 200ms var(--ease); }
+#home .results button:hover, #home .results button:focus-visible { background: rgba(40, 30, 20, 0.9); }
+#home .results img, #home .results i { width: 40px; height: 40px; flex: none; border-radius: 8px; object-fit: contain; background: #f2efe9; }
+#home .results span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+#home .results b { font-weight: 500; font-size: 16px; }
+#home .results em { font-style: normal; color: var(--ink-quiet); font-size: 14px; }
+#home .results small { flex-basis: 100%; color: var(--ink-quiet); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
 /* the foot: one line, one white pill, one quiet word */
 #home .foot { position: absolute; left: 16px; right: 16px; bottom: var(--foot); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
   transition: opacity 400ms var(--ease), transform 600ms var(--ease); }
