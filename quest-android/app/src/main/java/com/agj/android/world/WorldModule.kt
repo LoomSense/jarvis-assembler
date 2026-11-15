@@ -82,7 +82,9 @@ class WorldModule(
 
   // FLAT-PARTS (world/FlatParts.kt): which loose board each white rectangle on the surface is, and the outline on
   // the one the action shown now needs. Fed by the on-device detector's rectangle pass (PanelPoseTracker.onRects).
-  val flat = FlatParts(Agq.log)
+  // WHERE-IS (world/WhereIs.kt): where every loose board and every piece of hardware was last seen, for the session
+  val whereIs = WhereIs()
+  val flat = FlatParts(Agq.log).also { it.whereIs = whereIs }
   private val flatOutline = registerMesh?.let { FlatPartOutline(it) }
 
   /** FLAT-PARTS: the guide is being followed (MainActivity sets it each frame): the rectangle pass runs and the outline shows. */
@@ -240,7 +242,9 @@ class WorldModule(
   /** Targets for the UI: real parts in the pile, WORLD positions; empty outside `place`/`fasten` actions. */
   val pickTargets: List<PickTarget>
     // FLAT-PARTS: while the needed part's rectangle is live it stands in for the server's boxes of that part
-    get() = flat.merge(parts.pickTargets, if (parts.hideBaseTarget()) basePart?.partId else null).filterNot { onAssembly(it) }
+    get() =
+        flat.merge(parts.pickTargets, if (parts.hideBaseTarget()) basePart?.partId else null).filterNot { onAssembly(it) }
+            .also { whereIs.targets(it) } // WHERE-IS: where each located instance is, remembered (5 times a second at most)
 
   /**
    * Is this "take it" target really a piece already on the assembly? The server boxes every bolt it sees, also the
@@ -299,7 +303,10 @@ class WorldModule(
 
   /** The loaded guide (call when the job is loaded, before REGISTER): finds the base part and arms the placement. */
   fun setAssembly(a: Assembly?) {
-    if (a?.jobId != assembly?.jobId) anchor.reset()
+    if (a?.jobId != assembly?.jobId) {
+      anchor.reset()
+      whereIs.clear() // WHERE-IS: another guide, other parts
+    }
     assembly = a
     val g = a?.guide
     guide = g

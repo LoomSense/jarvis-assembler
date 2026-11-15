@@ -21,6 +21,7 @@ import com.agj.android.guide.PartLabel
  *                  lay for 4 s ([ActionCoach.Config.noHandsGoneMs], [ActionCoach.noHandsMs]).
  *   PICK  → DONE   only the server's `step_complete` on the step's last action (the step advances once).
  *   A turn has nothing to take: it starts at PLACE. Back and Repeat start the action again at PICK ([ActionCoach.start]).
+ *   PLACE → PICK   only "where is it?" said aloud ([ActionCoach.backToPick], WHERE-IS), on an action with a part to take.
  *   A wrong part in the hand ([ActionCoach.wrongPart]) never moves the phase and holds the automatic signals back.
  */
 
@@ -214,6 +215,17 @@ class ActionCoach(private val cfg: Config = Config()) {
   fun stepComplete(nowMs: Long): CoachChange? {
     if (phase == CoachPhase.DONE || !lastOfStep || !settled(nowMs)) return null
     return move(CoachPhase.DONE, "step_complete", nowMs)
+  }
+
+  /**
+   * WHERE-IS: the wearer asked where the part is while "put it here" was shown: back to "take", so that the pick
+   * markers and the lit outline show again. Only from PLACE of an action that has a part to take; where the
+   * instances lie is learned afresh (the one that had gone must not end "take" again at once).
+   */
+  fun backToPick(nowMs: Long, why: String = "asked"): CoachChange? {
+    if (phase != CoachPhase.PLACE || !hasPick) return null
+    rest.clear()
+    return move(CoachPhase.PICK, why, nowMs)
   }
 
   /** A server `action_complete` (not sent today): this one action is done. */
