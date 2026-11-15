@@ -600,7 +600,11 @@ class SpatialGhostRenderer(
     placeLabel(wft)
   }
 
-  /** Label pill 9 cm above the ghost's top, billboarded about Y, dynamic scale (spec §4.5, §2.2). */
+  /**
+   * Label pill 9 cm above the ghost's top, dynamic scale (spec §4.5, §2.2). UI-FLOOR: it faces the eyes and reads
+   * upright in the view also from straight above ([com.agj.android.ui.Placement.billboard]); turned about the
+   * vertical only, it read sideways and foreshortened when the wearer looked down at parts on the floor.
+   */
   private fun placeLabel(wft: Pose3?) {
     val anchor = currentAnchorWorld()
     // ACTION-COACH: while dimmed the name is on the real part to take, not at the target
@@ -614,16 +618,21 @@ class SpatialGhostRenderer(
     val dist = head?.let { (it.t - anchor!!).length() } ?: 0.8f
     labelScale = (dist / 0.8f).coerceIn(0.75f, 1.5f)
     val lift = 0.09f * labelScale
-    val pill = anchor!! + Vec3(0f, lift + PILL_HALF_H * labelScale, 0f)
+    val tip = anchor!! + Vec3(0f, lift, 0f) // the leader's upper end: the pill's bottom edge sits on it
     labelE?.let { e ->
-      e.setComponent(Transform(head?.let { facingPose(pill, it.t) } ?: Pose(pill.toSdk())))
+      val pose =
+          head?.let { h ->
+            val b = com.agj.android.ui.Placement.billboard(tip, h)
+            Pose3(tip + b.q.rotate(Vec3(0f, PILL_HALF_H * labelScale, 0f)), b.q).toSdk()
+          } ?: Pose((tip + Vec3(0f, PILL_HALF_H * labelScale, 0f)).toSdk())
+      e.setComponent(Transform(pose))
       e.setComponent(Scale(Vector3(labelScale)))
     }
     leader?.let { e ->
-      e.setComponent(Transform(Pose(anchor.toSdk())))
+      e.setComponent(Transform(Pose(anchor!!.toSdk())))
       e.setComponent(Scale(Vector3(1f, lift, 1f)))
     }
-    anchorDot?.setComponent(Transform(Pose(anchor.toSdk())))
+    anchorDot?.setComponent(Transform(Pose(anchor!!.toSdk())))
   }
 
   private fun currentPartsBox(): Pair<Vec3, Vec3>? {

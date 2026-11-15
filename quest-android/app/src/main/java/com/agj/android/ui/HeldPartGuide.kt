@@ -13,6 +13,7 @@ import com.agj.android.guide.HeldCues
 import com.agj.android.guide.LabelInfo
 import com.agj.android.guide.PartLabel
 import com.agj.android.guide.facingPose
+import com.agj.android.guide.toSdk
 import com.agj.android.world.PickCue
 import com.agj.android.world.PickTarget
 import com.meta.spatial.core.Entity
@@ -304,7 +305,13 @@ class HeldPartGuide(
           val w = followed?.let { BadgePlacement.follow(it, ws) }
           if (w != null) followed = w
           if (w != null && headPose != null) BadgePlacement.atWrist(w, headPose.t) else pos
-        } else wPos?.let { BadgePlacement.atWindow(it, wHead) }
+        } else
+            wPos?.let { w ->
+              // UI-FLOOR: the window leans to the eyes, so "above it" is along its own up axis (straight up in the
+              // world would put the badge over the window's top edge when it is seen from above)
+              wHead?.let { h -> w + Placement.facingEyes(w, h).q.rotate(Vec3(0f, BadgePlacement.ABOVE_WINDOW_M, 0.015f)) }
+                  ?: BadgePlacement.atWindow(w, wHead)
+            }
     val cur = pos
     val p =
         when {
@@ -317,7 +324,12 @@ class HeldPartGuide(
     val e = badgeE ?: return
     val facing = headPose?.t ?: wHead
     if (p == null || facing == null) return
-    e.setComponent(Transform(facingPose(p, facing)))
+    // UI-FLOOR: at the hand it faces the eyes and is upright in the view, also seen from above; above the window it
+    // lies in the window's own plane
+    val pose =
+        if (where == BadgePlacement.WINDOW && wPos != null && wHead != null) Pose3(p, Placement.facingEyes(wPos, wHead).q)
+        else headPose?.let { Placement.billboard(p, it) }
+    e.setComponent(Transform(pose?.toSdk() ?: facingPose(p, facing)))
     e.setComponent(Scale(Vector3(BadgePlacement.scale((p - facing).length()))))
     if (!badgeShown) {
       badgeShown = true
@@ -364,7 +376,7 @@ class HeldPartGuide(
     }
     val scale = ((headPose.t - t.worldPos).length() / 0.8f).coerceIn(0.75f, 1.5f)
     val p = t.worldPos + Vec3(0f, PICK_PILL_LIFT_M * scale, 0f)
-    e.setComponent(Transform(facingPose(p, headPose.t)))
+    e.setComponent(Transform(Placement.billboard(p, headPose).toSdk())) // UI-FLOOR: upright in the view from above
     e.setComponent(Scale(Vector3(scale)))
     if (!pickShown) {
       pickShown = true

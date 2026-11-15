@@ -18,7 +18,9 @@ class UiTest {
   @Test
   fun windowSitsBesideAndBelowEyeAndIgnoresJitter() {
     val f = WindowFollow()
-    val head = Vec3(0f, 1.6f, 0f)
+    // seated at a table (the object 30° below the eyes): beside it. Standing over it is the steep case (UI-FLOOR):
+    // the window is then just beyond the object, pinned in ui/WindowPlacementTest case (c).
+    val head = Vec3(0f, 1.2f, 0f)
     val obj = Vec3(0f, 0.85f, -0.6f)
     val t = f.target(obj, 0.2f, head)
     assertTrue("right of the object", t.x > 0.3f)

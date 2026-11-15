@@ -56,7 +56,7 @@ fun VerdictBadge(model: VerdictBadgeModel) {
   Box(Modifier.fillMaxSize().alpha(model.alpha), contentAlignment = Alignment.Center) {
     Row(
         Modifier.wrapContentSize()
-            .glass(26.dp)
+            .glass(26.dp, scrim = true)
             .border(2.dp, c.copy(alpha = 0.85f), RoundedCornerShape(26.dp))
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

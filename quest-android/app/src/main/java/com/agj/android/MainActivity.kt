@@ -1247,7 +1247,9 @@ class MainActivity : AppSystemActivity() {
     val e = stepEntity ?: return
     val objectTop = if (coach.stage == CoachFlow.Stage.GUIDE) ghost.assemblyCenterWorld() else null
     if (objectTop != null && head != null) {
-      val target = follow.target(objectTop + Vec3(0f, 0.10f, 0f), 0.22f, head.t)
+      // UI-FLOOR: the window also clears the part being placed (a side standing on the base is the highest thing in view)
+      val top = maxOf(objectTop.y + 0.10f, ghost.currentTargetBoxWorld()?.second?.y ?: objectTop.y)
+      val target = follow.target(Vec3(objectTop.x, top, objectTop.z), 0.22f, head.t)
       // a turn step rotates the object: the window holds still (no orbit), §2.6 rule 5
       val turning = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)?.kind == ActionKind.TURN
       val p = follow.update(target, dt, hold = turning)
@@ -1255,7 +1257,7 @@ class MainActivity : AppSystemActivity() {
         // the facing is frozen while faded in/out so the window does not swing during a relocation
         if (follow.phase == WindowRelocator.Phase.FOLLOW || windowHead == null) windowHead = head.t
         windowPos = p
-        e.setComponent(Transform(Placement.facing(p, windowHead!!).toSdk()))
+        e.setComponent(Transform(Placement.facingEyes(p, windowHead!!).toSdk())) // UI-FLOOR: leans to the eyes
       }
       if (stepPanel.alpha != follow.alpha) {
         stepPanel.alpha = follow.alpha
@@ -1285,7 +1287,7 @@ class MainActivity : AppSystemActivity() {
     val right = Vec3(-dz / d, 0f, dx / d)
     // outer edge = the side away from the object: the window sits right of the object, so further right
     val pos = p + right * (STEP_PANEL_W / 2 + 0.02f + SIDE_PANEL_W / 2) + Vec3(0f, -0.02f, 0f)
-    se.setComponent(Transform(Placement.facing(pos, h).toSdk()))
+    se.setComponent(Transform(Placement.facingEyes(pos, h).toSdk())) // UI-FLOOR: same lean as the window
   }
 
   /**
@@ -1295,8 +1297,8 @@ class MainActivity : AppSystemActivity() {
   private fun placePanels(head: Pose3) {
     panelsPlaced = true
     if (coach.stage == CoachFlow.Stage.GUIDE) return // the window already follows the object
-    val step = Placement.ahead(head, 0.8f, 0.21f) // tan 15° × 0.8 m
-    stepEntity?.setComponent(Transform(Placement.facing(step, head.t).toSdk()))
+    val step = Placement.coachCard(head) // UI-FLOOR: 15° below eye level, lower when the wearer already looks down
+    stepEntity?.setComponent(Transform(Placement.facingEyes(step, head.t).toSdk()))
     windowPos = step
     windowHead = head.t
     val hudPos = Placement.ahead(head, 0.9f, 0.45f, right = -0.55f)
@@ -1379,12 +1381,12 @@ class MainActivity : AppSystemActivity() {
   override fun registerPanels(): List<PanelRegistration> =
       listOf(
           panel(R.id.panel_step, STEP_PANEL_W, STEP_PANEL_H, layer = true) {
-            ComposeView(it).apply { setContent { StepPanel(stepPanel) } }
+            ComposeView(it).apply { setContent { StepPanel(stepPanel, side) } } // UI-FLOOR: "Έλεγχος" is in its quiet row
           },
           panel(R.id.panel_hud, 0.42f, 0.30f, layer = true) { ComposeView(it).apply { setContent { Hud(hud) } } },
           // Parts ornament + camera preview beside the window (§2.5; preview only with hud=true).
           panel(R.id.panel_side, SIDE_PANEL_W, SIDE_PANEL_H, layer = true) {
-            ComposeView(it).apply { setContent { SidePanel(side) } }
+            ComposeView(it).apply { setContent { SidePanel(side, stepPanel) } } // UI-FLOOR: the drawing while placing
           },
           // The label sits on the object: mesh mode, depth-sorted with the 3D guidance (RESEARCH.md §2).
           panel(R.id.panel_label, LABEL_PANEL_W, LABEL_PANEL_H, layer = false) {
