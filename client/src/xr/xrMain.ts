@@ -1341,7 +1341,22 @@ export async function startXR(root: HTMLElement): Promise<void> {
     };
     if (m.asked) statusEl.textContent = said[m.camera] ?? statusEl.textContent;
     cameraBtn.disabled = m.camera === 'headset' || m.camera === 'generic';
+    stepButtons();
   });
+  // Two steps in order, so the camera is never forgotten: ① Camera is the main button until it is granted (a prompt
+  // inside the session can end it), then ② Enter AR is. Enter AR still works without the camera.
+  const ENTER_LABEL = LANG === 'el' ? 'Μπες στο AR' : 'Enter AR';
+  function stepButtons(): void {
+    const ordered = !cameraBtn.hidden;
+    const m = media.status;
+    const ready = m.camera === 'headset' || m.camera === 'generic';
+    const tried = ready || (m.asked && m.camera !== 'inward-only');
+    cameraBtn.textContent = ordered ? `${ready ? '✓' : '①'} ${CAMERA_LABEL}` : CAMERA_LABEL;
+    enterBtn.textContent = ordered ? `② ${ENTER_LABEL}` : ENTER_LABEL;
+    cameraBtn.classList.toggle('is-primary', ordered && !tried);
+    enterBtn.classList.toggle('is-secondary', ordered && !tried);
+    if (ordered && !m.asked && !session && !enterBtn.disabled) statusEl.textContent = LANG === 'el' ? 'Πρώτα η κάμερα, μετά το AR' : 'Camera first, then AR';
+  }
   cameraBtn.addEventListener('click', () => {
     audio ??= new AudioContext(); // the first tap also starts the sound
     void media.request();
@@ -1356,6 +1371,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       ? 'Preview · drag to orbit, ← → steps'
       : 'AR needs HTTPS · preview only';
   enterBtn.disabled = !supported;
+  stepButtons();
 
   enterBtn.addEventListener('click', async () => {
     try {

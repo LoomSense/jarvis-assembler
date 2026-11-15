@@ -57,3 +57,15 @@ canvas { display: block; touch-action: none; }
   cursor: pointer;
 }
 .xr-guide[hidden] { display: none; }
+/* ① Camera → ② Enter AR: the step to do now is the white pill, the other a quiet outline */
+.xr-guide.is-primary {
+  border-color: transparent;
+  background: var(--ag-primary);
+  color: var(--ag-bg);
+}
+.xr-enter.is-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: var(--ag-text, #fff);
+}
+.xr-guide:disabled { opacity: 0.6; cursor: default; }
