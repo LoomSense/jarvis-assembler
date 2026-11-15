@@ -17,7 +17,7 @@ You need three hours to build one drawer, because the guide is all drawings and 
 
 Give it one of four things: the code on the box, a photo of the box, the product name, or the PDF guide. An AI agent rebuilds the furniture in 3D, one move at a time, so you can see what you are building before you touch a screw. The same 3D model is what the phone and the headset use to follow your real build and check each part.
 
-![The phone flow in six screens: start, give the guide, built in 3D, your guide is ready, step by step, down to the screw](docs/img/phone-flow.jpg)
+![The phone flow in six screens: start, give the guide, the agent reads it, a part being built in 3D, the guide is ready, a step](docs/img/phone-flow.jpg)
 
 ## How it works
 
