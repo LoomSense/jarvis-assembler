@@ -18,13 +18,12 @@ const WORDS = {
     brand: 'Assembly Guide', guides: 'My guides', add: 'New guide', other: 'ελ', otherAria: 'Ελληνικά',
     eyebrow: 'From the first piece to the final fit',
     h1: 'Build with a little more clarity.',
-    lead: 'Add the PDF, or photos of the pages. An agent reads the guide, builds every part in 3D and shows each step in the guide’s own order, one screw at a time.',
-    upload: 'Upload a guide', find: 'Find a product by name or code', drop: 'or drop a PDF or photos anywhere on this page',
+    lead: 'Scan the box, photograph it or type its name. An agent finds the guide and builds it in 3D, one screw at a time.',
+    scan: 'Scan the box', upload: 'Upload a guide', find: 'Find it by name or code', drop: 'or drop a PDF or photos anywhere on this page',
+    home: 'Home', boxes: 'Guides on the shelf',
     dropping: 'Drop it to start', sending: 'Sending the guide',
     how: 'How it works',
-    s1: 'Add the guide', s1d: 'A PDF from the maker’s site, or photos of the paper booklet.',
-    s2: 'The agent builds it', s2d: 'It models the parts, fits them together and checks each step against the guide’s drawing. A few minutes.',
-    s3: 'Follow the steps', s3d: 'On a phone or laptop in 3D, or in a headset that watches you build and speaks.',
+    s1: 'Scan the box', s2: 'It is built in 3D', s3: 'Follow the steps',
     yours: 'My guides', empty: 'No guides yet. Upload the first one.', loading: 'Loading the guides',
     ready: 'Ready', building: 'Building', approve: 'Waiting for your approval', failed: 'Stopped', open: 'Open', watch: 'See progress',
     keyMissing: 'This address has no access key', keyWrong: 'The access key in this address is not accepted',
@@ -36,13 +35,12 @@ const WORDS = {
     brand: 'Οδηγός συναρμολόγησης', guides: 'Οι οδηγοί μου', add: 'Νέος οδηγός', other: 'en', otherAria: 'English',
     eyebrow: 'Από το πρώτο κομμάτι μέχρι την τελευταία βίδα',
     h1: 'Κάθε κομμάτι στη θέση του.',
-    lead: 'Βάλε το PDF ή φωτογραφίες των σελίδων. Ένας πράκτορας διαβάζει τον οδηγό, φτιάχνει κάθε κομμάτι σε 3D και δείχνει κάθε βήμα με τη σειρά του οδηγού, βίδα βίδα.',
-    upload: 'Ανέβασε έναν οδηγό', find: 'Βρες ένα προϊόν με όνομα ή κωδικό', drop: 'ή άφησε ένα PDF ή φωτογραφίες οπουδήποτε στη σελίδα',
+    lead: 'Σκάναρε το κουτί, φωτογράφισέ το ή γράψε το όνομά του. Ένας πράκτορας βρίσκει τον οδηγό και τον χτίζει σε 3D, βίδα βίδα.',
+    scan: 'Σκάναρε το κουτί', upload: 'Ανέβασε έναν οδηγό', find: 'Βρες το με όνομα ή κωδικό', drop: 'ή άφησε ένα PDF ή φωτογραφίες οπουδήποτε στη σελίδα',
+    home: 'Αρχική', boxes: 'Οδηγοί στο ράφι',
     dropping: 'Άφησέ το για να ξεκινήσει', sending: 'Στέλνω τον οδηγό',
     how: 'Πώς δουλεύει',
-    s1: 'Βάλε τον οδηγό', s1d: 'Ένα PDF από τη σελίδα του κατασκευαστή ή φωτογραφίες από το χάρτινο φυλλάδιο.',
-    s2: 'Ο πράκτορας τον χτίζει', s2d: 'Φτιάχνει τα κομμάτια, τα ταιριάζει και ελέγχει κάθε βήμα με το σχέδιο του οδηγού. Λίγα λεπτά.',
-    s3: 'Ακολούθησε τα βήματα', s3d: 'Σε κινητό ή laptop σε 3D, ή με headset που σε βλέπει να χτίζεις και σου μιλάει.',
+    s1: 'Σκάναρε το κουτί', s2: 'Χτίζεται σε 3D', s3: 'Ακολούθησε τα βήματα',
     yours: 'Οι οδηγοί μου', empty: 'Δεν υπάρχει ακόμα οδηγός. Ανέβασε τον πρώτο.', loading: 'Φορτώνω τους οδηγούς',
     ready: 'Έτοιμος', building: 'Χτίζεται', approve: 'Περιμένει την έγκρισή σου', failed: 'Σταμάτησε', open: 'Άνοιξε', watch: 'Δες την πρόοδο',
     keyMissing: 'Η διεύθυνση δεν έχει κλειδί πρόσβασης', keyWrong: 'Το κλειδί πρόσβασης στη διεύθυνση δεν έγινε δεκτό',
@@ -58,8 +56,16 @@ const ICON = {
   search: '<circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/>',
   plus: '<path d="M12 5.5v13M5.5 12h13"/>',
   arrow: '<path d="M5 12h14M13.5 6.5 19 12l-5.5 5.5"/>',
+  scan: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5C4.7 20 4 19.3 4 18.5V16M7 12h10"/>',
+  home: '<path d="M4.5 11 12 4.5 19.5 11M6.5 9.5V19h11V9.5"/>',
+  shelf: '<rect x="4" y="4.5" width="7" height="6" rx="1.2"/><rect x="13" y="4.5" width="7" height="6" rx="1.2"/><rect x="4" y="13.5" width="7" height="6" rx="1.2"/><rect x="13" y="13.5" width="7" height="6" rx="1.2"/>',
+  steps: '<rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="m10.2 12 1.4 1.5 2.4-3"/>',
 }
 const svg = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
+const FLOW_ARROW = (up: boolean) => `<svg class="arr" viewBox="0 0 64 28" aria-hidden="true">
+  <path class="dash" d="${up ? 'M3 21C20 3 42 3 59 15' : 'M3 7C20 25 42 25 59 13'}"/><path class="head" d="${up ? 'M51 9.5 59.5 15.2 50 18.6' : 'M50 9.4 59.5 12.8 51 18.5'}"/></svg>`
+/** One cardboard box of the hero: a face with a label, a lid and a side, drawn with plain elements. */
+const BOX = (n: number, name: string) => `<a class="bx b${n}" style="--i:${n}"><i class="lid"></i><i class="side"></i><span class="face"><i class="tape"></i><span class="tag"><b>3D</b><em>${name}</em></span></span></a>`
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 export function startLanding(app: HTMLElement): void {
@@ -76,7 +82,7 @@ export function startLanding(app: HTMLElement): void {
 
   app.innerHTML = `
   <div id="landing">
-    <header class="bar">
+    <header class="bar" id="top">
       <a class="brand" href="${esc(link({}))}">${svg(ICON.mark)}<span>${w.brand}</span></a>
       <nav aria-label="${w.guides}">
         <a class="navlink" href="#guides" aria-label="${w.guides}">${svg(ICON.mark)}<span>${w.guides}</span></a>
@@ -89,21 +95,23 @@ export function startLanding(app: HTMLElement): void {
       <section class="hero">
         <p class="eyebrow"><i></i>${w.eyebrow}</p>
         <h1>${w.h1}</h1>
+        <div class="boxes" id="boxes" role="group" aria-label="${w.boxes}">${BOX(1, 'MARKUS')}${BOX(2, 'KNAGGLIG')}${BOX(3, 'LACK')}<i class="floor"></i></div>
         <p class="lead">${w.lead}</p>
         <div class="actions">
-          <button class="primary" type="button" id="pick">${svg(ICON.up)}<span>${w.upload}</span></button>
-          <a class="ghost" href="${esc(link({ mode: 'build' }))}">${svg(ICON.search)}<span>${w.find}</span></a>
+          <a class="primary" href="${esc(link({ mode: 'shelf', scan: '1' }))}">${svg(ICON.scan)}<span>${w.scan}</span></a>
+          <button class="ghost" type="button" id="pick">${svg(ICON.up)}<span>${w.upload}</span></button>
         </div>
+        <a class="textlink" href="${esc(link({ mode: 'build' }))}">${svg(ICON.search)}<span>${w.find}</span></a>
         <p class="hint" id="hint" role="status">${w.drop}</p>
         <input id="file" type="file" accept="application/pdf,image/*" multiple hidden />
       </section>
 
       <section class="how" aria-labelledby="how-h">
         <h2 id="how-h">${w.how}</h2>
-        <ol>
-          <li><b>1</b><div><h3>${w.s1}</h3><p>${w.s1d}</p></div></li>
-          <li><b>2</b><div><h3>${w.s2}</h3><p>${w.s2d}</p></div></li>
-          <li><b>3</b><div><h3>${w.s3}</h3><p>${w.s3d}</p></div></li>
+        <ol class="flow">
+          <li><span class="ico">${svg(ICON.scan)}</span><h3>${w.s1}</h3></li>
+          <li>${FLOW_ARROW(true)}<span class="ico">${svg(ICON.mark)}</span><h3>${w.s2}</h3></li>
+          <li>${FLOW_ARROW(false)}<span class="ico">${svg(ICON.steps)}</span><h3>${w.s3}</h3></li>
         </ol>
       </section>
 
@@ -112,6 +120,11 @@ export function startLanding(app: HTMLElement): void {
         <div id="list" class="grid" aria-live="polite"><p class="quiet">${w.loading}</p></div>
       </section>
     </main>
+    <nav class="tabs" aria-label="${w.brand}">
+      <a class="tab on" href="#top">${svg(ICON.home)}<span>${w.home}</span></a>
+      <a class="tab scan" href="${esc(link({ mode: 'shelf', scan: '1' }))}" aria-label="${w.scan}"><i>${svg(ICON.scan)}</i></a>
+      <a class="tab" href="#guides">${svg(ICON.shelf)}<span>${w.guides}</span></a>
+    </nav>
     <div class="veil" id="veil" hidden><p>${w.dropping}</p></div>
   </div>`
 
@@ -121,6 +134,12 @@ export function startLanding(app: HTMLElement): void {
 
   const list = $('#list')
   const hint = $('#hint')
+  app.querySelectorAll<HTMLAnchorElement>('#boxes .bx').forEach((bx) => (bx.href = link({ mode: 'shelf', scan: '1' })))
+  const tabs = app.querySelectorAll<HTMLElement>('.tabs .tab:not(.scan)')
+  new IntersectionObserver(([e]) => {
+    tabs[0]!.classList.toggle('on', !e!.isIntersecting)
+    tabs[1]!.classList.toggle('on', e!.isIntersecting)
+  }, { rootMargin: '-45% 0px -45% 0px' }).observe($('#guides'))
 
   // ---- the access key: say which problem it is, and take the key here instead of asking for an edited address
   const askForKey = () => {
@@ -161,6 +180,15 @@ export function startLanding(app: HTMLElement): void {
       if (!have || (have.status !== 'done' && j.status === 'done')) by.set(k, j)
     }
     const rows = [...by.values()]
+    // the boxes of the hero carry the names of real guides and open them; with fewer than three, the rest go to the scanner
+    const done = rows.filter((j) => j.status === 'done')
+    app.querySelectorAll<HTMLAnchorElement>('#boxes .bx').forEach((bx, i) => {
+      const j = done[i]
+      bx.href = j ? link({ mode: 'ready', job: j.job_id }) : link({ mode: 'shelf', scan: '1' })
+      // the label carries the product's own word: "KNAGGLIG box" -> KNAGGLIG, "IKEA side table" -> SIDE TABLE
+      if (j) bx.querySelector('em')!.textContent = (name(j).replace(/^ikea\s+/i, '').match(/^\S+(\s+(table|chair|box|shelf|stool|desk))?/i)?.[0] ?? name(j)).toUpperCase().slice(0, 13)
+      bx.setAttribute('aria-label', j ? name(j) : w.scan)
+    })
     if (!rows.length) {
       list.innerHTML = `<p class="quiet">${w.empty}</p>`
       return

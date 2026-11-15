@@ -576,6 +576,8 @@ export function startHome(app: HTMLElement): void {
     }
   }
   $('.go-scan').addEventListener('click', () => void startScan())
+  // `&scan=1` (the landing page's "Scan the box"): open on the scanner. Not after a reload that already has a guide.
+  if (q.get('scan') === '1' && !q.get('job')) window.setTimeout(() => void startScan(), 300)
 
   // ------------------------------------------------------------------ a photo of the box (or of the label, or of the piece)
   // POST /api/identify reads the name and the numbers printed on it and answers with a guide of this server
