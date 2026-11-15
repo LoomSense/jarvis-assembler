@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -53,17 +54,22 @@ import com.agj.android.guide.LabelInfo
  * (text sizes, as cap heights at 0.8 m), §4.5 (label pill). Colours: docs/design/tokens.css.
  *
  * Panel density: registered at [DP_PER_M] dp per metre, so 1 dp ≈ 1 mm (sizes below are millimetres at true size).
- * Text (spec §2.2, em sizes at 0.8 m): caption / uppercase 0.85° = 11.9 mm → 12 sp; body 1.25° = 17.5 mm → 17.5 sp;
- * title 2.0° = 27.9 mm → 28 sp; label name 1.2° = 16.8 mm → 17 sp. Line height 1.2 titles, 1.36 body.
+ * Text (spec §2.2, em sizes): body 1.25° at 0.8 m = 17.5 mm → 17.5 sp; title 2.0° = 27.9 mm → 28 sp; label name
+ * 1.2° = 16.8 mm → 17 sp. Line height 1.2 titles, 1.36 body.
+ * UI-FLOOR: the caption (the smallest text anywhere) is 0.85° at the FAR end of the window zone, 0.9 m (13.4 mm →
+ * 13.5 sp; it was 12 sp, 0.76° there); the step window's one instruction is the hero, 1.5 × the title (3.0° at 0.8 m).
  */
 object TextSize {
-  val caption = 12.sp
+  val caption = 13.5.sp
   val body = 17.5.sp
   val bodyLine = 24.sp
   val title = 28.sp
   val titleLine = 34.sp
+  val hero = 42.sp
+  val heroLine = 48.sp
   val labelName = 17.sp
   val button = 17.sp
+  val primary = 20.sp
 }
 const val DP_PER_M = 1000f
 
@@ -85,6 +91,8 @@ object AgColors {
   val border = Color(0x29FFFFFF)
   /** Glyph on a status shape (✕ ? ✓): the window's dark glass. */
   val glyph = Color(0xFF14171B)
+  /** tokens.css `--ag-scrim`: black 60 % under text that sits over passthrough (bright boards, sunlit floor). */
+  val scrim = Color(0x99000000)
 }
 
 /** Everything the debug HUD shows. Immutable snapshot; the activity replaces it (main thread). */
@@ -126,7 +134,7 @@ data class StepPanelState(
     val stepLabel: String = "",
     val page: String = "",
     val title: String = "",
-    /** At most two lines (spec §4.13). */
+    /** One short line under the instruction (two on coach cards and steps without a phase). */
     val body: String = "",
     val hardware: String = "",
     val status: StatusKind = StatusKind.NONE,
@@ -139,11 +147,11 @@ data class StepPanelState(
     val nextLabel: String? = null,
     /** Mic button label ("Μίλα" / "Speak"); null = no mic in the toolbar. */
     val micLabel: String? = null,
-    /** The step's guide drawing as white line art (right column, §2.4); null = text only. */
+    /** The step's guide drawing as white line art; shown on the side card while placing ([SidePanel]); null = none. */
     val drawing: ImageBitmap? = null,
-    /** Coach cards use the compact window, 0.36 × 0.20 m (§2.4). */
+    /** Coach cards use the compact window, 0.40 × 0.20 m (§2.4). */
     val compact: Boolean = false,
-    /** Status pill above the window (§2.5): tracking lost, offline. Null = hidden. */
+    /** Status pill (§2.5): tracking lost, offline; at the right of the window's status line. Null = hidden. */
     val pill: String? = null,
     val pillKind: StatusKind = StatusKind.UNSURE,
     // ACTION-COACH: the two-dot phase indicator above the title ("1 Πάρε · 2 Βάλε"). 0 = hidden, 1 = take, 2 = put.
@@ -168,7 +176,7 @@ class StepPanelModel {
   var mic by mutableStateOf(MicState.IDLE)
   /** The no-marker instruction ("Place … inside the blue outline."), first line of the body while it applies; "" = none. */
   var coach by mutableStateOf("")
-  /** "Re-align" / «Ευθυγράμμιση»: small button above the window's top right corner while the ghost is only placed; null = hidden. */
+  /** "Re-align" / «Ευθυγράμμιση»: a quiet item of the secondary row while the ghost is only placed; null = hidden. */
   var align by mutableStateOf<String?>(null)
   var onAlign: () -> Unit = {}
   /** Fade-relocate (§2.6 rule 5): 0..1, written by the frame tick. */
@@ -183,10 +191,16 @@ class LabelModel {
 /** Superellipse-ish continuous corners are approximated by Compose's rounded rect (UNVERIFIED look on device). */
 private fun glassShape(r: Dp): Shape = RoundedCornerShape(r)
 
-/** Glass recipe (§3.1): vertical tint, top-left sheen, rim brighter at the top, inner shadow at the bottom. */
-internal fun Modifier.glass(radius: Dp): Modifier =
+/**
+ * Glass recipe (§3.1): vertical tint, top-left sheen, rim brighter at the top, inner shadow at the bottom.
+ * UI-FLOOR [scrim]: for glass that carries text over the work itself (the step window beyond the parts, the pills on
+ * parts, the badge at the hand): `--ag-scrim` under the content takes the glass from α 0.90 to 0.96, so white text
+ * keeps over 10:1 on a sunlit white board (it was 6.6:1 there, under the 7:1 the spec asks for body text).
+ */
+internal fun Modifier.glass(radius: Dp, scrim: Boolean = false): Modifier =
     this.clip(glassShape(radius))
         .background(Brush.verticalGradient(listOf(AgColors.glassTop, AgColors.glassBottom)))
+        .then(if (scrim) Modifier.background(AgColors.scrim) else Modifier)
         .drawWithContent {
           drawContent()
           // edge band: the outer 16 mm let passthrough through (α 0.90 → 0.80), drawn as a darkening-free fade
@@ -270,15 +284,80 @@ private fun StatusShape(kind: StatusKind, sizeDp: Dp) {
   }
 }
 
+// ---- UI-FLOOR: the step window: one instruction, one primary button, the rest quiet ----
+
+private enum class Glyph { BACK, REPEAT, MIC, ALIGN, CHECK, WHERE }
+
+/** Line icons of the quiet row, drawn (no icon font): 15 mm, stroke 1.6 mm, round caps. */
 @Composable
-private fun MicButton(label: String, mic: MicState, onPress: () -> Unit, onDown: () -> Unit, onUp: () -> Unit) {
+private fun GlyphIcon(g: Glyph, color: Color, sizeDp: Dp = 15.dp) {
+  Canvas(Modifier.size(sizeDp)) {
+    val w = size.width
+    val sw = w * 0.11f
+    val round = androidx.compose.ui.graphics.StrokeCap.Round
+    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = round)
+    fun line(x0: Float, y0: Float, x1: Float, y1: Float) = drawLine(color, Offset(w * x0, w * y0), Offset(w * x1, w * y1), sw, round)
+    when (g) {
+      Glyph.BACK -> { // ‹
+        line(0.62f, 0.16f, 0.30f, 0.50f)
+        line(0.30f, 0.50f, 0.62f, 0.84f)
+      }
+      Glyph.REPEAT -> { // an open circle that ends in an arrowhead
+        val r = w * 0.36f
+        drawArc(color, 40f, 280f, false, Offset(w / 2 - r, w / 2 - r), androidx.compose.ui.geometry.Size(2 * r, 2 * r), style = stroke)
+        val a = Math.toRadians(320.0)
+        val ex = w / 2 + r * Math.cos(a).toFloat()
+        val ey = w / 2 + r * Math.sin(a).toFloat()
+        for (d in listOf(-0.75, 0.75)) {
+          val back = a + 1.5 * Math.PI + d
+          drawLine(color, Offset(ex, ey), Offset(ex + w * 0.26f * Math.cos(back).toFloat(), ey + w * 0.26f * Math.sin(back).toFloat()), sw, round)
+        }
+      }
+      Glyph.MIC -> { // capsule + stand
+        drawRoundRect(color, Offset(w * 0.34f, 0f), androidx.compose.ui.geometry.Size(w * 0.32f, w * 0.62f), androidx.compose.ui.geometry.CornerRadius(w * 0.16f))
+        drawArc(color, 0f, 180f, false, Offset(w * 0.2f, w * 0.3f), androidx.compose.ui.geometry.Size(w * 0.6f, w * 0.5f), style = stroke)
+        line(0.5f, 0.8f, 0.5f, 1f)
+      }
+      Glyph.ALIGN -> { // crosshair
+        drawCircle(color, w * 0.27f, style = stroke)
+        line(0.5f, 0.02f, 0.5f, 0.23f)
+        line(0.5f, 0.77f, 0.5f, 0.98f)
+        line(0.02f, 0.5f, 0.23f, 0.5f)
+        line(0.77f, 0.5f, 0.98f, 0.5f)
+      }
+      Glyph.CHECK -> { // ✓
+        line(0.14f, 0.54f, 0.40f, 0.80f)
+        line(0.40f, 0.80f, 0.88f, 0.24f)
+      }
+      Glyph.WHERE -> { // a ring with its centre marked
+        drawCircle(color, w * 0.40f, style = stroke)
+        drawCircle(color, w * 0.12f)
+      }
+    }
+  }
+}
+
+/**
+ * A quiet secondary action: icon + short label, no fill until the ray is on it. 36 mm tall (2.6° at 0.8 m, over the
+ * 2.5° minimum target), items 12 mm apart (§1 [M-hands]). [hold] = push-to-talk: down at pinch, up at release.
+ */
+@Composable
+private fun QuietButton(
+    label: String,
+    glyph: Glyph,
+    onPress: () -> Unit,
+    onClick: () -> Unit,
+    mic: MicState? = null,
+    onDown: () -> Unit = {},
+    onUp: () -> Unit = {},
+) {
   val src = androidx.compose.runtime.remember { MutableInteractionSource() }
   val hovered by src.collectIsHoveredAsState()
   val pressed by src.collectIsPressedAsState()
   val scale by androidx.compose.animation.core.animateFloatAsState(
       if (pressed) 0.97f else if (hovered) 1.03f else 1f,
       androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 630f),
-      label = "mic",
+      label = "quiet",
   )
   androidx.compose.runtime.LaunchedEffect(pressed) {
     if (pressed) {
@@ -292,113 +371,147 @@ private fun MicButton(label: String, mic: MicState, onPress: () -> Unit, onDown:
         mic == MicState.THINKING -> Color(0x33E8C14B)
         pressed -> Color(0x3DFFFFFF)
         hovered -> Color(0x2EFFFFFF)
-        else -> AgColors.button
+        else -> Color.Transparent
       }
+  val lit = hovered || pressed || (mic != null && mic != MicState.IDLE)
+  val ink = if (mic == MicState.LISTENING) AgColors.error else if (lit) AgColors.textStrong else AgColors.text
   Row(
       Modifier.scale(scale)
-          .height(44.dp)
-          .width(88.dp)
-          .clip(RoundedCornerShape(22.dp))
+          .height(36.dp)
+          .clip(RoundedCornerShape(18.dp))
           .background(fill)
-          .border(1.dp, if (hovered || mic != MicState.IDLE) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(22.dp))
+          .border(1.dp, if (lit) Color(0x59FFFFFF) else Color.Transparent, RoundedCornerShape(18.dp))
           .hoverable(src)
-          .clickable(interactionSource = src, indication = null, onClick = {}),
-      horizontalArrangement = Arrangement.Center,
+          .clickable(interactionSource = src, indication = null, onClick = onClick)
+          .padding(horizontal = 10.dp),
+      horizontalArrangement = Arrangement.spacedBy(5.dp),
       verticalAlignment = Alignment.CenterVertically,
   ) {
-    // mic glyph: capsule + stand; red dot while recording
-    Canvas(Modifier.size(16.dp)) {
-      val w = size.width
-      val col = if (mic == MicState.LISTENING) AgColors.error else AgColors.textStrong
-      drawRoundRect(col, Offset(w * 0.34f, 0f), androidx.compose.ui.geometry.Size(w * 0.32f, w * 0.62f), androidx.compose.ui.geometry.CornerRadius(w * 0.16f))
-      drawArc(col, 0f, 180f, false, Offset(w * 0.2f, w * 0.3f), androidx.compose.ui.geometry.Size(w * 0.6f, w * 0.5f), style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.09f))
-      drawLine(col, Offset(w / 2, w * 0.8f), Offset(w / 2, w), w * 0.09f)
-    }
-    Spacer(Modifier.width(6.dp))
-    Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    GlyphIcon(glyph, ink)
+    Text(label, color = ink, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
   }
 }
 
+/** The one primary action of the phase ("Το πήρα", "Επόμενο", "Τέλος"): 60 mm tall (4.3°), the only filled control. */
 @Composable
-private fun AgButton(label: String, primary: Boolean, onPress: () -> Unit, onClick: () -> Unit) {
+private fun PrimaryButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
   val src = androidx.compose.runtime.remember { MutableInteractionSource() }
   val hovered by src.collectIsHoveredAsState()
   val pressed by src.collectIsPressedAsState()
   val scale by androidx.compose.animation.core.animateFloatAsState(
       if (pressed) 0.97f else if (hovered) 1.03f else 1f,
       androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 630f), // response ≈ 0.25 s
+      label = "primary",
+  )
+  androidx.compose.runtime.LaunchedEffect(pressed) { if (pressed) onPress() }
+  Box(
+      Modifier.scale(scale)
+          .height(60.dp)
+          .widthIn(min = 128.dp)
+          .clip(RoundedCornerShape(30.dp))
+          .background(if (pressed) Color(0xFF3F6A90) else if (hovered) Color(0xFF305A80) else AgColors.accentDeep)
+          .border(1.5.dp, AgColors.accent.copy(alpha = if (hovered) 0.9f else 0.55f), RoundedCornerShape(30.dp))
+          .hoverable(src)
+          .clickable(interactionSource = src, indication = null, onClick = onClick)
+          .padding(horizontal = 22.dp),
+      contentAlignment = Alignment.Center,
+  ) {
+    Text(label, color = AgColors.textStrong, fontSize = TextSize.primary, fontWeight = FontWeight.SemiBold, maxLines = 1)
+  }
+}
+
+/** A plain capsule button (the coach cards' "Ξανά"), 44 mm tall. */
+@Composable
+private fun AgButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
+  val src = androidx.compose.runtime.remember { MutableInteractionSource() }
+  val hovered by src.collectIsHoveredAsState()
+  val pressed by src.collectIsPressedAsState()
+  val scale by androidx.compose.animation.core.animateFloatAsState(
+      if (pressed) 0.97f else if (hovered) 1.03f else 1f,
+      androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 630f),
       label = "press",
   )
   androidx.compose.runtime.LaunchedEffect(pressed) { if (pressed) onPress() }
-  val fill =
-      when {
-        primary && pressed -> Color(0xFF3F6A90)
-        primary -> AgColors.accentDeep
-        pressed -> Color(0x3DFFFFFF)
-        hovered -> Color(0x2EFFFFFF)
-        else -> AgColors.button
-      }
   Box(
       Modifier.scale(scale)
           .height(44.dp)
-          .width(if (primary) 104.dp else 88.dp)
+          .widthIn(min = 88.dp)
           .clip(RoundedCornerShape(22.dp))
-          .background(fill)
+          .background(if (pressed) Color(0x3DFFFFFF) else if (hovered) Color(0x2EFFFFFF) else AgColors.button)
           .border(1.dp, if (hovered) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(22.dp))
           .hoverable(src)
-          .clickable(interactionSource = src, indication = null, onClick = onClick),
+          .clickable(interactionSource = src, indication = null, onClick = onClick)
+          .padding(horizontal = 16.dp),
       contentAlignment = Alignment.Center,
   ) {
     Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
   }
 }
 
-/** Small secondary action, 38 mm tall (2.7° at 0.8 m, over the 2.5° minimum target); feedback as [AgButton]. */
-@Composable
-private fun SmallButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
-  val src = androidx.compose.runtime.remember { MutableInteractionSource() }
-  val hovered by src.collectIsHoveredAsState()
-  val pressed by src.collectIsPressedAsState()
-  androidx.compose.runtime.LaunchedEffect(pressed) { if (pressed) onPress() }
-  Box(
-      Modifier.height(38.dp)
-          .clip(RoundedCornerShape(19.dp))
-          .background(if (pressed) Color(0x3DFFFFFF) else if (hovered) Color(0x2EFFFFFF) else AgColors.button)
-          .border(1.dp, if (hovered) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(19.dp))
-          .hoverable(src)
-          .clickable(interactionSource = src, indication = null, onClick = onClick)
-          .padding(horizontal = 14.dp),
-      contentAlignment = Alignment.Center,
-  ) {
-    Text(label, color = AgColors.textStrong, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-  }
-}
-
 /**
- * ACTION-COACH: "1 Πάρε · 2 Βάλε". The phase shown now is a filled azure dot with its word in full white; the other
- * is a hollow dot with a dimmed word. The count of repeated hardware ("1 από 2") sits at the right while placing.
+ * ACTION-COACH: "1 Πάρε · 2 Βάλε", small, in the status line. The phase shown now is a filled azure dot with its
+ * word in full white; the other is a hollow dot with a dimmed word.
  */
 @Composable
 private fun PhaseDots(s: StepPanelState) {
-  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
     for ((n, word) in listOf(1 to s.phaseTake, 2 to s.phasePut)) {
       val on = s.phase == n
       Box(
-          Modifier.size(18.dp)
-              .clip(RoundedCornerShape(9.dp))
+          Modifier.size(20.dp)
+              .clip(RoundedCornerShape(10.dp))
               .background(if (on) AgColors.accent else Color.Transparent)
-              .border(1.5.dp, if (on) AgColors.accent else AgColors.border, RoundedCornerShape(9.dp)),
+              .border(1.5.dp, if (on) AgColors.accent else AgColors.border, RoundedCornerShape(10.dp)),
           contentAlignment = Alignment.Center,
       ) {
-        Text("$n", color = if (on) AgColors.glyph else AgColors.textMeta, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text("$n", color = if (on) AgColors.glyph else AgColors.textMeta, fontSize = TextSize.caption, lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
       }
       Text(word, color = if (on) AgColors.textStrong else AgColors.textMeta, fontSize = TextSize.caption,
           fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, letterSpacing = 0.4.sp, maxLines = 1)
       if (n == 1) Text("·", color = AgColors.textMeta, fontSize = TextSize.caption, maxLines = 1)
     }
-    if (s.phaseCount.isNotEmpty()) {
-      Spacer(Modifier.weight(1f))
-      Box(Modifier.clip(RoundedCornerShape(10.dp)).background(AgColors.accentDeep).padding(horizontal = 8.dp, vertical = 2.dp)) {
+  }
+}
+
+/**
+ * The small line at the top of the window: status shape + "ΒΗΜΑ 3 ΑΠΟ 7" (or the verdict word), the two phase dots,
+ * and at the right the status pill (tracking lost, offline) or the count of repeated hardware ("1 από 2").
+ */
+@Composable
+private fun StatusLine(s: StepPanelState) {
+  Row(Modifier.fillMaxWidth().height(22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Status: colour + shape + word (an accent dot when there is nothing to report).
+    StatusShape(if (s.status == StatusKind.NONE) StatusKind.INFO else s.status, 12.dp)
+    val head = if (s.status != StatusKind.NONE && s.statusText.isNotEmpty()) s.statusText else s.stepLabel
+    Text(
+        if (s.page.isNotEmpty() && s.phase == 0) "$head · ${s.page}" else head,
+        Modifier.weight(1f, fill = false),
+        color = when (s.status) {
+          StatusKind.ERROR -> AgColors.error
+          StatusKind.SUCCESS -> AgColors.success
+          StatusKind.UNSURE -> AgColors.unsure
+          else -> AgColors.textMeta
+        },
+        fontSize = TextSize.caption,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.7.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+    val pill = s.pill
+    if (pill == null && s.phase > 0 && !s.compact) PhaseDots(s) // ACTION-COACH
+    Spacer(Modifier.weight(1f))
+    if (pill != null) {
+      Row(
+          Modifier.clip(RoundedCornerShape(11.dp)).background(Color(0x1FFFFFFF)).padding(horizontal = 10.dp, vertical = 2.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        StatusShape(s.pillKind, 12.dp)
+        Text(pill, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      }
+    } else if (s.phaseCount.isNotEmpty()) {
+      Box(Modifier.clip(RoundedCornerShape(11.dp)).background(AgColors.accentDeep).padding(horizontal = 10.dp, vertical = 2.dp)) {
         Text(s.phaseCount, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
       }
     }
@@ -406,132 +519,93 @@ private fun PhaseDots(s: StepPanelState) {
 }
 
 /**
- * Panel size for [StepPanel]: status pill row (40 mm) + window 0.52 × 0.34 m + the toolbar ornament below
- * (56 mm, overlapping the window's bottom edge by half).
+ * Panel size for [StepPanel] (UI-FLOOR): the window is the whole panel, 0.54 × 0.22 m (37.3° × 15.7° at 0.8 m). Low
+ * and wide, so it fits just beyond the work without covering it ([WindowFollow]); the status pill and every button
+ * are inside it, 20 mm from its edge.
  */
 const val STEP_PANEL_W = 0.54f
-const val STEP_PANEL_H = 0.42f
+const val STEP_PANEL_H = 0.22f
 
-/** The step window (§2.4) with its toolbar ornament and status pill (§2.5). Coach cards use the compact size. */
+/**
+ * The step window (UI-FLOOR): one clear thing at a time, for a glance from above the work.
+ *  - a small status line: step, the two phase dots, the status pill;
+ *  - the HERO: the instruction of the phase ("Πάρε: Αριστερό πλαϊνό" / "Βάλ' το εδώ"), 42 sp (1.5 × the title, 3.0°
+ *    at 0.8 m), at most two lines, with one short line under it;
+ *  - ONE primary button for the phase at its right ("Το πήρα" / "Επόμενο" / "Τέλος");
+ *  - a quiet row of icon + word for everything else: Back, Repeat, the mic, Re-align, Check ([side]'s "Έλεγχος").
+ * Coach cards use the compact size and keep two body lines.
+ */
 @Composable
-fun StepPanel(model: StepPanelModel) {
+fun StepPanel(model: StepPanelModel, side: SidePanelModel? = null) {
   val s = model.state
-  val w = if (s.compact) 360.dp else 520.dp
-  val h = if (s.compact) 200.dp else 340.dp
-  Box(Modifier.fillMaxSize().alpha(model.alpha)) {
-    s.pill?.let { text ->
+  val w = if (s.compact) 400.dp else 540.dp
+  val h = if (s.compact) 200.dp else 220.dp
+  Box(Modifier.fillMaxSize().alpha(model.alpha), contentAlignment = Alignment.Center) {
+    Column(Modifier.width(w).height(h).glass(24.dp, scrim = true).padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 12.dp)) {
+      StatusLine(s)
       Row(
-          Modifier.align(Alignment.TopCenter).wrapContentSize().glass(18.dp).padding(horizontal = 14.dp, vertical = 7.dp),
+          Modifier.fillMaxWidth().weight(1f).padding(vertical = 4.dp),
+          horizontalArrangement = Arrangement.spacedBy(16.dp),
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        StatusShape(s.pillKind, 12.dp)
-        Text(text, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, maxLines = 1)
-      }
-    }
-    // Re-align: a small glass capsule in the pill row, flush with the window's right edge (not a fifth toolbar item).
-    model.align?.takeIf { !s.compact }?.let { label ->
-      Box(Modifier.align(Alignment.TopEnd).padding(end = (540.dp - w) / 2).glass(21.dp).padding(2.dp)) {
-        SmallButton(label, model.onPress) { model.onAlign() }
-      }
-    }
-    Column(
-        Modifier.align(Alignment.TopCenter).padding(top = 44.dp).width(w).height(h).glass(24.dp).padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      s.progress?.let { p ->
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0x1FFFFFFF))) {
-          Box(Modifier.fillMaxWidth(p.coerceIn(0f, 1f)).height(4.dp).background(AgColors.accent))
-        }
-      }
-      Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-      Column(Modifier.weight(0.6f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Status: colour + shape + word (an accent dot when there is nothing to report).
-        StatusShape(if (s.status == StatusKind.NONE) StatusKind.INFO else s.status, 12.dp)
-        val head = if (s.status != StatusKind.NONE && s.statusText.isNotEmpty()) s.statusText else s.stepLabel
-        Text(
-            if (s.page.isNotEmpty()) "$head · ${s.page}" else head,
-            color = when (s.status) {
-              StatusKind.ERROR -> AgColors.error
-              StatusKind.SUCCESS -> AgColors.success
-              StatusKind.UNSURE -> AgColors.unsure
-              else -> AgColors.textMeta
-            },
-            fontSize = TextSize.caption,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.7.sp,
-            maxLines = 1,
-        )
-      }
-      if (s.phase > 0 && !s.compact) PhaseDots(s) // ACTION-COACH
-      Text(
-          s.title,
-          color = AgColors.textStrong,
-          fontSize = TextSize.title,
-          lineHeight = TextSize.titleLine,
-          fontWeight = FontWeight.SemiBold,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-      )
-      // The no-marker instruction: first in the body area, whole (up to three lines), in the outline's own azure.
-      // ACTION-COACH: it says where the part goes, so it waits while "take" is the instruction (phase 1)
-      if (model.coach.isNotEmpty() && !s.compact && s.phase != 1)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+          // a name too long for two lines at the hero size steps down once rather than being cut
+          val hero = !s.compact && s.title.length <= 32
           Text(
-              model.coach,
-              color = AgColors.accent,
-              fontSize = TextSize.body,
-              lineHeight = TextSize.bodyLine,
+              s.title,
+              color = AgColors.textStrong,
+              fontSize = if (hero) TextSize.hero else if (s.compact) TextSize.title else 34.sp,
+              lineHeight = if (hero) TextSize.heroLine else if (s.compact) TextSize.titleLine else 40.sp,
               fontWeight = FontWeight.SemiBold,
-              maxLines = 3,
-              overflow = TextOverflow.Ellipsis,
-          )
-      if (s.body.isNotEmpty())
-          Text(
-              s.body,
-              color = AgColors.text,
-              fontSize = TextSize.body,
-              lineHeight = TextSize.bodyLine,
-              fontWeight = FontWeight.Medium,
               maxLines = 2,
               overflow = TextOverflow.Ellipsis,
           )
-      if (s.hardware.isNotEmpty())
-          Box(Modifier.clip(RoundedCornerShape(15.dp)).background(Color(0x1FFFFFFF)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-            Text(s.hardware, color = AgColors.text, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1)
-          }
-      }
-      // Right column (40 %): the guide drawing as white line art on the glass, radius 14 mm (§2.4).
-      s.drawing?.let { img ->
-        Box(Modifier.weight(0.4f).fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Color(0x0FFFFFFF)).padding(6.dp)) {
-          androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+          // The no-marker instruction, in the outline's own azure, in the body's place.
+          // ACTION-COACH: it says where the part goes, so it waits while "take" is the instruction (phase 1)
+          val coach = model.coach.takeIf { it.isNotEmpty() && !s.compact && s.phase != 1 }
+          if (coach != null)
+              Text(
+                  coach,
+                  color = AgColors.accent,
+                  fontSize = TextSize.body,
+                  lineHeight = TextSize.bodyLine,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = if (s.title.length <= 16) 2 else 1, // under a two-line instruction there is room for one
+                  overflow = TextOverflow.Ellipsis,
+              )
+          val body = s.body.ifEmpty { if (s.phase == 0) s.hardware else "" }
+          if (body.isNotEmpty() && (coach == null || s.title.length <= 16))
+              Text(
+                  body,
+                  color = AgColors.text,
+                  fontSize = TextSize.body,
+                  lineHeight = TextSize.bodyLine,
+                  fontWeight = FontWeight.Medium,
+                  maxLines = if (s.compact || (s.phase == 0 && coach == null)) 2 else 1,
+                  overflow = TextOverflow.Ellipsis,
+              )
         }
+        if (s.compact) s.whereLabel?.let { AgButton(it, model.onPress) { model.onWhere() } }
+        else s.nextLabel?.let { PrimaryButton(it, model.onPress) { model.onNext() } }
       }
+      // Everything else, quiet: icon + word, no fill until the ray is on it. "Where am I" only when there is no mic.
+      val check = side?.checkLabel
+      val any = s.backLabel != null || s.repeatLabel != null || s.micLabel != null || s.whereLabel != null || model.align != null || check != null
+      if (!s.compact && any) {
+        Row(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+          s.backLabel?.let { QuietButton(it, Glyph.BACK, model.onPress, { model.onBack() }) }
+          s.repeatLabel?.let { QuietButton(it, Glyph.REPEAT, model.onPress, { model.onRepeat() }) }
+          s.micLabel?.let { QuietButton(it, Glyph.MIC, model.onPress, {}, mic = model.mic, onDown = model.onMicDown, onUp = model.onMicUp) }
+          s.whereLabel?.takeIf { s.micLabel == null }?.let { QuietButton(it, Glyph.WHERE, model.onPress, { model.onWhere() }) }
+          model.align?.let { QuietButton(it, Glyph.ALIGN, model.onPress, { model.onAlign() }) }
+          if (side != null && check != null) QuietButton(check, Glyph.CHECK, side.onPress, { side.onCheck() })
+        }
       }
     }
-    // Toolbar ornament: glass capsule centred under the window, overlapping its bottom edge by half its height.
-    // Four items at most (§2.5): Back, Repeat, mic, Next. "Where am I" only when there is no mic (coach: Retry).
-    val buttons = listOfNotNull(
-        s.backLabel?.let { Triple(it, false, model.onBack) },
-        s.whereLabel?.takeIf { s.micLabel == null }?.let { Triple(it, false, model.onWhere) },
-        s.repeatLabel?.let { Triple(it, false, model.onRepeat) },
-        s.micLabel?.let { Triple(it, false, {}) },
-        s.nextLabel?.let { Triple(it, true, model.onNext) },
-    )
-    if (buttons.isNotEmpty()) {
-      Row(
-          Modifier.align(Alignment.TopCenter)
-              .padding(top = 44.dp + h - 28.dp)
-              .wrapContentSize()
-              .glass(28.dp)
-              .padding(horizontal = 6.dp, vertical = 6.dp),
-          horizontalArrangement = Arrangement.spacedBy(12.dp),
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-        for ((label, primary, cb) in buttons) {
-          if (label == s.micLabel) MicButton(label, model.mic, model.onPress, model.onMicDown, model.onMicUp)
-          else AgButton(label, primary, model.onPress) { cb() }
-        }
+    // Progress of the steps: a hairline inside the window's top edge, inset by the corner radius (§2.4).
+    s.progress?.takeIf { !s.compact }?.let { p ->
+      Box(Modifier.align(Alignment.TopCenter).padding(top = 5.dp).width(w - 48.dp).height(3.dp).clip(RoundedCornerShape(1.5.dp)).background(Color(0x1FFFFFFF))) {
+        Box(Modifier.fillMaxWidth(p.coerceIn(0f, 1f)).height(3.dp).background(AgColors.accent))
       }
     }
   }
@@ -548,7 +622,7 @@ fun LabelPill(model: LabelModel) {
   val lang = model.lang
   Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
     Row(
-        Modifier.height(28.dp).wrapContentSize().glass(14.dp).padding(horizontal = 11.dp),
+        Modifier.height(28.dp).wrapContentSize().glass(14.dp, scrim = true).padding(horizontal = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {

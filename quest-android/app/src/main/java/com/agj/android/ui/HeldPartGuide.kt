@@ -13,6 +13,7 @@ import com.agj.android.guide.HeldCues
 import com.agj.android.guide.LabelInfo
 import com.agj.android.guide.PartLabel
 import com.agj.android.guide.facingPose
+import com.agj.android.guide.toSdk
 import com.agj.android.world.PickCue
 import com.agj.android.world.PickTarget
 import com.meta.spatial.core.Entity
@@ -317,7 +318,8 @@ class HeldPartGuide(
     val e = badgeE ?: return
     val facing = headPose?.t ?: wHead
     if (p == null || facing == null) return
-    e.setComponent(Transform(facingPose(p, facing)))
+    // UI-FLOOR: upright in the view also when the wearer looks down at the hand from above
+    e.setComponent(Transform(headPose?.let { Placement.billboard(p, it).toSdk() } ?: facingPose(p, facing)))
     e.setComponent(Scale(Vector3(BadgePlacement.scale((p - facing).length()))))
     if (!badgeShown) {
       badgeShown = true
@@ -364,7 +366,7 @@ class HeldPartGuide(
     }
     val scale = ((headPose.t - t.worldPos).length() / 0.8f).coerceIn(0.75f, 1.5f)
     val p = t.worldPos + Vec3(0f, PICK_PILL_LIFT_M * scale, 0f)
-    e.setComponent(Transform(facingPose(p, headPose.t)))
+    e.setComponent(Transform(Placement.billboard(p, headPose).toSdk())) // UI-FLOOR: upright in the view from above
     e.setComponent(Scale(Vector3(scale)))
     if (!pickShown) {
       pickShown = true

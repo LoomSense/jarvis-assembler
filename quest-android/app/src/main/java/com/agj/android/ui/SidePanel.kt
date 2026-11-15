@@ -100,25 +100,26 @@ class SidePanelModel {
   var alpha by mutableStateOf(1f)
   /** The held-part verdict on the card's header, used when the badge cannot sit at the wrist; null = "ΠΑΡΕ". */
   var verdict by mutableStateOf<VerdictBadgeState?>(null)
-  /** "Έλεγχος" under the part: pinch it to check the part in the hand now. Null label = no button. */
+  /** "Έλεγχος": pinch it to check the part in the hand now; a quiet item of the step window's row ([StepPanel]). Null label = no button. */
   var checkLabel by mutableStateOf<String?>(null)
   var onCheck: () -> Unit = {}
   var onPress: () -> Unit = {}
 }
 
-/** Side column: 0.15 × 0.40 m. Camera preview 12 × 9 cm on top (hud only), parts card 14 × 26 cm below. */
+/** Side column: 0.15 × 0.40 m. Camera preview 12 × 9 cm on top (hud only), parts card 14 × 20 cm below. */
 const val SIDE_PANEL_W = 0.15f
 const val SIDE_PANEL_H = 0.40f
 
 @Composable
-fun SidePanel(model: SidePanelModel) {
+fun SidePanel(model: SidePanelModel, step: StepPanelModel? = null) {
   Column(
       Modifier.fillMaxSize().alpha(model.alpha),
       verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
       horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     if (model.showCamera) CameraPreview(model)
-    model.part?.let { PartsCard(it, model) }
+    // UI-FLOOR: while placing, the card shows the step's guide drawing (how it goes) in the turntable's place
+    model.part?.let { PartsCard(it, model, step?.state?.takeIf { st -> st.phase != 1 }?.drawing) }
   }
 }
 
@@ -152,12 +153,11 @@ private fun CameraPreview(model: SidePanelModel) {
 }
 
 @Composable
-private fun PartsCard(p: PartCard, model: SidePanelModel) {
+private fun PartsCard(p: PartCard, model: SidePanelModel, drawing: ImageBitmap? = null) {
   val reducedMotion = model.reducedMotion
-  val check = model.checkLabel
   Column(
-      // header 16 + wireframe 84 + name 36 + code 16 + count 16 (+ button 34), gaps and padding: 258 / 196 mm
-      Modifier.width(140.dp).height(if (check != null) 258.dp else 196.dp).glass(18.dp).padding(12.dp),
+      // header 18 + wireframe 84 + name 36 + code 18 + count 18, gaps and padding: about 200 mm, as tall as its lines
+      Modifier.width(140.dp).glass(18.dp).padding(12.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     val v = model.verdict
@@ -170,33 +170,40 @@ private fun PartsCard(p: PartCard, model: SidePanelModel) {
         Text(v.title, color = v.kind.color(), fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
       }
     }
-    val angle =
-        if (reducedMotion) 0.6f
-        else {
-          val tr = rememberInfiniteTransition(label = "turntable")
-          // 20°/s → 18 s per turn (§2.5)
-          tr.animateFloat(0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart), label = "a").value
-        }
-    Canvas(Modifier.fillMaxWidth().height(84.dp)) {
-      val w = p.wire
-      val s = minOf(size.width, size.height) * 0.46f
-      val cx = size.width / 2
-      val cy = size.height / 2
-      val ca = cos(angle)
-      val sa = sin(angle)
-      val tilt = 0.35f // ≈ 20° look-down
-      val ct = cos(tilt)
-      val st = sin(tilt)
-      fun proj(x: Float, y: Float, z: Float): Offset {
-        val rx = ca * x + sa * z
-        val rz = -sa * x + ca * z
-        val ry = ct * y - st * rz
-        return Offset(cx + rx * s, cy - ry * s)
+    if (drawing != null) {
+      // white line art on the glass, radius = the card's radius − its padding
+      Box(Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(6.dp)).background(Color(0x0FFFFFFF)).padding(4.dp)) {
+        Image(drawing, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
       }
-      var i = 0
-      while (i + 5 < w.size) {
-        drawLine(AgColors.accent, proj(w[i], w[i + 1], w[i + 2]), proj(w[i + 3], w[i + 4], w[i + 5]), 1.2.dp.toPx())
-        i += 6
+    } else {
+      val angle =
+          if (reducedMotion) 0.6f
+          else {
+            val tr = rememberInfiniteTransition(label = "turntable")
+            // 20°/s → 18 s per turn (§2.5)
+            tr.animateFloat(0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart), label = "a").value
+          }
+      Canvas(Modifier.fillMaxWidth().height(84.dp)) {
+        val w = p.wire
+        val s = minOf(size.width, size.height) * 0.46f
+        val cx = size.width / 2
+        val cy = size.height / 2
+        val ca = cos(angle)
+        val sa = sin(angle)
+        val tilt = 0.35f // ≈ 20° look-down
+        val ct = cos(tilt)
+        val st = sin(tilt)
+        fun proj(x: Float, y: Float, z: Float): Offset {
+          val rx = ca * x + sa * z
+          val rz = -sa * x + ca * z
+          val ry = ct * y - st * rz
+          return Offset(cx + rx * s, cy - ry * s)
+        }
+        var i = 0
+        while (i + 5 < w.size) {
+          drawLine(AgColors.accent, proj(w[i], w[i + 1], w[i + 2]), proj(w[i + 3], w[i + 4], w[i + 5]), 1.2.dp.toPx())
+          i += 6
+        }
       }
     }
     Spacer(Modifier.size(2.dp))
@@ -206,30 +213,5 @@ private fun PartsCard(p: PartCard, model: SidePanelModel) {
     p.note?.takeIf { it.isNotBlank() }?.let {
       Text(it, color = AgColors.accent, fontSize = TextSize.caption, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
-    if (check != null) {
-      Spacer(Modifier.weight(1f))
-      CheckButton(check, model.onPress, model.onCheck)
-    }
-  }
-}
-
-/** "Έλεγχος": a capsule the width of the card; pinch = look at the part in the hand now. */
-@Composable
-private fun CheckButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
-  val src = remember { MutableInteractionSource() }
-  val hovered by src.collectIsHoveredAsState()
-  val pressed by src.collectIsPressedAsState()
-  LaunchedEffect(pressed) { if (pressed) onPress() }
-  Box(
-      Modifier.fillMaxWidth()
-          .height(34.dp)
-          .clip(RoundedCornerShape(17.dp))
-          .background(if (pressed) Color(0x3DFFFFFF) else if (hovered) Color(0x2EFFFFFF) else AgColors.button)
-          .border(1.dp, if (hovered) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(17.dp))
-          .hoverable(src)
-          .clickable(interactionSource = src, indication = null, onClick = onClick),
-      contentAlignment = Alignment.Center,
-  ) {
-    Text(label, color = AgColors.textStrong, fontSize = TextSize.button, fontWeight = FontWeight.SemiBold, maxLines = 1)
   }
 }
