@@ -159,6 +159,9 @@ class StepPanelModel {
   var mic by mutableStateOf(MicState.IDLE)
   /** The no-marker instruction ("Place … inside the blue outline."), first line of the body while it applies; "" = none. */
   var coach by mutableStateOf("")
+  /** "Re-align" / «Ευθυγράμμιση»: small button above the window's top right corner while the ghost is only placed; null = hidden. */
+  var align by mutableStateOf<String?>(null)
+  var onAlign: () -> Unit = {}
   /** Fade-relocate (§2.6 rule 5): 0..1, written by the frame tick. */
   var alpha by mutableStateOf(1f)
 }
@@ -341,6 +344,27 @@ private fun AgButton(label: String, primary: Boolean, onPress: () -> Unit, onCli
   }
 }
 
+/** Small secondary action, 38 mm tall (2.7° at 0.8 m, over the 2.5° minimum target); feedback as [AgButton]. */
+@Composable
+private fun SmallButton(label: String, onPress: () -> Unit, onClick: () -> Unit) {
+  val src = androidx.compose.runtime.remember { MutableInteractionSource() }
+  val hovered by src.collectIsHoveredAsState()
+  val pressed by src.collectIsPressedAsState()
+  androidx.compose.runtime.LaunchedEffect(pressed) { if (pressed) onPress() }
+  Box(
+      Modifier.height(38.dp)
+          .clip(RoundedCornerShape(19.dp))
+          .background(if (pressed) Color(0x3DFFFFFF) else if (hovered) Color(0x2EFFFFFF) else AgColors.button)
+          .border(1.dp, if (hovered) Color(0x59FFFFFF) else AgColors.border, RoundedCornerShape(19.dp))
+          .hoverable(src)
+          .clickable(interactionSource = src, indication = null, onClick = onClick)
+          .padding(horizontal = 14.dp),
+      contentAlignment = Alignment.Center,
+  ) {
+    Text(label, color = AgColors.textStrong, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+  }
+}
+
 /**
  * Panel size for [StepPanel]: status pill row (40 mm) + window 0.52 × 0.34 m + the toolbar ornament below
  * (56 mm, overlapping the window's bottom edge by half).
@@ -363,6 +387,12 @@ fun StepPanel(model: StepPanelModel) {
       ) {
         StatusShape(s.pillKind, 12.dp)
         Text(text, color = AgColors.textStrong, fontSize = TextSize.caption, fontWeight = FontWeight.SemiBold, maxLines = 1)
+      }
+    }
+    // Re-align: a small glass capsule in the pill row, flush with the window's right edge (not a fifth toolbar item).
+    model.align?.takeIf { !s.compact }?.let { label ->
+      Box(Modifier.align(Alignment.TopEnd).padding(end = (540.dp - w) / 2).glass(21.dp).padding(2.dp)) {
+        SmallButton(label, model.onPress) { model.onAlign() }
       }
     }
     Column(
