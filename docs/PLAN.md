@@ -253,6 +253,8 @@ Every route requires the demo key (`X-Demo-Key` header, or `?key=` for SSE, WebS
 | POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model:"gemini-3.8-live"}` (rate-limited to 1 per 10 s per IP) |
 | WS | `/ws/perception/{job_id}?role=display\|camera` | see below; the headset and the phone can join the same session |
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
+| POST | `/api/identify` | **[added Sun 15 Nov]** `{image: base64 JPEG, lang}` → `{seen:{kind,name,type,article,text}, match:{job_id,product,ready}\|null, query, confidence, message}` (one `gemini-4-hydrogen` call; `server/perception/README.md`) |
+| POST | `/api/perception/{job_id}/locate` | **[added Sun 15 Nov]** `{image, lang?}` → `{next_step, action, done_through, confidence, steps:[{n,complete,p}], message}` (one Decision 1 `step_complete` request per step, in parallel) |
 
 **The perception WebSocket protocol:**
 - **Phone to server, control messages** (JSON text): `{type:"start", step}`, `{type:"step", n}`, `{type:"show_part", expected?}`, `{type:"stop"}`.

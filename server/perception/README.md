@@ -292,6 +292,38 @@ make smoke
 - Without `--base` it runs the app in-process; with `--base http://localhost:8000` it uses the running server.
 - It refuses to write a run when the server is simulated, unless `--allow-simulated` is given.
 
+## One-picture endpoints: identify and locate [added Sun 15 Nov]
+
+Two plain REST calls for the moment before guidance starts: which product is this, and how far along is it. Both need the demo key. Body: `{"image": "<base64 JPEG, no data: prefix>", "lang": "en"|"el"}` (`lang` optional, default `en`), at most 2 MB decoded. A missing, non-base64, non-JPEG or unreadable image is 422; a larger one 413.
+
+**`POST /api/identify`** (`server/identify.py`, `server/routes/identify.py`): a flat-pack box, a label, a finished piece or loose parts.
+```json
+{"seen": {"kind": "box|label|furniture|parts|unknown", "name": "MALM", "type": "desk", "article": "002.141.57", "text": "..."},
+ "match": {"job_id": "malm-drawer", "product": "MALM desk drawer", "ready": true},
+ "query": "002.141.57", "confidence": 0.93, "message": "This looks like the MALM desk drawer. Its guide is ready.",
+ "matched_by": "article|doc|name|picture|none", "latency_ms": 3200, "model": "gemini-4-hydrogen"}
+```
+- One `gemini-4-hydrogen` call (thinking `low`, JSON schema): the camera picture (long edge 1280), then a 320 px picture of each guide built here, newest first, at most 6 (`product.jpg` from the catalog, else `renders/cover.png`, else the last `renders/step_NN.png`). The model reads the text and may point at one of the pictures; the matching is done in the server: article number, then AA- document number, then name (and type, when several guides share a name), then the picture.
+- Candidates: `catalog.items()` (built and known guides) plus job folders with a manifest and a walkthrough but no `status.json` (put on a host by hand).
+- `match` is `null` when no guide built here matches. `query` is what to pass to `POST /api/catalog/open`: the article number read, else "NAME type", else the document number, else the matched guide's own article or id; `null` when nothing was read or matched.
+- **No invented numbers.** The prompt never shows the known guides' numbers, and an article or document number is kept only when its digits are in the `text` the model read.
+- Measured (real calls, Sun 15 Nov, from a laptop): MALM guide page 1 → `name: "MALM"`, matched `malm-drawer` by name; the KNAGGLIG cover render (no text) → matched `knagglig`. 3.0 to 4.0 s each.
+- A model failure is 502.
+
+**`POST /api/perception/{job_id}/locate`** (`server/perception/locate.py`, route in `routes.py`): which step the real assembly is at.
+```json
+{"next_step": 6, "action": 0, "done_through": 5, "confidence": 0.49,
+ "steps": [{"n": 1, "complete": false, "p": 0.168}, {"n": 2, "complete": true, "p": 0.748}, "..."],
+ "message": "Steps 1–5 look done. Next: step 6.", "latency_ms": 1438}
+```
+- One Decision 1 request per step, 6 at once: the benchmarked request (`questions.build_ask`) with only its `step_complete` question. `complete` is `p ≥ 0.45` (the Watcher's `done_yes`).
+- `done_through` is the most likely "steps 1..n done, the rest not" over all n (likelihood of the answers, with 0.45 as the midpoint; ties go to the earlier step). **Not** a strict "1..n all complete" run: that was tried first and failed on real calls, because the parts an early step adds get hidden by later ones (step 1 of the MALM drawer scored 0.17 on the finished drawer). So a step can say `complete: false` and still be inside `done_through`. An isolated high answer after low ones is read as noise. `next_step` is `done_through + 1`, or the last step when all are done. `action` is always 0. `confidence` is the chosen split's share of all splits.
+- A failed request for one step reads as `p: 0.5` with `error: "<kind>"`. When every request fails: 503 (key or credit: `auth`, `billing`), 429 (`rate_limit`), 504 (`timeout`), else 502.
+- 404 unknown job, 409 no manifest yet (the socket's 4404 and 4409).
+- Measured (real calls on the MALM drawer's own renders, not photos): step 1, 5 and 7 renders → `done_through` 1, 5, 7. 0.75 to 1.5 s for 7 requests.
+
+**Simulated.** Without `GEMINI_API_KEY`, or with `PERCEPTION_SIMULATE=true`, neither calls a model and both say `"simulated": true`: identify matches the first built guide at confidence 0.5 (`match: null` when none is built), locate answers `done_through: 0`, `next_step` the first step, every step `complete: false`.
+
 ## Settings
 
 In `server/settings.py`, with commented lines in `.env.example`:

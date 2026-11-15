@@ -23,6 +23,7 @@ from server.orchestrator.stages import STAGES
 from server.routes import ask as ask_routes
 from server.routes import catalog as catalog_routes
 from server.routes import diag as diag_routes
+from server.routes import identify as identify_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
 from server.routes import tts as tts_routes
@@ -145,6 +146,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ask_routes.router)               # questions during assembly (pipeline/ask.py)
     app.include_router(live_routes.router)
     app.include_router(tts_routes.router)
+    app.include_router(identify_routes.router)          # POST /api/identify: which product the camera sees
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)
         app.include_router(importlib.import_module("server.perception.routes").router)

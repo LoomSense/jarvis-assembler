@@ -4,7 +4,8 @@ The request, the questions, the scheduling of requests and the decision logic fo
 from `pipeline/perception/` and `pipeline/check/decisions.py`, where they were measured against the real
 API. This package is the server around them:
 
-    routes.py     `router`: WS /ws/perception/{job_id}. The protocol is in README.md
+    routes.py     `router`: WS /ws/perception/{job_id}. The protocol is in README.md. Also
+                  POST /api/perception/{job_id}/locate (locate.py: which step one picture is at)
     session.py    one session per job: devices, gates, acks, failure handling, logs; frames go through
                   `pipeline.perception.stream.Stream`
     wire.py       the binary frame layout

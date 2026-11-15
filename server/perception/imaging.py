@@ -37,3 +37,25 @@ def tighten(jpeg: bytes, keep: float) -> bytes:
         return out.getvalue()
     except Exception:                        # noqa: BLE001
         return jpeg
+
+
+MAX_IMAGE_BYTES = 2 * 1024 * 1024        # a still from the headset or phone camera; a frame is about 100 KB
+
+
+def decode_jpeg_b64(image: str) -> bytes:
+    """A base64 JPEG from a request body (a `data:` prefix is tolerated). Raises ValueError with a message for
+    the client, or OverflowError when it is larger than MAX_IMAGE_BYTES."""
+    import base64
+    import binascii
+
+    if image.startswith("data:"):
+        image = image.partition(",")[2]
+    try:
+        data = base64.b64decode(image, validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError("image must be a base64 JPEG") from None
+    if len(data) > MAX_IMAGE_BYTES:
+        raise OverflowError(f"image is larger than {MAX_IMAGE_BYTES // (1024 * 1024)} MB")
+    if not data.startswith(b"\xff\xd8"):
+        raise ValueError("image must be a JPEG")
+    return data

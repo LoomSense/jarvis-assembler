@@ -12,13 +12,21 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field
 
 from server.auth import require_key, ws_has_key
+from server.perception import locate as locator
 from server.perception.config import ROLES
+from server.perception.decider import DecisionError
+from server.perception.guide import Guide
+from server.perception.imaging import MAX_IMAGE_BYTES
 from server.perception.session import Registry
+from server.routes.identify import read_image, simulate
 
 log = logging.getLogger("agj.perception")
 
@@ -95,3 +103,33 @@ async def position(job_id: str, request: Request) -> dict:
     pos = session.position if session is not None else None
     return {"job_id": job_id, "step": pos["step"] if pos else None, "action": pos["action"] if pos else None,
             "at": pos["at"] if pos else None}
+
+
+class LocateBody(BaseModel):
+    image: str = Field(min_length=4, max_length=MAX_IMAGE_BYTES * 4 // 3 + 64)   # base64 JPEG, no data: prefix
+    lang: Literal["en", "el"] = "en"
+
+
+LOCATE_STATUS = {"auth": 503, "billing": 503, "rate_limit": 429, "timeout": 504}
+
+
+@router.post("/api/perception/{job_id}/locate", dependencies=[Depends(require_key)])
+async def locate(job_id: str, body: LocateBody, request: Request) -> dict:
+    """Which step the real assembly in the picture is at: one Decision 1 request per step, in parallel.
+    `{next_step, action, done_through, confidence, steps: [{n, complete, p}], message}`. 404 unknown job,
+    409 no manifest yet (as the socket's 4404 and 4409)."""
+    job = request.app.state.store.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job")
+    try:
+        guide = Guide(job.dir)
+    except ValueError as e:
+        raise HTTPException(409, f"This job cannot be assembled yet: {e}") from None
+    jpeg = read_image(body.image)
+    if simulate(request):
+        return locator.simulated(guide, body.lang)
+    os.environ.setdefault("GEMINI_API_KEY", request.app.state.settings.gemini_api_key)   # pipeline.check reads it there
+    try:
+        return await locator.locate(guide, jpeg, body.lang)
+    except DecisionError as e:
+        raise HTTPException(LOCATE_STATUS.get(e.kind, 502), f"Decision 1 could not check the steps ({e.kind}): {e}") from None
