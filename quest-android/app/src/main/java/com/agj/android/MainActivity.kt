@@ -79,6 +79,7 @@ import com.meta.spatial.toolkit.DpPerMeterDisplayOptions
 import com.meta.spatial.toolkit.MeshCreationSystem
 import com.agj.android.vision.DumpExtras
 import com.agj.android.vision.FrameDump
+import com.agj.android.vision.PanelParams
 import com.agj.android.vision.PanelPoseTracker
 import com.agj.android.vision.StepFootprints
 import com.agj.android.world.PickMarkers
@@ -234,6 +235,13 @@ class MainActivity : AppSystemActivity() {
               tableHeight = { world.surfaceY },
               ghostPose = { vision.worldFromAssembly() },
               onObjectPose = { pose, confidence, source -> world.onObjectPose(pose, confidence, source) },
+              // Size gate tuned on the device: in the first real run (12:36) a clean panel measured 13-18 mm short
+              // and 6-14 mm wide of its true size, and the render-tuned 14 / 12 mm rejected every frame.
+              params =
+                  PanelParams(
+                      tolLongM = (intent?.getIntExtra("panel_tol_long_mm", 30) ?: 30) / 1000.0,
+                      tolShortM = (intent?.getIntExtra("panel_tol_short_mm", 25) ?: 25) / 1000.0,
+                  ),
           )
     }
     dump = FrameDump(this, params) // `--ez dump_frames true` records camera frames with their pose (tools/markerless/eval_real.py)
