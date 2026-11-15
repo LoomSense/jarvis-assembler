@@ -24,9 +24,6 @@
 
 Any agent can use it through an MCP server with 11 tools. For example, a furniture shop's customer-support agent gets "I am stuck on step 3 of my box", asks the guide, and answers with the exact step and the part to pick up, with no person on the line.
 
-<details open>
-<summary><b>See a real call and its answer</b></summary>
-
 The support agent calls one tool:
 
 ```json
@@ -45,5 +42,3 @@ and gets back an answer it can say, the part to light up in the 3D view, and the
   "model": "gemini-4-hydrogen"
 }
 ```
-
-</details>
