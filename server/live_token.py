@@ -16,6 +16,8 @@ import os
 from google import genai
 from google.genai import types
 
+import os
+
 from server.jobs import Job
 from server.settings import ROOT, Settings
 
@@ -26,7 +28,7 @@ VOICE = os.environ.get("TTS_VOICE", "Schedar")
 PROMPT_FILE = ROOT / "prompts" / "live_voice.md"
 PROMPT_VERSION = "live_voice.md@1"
 COACH_FILE = ROOT / "prompts" / "live_coach.md"          # the coach that sees the camera (mode "see")
-COACH_VERSION = "live_coach.md@3"
+COACH_VERSION = "live_coach.md@4"
 API_VERSIONS = ("v1beta", "v1alpha")     # PLAN says v1beta; SDK 3.3 documents token creation as v1alpha
 
 _NO_ARGS = {"type": "object", "properties": {}}
@@ -93,9 +95,10 @@ def coach_context(job: Job) -> str:
     except (OSError, json.JSONDecodeError):
         return "The guide is not built yet."
     lines = [f"Product: {m.get('title', 'unknown')}. {len(m.get('steps', []))} steps."]
-    parts = "; ".join(f"{p.get('name', p['id'])} (x{p.get('count', 1)})" for p in m.get("parts", []))
-    hardware = "; ".join(f"{h.get('code')} {h.get('name', '')} (x{h.get('count', '?')})" for h in m.get("hardware", []))
-    lines += [f"Parts: {parts}.", f"Hardware: {hardware}."]
+    from server.perception.verify import pieces_text
+
+    lines += ["Pieces, with their sizes (pieces of the same colour are told apart by size and thickness):",
+              pieces_text(job.dir, m)]
     for s in m.get("steps", []):
         page = (s.get("cite") or {}).get("page", "?")
         lines.append(f"Step {s['n']} (guide page {page}): {s.get('title', '')}")
@@ -129,6 +132,9 @@ async def mint(settings: Settings, job: Job, mode: str = "voice", lang: str = "e
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE))),
                 system_instruction=coach_instruction(job, lang) if see else system_instruction(job),
                 tools=COACH_TOOLS if see else TOOLS,
+                # the same voice as the headset's spoken guidance (server/routes/tts.py: TTS_VOICE, default Schedar)
+                speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=os.environ.get("TTS_VOICE", "Schedar")))),
                 # the coach's words are also shown on the screen, and the person's are logged by the page
                 output_audio_transcription=types.AudioTranscriptionConfig() if see else None,
                 context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),
