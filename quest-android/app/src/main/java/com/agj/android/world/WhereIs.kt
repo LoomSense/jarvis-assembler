@@ -112,15 +112,19 @@ class WhereIs(private val clockMs: () -> Long = { System.nanoTime() / 1_000_000 
   }
 
   /**
-   * An action that used one [id] is done: that one is no longer loose. The instance nearest to [near] (where it was
-   * taken from) goes; the oldest when [near] is not known. A sighting from before this moment does not bring it back.
+   * An action that used one [id] is done: that one is no longer loose. Every instance that [inPlace] says lies where
+   * the action put it goes (the tracker followed it there); when there is none, the instance nearest to [near]
+   * (where it was taken from), or the oldest when [near] is not known. A sighting from before this moment does not
+   * bring it back.
    */
   @Synchronized
-  fun used(id: String, near: Vec3?, nowMs: Long = clockMs()) {
+  fun used(id: String, near: Vec3?, nowMs: Long = clockMs(), inPlace: (Vec3) -> Boolean = { false }) {
     usedAt[id] = nowMs
     val l = items[id] ?: return
-    val gone = (if (near != null) l.minByOrNull { flat(it.pos, near) } else l.minByOrNull { it.atMs }) ?: return
-    l.remove(gone)
+    if (!l.removeAll { inPlace(it.pos) }) {
+      val gone = if (near != null) l.minByOrNull { flat(it.pos, near) } else l.minByOrNull { it.atMs }
+      if (gone != null) l.remove(gone)
+    }
     if (l.isEmpty()) items.remove(id)
   }
 
@@ -250,6 +254,13 @@ object WhereLines {
   fun takeRemembered(lang: String, name: String, w: Where): String =
       if (lang == "el") "Πάρε: $name. ${cap(pron(name, 'ε'))} είδα τελευταία ${w.bearing(lang)}, ${w.distance(lang)}."
       else "Take: $name. I last saw it ${w.bearing(lang)}, ${w.distance(lang)}."
+
+  /**
+   * Is a remembered place worth a sentence of its own in the take line? Not when the wearer already faces it from
+   * within [FAR_M]: the part is then about to be found again and lit, and the plain "Πάρε: …" says enough. (The
+   * question "πού είναι;" is answered from the memory all the same.)
+   */
+  fun outOfSight(w: Where): Boolean = w.sector != Sector.AHEAD || w.distM > FAR_M
 
   /**
    * The take line. [live]: where the part is seen now, with [near] its left / ahead / right words (the existing line,

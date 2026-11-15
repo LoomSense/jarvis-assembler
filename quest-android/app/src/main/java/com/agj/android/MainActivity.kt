@@ -299,6 +299,11 @@ class MainActivity : AppSystemActivity() {
     // HELD-PART: the "Έλεγχος" button on the ΠΑΡΕ card checks the part in the hand now
     held.reducedMotion = params.reducedMotion
     held.boardLook = { world.boardLook() } // BOARD-CUE: which face of the board to take is up
+    // WHERE-IS: where the part to take was last seen, for the prompt of a part that is not in view (not twice: the entry line may have said it)
+    held.remembered = { ids, head ->
+      if (whereEntrySaid) null
+      else world.whereIs.find(ids, head.t)?.let { com.agj.android.world.WhereIs.where(head, it.pos) }?.takeIf { com.agj.android.world.WhereLines.outOfSight(it) }
+    }
     side.onPress = { sounds.play(Sounds.Cue.TICK) }
     side.onCheck = { held.check("card") }
     if (params.hud) preview = CameraPreviewFeed(scope, side)
@@ -699,13 +704,16 @@ class MainActivity : AppSystemActivity() {
     // call to action, as one utterance: its entry line is not said again on top of it
     val carried = liveEntry?.let { it.first == step && it.second == action && SystemClock.elapsedRealtime() - it.third < 4000 } == true
     liveEntry = null
-    if (carried) coachSaidWhere = liveEntryPrompted // "Πάρε: …" was said: the located prompt would only repeat it
+    if (carried) {
+      coachSaidWhere = liveEntryPrompted // "Πάρε: …" was said: the located prompt would only repeat it
+      whereEntrySaid = false // WHERE-IS: this entry line is not said: the remembered place still may be, as a prompt
+    }
     else if (speak) liveSaid.other()
     // ACTION-COACH: a bare "Πάρε: …" the wearer did not ask for is a prompt: it waits for silence, it never cuts a sentence
     if (carried) {
       // nothing more to say
     } else if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
-      if (!voice.speaking) voice.say(line, lang, interrupt = false)
+      if (!voice.speaking) voice.say(line, lang, interrupt = false) else whereEntrySaid = false // WHERE-IS: not said
     } else if (speak) voice.sayStep(lead + line, lang)
     stepDone = null
     // prefetch the next two lines
@@ -817,12 +825,15 @@ class MainActivity : AppSystemActivity() {
           true
         } else false
     if (r.intent == "where_am_i" && coach.stage == CoachFlow.Stage.GUIDE) world.realign() // as the "Where am I" button
+    // WHERE-IS: "πού είναι η βίδα;" about the part to take is answered here, from what the headset has seen
+    val whereLine = if (!moved) whereAnswer(r) else null
     // HELD-PART: "είναι σωστό αυτό;" checks the part in the hand now; the verdict speaks instead of `answer`
-    if (!moved && coach.stage == CoachFlow.Stage.GUIDE && held.onVoice(r.transcript, r.intent)) {
+    if (whereLine == null && !moved && coach.stage == CoachFlow.Stage.GUIDE && held.onVoice(r.transcript, r.intent)) {
       Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to false, "check" to true, "step" to curStep, "action" to curAction))
       return
     }
-    if (r.answer.isNotBlank() && !(coached && moved)) { // ACTION-COACH: see above
+    if (whereLine != null) voice.say(whereLine, lang) // WHERE-IS: in place of the server's answer, at its priority
+    else if (r.answer.isNotBlank() && !(coached && moved)) { // ACTION-COACH: see above
       val wav = r.ttsWav()
       if (wav != null) voice.play(wav, r.answer, lang) else voice.say(r.answer, lang)
     }
@@ -850,6 +861,10 @@ class MainActivity : AppSystemActivity() {
   private var coachHeldLine: Pair<String, com.agj.android.ui.HeldSpeech>? = null
   /** The entry line already said where the part lies: the located prompt would only repeat it. */
   private var coachSaidWhere = false
+  /** WHERE-IS: this action's entry line said a place (seen now, or remembered): the remembered prompt would only repeat it. */
+  private var whereEntrySaid = false
+  /** WHERE-IS: where this action's part was taken from (where the hand closed, else the pick marker), for the memory. */
+  private var whereTaken: Vec3? = null
   /** The no-marker line ("… inside the blue outline") of this step entry, kept for the "put it here" moment. */
   private var coachLead: String? = null
   /** Part id / hardware code of the action shown now (empty: nothing to take). */
@@ -882,6 +897,8 @@ class MainActivity : AppSystemActivity() {
     coachHeldLine = null
     coachSaidWhere = false
     coachSpot = null
+    whereEntrySaid = false // WHERE-IS
+    whereTaken = null
     // LIVE-COACH: the hardware kind sets how long "put it here" lasts when the headset gives no hands at all
     val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why, act?.hardwareKind)
     liveStart(step, action) // LIVE-COACH: this action's praise and encouragement start again
@@ -911,7 +928,41 @@ class MainActivity : AppSystemActivity() {
     val best = com.agj.android.ui.PickPrompt.matches(world.pickTargets.filter { com.agj.android.world.PickCue.opacity(it) > 0f }, coachIds).firstOrNull()
     val where = if (best != null && head != null) s(com.agj.android.ui.PickPrompt.bearing(head, best.worldPos)) else null
     coachSaidWhere = where != null
-    return com.agj.android.ui.CoachLines.pickSay(lang, l, where)
+    // WHERE-IS: seen but far: "… Είναι πίσω σου, περίπου δύο μέτρα. Φέρ' το κοντά σου."; not in view: where it was last seen
+    val live = if (best != null && head != null) com.agj.android.world.WhereIs.where(head, best.worldPos) else null
+    val seen =
+        if (best == null && head != null)
+            world.whereIs.find(coachIds, head.t)?.let { com.agj.android.world.WhereIs.where(head, it.pos) }?.takeIf { com.agj.android.world.WhereLines.outOfSight(it) }
+        else null
+    whereEntrySaid = live != null || seen != null
+    return com.agj.android.world.WhereLines.take(lang, l.name, live, where, seen)
+  }
+
+  /**
+   * WHERE-IS: "πού είναι η βίδα;" / "δεν τη βρίσκω" on an action with a part to take: the answer from what the headset
+   * has seen (a pick target now, else the remembered place), AGQ `where_is`, and the part shown again: back to "take"
+   * when "put it here" was up and no right part was confirmed in the hand. Null: not such a question (the server's
+   * answer is spoken, as before).
+   */
+  private fun whereAnswer(r: VoiceReply): String? {
+    val act = coachAct()
+    val l = act?.label(lang)
+    if (coach.stage != CoachFlow.Stage.GUIDE || finished || advancing || act == null || l == null || coachIds.isEmpty()) return null
+    if (!com.agj.android.world.WhereAsk.matches(r.transcript, r.intent, act.labels.values.map { it.name })) return null
+    val head = runCatching { scene.getViewerPose().toPose3() }.getOrNull()?.takeIf { it.t.length() > 1e-3f }
+    val live = com.agj.android.ui.PickPrompt.matches(world.pickTargets.filter { com.agj.android.world.PickCue.opacity(it) > 0f }, coachIds).firstOrNull()
+    val pos = live?.worldPos ?: world.whereIs.find(coachIds, head?.t)?.pos
+    val w = if (head != null && pos != null) com.agj.android.world.WhereIs.where(head, pos) else null
+    // shown again: "take" lights the pick markers and the outline (not when the right part is already in the hand)
+    if (!held.rightVerdict) coachApply(actionCoach.backToPick(SystemClock.elapsedRealtime()), source = "voice")
+    val line = com.agj.android.world.WhereLines.answer(lang, l.name, w, live != null, lit = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK)
+    Agq.log.event(
+        "where_is",
+        mapOf("transcript" to r.transcript, "item" to (act.code ?: act.partId), "source" to (if (w == null) "unknown" else if (live != null) "live" else "memory"),
+            "bearing" to w?.sector?.wire, "dist_m" to w?.let { Math.round(it.distM * 100) / 100.0 }, "step" to curStep, "action" to curAction,
+            "phase" to actionCoach.phase.wire, "say" to line),
+    )
+    return line
   }
 
   /** A phase change made by an event (not by `showStep`): log it, then "put it here" on screen and aloud, or the next action. */
@@ -919,8 +970,9 @@ class MainActivity : AppSystemActivity() {
     c ?: return
     coachLog(c, source)
     when (c.to) {
-      com.agj.android.ui.CoachPhase.PICK -> {}
+      com.agj.android.ui.CoachPhase.PICK -> coachPaint() // WHERE-IS: back to "take" after "where is it?": the window says "Πάρε: …" again
       com.agj.android.ui.CoachPhase.PLACE -> {
+        if (c.from == com.agj.android.ui.CoachPhase.PICK) whereTaken = coachGripAt ?: coachSpot // WHERE-IS: where it was taken from
         coachPaint()
         if (c.why == "part_moved" || c.why == "timer") sounds.play(Sounds.Cue.PLACE) // it moved by itself: one soft cue
         // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us
@@ -936,6 +988,9 @@ class MainActivity : AppSystemActivity() {
       }
       com.agj.android.ui.CoachPhase.DONE -> {
         coachWhy = c.why
+        // WHERE-IS: one of this action's item is used up: its remembered place goes (the one now at the target, else
+        // the one nearest to where it was taken from)
+        vision.handTarget.let { box -> coachIds.forEach { id -> world.whereIs.used(id, whereTaken ?: coachSpot) { p -> box != null && box.distanceTo(p) <= 0.10f } } }
         liveDone(c) // LIVE-COACH: "Μπράβο!" and what comes next, now (the next action's entry is a second away)
         advance(if (c.why == "next") StepBy.BUTTON else if (c.why == "voice") StepBy.VOICE else StepBy.AUTO, wholeStep = c.why == "step_complete")
       }
@@ -998,7 +1053,8 @@ class MainActivity : AppSystemActivity() {
       coachHolding && picking && (kind == com.agj.android.ui.HeldSpeech.CONFIRM || kind == com.agj.android.ui.HeldSpeech.ANSWER) ->
           coachHeldLine = text to kind
       // "Πάρε: …, αριστερά σου." only while the part is still to be taken, and not when the entry line said where
-      kind == com.agj.android.ui.HeldSpeech.PROMPT && (!picking || coachSaidWhere) -> {}
+      // WHERE-IS: …with one exception: the part is not in view and its last place is remembered (said once per action)
+      kind == com.agj.android.ui.HeldSpeech.PROMPT && (!picking || (coachSaidWhere && !held.promptFromMemory)) -> {}
       else -> coachSpeak(text, kind)
     }
   }
