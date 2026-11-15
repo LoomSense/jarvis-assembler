@@ -108,6 +108,23 @@ export async function startLive(app: HTMLElement): Promise<void> {
   }
   $('.gate h1').textContent = (manifest as { title?: string }).title ?? ''
 
+  // How large each piece is, so that two panels of one colour can be told apart: "38 × 46 cm, thin".
+  // From the built part's bounding box (parts/<id>.mates.json); a guide built before that file was kept has none.
+  const sizes = new Map<string, string>()
+  const thin = lang === 'el' ? 'λεπτό' : 'thin'
+  void Promise.all([...named.keys()].map(async (id) => {
+    try {
+      const res = await fetch(fileUrl(job, `parts/${id}.mates.json`, key))
+      if (!res.ok) return
+      const d = (await res.json()) as { kind?: string; bbox_mm: { min: number[]; max: number[] } }
+      const [a, b, c] = [0, 1, 2].map((i) => d.bbox_mm.max[i] - d.bbox_mm.min[i]).sort((x, y) => y - x)
+      const cm = (mm: number) => String(Math.round(mm / 10))
+      sizes.set(id, d.kind === 'hardware' ? `${Math.round(a)} mm` : `${cm(a)} × ${cm(b)} cm${c <= 6 ? `, ${thin}` : ''}`)
+    } catch {
+      /* no size for this piece */
+    }
+  })).then(() => paint())
+
   let at = Math.max(0, Math.min(steps.length - 1, Number(q.get('step') || 1) - 1))
   let finished = false
   let coach: Coach | null = null
@@ -120,8 +137,9 @@ export async function startLive(app: HTMLElement): Promise<void> {
   const needs = (s: Step): string => {
     const parts = new Map<string, number>()
     for (const p of s.pickParts ?? []) parts.set(p, (parts.get(p) ?? 0) + 1)
-    const list = [...parts].map(([id, n]) => `${n}× ${nameOf(id)}`)
-    for (const h of s.hardware ?? []) list.push(`${h.qty}× ${nameOf(h.code)}`)
+    const sized = (id: string) => (sizes.has(id) ? `${nameOf(id)} (${sizes.get(id)})` : nameOf(id))
+    const list = [...parts].map(([id, n]) => `${n}× ${sized(id)}`)
+    for (const h of s.hardware ?? []) list.push(`${h.qty}× ${sized(h.code)}`)
     return list.join(' · ')
   }
   const paint = () => {
@@ -131,8 +149,10 @@ export async function startLive(app: HTMLElement): Promise<void> {
     $('.card strong').textContent = finished ? w.built : s.title
     $('.card small').textContent = finished ? '' : needs(s)
     const crop = $<HTMLImageElement>('.crop')
-    crop.hidden = !s.crop || finished
-    if (s.crop) crop.src = fileUrl(job, s.crop, key)
+    // the picture of the piece this step adds (its first part, else its hardware): which one to pick up
+    const piece = s.pickParts?.[0] ?? s.hardware?.[0]?.code
+    crop.hidden = !piece || finished
+    if (piece) crop.src = fileUrl(job, `renders/part-${piece}-shaded.png`, key)
     $<HTMLButtonElement>('.check').hidden = finished
     $<HTMLButtonElement>('.prev').disabled = at === 0 && !finished
     $<HTMLButtonElement>('.skip').hidden = finished
