@@ -45,6 +45,7 @@ Wants=network-online.target
 [Service]
 User=$(id -un)
 WorkingDirectory=$APP
+EnvironmentFile=-$APP/.env
 ExecStart=$APP/.venv/bin/python -m uvicorn server.app:create_app --factory --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5
 Restart=always
 RestartSec=2

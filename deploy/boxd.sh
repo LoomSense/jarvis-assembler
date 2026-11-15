@@ -26,6 +26,7 @@ if ! boxd machine exec "$VM" -- true >/dev/null 2>&1; then
 fi
 # A build is CPU work with little network traffic; without this the VM may hibernate mid-job.
 boxd machine config set "$VM" auto-hibernate.timeout 0 || echo "warning: could not turn off auto-hibernate"
+boxd machine config set "$VM" auto-suspend.timeout 0 || echo "warning: could not turn off auto-suspend"
 
 ARCH=$(boxd machine exec "$VM" -- uname -m | tr -d '\r\n')
 echo "== architecture: $ARCH   (record this in docs/PROGRESS.md, SET-03)"
