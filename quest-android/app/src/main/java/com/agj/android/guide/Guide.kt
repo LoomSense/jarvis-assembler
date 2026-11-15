@@ -107,9 +107,11 @@ data class GuideAction(
     val finalPose: Pose3?,
     val geometry: PartGeometry?,
     val labels: Map<String, PartLabel>,
-    /** 1-based position among the step's actions with the same name, and that count (for "2 of 4"). */
+    /** 1-based position among the step's actions with the same code (hardware) or name (boards), and that count. */
     val ordinal: Int,
     val sameCount: Int,
+    /** Manifest `hardware[].kind` of [code] (screw, bolt, cam, dowel, pin, ...); null for boards. */
+    val hardwareKind: String? = null,
 ) {
   fun label(lang: String): PartLabel? = labels[if (lang == "el") "el" else "en"] ?: labels["en"]
 }
@@ -124,6 +126,11 @@ data class GuideStep(
     val tableFromAssembly: Pose3,
     /** Every action of the manifest step, notes included, in order. */
     val actions: List<GuideAction>,
+    /**
+     * TABLE ← ASSEMBLY through this step's `turn` action, sampled from the walkthrough clip (first = the pose before
+     * the turn, last = [tableFromAssembly]); null when the step has no turn or the GLB has no clip.
+     */
+    val turnTrack: TurnTrack? = null,
 ) {
   /** Actions the user does one at a time (everything but `note`). */
   val guided: List<GuideAction>
@@ -236,8 +243,9 @@ class Guide(
                 else if (s.assemblyRotationDeg.any { it != 0.0 }) Pose3(Vec3.ZERO, blenderEulerXyzToGltf(s.assemblyRotationDeg))
                 else lastPose
             lastPose = tableFromAssembly
-            // "2 of 4": count actions with the same English name in this step.
-            val names = s.actions.map { if (it.node != null) nameOf(it, "en") else null }
+            // "2 of 4": count the step's actions with the same hardware code (boards: the same English name), so the
+            // label's count is the same number as the hole rings' (Guidance.repeatOf).
+            val names = s.actions.map { if (it.node != null) it.code ?: nameOf(it, "en") else null }
             val actions =
                 s.actions.mapIndexed { i, a ->
                   val kind = ActionKind.of(a.type)
@@ -267,12 +275,29 @@ class Guide(
                       labels = labels,
                       ordinal = maxOf(ordinal, 1),
                       sameCount = maxOf(same.size, 1),
+                      hardwareKind = a.code?.let { c -> hwNames[c]?.kind?.takeIf { k -> k.isNotEmpty() } },
                   )
                 }
-            GuideStep(s.n, s.title, s.cite.page, s.crop, s.hardware, tableFromAssembly, actions)
+            // The turn, as the guide's own animation does it: the root's pose through the turn action's time.
+            val turn = s.actions.firstOrNull { ActionKind.of(it.type) == ActionKind.TURN }
+            val turnT0 = turn?.t0_s
+            val turnT1 = turn?.t1_s
+            val turnTrack =
+                if (clip != null && window != null && turnT0 != null && turnT1 != null && turnT1 > turnT0) {
+                  val t0 = window.start_s + turnT0
+                  val t1 = window.start_s + turnT1
+                  TurnTrack(
+                      (0..TURN_SAMPLES).map { k ->
+                        glb.localPosesAt(clip, (t0 + (t1 - t0) * k / TURN_SAMPLES).toFloat())[root.index].pose
+                      })
+                } else null
+            GuideStep(s.n, s.title, s.cite.page, s.crop, s.hardware, tableFromAssembly, actions, turnTrack)
           }
       return Guide(steps, parts, addedAt, finalPoses, finalScales)
     }
+
+    /** Samples of the root's pose through a turn: every ~45 ms of a 1.4 s turn, finer than the clip's 24 fps keys. */
+    private const val TURN_SAMPLES = 32
 
     private fun cap(s: String) = s.replaceFirstChar { it.uppercaseChar() }
 
