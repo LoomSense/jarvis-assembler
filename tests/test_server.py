@@ -275,3 +275,17 @@ def test_public_demo_websocket_needs_no_key(tmp_path):
     with TestClient(app) as c:
         with c.websocket_connect("/ws/check") as ws:
             assert ws.receive_text() == "ready"
+
+
+def test_pages_for_other_agents(tmp_path):
+    from fastapi.testclient import TestClient
+    app = create_app(Settings(_env_file=None, demo_key=KEY, jobs_dir=tmp_path / "jobs", gemini_api_key="",
+                              client_dist=tmp_path / "no-client"))
+    with TestClient(app) as c:
+        text = c.get("/llms.txt")                                  # no key: it only describes the service
+        assert text.status_code == 200 and text.headers["content-type"].startswith("text/plain")
+        assert "/api/catalog/open" in text.text and "X-Demo-Key" in text.text and KEY not in text.text
+        assert c.get("/api/openapi.json").status_code == 401       # the schema is behind the key
+        schema = c.get("/api/openapi.json", headers={"X-Demo-Key": KEY}).json()
+        assert {"/api/jobs", "/api/catalog/open", "/api/jobs/{job_id}/plan/approve"} <= set(schema["paths"])
+        assert c.get("/docs").status_code == 404

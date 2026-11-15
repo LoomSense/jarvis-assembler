@@ -38,10 +38,13 @@ mcp = MCPServer(
     name="assembly-guide",
     title="Assembly Guide Agent",
     instructions=(
-        "Turns a flat-pack furniture assembly guide (PDF) into a 3D step-by-step walkthrough. Usual flow: "
+        "Turns a flat-pack furniture assembly guide (PDF) into a 3D step-by-step walkthrough. With only a product "
+        "name, an article number, a barcode or the link from the box's QR code, start with find_guide: it opens a "
+        "ready guide at once or finds the PDF and starts the build. With a PDF on disk, the usual flow is: "
         "create_guide -> wait_for_guide(until='approval') -> get_plan (show the person the parts, hardware and "
         "flags) -> approve_plan -> wait_for_guide(until='done') -> get_steps and guide_links (give the person the "
-        "phone link). list_guides shows existing guides; a finished one can be read with get_steps right away."
+        "phone link). list_guides shows existing guides; a finished one can be read with get_steps right away. "
+        "ask_guide answers a question about one step of a finished guide."
     ),
 )
 
@@ -161,6 +164,72 @@ async def create_guide(pdf_path: str, size: str | None = None) -> dict[str, Any]
     out = await api("POST", "/api/jobs", timeout=120.0, data=form,
                     files={"file": (path.name, data, "application/pdf")})
     return {**out, "next": "Call wait_for_guide(job_id, until='approval'); known guides get there in seconds."}
+
+
+@mcp.tool()
+async def find_guide(query: str, size: str | None = None) -> dict[str, Any]:
+    """Open the guide for a product from what is on its box, without a PDF: a product name ("KNAGGLIG"), an IKEA
+    article number ("902.891.72"), a barcode number, or a link (the text of the box's QR code, a product page,
+    a PDF).
+
+    A guide that is already built comes back with ready=true: call get_steps and guide_links. Otherwise the
+    backend fetches the manufacturer's PDF and starts the build (ready=false): call wait_for_guide. When several
+    guides match, `choices` lists them: call again with the article number or guide id of one. `found=false`
+    means no guide was found; ask the person for the PDF and use create_guide.
+
+    size: optional overall size of the finished product, e.g. "46 x 31 x 25 cm", for a new build.
+    """
+    q = (query or "").strip()
+    if not q:
+        raise ToolError("query is empty: give a product name, an article number, a barcode or a link")
+    body = {"q": q[:2000], **({"size": size.strip()} if size and size.strip() else {})}
+    key = demo_key()
+    if not key:
+        raise ToolError("No demo key: set AGJ_DEMO_KEY (or DEMO_KEY in the repo's .env) for the MCP server")
+    try:                                               # the search for a maker's PDF can take a minute
+        async with httpx.AsyncClient(base_url=base_url(), headers={"X-Demo-Key": key}, timeout=150.0) as c:
+            r = await c.post("/api/catalog/open", json=body)
+    except httpx.HTTPError as e:
+        raise ToolError(f"Cannot reach the Assembly Guide backend at {base_url()} ({type(e).__name__})") from None
+    if r.status_code == 409:
+        detail = r.json().get("detail", {})
+        keep = ("product", "article", "guide_id", "ready", "job_id", "steps")
+        return {"found": False, "message": detail.get("message"),
+                "choices": [{k: i.get(k) for k in keep if i.get(k) is not None} for i in detail.get("items", [])],
+                "next": "Call find_guide again with the article or guide_id of one choice."}
+    if r.status_code in (404, 422):
+        return {"found": False, "message": _detail(r),
+                "next": "Ask the person for the guide's PDF (or photos of its pages) and call create_guide."}
+    if r.status_code == 401:
+        raise ToolError("The backend refused the demo key: set AGJ_DEMO_KEY to the server's DEMO_KEY")
+    if r.status_code >= 400:
+        raise ToolError(f"The backend answered {r.status_code}: {_detail(r)}")
+    out = r.json()
+    nxt = ("Call get_steps and guide_links." if out.get("ready") else
+           "The build has started. Call wait_for_guide(job_id, until='approval'), then get_plan and approve_plan.")
+    return {"found": True, **out, "next": nxt}
+
+
+@mcp.tool(annotations=READ)
+async def search_guides(query: str = "") -> dict[str, Any]:
+    """Search the catalog by product name, article number or guide id, without starting anything. Each item says
+    whether it is already built (`ready`, with its job_id) or known and buildable in about a minute. An empty
+    query lists everything. Use find_guide to open one."""
+    out = await api("GET", "/api/catalog", params={"q": (query or "").strip()[:200]})
+    return {"items": out.get("items", []), "next": "Call find_guide with the article, guide_id or product of one item."}
+
+
+@mcp.tool(annotations=READ)
+async def ask_guide(job_id: str, step: int, question: str, lang: Literal["en", "el"] = "en") -> dict[str, Any]:
+    """Ask a question about one step of a finished guide, e.g. "which screw goes here?" or "which way does the
+    panel face?". The answer is 1 or 2 short sentences in `lang`, grounded in that step of the guide.
+
+    step: the step number, from get_steps."""
+    job_id = check_job_id(job_id)
+    if not (question or "").strip():
+        raise ToolError("question is empty")
+    return await api("POST", f"/api/jobs/{job_id}/ask", timeout=60.0,
+                     json={"step": int(step), "question": question.strip()[:1000], "lang": lang})
 
 
 @mcp.tool(annotations=READ)

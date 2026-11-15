@@ -16,7 +16,7 @@ from server.settings import Settings
 from tests.test_server import GOLDEN, HAS_BLENDER, KEY
 
 TOOLS = {"create_guide", "guide_status", "wait_for_guide", "get_plan", "approve_plan", "get_steps",
-         "guide_links", "list_guides"}
+         "guide_links", "list_guides", "find_guide", "search_guides", "ask_guide"}
 
 
 def run(coro):
@@ -135,3 +135,25 @@ def test_golden_guide_through_the_tools(backend):
     assert listed["jobs"][0]["job_id"] == job_id and listed["jobs"][0]["status"] == "done"
     manifest = run(M.mcp.read_resource(f"guide://{job_id}/manifest"))
     assert job_id in manifest[0].content
+
+
+def test_find_and_search_guides_by_what_is_on_the_box(backend):
+    items = run(M.search_guides("knagglig"))["items"]
+    assert items and items[0]["product"].startswith("KNAGGLIG")
+    nothing = run(M.find_guide("zz no such product qq"))
+    assert nothing["found"] is False and "create_guide" in nothing["next"]
+    with pytest.raises(M.ToolError):
+        run(M.find_guide("  "))
+    assert M.mcp is not None and run(M.search_guides())["items"]            # an empty query lists the catalog
+
+
+def test_command_line_prints_json_and_fails_with_exit_code_1(backend, capsys):
+    import json
+    from server import cli
+    assert cli.main(["search", "knagglig"]) == 0
+    assert json.loads(capsys.readouterr().out)["items"][0]["product"].startswith("KNAGGLIG")
+    assert cli.main(["find", "zz no such product qq"]) == 0
+    assert json.loads(capsys.readouterr().out)["found"] is False
+    assert cli.main(["status", "no-such-job"]) == 1
+    err = capsys.readouterr().err
+    assert "error" in json.loads(err) and KEY not in err
