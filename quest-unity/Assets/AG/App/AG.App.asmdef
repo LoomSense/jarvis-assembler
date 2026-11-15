@@ -1,0 +1,14 @@
+{
+    "name": "AG.App",
+    "rootNamespace": "AG.App",
+    "references": ["AG.Core", "AG.Guide", "AG.Vision", "AG.Net", "AG.UI"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

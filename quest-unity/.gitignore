@@ -1,0 +1,24 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Bb]uild/
+/[Bb]uilds/
+/[Uu]serSettings/
+/MemoryCaptures/
+*.csproj
+*.sln
+*.slnx
+*.user
+.vs/
+.idea/
+.DS_Store
+# secrets: the demo key lives only in these local files (never in git)
+/Assets/StreamingAssets/local.config.json
+/Assets/StreamingAssets/local.config.json.meta
+# replay datasets are large; keep them out of git
+/Assets/StreamingAssets/replay/
+/Assets/StreamingAssets/replay.meta
+/.utmp/
+/.vscode/

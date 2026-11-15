@@ -1,0 +1,9 @@
+{
+  "server": "https://YOUR-HOST",
+  "key": "PUT-THE-DEMO-KEY-HERE (copy this file to local.config.json, which git ignores)",
+  "job": "malm-drawer",
+  "lang": "el",
+  "replay": false,
+  "hud": true,
+  "replay_dir": ""
+}

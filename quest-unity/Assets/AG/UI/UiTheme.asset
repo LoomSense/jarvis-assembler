@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86690e78e0e4f430d9e69e8bcdf581da, type: 3}
+  m_Name: UiTheme
+  m_EditorClassIdentifier: AG.UI::AG.UI.UiTheme
+  GlassMaterial: {fileID: 0}
+  GhostMaterial: {fileID: 0}
+  ArrowMaterial: {fileID: 0}
+  FontAsset: {fileID: 11400000, guid: 4f9c9aa6cc6004ef295fb3018a7a7d77, type: 2}
+  TitleDeg: 1.4
+  BodyDeg: 1
+  CaptionDeg: 0.75
+  PanelGapM: 0.15
+  Text: {r: 1, g: 1, b: 1, a: 0.96}
+  TextSecondary: {r: 1, g: 1, b: 1, a: 0.62}
+  Accent: {r: 0.04, g: 0.52, b: 1, a: 1}
+  Warning: {r: 1, g: 0.62, b: 0.04, a: 1}
+  Success: {r: 0.19, g: 0.82, b: 0.35, a: 1}

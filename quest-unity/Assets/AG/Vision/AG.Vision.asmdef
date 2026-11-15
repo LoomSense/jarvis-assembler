@@ -1,0 +1,17 @@
+{
+    "name": "AG.Vision",
+    "rootNamespace": "AG.Vision",
+    "references": ["AG.Core", "meta.xr.mrutilitykit", "AprilTag.Runtime"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.meta.xr.mrutilitykit", "expression": "81.0.0", "define": "AG_HAS_MRUK" },
+        { "name": "jp.keijiro.apriltag", "expression": "1.0.0", "define": "AG_HAS_APRILTAG" }
+    ],
+    "noEngineReferences": false
+}

@@ -1,0 +1,16 @@
+{
+    "name": "AG.UI",
+    "rootNamespace": "AG.UI",
+    "references": ["AG.Core", "AG.Guide", "AG.Vision", "AG.Net", "Unity.TextMeshPro", "UnityEngine.UI"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.unity.ugui", "expression": "2.0.0", "define": "AG_HAS_TMP" }
+    ],
+    "noEngineReferences": false
+}

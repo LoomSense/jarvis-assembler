@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Custom main manifest for Quest 3/3S (quest-unity/RESEARCH.md §3).
+  Unity 6 default entry is GameActivity: com.unity3d.player.UnityPlayerGameActivity.
+  Meta's OVRManifestPreprocessor / Project Setup Tool may add or rewrite Meta entries at build time
+  (supportedDevices, hand tracking, passthrough); after "Fix All" diff this file and keep the result in git.
+  Launch with extras:  adb shell am start -n com.agj.unity/com.unity3d.player.UnityPlayerGameActivity \
+      -\-es server https://HOST -\-es key KEY -\-es job malm-drawer -\-es lang el -\-ez replay false -\-ez hud true
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          android:installLocation="auto">
+
+  <!-- network: server REST + perception WebSocket -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Passthrough Camera API (Horizon OS v74+). Do NOT also request android.permission.CAMERA (double prompt). -->
+  <uses-permission android:name="horizonos.permission.HEADSET_CAMERA" />
+  <!-- hand tracking -->
+  <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+  <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+  <!-- scene (MRUK table / planes) and spatial anchors -->
+  <uses-permission android:name="com.oculus.permission.USE_SCENE" />
+  <uses-permission android:name="com.oculus.permission.USE_ANCHOR_API" />
+  <!-- passthrough -->
+  <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
+  <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+
+  <application android:allowBackup="false" tools:replace="android:allowBackup">
+    <meta-data android:name="com.oculus.supportedDevices" android:value="quest3|quest3s" />
+    <activity android:name="com.unity3d.player.UnityPlayerGameActivity"
+              android:theme="@style/BaseUnityGameActivityTheme"
+              android:exported="true"
+              android:launchMode="singleTask"
+              android:screenOrientation="landscape"
+              android:configChanges="locale|fontScale|keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode|density">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+        <category android:name="com.oculus.intent.category.VR" />
+      </intent-filter>
+      <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+      <meta-data android:name="android.app.lib_name" android:value="game" />
+      <meta-data android:name="com.oculus.vr.focusaware" android:value="true" />
+    </activity>
+  </application>
+</manifest>

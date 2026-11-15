@@ -1,0 +1,16 @@
+{
+    "name": "AG.Guide",
+    "rootNamespace": "AG.Guide",
+    "references": ["AG.Core", "glTFast"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.unity.cloud.gltfast", "expression": "6.0.0", "define": "AG_HAS_GLTFAST" }
+    ],
+    "noEngineReferences": false
+}

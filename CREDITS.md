@@ -44,6 +44,12 @@ Everything in this repository that we did not build ourselves during the hackath
 | Meta Spatial SDK Samples, Meta Passthrough Camera API Samples | Patterns copied into `quest-android/` (manifest entries, panel registration, Camera2 vendor keys, shader includes); Gradle wrapper jar taken from StarterSample | MIT; Apache-2.0 | https://github.com/meta-quest/Meta-Spatial-SDK-Samples, https://github.com/meta-quest/Meta-Passthrough-Camera-API-Samples |
 | OpenCV for Android 4.10.0 | Marker detection and PnP in `quest-android/` | Apache-2.0 | https://opencv.org |
 | OkHttp, kotlinx.serialization, kotlinx.coroutines, AndroidX, Jetpack Compose | Networking, JSON, threading, panel UI in `quest-android/` | Apache-2.0 | https://square.github.io/okhttp |
+| Unity 6.3 LTS (6000.3.28f1), URP, OpenXR, XR Management, TextMeshPro, Newtonsoft JSON (Unity) | Native Quest app `quest-unity/` | Unity Personal licence / Unity Companion License | https://unity.com |
+| Meta XR Core SDK, MR Utility Kit, Interaction SDK (209.0.0) | Passthrough, passthrough camera, hands, scene, anchors in `quest-unity/` | Meta Platform Technologies SDK License | https://developers.meta.com/horizon/documentation/unity/ |
+| glTFast, meshopt decompress (Unity) | Runtime GLB loading in `quest-unity/` | Apache-2.0; Unity Companion License | https://github.com/Unity-Technologies/com.unity.cloud.gltfast |
+| NativeWebSocket (endel) | Perception socket client in `quest-unity/` | Apache-2.0 | https://github.com/endel/NativeWebSocket |
+| jp.keijiro.apriltag (Keijiro Takahashi, wraps AprilTag 3 from the APRIL lab) | Marker detection in `quest-unity/` | BSD-2-Clause (UNVERIFIED for the wrapper) | https://github.com/keijiro/jp.keijiro.apriltag |
+| Inter (font) | Latin + Greek UI text in `quest-unity/` (`Assets/AG/UI/Fonts/`, licence file next to it) | SIL OFL 1.1 | https://github.com/rsms/inter |
 
 ## Prior work reused
 

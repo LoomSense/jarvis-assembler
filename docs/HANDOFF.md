@@ -40,6 +40,7 @@ Decision 1 step_complete on the MALM drawer, clean renders, no hands (55 calls, 
 Goal: the same guidance, plus **real-time tracking of the physical assembly** so the ghost stays on it when it moves or is turned. Everything server-side stays as is; the native app is a new client.
 
 Native Android (Kotlin, Meta Spatial SDK) variant: `quest-android/` (build, install, launch, module map in `quest-android/README.md`; framework research in `quest-android/RESEARCH.md`).
+**Started:** the Unity project is in `quest-unity/` (Unity 6.3 LTS 6000.3.28f1, Meta XR SDK 209, OpenXR, URP). See [`quest-unity/README.md`](../quest-unity/README.md) for build, install, module map and the conventions shared with `quest-android/`, and [`quest-unity/RESEARCH.md`](../quest-unity/RESEARCH.md) for the Meta API research with sources.
 
 ### 2.1 Reuse as is
 - **Server API** (all need the demo key):

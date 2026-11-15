@@ -1,0 +1,14 @@
+{
+    "name": "AG.Editor",
+    "rootNamespace": "AG.Editor",
+    "references": ["AG.Core", "AG.Guide", "AG.Vision", "AG.Net", "AG.UI", "AG.App", "Unity.XR.Management", "Unity.XR.Management.Editor", "Unity.TextMeshPro", "Unity.XR.OpenXR", "Unity.XR.OpenXR.Editor"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
