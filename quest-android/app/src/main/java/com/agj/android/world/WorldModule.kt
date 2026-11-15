@@ -401,6 +401,14 @@ class WorldModule(
       } else if (t == null && anchor.source == null && SystemClock.elapsedRealtime() - assemblySetMs >= FIXED_SPOT_AFTER_MS) {
         anchor.placeInitial(centred(BasePlacement.fixedSpot(head)), PlaceSource.FIXED_SPOT)
       }
+      // FLOOR-GUESS: no table and no measured height 3 s after the guide is loaded: the floor of the tracking space
+      // (y = 0) is tried, so that the panel detector can look for the base part at once. It trusts only a rectangle of
+      // the part's own size, so a wrong guess (work on a desk) places nothing; a measured height replaces the guess.
+      // Device runs waited up to 33 s for the wearer to look down steadily before the guide could lock on the front.
+      if (t == null && surfaceY == null && SystemClock.elapsedRealtime() - assemblySetMs >= FLOOR_GUESS_AFTER_MS) {
+        depthSurfaceY = 0f
+        Agq.log.event("surface", mapOf("source" to "floor_guess", "y_m" to 0f, "prev_y_m" to null, "head_y_m" to head.t.y))
+      }
       // a guessed anchor (fixed spot, server box, flow) sits at the measured surface height; no-op within 3 cm
       if (t == null) surfaceY?.let { anchor.setSurfaceHeight(it) }
     }
@@ -636,6 +644,8 @@ class WorldModule(
   companion object {
     /** Without a scene table this long after the guide is loaded, the fixed spot is used. */
     const val FIXED_SPOT_AFTER_MS = 2500L
+    /** Without a table or a measured height this long after the guide is loaded, the floor (y = 0) is tried. */
+    const val FLOOR_GUESS_AFTER_MS = 3000L
     const val FOLLOW_EVERY_MS = 2500L
     /** "Bring it closer": on beyond this distance from the wearer on the floor, off again inside the second one. */
     const val FAR_M = 0.85f
