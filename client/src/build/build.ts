@@ -7,7 +7,9 @@ import { appLink } from '../routes'
 //   ?mode=build&job=<id>            the feed of that job (live while it runs, the whole story once it is done)
 //   &key=<demo key>                 sent on every request, never stored
 //   &lang=en                        English (Greek by default)
-//   &auto=1                         approve the plan by itself, and open the guide when it is ready (for a demo)
+//   &auto=0                         wait for the person to approve the plan and to open the guide. Without it the
+//                                   plan is shown for a moment and approved by itself, and the finished guide opens:
+//                                   a person waiting for a build is not stopped by a tap (Sun 15 Nov)
 //   &transport=poll|sse             debug: force the long poll, or never leave the stream
 //   &api=<url>                      dev only: the server to talk to (src/api.ts)
 //
@@ -64,7 +66,7 @@ const IMAGE = /\.(png|jpe?g|webp)$/i
 export function startBuild(app: HTMLElement): void {
   const q = new URLSearchParams(location.search)
   const key = q.get('key')
-  const auto = q.get('auto') === '1'
+  const auto = q.get('auto') !== '0'
   let lang: Lang = q.get('lang') === 'en' ? 'en' : 'el'
   let job = q.get('job')
 
@@ -91,7 +93,7 @@ export function startBuild(app: HTMLElement): void {
         </div>
         <span class="pages" hidden></span>
         <div class="send" hidden>
-          <input class="size" type="text" name="size" autocomplete="off" enterkeyhint="go" maxlength="120" />
+          <input class="size" type="hidden" name="size" />
           <button class="go" type="button"><span class="round">${svg(ICON.next)}</span><span class="word"></span></button>
         </div>
       </div>
@@ -623,8 +625,18 @@ export function startBuild(app: HTMLElement): void {
 
       if (e.type === 'part_status') {
         const said = say(lang, text)
+        // the part itself, turning in the row, the moment it is built (src/build/partview.ts, loaded when first needed)
+        const picture = (li: HTMLElement) => {
+          const pid = e.level === 'error' ? '' : e.partId
+          if (!pid) return
+          let host = li.querySelector<HTMLElement>('.partview')
+          if (!host) li.append((host = el('span', 'partview')))
+          const url = apiUrl(`/files/${encodeURIComponent(e.jobId ?? job ?? '')}/parts/${encodeURIComponent(pid)}.stl`, key)
+          void import('./partview').then((m) => m.showPart(host!, pid, url))
+        }
         if (prev?.dataset.group === 'parts') {
           prev.querySelector('.codes')!.append(el('code', '', said.code ?? e.partId ?? ''))
+          picture(prev)
           return
         }
         const li = row(e.level === 'error' ? 'tool fix' : 'tool')
@@ -633,6 +645,7 @@ export function startBuild(app: HTMLElement): void {
         const codes = el('span', 'codes')
         codes.append(el('code', '', said.code ?? e.partId ?? ''))
         li.append(codes)
+        picture(li)
         return
       }
 
