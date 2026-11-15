@@ -6,6 +6,7 @@ using AG.Guide;
 using AG.Net;
 using AG.UI;
 using AG.Vision;
+using AG.World;
 using UnityEngine;
 
 namespace AG.App
@@ -47,6 +48,8 @@ namespace AG.App
         PinchRayInput _input;
         AudioSource _sfx;
         VoiceCommandClient _voiceApi;
+        WorldModule _world;
+        bool _outlineHint;
         readonly MicRecorder _mic = new MicRecorder();
         readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
@@ -119,6 +122,10 @@ namespace AG.App
             _ghost.Font = Theme != null ? Theme.FontAsset : null;
             ghostGo.SetActive(true);
             _input = new GameObject("PinchRayInput").AddComponent<PinchRayInput>();
+            _world = new WorldModule(_p.Server, _p.Key, AssemblyAnchor, _camera, _p.Lang, _cts.Token);
+            _world.PickTargets += ShowPickTargets;
+            _world.PreviewBox += b => PreviewBox = b;
+            _world.Placed += src => { if (src == WorldModule.SourceBox) UiSounds.Play(_sfx, Cue.Place); };
 
             _coach = new CoachFlow();
             _coach.StageChanged += OnStage;
@@ -129,7 +136,7 @@ namespace AG.App
                     case PanelButton.Next: _coach.Next(); break;
                     case PanelButton.Back: _coach.Back(); break;
                     case PanelButton.Repeat: _coach.Repeat(); break;
-                    case PanelButton.Rescan: _coach.Rescan(); break;
+                    case PanelButton.Rescan: _coach.Rescan(); _world.RequestRealign(); break;
                     case PanelButton.WhereAmI: _coach.WhereAmI(); break;
                     case PanelButton.Retry: _coach.Retry(); break;
                     case PanelButton.Cancel: _coach.Cancel(); break;
@@ -171,7 +178,6 @@ namespace AG.App
 
         void OnStage(CoachStage s)
         {
-            if ((s == CoachStage.Register || s == CoachStage.Guide) && !_everTracked) PlaceUntrackedAnchor();
             // untracked, the window stays close to the object (both inside the central 40 deg); tracked: spec §2.6
             _panel.MaxSideDeg = _everTracked ? 0f : 24f;
         }
@@ -204,6 +210,17 @@ namespace AG.App
             }
             _socket?.Tick();
             UpdateTracking();
+            // world layer: owns the anchor while no marker / two-corner track is live
+            bool trackedNow = _tracker.Latest.Tracked || _touch.Latest.Tracked || _fakeTracked;
+            bool started = _coach.Stage >= CoachStage.Locate && _coach.Stage != CoachStage.Failed;
+            _world.OnAction(_coach.Guide, _coach.Step, _coach.Action);
+            _world.Tick(head, trackedNow, started, _ghost.TryGetWorldBounds(out var worldBox) ? worldBox : (Bounds?)null);
+            if (_world.WantsOutlineHint != _outlineHint && !_lost)
+            {
+                _outlineHint = _world.WantsOutlineHint;
+                _panel.SetStatusPill(_outlineHint ? _world.CoachPill : null, StatusKind.Info);
+                if (_outlineHint) _ = _voice.SayAsync(_world.CoachLine);
+            }
             Voice();
 
             // window: coach cards ahead of the user until there is an object; then beside the object
@@ -380,6 +397,7 @@ namespace AG.App
             if (Input.GetKeyDown(KeyCode.V)) MicDown();
             if (Input.GetKeyUp(KeyCode.V)) MicUp();
             if (Input.GetKeyDown(KeyCode.P)) _panel.TogglePreview();
+            if (Input.GetKeyDown(KeyCode.A)) _world.RequestRealign();
             if (Input.GetKeyDown(KeyCode.M))
             {
                 _ghost.ReducedMotion = !_ghost.ReducedMotion;
@@ -401,6 +419,7 @@ namespace AG.App
             _cts.Cancel();
             _mic.Cancel();
             _camera?.Stop();
+            _world?.Dispose();
             (_tracker as IDisposable)?.Dispose();
             _ = _socket?.CloseAsync();
         }
