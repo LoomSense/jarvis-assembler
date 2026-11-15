@@ -108,6 +108,19 @@ Library (`pipeline/cad/lib.py`, read it):
 - `view_az_el_deg`: camera azimuth and elevation (degrees, Z up, in the turned scene) matching the guide's drawing for that step. `cover_view_az_el_deg`: the same for the finished product on the cover.
 - `hardware_used`: `{code: quantity}` for this step.
 
+**Actions that add no part, and push-fit parts.**
+- `"press": true` on an add: the part is pushed in until it clicks (casters, plugs, caps), not slid or screwed.
+- `"tighten": ["<instance>", ...]` on a step: screws already in are turned tight ("tighten all screws firmly").
+- `"notes": [{"en": "...", "el": "..."}]` on a step: something to do that adds no part ("pull the cap off the gas lift"). A step must never be left with nothing in it; use these instead.
+
+**Parts too complex to model (image-to-3D).** For a part the helpers cannot draw recognisably (a moulded mechanism, a shaped plastic shell, a carved foot), give it `generate` instead of `script`:
+```json
+{"id": "tilt_mechanism", "name": "...", "count": 1, "material": "steel", "cite": {...},
+ "generate": {"page": 6, "box_2d": [ymin, xmin, ymax, xmax], "size_mm": [x, y, z], "rotate_deg": [0, 0, 0],
+              "frames": {"socket": {"origin": [0, 40, 0], "axis": [0, 0, -1]}}}}
+```
+`box_2d` is the clearest drawing of that part alone (0–1000 on the page). The part is made from it by an image-to-3D model and fitted into a box: x and y centred on 0, z from 0 to `size_mm[2]`; `rotate_deg` turns the model first if the drawing shows it on its side. Give every mate frame in that box frame. Use it only where a CadQuery model would be clearly wrong (it costs money and is not exact; it is skipped by the overlap check). Without a key it becomes a rounded box of that size, so the build still passes.
+
 **Sub-assemblies.** When the guide builds something on its own and only later attaches it as one piece (a seat with its mechanism and back, a drawer, a door, a frame), do not attach its parts to the main assembly early. Declare it and build it in its own frame:
 
 ```json

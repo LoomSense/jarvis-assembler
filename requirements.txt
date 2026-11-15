@@ -15,6 +15,7 @@ numpy>=2.0
 pillow>=10.4
 cadquery>=2.8
 trimesh>=4.4
+fal-client>=0.5
 
 # Tests
 pytest>=8.3

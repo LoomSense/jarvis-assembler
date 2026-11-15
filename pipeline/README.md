@@ -73,6 +73,10 @@ A ready-made sample is in `eval/golden/knagglig/out/` (GLB, packed GLB and manif
 
 It gives the agent `agent/BRIEF.md`, the page images and `./build` (this pipeline, with part scripts in the sandbox), and lets it repeat until the build passes. KNAGGLIG took 438 s and $2.12. The server uses it when `AGJ_BUILD_AGENT=claude` is in its environment.
 
+## Image-to-3D parts, push-fit, tighten, notes
+
+A plan part with `generate` (schema in `agent/BRIEF.md`) is made by `cad/generated.py`: the part's drawing is cut from the guide page, sent to fal (`fal-ai/hunyuan-3d/v3.1/pro/image-to-3d`, geometry only, $0.375; `AGJ_GEN3D_MODEL=meshy` for Meshy 7.1), cached per crop, turned Z-up and scaled into the plan's box. Without `FAL_KEY` it is a rounded box, and `parts/<id>.mates.json` says why. The overlap check skips generated parts. Steps can also `tighten` screws already in (they turn in place, ring shown), mark an add `press` (pushed in until it clicks), and carry `notes` (text-only actions, type `note`). Manifest action types are now `turn`, `place`, `fasten`, `tighten`, `note`.
+
 ## Sub-assemblies
 
 A plan can build a group of parts on its own and attach it later as one piece, as guides do with a seat unit, a drawer or a door (plan `subassemblies`; schema in `agent/BRIEF.md`). `assemble/placement.py` places those parts in the group's own frame and, at the joining step, solves where the whole group sits; `placements.json` gets `local_mm` per piece and a `subassemblies` block. In the animation the group is built beside the main assembly, turned as the guide draws it, then lifted and set in place in one move. The manifest gains, per step, `subassembly` (the group the step works on, or null), `subassemblyRotationDeg`, `joins` and `stagedPoses` (node → 4×4 matrix in the `assembly` frame, metres, for pieces still lying beside), and a top-level `subassemblies` list with `joinStep`. A joining action has type `place`, `subassembly`, `node` (its first piece) and `nodes`. Viewers that ignore these fields still play the clips correctly.

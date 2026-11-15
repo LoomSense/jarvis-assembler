@@ -65,6 +65,8 @@ class Ctx:
         timeout = timeout or self.stage.timeout_s
         env = {k: v for k, v in os.environ.items() if not _is_secret(k)}
         env.update(PYTHONUNBUFFERED="1", BLENDER_BIN=self.settings.blender)
+        if self.settings.fal_key:                     # image-to-3D for parts the plan marks `generate`
+            env["FAL_KEY"] = self.settings.fal_key
         if self.settings.gemini_api_key:
             env["GEMINI_API_KEY"] = self.settings.gemini_api_key
         self.job.logs_dir.mkdir(parents=True, exist_ok=True)

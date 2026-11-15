@@ -98,6 +98,7 @@ async def parts(ctx: Ctx) -> dict:
     if build:
         await build(job.dir, ctx.emit)
     scripts = [it["script"] for it in plan["parts"] + plan["hardware"] if it.get("script")]
+    n_generated = sum(1 for it in plan["parts"] + plan["hardware"] if it.get("generate"))
     missing = [s for s in scripts if not (job.dir / s).is_file()]
     if missing and ctx.golden:
         for s in missing:
@@ -107,7 +108,7 @@ async def parts(ctx: Ctx) -> dict:
         ctx.emit("thought", f"Using the hand-checked part scripts for {len(missing)} parts ({ctx.golden.name}).",
                  level="warn")
         missing = [s for s in scripts if not (job.dir / s).is_file()]
-    if missing or len(scripts) < len(plan["parts"]) + len(plan["hardware"]):
+    if missing or len(scripts) + n_generated < len(plan["parts"]) + len(plan["hardware"]):
         raise StageError("no CadQuery script for: " + (", ".join(missing) or "parts without a `script` entry")
                          + ". The part-building agent is not connected yet (task AGT-05).")
     res = await ctx.run([PY, "-m", "pipeline.cad.harness", job.approved_plan, job.dir / "parts"])
