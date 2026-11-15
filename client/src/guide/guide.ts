@@ -680,6 +680,7 @@ export function startGuide(o: GuideOptions): Guide {
     const at = place()
     if (at.step !== told.step || at.action !== told.action) {
       told = at
+      window.dispatchEvent(new CustomEvent('agj:step', { detail: at })) // for "see it on your table" (guide/ar.ts)
       for (const fn of placeListeners) fn(at)
     }
   }

@@ -707,7 +707,7 @@ export function startHome(app: HTMLElement): void {
   }
   const setReadyLinks = (job: string) => {
     $<HTMLAnchorElement>('.r-steps').href = link({ job })
-    $<HTMLAnchorElement>('.r-help').href = link({ job, assist: '1' })
+    $<HTMLAnchorElement>('.r-help').href = link({ mode: 'live', job }) // the full-screen camera guide (src/live)
     $<HTMLAnchorElement>('.r-quest').href = link({ mode: 'xr', job })
   }
   const showReady = async (job: string, box: Box | null, push = true) => {

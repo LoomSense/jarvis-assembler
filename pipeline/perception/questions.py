@@ -106,7 +106,7 @@ def header(manifest: dict, k: int) -> str:
     s = manifest["steps"][k]
     parts = {p["id"]: p for p in manifest["parts"]}
     hw = {h["code"]: h for h in manifest["hardware"]}
-    picks = [a["partId"] for a in s["actions"] if a["type"] == "place" and a.get("node") in s["moving"]]
+    picks = [a["partId"] for a in s["actions"] if a["type"] == "place" and a.get("partId") and a.get("node") in s["moving"]]
     lines = [f"Flat-pack assembly of the {manifest['title']}. STEP {s['n']} of {len(manifest['steps'])}, guide page {s['cite']['page']}: "
              f"{s['title']}."]
     if picks:
@@ -125,7 +125,7 @@ def added(manifest: dict, k: int) -> str:
     """What step k adds, in words: "2 End slats and 8 Short screws"."""
     s = manifest["steps"][k]
     name = {p["id"]: p["name"] for p in manifest["parts"]} | {h["code"]: h["name"] for h in manifest["hardware"]}
-    picks = [a["partId"] for a in s["actions"] if a["type"] == "place" and a.get("node") in s["moving"]]
+    picks = [a["partId"] for a in s["actions"] if a["type"] == "place" and a.get("partId") and a.get("node") in s["moving"]]
     items = [f"{picks.count(p)} {name[p]}" + ("s" if picks.count(p) > 1 else "") for p in dict.fromkeys(picks)]
     items += [f"{h['qty']} {name[h['code']]}" + ("s" if h["qty"] > 1 else "") for h in s["hardware"]]
     return " and ".join(items) or "nothing new"
@@ -149,7 +149,7 @@ def step_complete(manifest: dict, sheet: dict, k: int, shown: int | None = None)
     s = manifest["steps"][k]
     n, a = s["n"], added(manifest, k)
     later = LATER_NOTE.format(n=n)
-    picks = [x["partId"] for x in s["actions"] if x["type"] == "place" and x.get("node") in s["moving"]]
+    picks = [x["partId"] for x in s["actions"] if x["type"] == "place" and x.get("partId") and x.get("node") in s["moving"]]
     labels = ", ".join(str(h["code"]) for h in s["hardware"]) or ", ".join(dict.fromkeys(map(str, picks))) or "none"
     # the wording measured on the MALM drawer is the hardware-only one; a hidden part is rare and only named plainly
     what = ("small hardware that goes into parts already on the assembly" if s["hardware"] and not picks else

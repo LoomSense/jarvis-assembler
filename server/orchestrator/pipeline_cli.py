@@ -96,8 +96,11 @@ def glb_json(path: Path) -> dict:
 def export(job: Path, job_id: str) -> int:
     """Pack the GLB, cut the guide crops, check the GLB against the manifest contract (PLAN §4.3) and
     stamp the manifest with the job id."""
-    from pipeline import crops, pack
+    from pipeline import ar, crops, pack
 
+    usdz = ar.build(job)                                 # optional: one USDZ per step for AR on an iPhone
+    if usdz.get("usdz"):
+        event("thought", f"Made {len(usdz['usdz'])} AR models for iPhone ({usdz['bytes'] / 1e6:.1f} MB): each step, life-size, for your table")
     packed = pack.build(job)                             # optional: skipped when gltfpack is not installed
     if packed.get("packed"):
         event("thought", f"Compressed the model from {packed['from_bytes'] / 1e6:.1f} MB to {packed['bytes'] / 1e6:.2f} MB")

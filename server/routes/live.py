@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import collections
 import time
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -18,6 +19,8 @@ TOTAL_LIMIT, TOTAL_WINDOW_S = 20, 300.0                      # forwarded address
 
 class TokenBody(BaseModel):
     job_id: str
+    mode: Literal["voice", "see"] = "voice"           # see: the model gets camera pictures and coaches from them
+    lang: Literal["en", "el"] = "en"
 
 
 def client_ip(request: Request) -> str:
@@ -50,7 +53,7 @@ async def create_live_token(body: TokenBody, request: Request) -> dict:
     _last_mint[ip] = now
     _recent.append(now)
     try:
-        return await live_token.mint(settings, job)
+        return await live_token.mint(settings, job, body.mode, body.lang)
     except RuntimeError as e:
         _last_mint.pop(ip, None)                      # a failed mint does not use up the caller's slot
         _recent.pop()
