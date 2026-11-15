@@ -32,7 +32,7 @@ const WORDS = {
     title: 'Οδηγός συναρμολόγησης', scan: 'Σκάναρε τον κωδικό', upload: 'Ανέβασε τον οδηγό', find: 'Όνομα ή κωδικός',
     findAria: 'Αναζήτηση', back: 'Πίσω', other: 'en', otherAria: 'English', go: 'Βρες',
     aim: 'Στόχευσε τον κωδικό στο κουτί', type: 'ή γράψε τον κωδικό', looking: 'Ψάχνω', noCamera: 'Γράψε τον κωδικό ή το όνομα',
-    notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
+    notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', several: 'Ταιριάζουν πολλά. Γράψε πιο συγκεκριμένα.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
     steps: 'Δες τα βήματα', help: 'Συναρμολόγησε με βοήθεια', quest: 'Άνοιξε στο Quest',
     nsteps: (n: number) => (n === 1 ? '1 βήμα' : `${n} βήματα`), loading: 'Φέρνω το έπιπλο',
     flags: (n: number) => (n === 1 ? '1 σημείο να ελέγξεις' : `${n} σημεία να ελέγξεις`), empty: 'Κανένας οδηγός ακόμα',
@@ -41,7 +41,7 @@ const WORDS = {
     title: 'Assembly guide', scan: 'Scan the code', upload: 'Upload the guide', find: 'Name or code',
     findAria: 'Search', back: 'Back', other: 'ελ', otherAria: 'Ελληνικά', go: 'Find',
     aim: 'Point at the code on the box', type: 'or type the code', looking: 'Looking', noCamera: 'Type the code or the name',
-    notFound: 'I could not find that guide. Upload it.', offline: 'The server does not answer. Try again.',
+    notFound: 'I could not find that guide. Upload it.', several: 'Several match. Be more specific.', offline: 'The server does not answer. Try again.',
     steps: 'See the steps', help: 'Build with help', quest: 'Open in Quest',
     nsteps: (n: number) => (n === 1 ? '1 step' : `${n} steps`), loading: 'Bringing the furniture',
     flags: (n: number) => (n === 1 ? '1 thing to check' : `${n} things to check`), empty: 'No guides yet',
@@ -420,6 +420,7 @@ export function startHome(app: HTMLElement): void {
       const res = await apiFetch('/api/catalog/open', key, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: text }),
       })
+      if (res.status === 409) { $('.scanline').textContent = w().several; say(w().several); dim(text); return }
       if (res.status === 404 || res.status === 422) { $('.scanline').textContent = w().notFound; say(w().notFound); return }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { job_id: string; ready: boolean }

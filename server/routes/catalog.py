@@ -26,6 +26,11 @@ async def list_catalog(request: Request, q: str = "") -> dict:
     return {"items": catalog.search(request.app.state.store, q[:500])}
 
 
+def _same(a: str, b: str | None) -> bool:
+    norm = lambda s: catalog.fold(s).replace(".", "").replace(" ", "").replace("-", "")  # noqa: E731
+    return bool(b) and norm(a) == norm(b)
+
+
 @router.post("/api/catalog/open")
 async def open_guide(request: Request, body: OpenBody) -> dict:
     """A built guide opens at once (`ready: true`). Otherwise the PDF comes from the known guides or from the
@@ -34,6 +39,11 @@ async def open_guide(request: Request, body: OpenBody) -> dict:
     if not q:
         raise HTTPException(422, "Type a product name, an article number or a product page URL")
     found = catalog.search(store, q)
+    exact = [i for i in found if _same(q, i.get("product")) or _same(q, i.get("guide_id")) or _same(q, i.get("article"))]
+    if len({i.get("guide_id") or i["product"] for i in found}) > 1 and not exact:
+        # "box" or "table" names several guides: say which, instead of opening the first one
+        raise HTTPException(409, {"message": f"Several guides match “{q[:80]}”. Choose one.", "items": found[:8]})
+    found = exact or found
     ready = next((i for i in found if i["ready"]), None)
     if ready:
         return {"job_id": ready["job_id"], "ready": True, "product": ready["product"]}
