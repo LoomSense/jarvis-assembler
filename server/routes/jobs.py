@@ -74,8 +74,7 @@ async def create_job(request: Request, file: UploadFile | None = File(None),
         raise HTTPException(422, "Send either one guide PDF or photos of its pages, not both")
 
     if is_pdf[0]:
-        job = request.app.state.store.create(blobs[0], file.filename or "guide.pdf")
-        job.set_status(source="pdf")
+        job = start_job(request, blobs[0], file.filename or "guide.pdf", size, source="pdf")
     else:
         if file is not None and photos.sniff(blobs[0]) is None:
             raise HTTPException(415, "The guide must be a PDF file or photos of its pages")
@@ -84,19 +83,26 @@ async def create_job(request: Request, file: UploadFile | None = File(None),
         except photos.PhotoError as e:
             raise HTTPException(e.status, str(e))
         name = (uploads[0].filename or "photos") if len(uploads) == 1 else f"{len(uploads)} photos"
-        job = request.app.state.store.create(pdf, name)
+        job = start_job(request, pdf, name, size, source="photos", pages_uploaded=len(blobs), pages_flattened=flattened)
         (job.dir / "photos").mkdir(exist_ok=True)
         for i, (data, kind) in enumerate(zip(blobs, kinds), start=1):
             (job.dir / "photos" / f"page-{i:03d}.{kind}").write_bytes(data)
-        job.set_status(source="photos", pages_uploaded=len(blobs), pages_flattened=flattened)
+    return {"job_id": job.id, "stage": "ingesting"}
+
+
+def start_job(request: Request, pdf: bytes, filename: str, size: str | None, **status) -> Job:
+    """Create the job folder and start the build. Shared by uploads and the catalog."""
+    job = request.app.state.store.create(pdf, filename)
     size = (size or "").strip()[:120]
     if size:
         (job.dir / "facts.txt").write_text(
             f"- The person who uploaded the guide gave the product's overall size: {size}. "
             "Use it as the true scale; it overrides any size you would estimate.\n", encoding="utf-8")
-        job.set_status(size=size)
+        status["size"] = size
+    if status:
+        job.set_status(**status)
     request.app.state.orch.start(job)
-    return {"job_id": job.id, "stage": "ingesting"}
+    return job
 
 
 @router.get("/api/jobs")

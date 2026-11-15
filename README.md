@@ -64,11 +64,15 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
 | POST | `/api/jobs/{id}/plan/approve` | `{plan?, note?}` → `{stage: "building"}` |
 | POST | `/api/jobs/{id}/retry` | `{from_stage}` → `{stage}` |
+| GET | `/api/catalog?q=<text>` | → `{items: [{product, guide_id, article, job_id, steps?, parts?, created?, source: "built"\|"known", ready, guide?}]}`; ready guides first; `q` matches name, guide id or article number, ignoring case and accents |
+| POST | `/api/catalog/open` | `{q, size?}` (name, article number like `902.891.72`, or IKEA product URL) → `{job_id, ready, product}`; `ready: true` opens a built walkthrough, `false` means a build started (follow `/api/jobs/{id}`); 404 when nothing matches |
 | GET | `/files/{id}/{path}` | a file from the job folder: `walkthrough.glb`, `manifest.json`, `pages/…`, `renders/…`, `refs/…` |
 | POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model, api_version}` (one per 10 s per address) |
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
 
 **Photo uploads.** Without a PDF, a person can photograph the paper guide: `server/photos.py` turns each photo upright, finds and flattens the page, cleans it to black on white and writes them as `guide.pdf` (one page per photo, ≤ 60 photos, ≤ 25 MB each), keeping the originals in `photos/page-001.jpg` …; the rest of the pipeline is unchanged.
+
+**Catalog.** A guide that is not built or known yet is fetched from the manufacturer's public site (IKEA only, by article number or product page URL) at the person's request; the PDF stays on this server (`jobs/_catalog/`).
 
 **Job state.** `stage` is one of `ingest`, `extract_plan`, `await_approval`, `parts`, `place`, `steps`, `refs`, `export`, `done`. `status` is one of `queued`, `running`, `waiting_approval`, `done`, `error`. The same stage names appear in every event and in `retry`.
 
