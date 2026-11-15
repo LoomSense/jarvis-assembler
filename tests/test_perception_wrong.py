@@ -199,6 +199,10 @@ def test_flip_needed_carries_the_reason_and_the_step_files_own_sentence(tmp_path
             for seq in range(5, 12):
                 cam.frame_ack(seq, step=2)
             assert [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed"]     # said once
+        guide = Guide(tmp_path / "jobs" / JOB)
+        assert "wrong_way" in load_pack(guide, 2).pack["questions"]
+        assert "wrong_way" not in load_pack(guide, 2, wrong_way=False).pack["questions"]          # switched off: not asked
+        assert "wrong_way" in json.loads(path.read_text())["questions"]                           # the file is left alone
 
 
 # ---- the second, third and fourth bolt are confirmed like the first ----------------------------------

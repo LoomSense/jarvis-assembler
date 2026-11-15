@@ -434,7 +434,7 @@ class PerceptionSession:
             got = self._packs.get(n)
             if got is None:
                 try:
-                    got = load_pack(self.guide, n, complete=self.t.all_choices)
+                    got = load_pack(self.guide, n, complete=self.t.all_choices, wrong_way=self.t.wrong_way)
                 except ValueError as e:
                     got = e
                 self._packs[n] = got

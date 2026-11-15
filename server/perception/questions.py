@@ -35,6 +35,7 @@ log = logging.getLogger("agj.perception")
 MODEL = "gemini-decision-1"            # what pipeline.check.decisions sends. PLAN §3: do not substitute another model
 RESOLUTIONS = ("low", "medium", "high", "ultra_high")
 EXTRA = "right_hardware"               # the one question added to the benchmarked set
+WRONG_WAY = "wrong_way"                # a step file's optional choice: which way round is wrong (README)
 NOT_A_CODE = ("no_hardware", "other")
 
 
@@ -196,9 +197,10 @@ def complete_choices(guide: Guide, n: int, pack: dict) -> dict:
     return {**pack, "questions": out}
 
 
-def load_pack(guide: Guide, n: int, complete: bool = True) -> StepPack:
+def load_pack(guide: Guide, n: int, complete: bool = True, wrong_way: bool = True) -> StepPack:
     """The step's questions. Raises ValueError when there are none and none can be made. `complete`: a file's
-    choice questions also offer the parts of later steps and all the guide's hardware (`complete_choices`)."""
+    choice questions also offer the parts of later steps and all the guide's hardware (`complete_choices`).
+    `wrong_way` False: the file's optional `wrong_way` question is not asked (it costs about 0.1 s a request)."""
     path = guide.dir / "refs" / f"step-{n:02d}-questions.json"       # where pipeline.perception.request reads it
     if path.is_file():
         try:
@@ -208,6 +210,8 @@ def load_pack(guide: Guide, n: int, complete: bool = True) -> StepPack:
             pack, problem = None, f"{type(e).__name__}: {e}"
         if problem is None:
             pack = _current(guide, n, pack)
+            if not wrong_way and WRONG_WAY in pack["questions"]:
+                pack = {**pack, "questions": {k: v for k, v in pack["questions"].items() if k != WRONG_WAY}}
             return StepPack(n, "file", complete_choices(guide, n, pack) if complete else pack)
         log.error("perception: %s cannot be used (%s); questions for step %s are made from the template instead",
                   path, problem, n)
