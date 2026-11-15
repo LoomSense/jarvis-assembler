@@ -9,6 +9,7 @@ Prints `EVENT {...}` lines for the feed and one `RESULT {...}` line (see runner.
 from __future__ import annotations
 
 import json
+import os
 import struct
 import sys
 from pathlib import Path
@@ -110,6 +111,21 @@ def export(job: Path, job_id: str) -> int:
         event("thought", f"Cut {cut['crops']} step drawings from the guide; {cut['auto']} by page layout, "
                          "not from a box in the plan, so check them by eye.", level="warn")
 
+    checked = {}
+    if os.environ.get("GEMINI_API_KEY"):                 # step renders vs the guide's drawings (PLAN §5.5)
+        from pipeline.check import score
+
+        def report(step, res):
+            if "score" in res:
+                verdict = "matches the guide's drawing" if res["pass"] else "may differ from the guide's drawing"
+                event("image", f"Step {step['n']} {verdict}: {round(res['score'] * 100)}% alike", stepN=step["n"],
+                      level="success" if res["pass"] else "warn", image_url=f"/files/{job_id}/renders/step_{step['n']:02d}.png",
+                      score=res["score"])
+        try:
+            checked = score.build(job, report)
+        except Exception as e:                           # noqa: BLE001 - the check is advice, never a failure
+            event("progress", f"The drawing check did not run: {type(e).__name__}", level="warn")
+
     glb, manifest_path = job / "walkthrough.glb", job / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     gltf = glb_json(glb)
@@ -140,7 +156,7 @@ def export(job: Path, job_id: str) -> int:
         event("step_ready", step.get("title") or f"Step {step['n']}", stepN=step["n"],
               image_url=f"/files/{job_id}/{render}" if (job / render).is_file() else None)
     result(animations=len(clips), steps=len(manifest["steps"]), glb_bytes=size, title=manifest.get("title"),
-           packed_glb_bytes=packed.get("bytes"), step_crops=cut.get("crops", 0))
+           packed_glb_bytes=packed.get("bytes"), step_crops=cut.get("crops", 0), drawing_check=checked or None)
     return 0
 
 

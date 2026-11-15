@@ -9,6 +9,9 @@ time, in the guide's order. A step becomes a list of actions:
     place    one part is picked up and moved into position
     fasten   one screw goes to its hole, then turns as it is driven in
     join     a sub-assembly built beside the main assembly is lifted and set in its place
+    tighten  a screw that is already in is turned tight (plan step `tighten`: instances)
+    note     something to do that adds no part, shown as text (plan step `notes`: [{"en", "el"}])
+A part with `"press": true` in its add is pushed in until it clicks (casters, plugs) instead of slid in.
 
 A sub-assembly (plan `subassemblies`, built with `"into"`, joined with an add that names `"subassembly"`) is
 built next to the main assembly, turned the way the guide draws it while it is built, then moved as one piece.
@@ -39,6 +42,7 @@ MM = 0.001
 FPS = 24
 # frames per action
 TURN_F, PLACE_F, GAP_F, JOIN_F = 34, 30, 6, 48
+TIGHTEN_F, NOTE_F, PRESS_DEPTH = 22, 40, 0.012
 SAMPLES = 8                                         # keys per staged turn or join, so a sub-assembly moves rigidly
 APPROACH_F, DRIVE_F, TURNS = 10, 18, 2.5           # a screw: fly to the hole, then drive in while turning
 STEP_HOLD_F = 16
@@ -203,8 +207,27 @@ def key_matrix(o, M, frame):
 
 
 # --- actions: what a person does, one thing at a time, in the guide's order -----------------------------
+ARTICLES = ("τους ", "τις ", "την ", "τον ", "τη ", "το ", "τα ", "οι ", "η ", "ο ")
+
+
+def names(d):
+    """{"en", "el"} display names: `short` in English, and the plan's Greek `el` without its leading article."""
+    el = (d.get("el") or "").strip()
+    for a in ARTICLES:
+        if el.lower().startswith(a):
+            el = el[len(a):]
+            break
+    return {"en": d.get("short", d["name"]), "el": el or d.get("short", d["name"])}
+
+
 def text_for(kind, d, i=0, n=0, first=False):
     name, el = d.get("short", d["name"]).lower(), d.get("el", d["name"])
+    if kind == "tighten":
+        code = d["code"]
+        return {"en": f"Tighten {name} {code} firmly. {i} of {n}.", "el": f"Σφίξε καλά: {el} ({code}). {i} από {n}."}
+    if kind == "press":
+        return {"en": f"Press the {name} in firmly until it clicks.",
+                "el": f"Πίεσε {el} μέσα μέχρι να κουμπώσει."}
     if kind == "join":
         return {"en": f"Take the {name} you built and put it in place here.",
                 "el": f"Πάρε {el} που έφτιαξες και βάλε {d.get('el_pron', 'το')} στη θέση που φαίνεται."}
@@ -263,6 +286,17 @@ for step in plan["steps"]:
         if a.get("into"):
             grot.setdefault(a["into"], [0, 0, 0])
     st = snapshot()
+    notes = list(step.get("notes", []))
+
+    def emit_notes(f):
+        for note in notes:
+            acts.append({"type": "note", "f0": f, "f1": f + NOTE_F, "text": {"en": note.get("en", ""), "el": note.get("el", note.get("en", ""))}})
+            f += NOTE_F + GAP_F
+        notes.clear()
+        return f
+
+    if not any(a.get("base") for a in part_adds):          # a base part is laid down first, then the note is read
+        f = emit_notes(f)
     for a in part_adds:
         if is_join(a):
             g = a["subassembly"]; d = SUBDEFS.get(g, {"name": g})
@@ -274,13 +308,15 @@ for step in plan["steps"]:
         if a.get("base") and not a.get("into"):
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "base": True, "text": text_for("place", d, first=True)})
             f += 8 + GAP_F
+            f = emit_notes(f)
         elif a.get("base"):
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "gbase": True, "st": st, "rs": root_ref,
                          "text": text_for("place", d, first=True)})
             f += 8 + GAP_F
+            f = emit_notes(f)
         else:
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + PLACE_F, "st": st, "rs": root_ref,
-                         "text": text_for("place", d)})
+                         "press": bool(a.get("press")), "text": text_for("press" if a.get("press") else "place", d)})
             f += PLACE_F + GAP_F
     counts = {}
     for a in hw_adds:
@@ -291,6 +327,15 @@ for step in plan["steps"]:
         acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F, "st": st, "rs": root_ref,
                      "text": text_for("fasten", defs[code], seen[code], counts[code])})
         f += APPROACH_F + DRIVE_F + GAP_F
+    tight = [i for i in step.get("tighten", []) if i in placed]
+    tcounts, tseen = {}, {}
+    for inst in tight:
+        tcounts[inst.split("#")[0]] = tcounts.get(inst.split("#")[0], 0) + 1
+    for inst in tight:
+        code = inst.split("#")[0]; tseen[code] = tseen.get(code, 0) + 1
+        acts.append({"type": "tighten", "inst": inst, "f0": f, "f1": f + TIGHTEN_F, "st": st, "rs": root_ref,
+                     "text": text_for("tighten", defs[code], tseen[code], tcounts[code])})
+        f += TIGHTEN_F + GAP_F
     for a in adds:
         if is_join(a):
             g = a["subassembly"]; joined.add(g); shown_main += gshown.get(g, [])
@@ -403,7 +448,18 @@ def key_group_action(a, off, rs, clip=False):
         start = H if a.get("gbase") else Matrix.Translation(approach * PLACE_TRAVEL) @ H
         if clip and f0 > 1:
             key_matrix(o, S @ start, 1)
-        key_matrix(o, S @ start, f0); key_matrix(o, S @ H, f1)
+        key_matrix(o, S @ start, f0)
+        if a.get("press"):
+            key_matrix(o, S @ Matrix.Translation(approach * PRESS_DEPTH) @ H, f1 - 8)
+        key_matrix(o, S @ H, f1)
+        return
+    hq = H.to_quaternion()
+    if a["type"] == "tighten":
+        key_marker_at(S @ Matrix.Translation(approach * 0.0015) @ Matrix.Translation(H.translation)
+                      @ Vector((0, 0, 1)).rotation_difference(approach).to_matrix().to_4x4(), f0, f1)
+        for q in range(5):
+            key_matrix(o, S @ Matrix.Translation(H.translation) @ (hq @ Quaternion((0, 0, 1), -math.pi / 2 * q)).to_matrix().to_4x4(),
+                       f0 + round(q * (f1 - f0) / 4))
         return
     length = info[placed[a["inst"]]["part"]]["params"].get("length", 30) * MM
     key_marker_at(S @ Matrix.Translation(approach * 0.0015) @ Matrix.Translation(H.translation)
@@ -436,7 +492,9 @@ def key_action(a, off, clip=False, rs_clip=None):
             rs0, rs1 = (rs_clip if clip else (a["rs0"], a["rs1"]))
             key_staged(a["staged"], st, rs0, f0); key_staged(a["staged"], st, rs1, f1)
         return
-    if a["type"] in ("turn", "join") or (a["type"] in ("place", "fasten") and GROUP_OF[a["inst"]] and GROUP_OF[a["inst"]] not in a["st"]["joined"]):
+    if a["type"] == "note":
+        return
+    if a["type"] in ("turn", "join") or (a["type"] in ("place", "fasten", "tighten") and GROUP_OF[a["inst"]] and GROUP_OF[a["inst"]] not in a["st"]["joined"]):
         key_group_action(a, off, rs_clip[1] if clip and rs_clip else a["rs"], clip)
         return
     o = objs[a["inst"]]; pl = placed[a["inst"]]
@@ -445,7 +503,18 @@ def key_action(a, off, clip=False, rs_clip=None):
     if a["type"] == "place":
         if not a.get("base"):
             o.location = loc + approach * PLACE_TRAVEL; o.keyframe_insert("location", frame=f0)
+            if a.get("press"):                               # slide to the hole, then a firm push in
+                o.location = loc + approach * PRESS_DEPTH; o.keyframe_insert("location", frame=f1 - 8)
             o.location = loc; o.keyframe_insert("location", frame=f1)
+        return
+    if a["type"] == "tighten":
+        key_marker(a["inst"], f0, f1, approach)
+        quarters = 4
+        for q in range(quarters + 1):
+            o.rotation_quaternion = quat @ Quaternion((0, 0, 1), -math.pi / 2 * q)
+            o.keyframe_insert("rotation_quaternion", frame=f0 + round(q * (f1 - f0) / quarters))
+        o.rotation_quaternion = quat; o.keyframe_insert("rotation_quaternion", frame=f1 + 1)
+        o.location, o.rotation_quaternion = loc, quat
         return
     length = info[pl["part"]]["params"].get("length", 30) * MM
     key_marker(a["inst"], f0, f1, approach)
@@ -494,6 +563,8 @@ for sa in steps_actions:
     rs_clip = (sa["clip_before"], sa["clip_after"])
     if not any(a["type"] == "turn" and not a.get("group") for a in sa["acts"]):
         key_root(1, *sa["clip_after"])                       # every clip states the assembly's orientation
+        if sa["acts"]:                                       # and holds it to its last action (a note-only step)
+            key_root(max(a["f1"] for a in sa["acts"]), *sa["clip_after"])
     if any(a["type"] == "fasten" for a in sa["acts"]):
         marker.scale = HIDDEN; marker.keyframe_insert("scale", frame=1)
     acting = {a.get("inst") for a in sa["acts"]} | {i for a in sa["acts"] if a["type"] == "join" for i in subs[a["group"]]["instances"]} \
@@ -586,6 +657,9 @@ for sa, tl in zip(steps_actions, timeline):
     for a in sa["acts"]:
         item = {"type": "place" if a["type"] == "join" else a["type"], "text": a["text"],
                 "t0_s": round((a["f0"] - 1) / FPS, 3), "t1_s": round((a["f1"] - 1) / FPS, 3)}
+        if a["type"] == "note":
+            actions.append(item)
+            continue
         if a["type"] == "join":
             g = a["group"]
             item.update({"subassembly": g, "node": nodes[subs[g]["instances"][0]], "nodes": [nodes[i] for i in subs[g]["instances"]],
@@ -598,13 +672,13 @@ for sa, tl in zip(steps_actions, timeline):
                          "target_m": [round(v, 4) for v in pose_of(a["inst"], a["st"], sa["clip_after"]).translation],
                          "from_dir": list((pose_of(a["inst"], a["st"], sa["clip_after"]).to_3x3() @ HOME[a["inst"]].to_3x3().inverted()
                                            @ Vector(placed[a["inst"]]["approach"])).normalized())})
-            if a["type"] == "fasten":
+            if a["type"] in ("fasten", "tighten"):
                 item["code"] = pid
         elif a["type"] != "turn":
             pid = a["inst"].split("#")[0]
             item.update({"node": nodes[a["inst"]], "partId": pid, "target_m": target_of(a["inst"]),
                          "from_dir": placed[a["inst"]]["approach"]})
-            if a["type"] == "fasten":
+            if a["type"] in ("fasten", "tighten"):
                 item["code"] = pid
         else:
             item["rotation_deg"] = a["to"]
@@ -630,10 +704,10 @@ manifest = {
     "title": plan["title"], "guideId": plan.get("guide_id"), "glb": "walkthrough.glb", "units": "m", "fps": FPS,
     "rootNode": "assembly", "markerNode": "marker", "overall_mm": plan.get("overall_mm"),
     "walkthrough": {"clip": "walkthrough", "duration_s": round(TOTAL_FRAMES / FPS, 2), "steps": timeline},
-    "parts": [{"id": p["id"], "name": p["name"], "short": p.get("short", p["name"]), "count": p["count"], "cite": p["cite"],
+    "parts": [{"id": p["id"], "name": p["name"], "short": p.get("short", p["name"]), "names": names(p), "count": p["count"], "cite": p["cite"],
                "dimsEstimated": p.get("dims", {}).get("estimated", True),
                "nodes": [n for i, n in nodes.items() if i.split("#")[0] == p["id"]]} for p in plan["parts"]],
-    "hardware": [{"code": h["code"], "name": h["name"], "short": h.get("short", h["name"]), "kind": h["kind"], "count": h["count"], "cite": h["cite"],
+    "hardware": [{"code": h["code"], "name": h["name"], "short": h.get("short", h["name"]), "names": names(h), "kind": h["kind"], "count": h["count"], "cite": h["cite"],
                   "color": [round(c, 3) for c in MATERIALS[f"hw_{h['code']}"][0][:3]],
                   "nodes": [n for i, n in nodes.items() if i.split("#")[0] == h["code"]]} for h in plan["hardware"]],
     "steps": steps_out, "flags": plan.get("flags", []),
@@ -648,7 +722,8 @@ root.rotation_euler, root.location = (0, 0, 0), (0, 0, 0)
 bpy.ops.export_scene.gltf(
     filepath=str(out / "walkthrough.glb"), export_format="GLB", export_animations=True,
     export_animation_mode="NLA_TRACKS", export_merge_animation="NLA_TRACK", export_anim_slide_to_zero=True,
-    export_force_sampling=True, export_cameras=True, export_yup=True, export_extras=True, export_apply=False)
+    export_force_sampling=True, export_cameras=True, export_yup=True, export_extras=True, export_apply=False,
+    export_optimize_animation_keep_anim_object=True)       # a screw only turning, or a note-only step, keeps its channels
 
 
 def order_animations(path):

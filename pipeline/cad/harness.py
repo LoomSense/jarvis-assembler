@@ -65,6 +65,10 @@ def build_all(plan_path: Path, out: Path) -> dict:
     built = {}
     for kind, items, key in (("part", plan["parts"], "id"), ("hardware", plan["hardware"], "code")):
         for it in items:
+            if it.get("generate"):                                # drawn from the guide by an image-to-3D model
+                from pipeline.cad import generated
+                built[it[key]] = generated.build(plan_path, plan, it, out, kind)
+                continue
             args = (plan_path.parent / it["script"], it[key], out, kind, it.get("params"), plan.get("dims"))
             if os.environ.get("CAD_SANDBOX") == "1":             # scripts a model wrote: run each in the sandbox
                 from pipeline.cad import sandbox

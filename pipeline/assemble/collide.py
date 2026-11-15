@@ -23,6 +23,9 @@ MAX_OVERLAP_MM3 = 5.0
 def check(parts_dir: Path, placements: dict) -> list[dict]:
     solids, hits = {}, []
     parts = {k: v for k, v in placements["instances"].items() if v["kind"] == "part"}
+    generated = {p.stem.replace(".mates", "") for p in parts_dir.glob("*.mates.json")
+                 if json.loads(p.read_text()).get("source") == "generate"}
+    parts = {k: v for k, v in parts.items() if v["part"] not in generated}   # a generated mesh has no exact solid
     for inst, pl in parts.items():
         if pl["part"] not in solids:
             solids[pl["part"]] = cq.importers.importStep(str(parts_dir / f"{pl['part']}.step")).val()

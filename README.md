@@ -23,6 +23,21 @@ make tunnel    # public HTTPS URL for phones and the headset (cloudflared)
 
 `make smoke` prints a job id. Its files are under `jobs/<job_id>/` and at `/files/<job_id>/…`.
 
+## Try it (demo host on a Mac)
+
+The demo runs on one Mac (boxd sign-ups were closed): `deploy/mac_host.sh` in the `.demo-host/` worktree keeps it awake, serves `main`, and opens a public HTTPS URL. The URL is in `.demo-host/jobs/_host/url.txt`; the demo key is `DEMO_KEY` in `.env`. Update it to the latest `main` with `deploy/redeploy_mac.sh`.
+
+| What | Open |
+|---|---|
+| Phase 1 guide, KNAGGLIG box | `<URL>/?key=<KEY>&job=1115-0453-7ca85e` |
+| Phase 1 guide, MARKUS office chair | `<URL>/?key=<KEY>&job=1115-0505-4dcc90` |
+| Same in English | add `&lang=en` |
+| Quest 3 (Meta Quest Browser) | add `&mode=xr` |
+| Build a guide from a PDF | `eval/smoke.sh <URL> <KEY> <guide.pdf>`, or the upload screen at `/?mode=build` once it lands |
+| Live check without a camera | `eval/phase2/replay.py --job 1115-0453-7ca85e --step 6 --base http://127.0.0.1:8000 <frames folder>` |
+
+Known guides (KNAGGLIG, LACK side table, MARKUS) build in about a minute from their hand-checked or saved plans. Any other PDF needs the build agent: start the host with `AGJ_BUILD_AGENT=claude` (about 10 minutes and $2–3 per guide).
+
 ## Layout
 
 | Folder | What |
@@ -41,9 +56,9 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 
 | Method | Path | Request → Response |
 |---|---|---|
-| POST | `/api/jobs` | multipart `file=guide.pdf` → `{job_id, stage: "ingesting"}` |
+| POST | `/api/jobs` | multipart `file=guide.pdf`, or photos of the pages as repeated `pages` (JPEG, PNG, WebP; in page order; one photo may go in `file`), optional `size` ("62 x 60 x 135 cm") → `{job_id, stage: "ingesting"}`; 413 too large, 415 not a PDF/image, 422 PDF and photos mixed or over 60 photos |
 | GET | `/api/jobs` | → `{jobs: [...]}`, newest first |
-| GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title}` |
+| GET | `/api/jobs/{id}` | → `{job_id, stage, status, progress, error?, last_seq, title, source}` (`source`: `pdf` or `photos`) |
 | GET | `/api/jobs/{id}/events` | SSE stream of events; resumes from `Last-Event-ID` or `?since=<seq>` |
 | GET | `/api/jobs/{id}/events/poll?since=<seq>&wait=20` | → `{events: [...], last_seq}`; long-poll fallback for the stream above |
 | GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
@@ -52,6 +67,8 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/files/{id}/{path}` | a file from the job folder: `walkthrough.glb`, `manifest.json`, `pages/…`, `renders/…`, `refs/…` |
 | POST | `/api/live/token` | `{job_id}` → `{token, expires_at, model, api_version}` (one per 10 s per address) |
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
+
+**Photo uploads.** Without a PDF, a person can photograph the paper guide: `server/photos.py` turns each photo upright, finds and flattens the page, cleans it to black on white and writes them as `guide.pdf` (one page per photo, ≤ 60 photos, ≤ 25 MB each), keeping the originals in `photos/page-001.jpg` …; the rest of the pipeline is unchanged.
 
 **Job state.** `stage` is one of `ingest`, `extract_plan`, `await_approval`, `parts`, `place`, `steps`, `refs`, `export`, `done`. `status` is one of `queued`, `running`, `waiting_approval`, `done`, `error`. The same stage names appear in every event and in `retry`.
 

@@ -1,0 +1,859 @@
+{
+ "title": "MARKUS office chair",
+ "guide_id": "AA-251870-22",
+ "units": "mm",
+ "overall_mm": {
+  "L": 620,
+  "W": 600,
+  "H": 1290
+ },
+ "cover_view_az_el_deg": [
+  -120,
+  18
+ ],
+ "dims": {
+  "mx": 85,
+  "my_f": -130,
+  "my_r": 125,
+  "recv_y": 265,
+  "arm_y_a": -120,
+  "arm_y_b": 60,
+  "arm_z": 35
+ },
+ "parts": [
+  {
+   "id": "star_base",
+   "name": "Five-star base",
+   "short": "star base",
+   "el": "τη βάση με τα πέντε πόδια",
+   "el_pron": "την",
+   "count": 1,
+   "script": "parts/star_base.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": null,
+    "note": "step 1, lying upside down on a rug"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "about 66 cm across, scaled from the 62 cm chair width"
+   }
+  },
+  {
+   "id": "caster",
+   "name": "Twin-wheel caster 10049021",
+   "short": "caster",
+   "el": "τη ροδίτσα",
+   "el_pron": "την",
+   "count": 5,
+   "script": "parts/caster.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 3,
+    "label": "10049021",
+    "note": "5x in the parts list; pressed in at step 1"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "50 mm wheels, common size"
+   }
+  },
+  {
+   "id": "gas_lift",
+   "name": "Gas lift",
+   "short": "gas lift",
+   "el": "το αμορτισέρ αερίου",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/gas_lift.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "steps 2-3"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "sized so the seat sits about 46 cm above the floor"
+   }
+  },
+  {
+   "id": "seat",
+   "name": "Upholstered seat",
+   "short": "seat",
+   "el": "το κάθισμα",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/seat.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 4, lying upside down"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "50 x 48 cm, scaled from the overall size"
+   }
+  },
+  {
+   "id": "tilt_mechanism",
+   "name": "Tilt mechanism with levers and backrest receiver",
+   "short": "tilt mechanism",
+   "el": "τον μηχανισμό ανάκλισης",
+   "el_pron": "τον",
+   "count": 1,
+   "script": "parts/tilt_mechanism.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 4, set on the upturned seat"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the seat in the drawing"
+   }
+  },
+  {
+   "id": "backrest",
+   "name": "High backrest with headrest and mounting bar (pre-assembled)",
+   "short": "backrest",
+   "el": "την πλάτη",
+   "el_pron": "την",
+   "count": 1,
+   "script": "parts/backrest.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 12,
+    "label": null,
+    "note": "step 7, its bar slides down into the receiver"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "top of the headrest about 129 cm above the floor"
+   }
+  },
+  {
+   "id": "armrest",
+   "name": "Armrest",
+   "short": "armrest",
+   "el": "το μπράτσο",
+   "el_pron": "το",
+   "count": 2,
+   "script": "parts/armrest.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 15,
+    "label": null,
+    "note": "step 11, one on each side of the seat"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the cover drawing"
+   }
+  }
+ ],
+ "hardware": [
+  {
+   "code": "122134",
+   "kind": "screw",
+   "name": "M6 button-head screw 122134 / 10005843",
+   "short": "button-head screw",
+   "el": "βίδα με στρογγυλή κεφαλή",
+   "count": 6,
+   "script": "parts/screw_122134.py",
+   "params": {
+    "length": 30,
+    "shank_d": 6,
+    "head_d": 13,
+    "head_h": 3.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 3,
+    "label": "122134"
+   }
+  },
+  {
+   "code": "115994",
+   "kind": "screw",
+   "name": "M8 flange bolt 115994",
+   "short": "flange bolt",
+   "el": "βίδα με φλάντζα",
+   "count": 5,
+   "script": "parts/screw_115994.py",
+   "params": {
+    "length": 16,
+    "shank_d": 8,
+    "flange_d": 17,
+    "hex_d": 13,
+    "head_h": 7
+   },
+   "material": "steel",
+   "cite": {
+    "page": 3,
+    "label": "115994"
+   }
+  }
+ ],
+ "subassemblies": [
+  {
+   "id": "seat_unit",
+   "name": "Seat with tilt mechanism and backrest",
+   "short": "seat with backrest",
+   "el": "το κάθισμα με την πλάτη",
+   "el_pron": "το"
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Press the five casters into the upturned star base",
+   "cite": {
+    "page": 4,
+    "label": "1"
+   },
+   "add": [
+    {
+     "instance": "star_base#1",
+     "base": true
+    },
+    {
+     "instance": "caster#1",
+     "press": true,
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "star_base#1.caster_1"
+      },
+      {
+       "moving": "top_b",
+       "fixed": "star_base#1.caster_1_b"
+      }
+     ]
+    },
+    {
+     "instance": "caster#2",
+     "press": true,
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "star_base#1.caster_2"
+      },
+      {
+       "moving": "top_b",
+       "fixed": "star_base#1.caster_2_b"
+      }
+     ]
+    },
+    {
+     "instance": "caster#3",
+     "press": true,
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "star_base#1.caster_3"
+      },
+      {
+       "moving": "top_b",
+       "fixed": "star_base#1.caster_3_b"
+      }
+     ]
+    },
+    {
+     "instance": "caster#4",
+     "press": true,
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "star_base#1.caster_4"
+      },
+      {
+       "moving": "top_b",
+       "fixed": "star_base#1.caster_4_b"
+      }
+     ]
+    },
+    {
+     "instance": "caster#5",
+     "press": true,
+     "mates": [
+      {
+       "moving": "top",
+       "fixed": "star_base#1.caster_5"
+      },
+      {
+       "moving": "top_b",
+       "fixed": "star_base#1.caster_5_b"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "star_base",
+    "caster"
+   ],
+   "hardware_used": {},
+   "notes": [
+    {
+     "en": "Work on a soft surface. Push each caster straight in until it clicks; do not push it in at an angle.",
+     "el": "Δούλεψε σε μαλακή επιφάνεια. Σπρώξε κάθε ροδίτσα ίσια μέσα μέχρι να κάνει κλικ· μην τη σπρώχνεις λοξά."
+    }
+   ],
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -110,
+    35
+   ]
+  },
+  {
+   "n": 2,
+   "title": "Pull the protective cap off the top of the gas lift",
+   "cite": {
+    "page": 5,
+    "label": "2"
+   },
+   "add": [],
+   "parts_added": [],
+   "hardware_used": {},
+   "notes": [
+    {
+     "en": "Pull the grey protective cap off the top of the gas lift and recycle it.",
+     "el": "Τράβηξε το γκρι προστατευτικό καπάκι από την κορυφή του αμορτισέρ αερίου και ανακύκλωσέ το."
+    }
+   ],
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -110,
+    35
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Turn the base onto its casters and push the gas lift into the hub",
+   "cite": {
+    "page": 5,
+    "label": "3"
+   },
+   "add": [
+    {
+     "instance": "gas_lift#1",
+     "press": true,
+     "mates": [
+      {
+       "moving": "foot_a",
+       "fixed": "star_base#1.lift_a"
+      },
+      {
+       "moving": "foot_b",
+       "fixed": "star_base#1.lift_b"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "gas_lift"
+   ],
+   "hardware_used": {},
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the base over so it stands on its casters.",
+    "el": "Γύρισε τη βάση ανάποδα ώστε να στέκεται στις ροδίτσες της."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -110,
+    22
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Fasten the front of the tilt mechanism to the upturned seat",
+   "cite": {
+    "page": 6,
+    "label": "4"
+   },
+   "subassembly": "seat_unit",
+   "add": [
+    {
+     "instance": "seat#1",
+     "into": "seat_unit",
+     "base": true
+    },
+    {
+     "instance": "tilt_mechanism#1",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat_front_L",
+       "fixed": "seat#1.mech_front_L"
+      },
+      {
+       "moving": "seat_front_R",
+       "fixed": "seat#1.mech_front_R"
+      },
+      {
+       "moving": "seat_rear_R",
+       "fixed": "seat#1.mech_rear_R"
+      }
+     ]
+    },
+    {
+     "instance": "115994#1",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "tilt_mechanism#1.scr_front_L"
+      }
+     ]
+    },
+    {
+     "instance": "115994#2",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "tilt_mechanism#1.scr_front_R"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "seat",
+    "tilt_mechanism"
+   ],
+   "hardware_used": {
+    "115994": 2
+   },
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "notes": [
+    {
+     "en": "Screw the bolts in only loosely for now; the flange must sit flat, teeth down.",
+     "el": "Βίδωσε τις βίδες χαλαρά προς το παρόν· η φλάντζα πρέπει να κάθεται επίπεδη, με τα δόντια προς τα κάτω."
+    }
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -120,
+    40
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Fasten the rear of the tilt mechanism to the seat",
+   "cite": {
+    "page": 10,
+    "label": "5"
+   },
+   "subassembly": "seat_unit",
+   "add": [
+    {
+     "instance": "122134#1",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "tilt_mechanism#1.scr_rear_L"
+      }
+     ]
+    },
+    {
+     "instance": "122134#2",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "tilt_mechanism#1.scr_rear_R"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "122134": 2
+   },
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -120,
+    40
+   ]
+  },
+  {
+   "n": 6,
+   "title": "Tighten the four screws of the tilt mechanism",
+   "cite": {
+    "page": 11,
+    "label": "6"
+   },
+   "subassembly": "seat_unit",
+   "add": [],
+   "tighten": [
+    "115994#1",
+    "115994#2",
+    "122134#1",
+    "122134#2"
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "pose": "upside down",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -120,
+    40
+   ]
+  },
+  {
+   "n": 7,
+   "title": "Turn the seat over and slide the backrest bar down into the receiver",
+   "cite": {
+    "page": 12,
+    "label": "7"
+   },
+   "subassembly": "seat_unit",
+   "add": [
+    {
+     "instance": "backrest#1",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "mount_a",
+       "fixed": "tilt_mechanism#1.recv_a"
+      },
+      {
+       "moving": "mount_b",
+       "fixed": "tilt_mechanism#1.recv_b"
+      },
+      {
+       "moving": "mount_c",
+       "fixed": "tilt_mechanism#1.recv_c"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "backrest"
+   ],
+   "hardware_used": {},
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the seat the right way up.",
+    "el": "Γύρισε το κάθισμα στη σωστή του θέση."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    40,
+    20
+   ]
+  },
+  {
+   "n": 8,
+   "title": "Screw the backrest bar to the receiver from behind",
+   "cite": {
+    "page": 12,
+    "label": "8"
+   },
+   "subassembly": "seat_unit",
+   "add": [
+    {
+     "instance": "115994#3",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "backrest#1.scr_a"
+      }
+     ]
+    },
+    {
+     "instance": "115994#4",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "backrest#1.scr_b"
+      }
+     ]
+    },
+    {
+     "instance": "115994#5",
+     "into": "seat_unit",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "backrest#1.scr_c"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {
+    "115994": 3
+   },
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    50,
+    10
+   ]
+  },
+  {
+   "n": 9,
+   "title": "Tighten the three bolts of the backrest bar",
+   "cite": {
+    "page": 13,
+    "label": "9"
+   },
+   "subassembly": "seat_unit",
+   "add": [],
+   "tighten": [
+    "115994#3",
+    "115994#4",
+    "115994#5"
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    50,
+    10
+   ]
+  },
+  {
+   "n": 10,
+   "title": "Lower the seat with backrest onto the gas lift (two people)",
+   "cite": {
+    "page": 14,
+    "label": "10"
+   },
+   "add": [
+    {
+     "subassembly": "seat_unit",
+     "mates": [
+      {
+       "moving": "tilt_mechanism#1.socket_a",
+       "fixed": "gas_lift#1.top_a"
+      },
+      {
+       "moving": "tilt_mechanism#1.socket_b",
+       "fixed": "gas_lift#1.top_b"
+      }
+     ]
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "notes": [
+    {
+     "en": "This needs two people: lift the seat by its sides and lower it straight onto the gas lift.",
+     "el": "Χρειάζονται δύο άτομα: σηκώστε το κάθισμα από τα πλάγια και κατεβάστε το ίσια πάνω στο αμορτισέρ."
+    }
+   ],
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -90,
+    15
+   ]
+  },
+  {
+   "n": 11,
+   "title": "Screw the armrests to the sides of the seat",
+   "cite": {
+    "page": 15,
+    "label": "11"
+   },
+   "add": [
+    {
+     "instance": "armrest#1",
+     "mates": [
+      {
+       "moving": "side_m_a",
+       "fixed": "seat#1.arm_R_a"
+      },
+      {
+       "moving": "side_m_b",
+       "fixed": "seat#1.arm_R_b"
+      }
+     ]
+    },
+    {
+     "instance": "armrest#2",
+     "mates": [
+      {
+       "moving": "side_p_a",
+       "fixed": "seat#1.arm_L_a"
+      },
+      {
+       "moving": "side_p_b",
+       "fixed": "seat#1.arm_L_b"
+      }
+     ]
+    },
+    {
+     "instance": "122134#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "armrest#1.side_p_a"
+      }
+     ]
+    },
+    {
+     "instance": "122134#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "armrest#1.side_p_b"
+      }
+     ]
+    },
+    {
+     "instance": "122134#5",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "armrest#2.side_m_a"
+      }
+     ]
+    },
+    {
+     "instance": "122134#6",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "armrest#2.side_m_b"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "armrest"
+   ],
+   "hardware_used": {
+    "122134": 4
+   },
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -120,
+    18
+   ]
+  }
+ ],
+ "final_turn_text": {
+  "en": "The chair is ready. Stand it on its casters.",
+  "el": "Η καρέκλα είναι έτοιμη. Στήσε την πάνω στις ροδίτσες της."
+ },
+ "flags": [
+  {
+   "ref": "hardware:124345",
+   "kind": "tool_not_modelled",
+   "message": "Allen key 124345 (1x in the parts list) is a tool, not part of the chair, so it is not placed in any step."
+  },
+  {
+   "ref": "part:tilt_mechanism",
+   "kind": "unclear_drawing",
+   "message": "Step 4 shows the mechanism already lying on the upturned seat with no arrow; read as: set the loose mechanism on the seat, then bolt it. If it ships pre-mounted, steps 4-6 only add screws."
+  },
+  {
+   "ref": "step:4",
+   "kind": "unclear_drawing",
+   "message": "Front/rear of the mechanism read from the tension knob and backrest receiver (rear) and the gas-lift socket and height lever (front): the 115994 flange bolts go in front, the 122134 screws at the rear (step 5)."
+  },
+  {
+   "ref": "part:tilt_mechanism",
+   "kind": "approximate_shape",
+   "message": "Moulded mechanism simplified to a plate, a body, a socket boss, two rod levers with paddles, a turned tension knob and a box receiver arm."
+  },
+  {
+   "ref": "part:backrest",
+   "kind": "approximate_shape",
+   "message": "Backrest drawn as a straight padded panel with a narrower waist and a separate headrest pad; the real back curves and tapers. The mounting bar is a straight flat bar with a bracket plate."
+  },
+  {
+   "ref": "part:armrest",
+   "kind": "approximate_shape",
+   "message": "Armrest loop modelled as a round bar loop with a padded top and a flat foot bar along the seat side; the same piece is used left and right."
+  },
+  {
+   "ref": "part:caster",
+   "kind": "modelled_as_part",
+   "message": "Casters 10049021 are listed with the hardware in the guide but are modelled as parts (pressed in) so they are checked for fit."
+  },
+  {
+   "ref": "plan:materials",
+   "kind": "material_limit",
+   "message": "Only pine or steel can be chosen: upholstered seat, backrest and armrests are marked pine; they are really foam, fabric and plastic."
+  }
+ ],
+ "guide": "eval/guides/ikea/markus-office-chair__AA-251870-22.pdf"
+}

@@ -53,7 +53,7 @@ for f in range(1, s.frame_end + 1, fstep):
     if cur != si:
         cur, z, shift = si, 0.0, Vector((0, 0, 0))
     want_z, want_shift = 0.0, Vector((0, 0, 0))
-    if act and act["type"] == "fasten":
+    if act and act["type"] in ("fasten", "tighten"):
         want_z = 1.0
         want_shift = (root.matrix_world @ Vector(act["target_m"])) - Vector(st["camera"]["target"])
     z += (want_z - z) * EASE

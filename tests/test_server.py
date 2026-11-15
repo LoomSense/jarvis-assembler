@@ -105,6 +105,13 @@ def test_healthz_says_little_without_the_key(client):
     assert {"ok", "blender_version", "cadquery_ok", "job_running"} <= set(full)
 
 
+def test_upload_keeps_the_typed_size_for_the_agent(client, tmp_path):
+    r = client.post("/api/jobs", files={"file": ("g.pdf", GOLDEN.read_bytes(), "application/pdf")},
+                    data={"size": "46 x 31 x 25 cm"})
+    facts = (tmp_path / "jobs" / r.json()["job_id"] / "facts.txt").read_text()
+    assert "46 x 31 x 25 cm" in facts
+
+
 def test_upload_must_be_a_pdf(client):
     assert upload(client, b"GIF89a not a pdf").status_code == 415
     assert client.get("/api/jobs").json()["jobs"] == []
