@@ -16,6 +16,7 @@
     "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
+    "jsqr": "1.4.0",
     "three": "0.187.0"
   },
   "devDependencies": {

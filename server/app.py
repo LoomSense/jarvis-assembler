@@ -20,6 +20,7 @@ from server.auth import KeyGate, has_key, hide_key_in_logs
 from server.jobs import JobStore
 from server.orchestrator import Orchestrator
 from server.orchestrator.stages import STAGES
+from server.routes import agents as agent_routes
 from server.routes import ask as ask_routes
 from server.routes import catalog as catalog_routes
 from server.routes import diag as diag_routes
@@ -150,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(tts_routes.router)
     app.include_router(voice_routes.router)             # POST /api/voice/{id}: hands-free commands and questions
     app.include_router(identify_routes.router)          # POST /api/identify: which product the camera sees
+    app.include_router(agent_routes.router)            # /llms.txt and /api/openapi.json, for other agents and scripts
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     app.include_router(panel_routes.router)            # POST /api/perception/{id}/panel: drawer front on the table
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)

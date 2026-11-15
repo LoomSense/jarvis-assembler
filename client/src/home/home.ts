@@ -466,23 +466,26 @@ export function startHome(app: HTMLElement): void {
   })
 
   // ------------------------------------------------------------------ opening a guide
-  const openByText = async (text: string) => {
-    if (!text) return
+  /** True when a guide opens (or its build starts); false when the person stays on this screen with a message. */
+  const openByText = async (text: string): Promise<boolean> => {
+    if (!text) return false
     say(w().looking)
     $('.scanline').textContent = w().looking
     try {
       const res = await apiFetch('/api/catalog/open', key, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: text }),
       })
-      if (res.status === 409) { $('.scanline').textContent = w().several; say(w().several); dim(text); return }
-      if (res.status === 404 || res.status === 422) { $('.scanline').textContent = w().notFound; say(w().notFound); return }
+      if (res.status === 409) { $('.scanline').textContent = w().several; say(w().several); dim(text); return false }
+      if (res.status === 404 || res.status === 422) { $('.scanline').textContent = w().notFound; say(w().notFound); return false }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { job_id: string; ready: boolean }
       if (body.ready) void showReady(body.job_id, null)
-      else location.assign(link({ mode: 'build', job: body.job_id })) // not built yet: watch it being built
+      else location.assign(link({ mode: 'build', job: body.job_id, auto: '1' })) // not built yet: watch it being built; a scanned guide needs no approval tap, and opens by itself
+      return true
     } catch {
       $('.scanline').textContent = w().offline
       say(w().offline)
+      return false
     }
   }
   const open = async (item: Item) => {
@@ -495,6 +498,32 @@ export function startHome(app: HTMLElement): void {
   let stream: MediaStream | null = null
   type Detector = { detect(src: CanvasImageSource): Promise<{ rawValue: string }[]> }
   const BD = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector
+  // Chrome on Android has BarcodeDetector. Safari on an iPhone does not: there the QR code is read from the video
+  // frame by jsQR (QR codes only, loaded when needed). Barcodes can still be typed.
+  const makeDetector = async (): Promise<Detector | null> => {
+    if (BD) return new BD({ formats: ['qr_code', 'code_128', 'ean_13', 'ean_8', 'upc_a'] })
+    try {
+      const { default: jsQR } = await import('jsqr')
+      const canvas = document.createElement('canvas')
+      const g = canvas.getContext('2d', { willReadFrequently: true })
+      if (!g) return null
+      return {
+        detect: async (src) => {
+          const v = src as HTMLVideoElement
+          if (!v.videoWidth) return []
+          const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight)) // enough for a code held in front of the phone
+          canvas.width = Math.round(v.videoWidth * k)
+          canvas.height = Math.round(v.videoHeight * k)
+          g.drawImage(v, 0, 0, canvas.width, canvas.height)
+          const d = g.getImageData(0, 0, canvas.width, canvas.height)
+          const hit = jsQR(d.data, d.width, d.height)
+          return hit?.data ? [{ rawValue: hit.data }] : []
+        },
+      }
+    } catch {
+      return null
+    }
+  }
   const stopCamera = () => {
     stream?.getTracks().forEach((t) => t.stop())
     stream = null
@@ -506,16 +535,18 @@ export function startHome(app: HTMLElement): void {
     setScreen('scan')
     cameraOn = false
     words()
-    if (!BD || !navigator.mediaDevices?.getUserMedia) { $<HTMLInputElement>('#home-code').focus(); return }
+    const detector = 'mediaDevices' in navigator && navigator.mediaDevices ? await makeDetector() : null
+    if (my !== run) return
+    if (!detector) { $<HTMLInputElement>('#home-code').focus(); return }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
       if (my !== run) return stopCamera()
+      let missed = ''
       const video = $<HTMLVideoElement>('.cam video')
       video.srcObject = stream
       await video.play()
       cameraOn = true
       words()
-      const detector = new BD({ formats: ['qr_code', 'code_128', 'ean_13', 'ean_8', 'upc_a'] })
       while (my === run && cameraOn) {
         const found = await detector.detect(video).catch(() => [])
         const value = found[0]?.rawValue?.trim()
@@ -523,7 +554,12 @@ export function startHome(app: HTMLElement): void {
           $('.cam').classList.add('found')
           const fromUrl = (() => { try { return new URL(value).searchParams.get('job') } catch { return null } })()
           if (fromUrl) return void showReady(fromUrl, null) // a QR of one of our own links
-          return void openByText(value)
+          if (value !== missed && (await openByText(value))) return
+          // no guide for this code: keep the message on screen, then look again (the same code is not asked twice)
+          missed = value
+          await new Promise((r) => setTimeout(r, 2500))
+          if (my !== run) return
+          $('.cam').classList.remove('found')
         }
         await new Promise((r) => setTimeout(r, 250))
       }

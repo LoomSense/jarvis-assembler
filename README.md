@@ -121,6 +121,8 @@ Settings: `AGJ_BASE_URL` (default `http://127.0.0.1:8000`) and `AGJ_DEMO_KEY` (e
 
 | Tool | What it does |
 |---|---|
+| `find_guide(query, size?)` | From what is on the box (product name, article number, barcode, the link of a QR code): opens a ready guide, or finds the PDF and starts the build; lists the choices when several match |
+| `search_guides(query?)` | Searches the catalog without starting anything |
 | `create_guide(pdf_path, size?)` | Uploads a local PDF guide; returns `job_id` |
 | `guide_status(job_id)` | Stage, status, progress, error, and what to do next |
 | `wait_for_guide(job_id, until="approval"\|"done", timeout_s=900)` | Long-polls the events until the plan needs approval, the walkthrough is done, or the job fails |
@@ -129,8 +131,25 @@ Settings: `AGJ_BASE_URL` (default `http://127.0.0.1:8000`) and `AGJ_DEMO_KEY` (e
 | `get_steps(job_id, lang="en"\|"el")` | Per step: title, guide page, parts, hardware, action sentences, check score, render and crop links |
 | `guide_links(job_id)` | Phone and headset (`&mode=xr`) links for the person |
 | `list_guides()` | All jobs, newest first (and the catalog when the backend has one) |
+| `ask_guide(job_id, step, question, lang="en"\|"el")` | A short answer about one step of a finished guide |
 
 Resource: `guide://{job_id}/manifest` is a finished job's `manifest.json`. File links carry `?key=` only when the backend is local; otherwise they are paths.
+
+## Use it from a shell (command line)
+
+`server/cli.py` is the same client as the MCP server, for scripts and for agents that run shell commands. Every command prints one JSON object on stdout and exits 0; a failure prints `{"error": "..."}` on stderr and exits 1. Settings: `AGJ_BASE_URL`, `AGJ_DEMO_KEY`.
+
+```sh
+python -m server.cli find "KNAGGLIG" --wait      # name, article number, barcode or link → steps and links
+python -m server.cli build guide.pdf --wait      # a PDF on disk → steps and links (approves the plan on the way)
+python -m server.cli search chair                # also: list, status, wait, plan, approve, steps, links, ask
+python -m server.cli ask <job_id> 3 "which screw goes here?"
+```
+
+## For other agents (HTTP)
+
+- `GET /llms.txt` (no key): what the service does and the shortest way to call it, in plain text.
+- `GET /api/openapi.json` (with the key): every route with its request and response fields. The interactive `/docs` page is off.
 
 ## How a job runs
 

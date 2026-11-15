@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -63,15 +64,22 @@ async def ingest(ctx: Ctx) -> dict:
     return res
 
 
+def known_first(ctx: Ctx) -> bool:
+    """AGJ_KNOWN_FIRST=1: a guide that has a hand-checked plan uses it even when the build agent is on. The agent
+    needs minutes for a guide (KNAGGLIG: more than 8), the checked plan about one, so a person who scans a known
+    product is not kept waiting. Off by default: the agent then reads every guide afresh."""
+    return bool(ctx.golden) and os.environ.get("AGJ_KNOWN_FIRST") == "1"
+
+
 async def extract_plan(ctx: Ctx) -> dict:
     job = ctx.job
     extract = hook("pipeline.agent.extract", "extract_plan")
-    if extract:
+    if extract and not known_first(ctx):
         await extract(job.dir, ctx.emit)
     elif ctx.golden:
         shutil.copyfile(ctx.golden / "plan.json", job.plan)
         ctx.emit("thought", f"This guide is a known one: using its hand-checked plan ({ctx.golden.name}), "
-                            "not a fresh extraction.", level="warn")
+                            "not a fresh extraction.", level="info" if extract else "warn")
     else:
         raise StageError("Reading a new guide is not connected yet (task AGT-02). "
                          "Only the known test guides can be built for now.")
@@ -95,7 +103,7 @@ async def parts(ctx: Ctx) -> dict:
     job = ctx.job
     plan = json.loads(job.approved_plan.read_text())
     build = hook("pipeline.agent.parts", "build_parts")
-    if build:
+    if build and not known_first(ctx):
         await build(job.dir, ctx.emit)
     scripts = [it["script"] for it in plan["parts"] + plan["hardware"] if it.get("script")]
     n_generated = sum(1 for it in plan["parts"] + plan["hardware"] if it.get("generate"))
