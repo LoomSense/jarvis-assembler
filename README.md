@@ -4,11 +4,18 @@
 
 <https://agj.boxd.sh>
 
-**Who it's for.** Anyone who buys flat-pack furniture and builds it at home. And the shops that sell it, who take the calls when a build goes wrong.
+**Who it's for**
 
-**The problem.** Paper guides are drawings with no words. They cannot tell you which of two look-alike boards you are holding or which way round it goes, so you find the mistake three steps later and take it all apart.
+- Anyone who buys flat-pack furniture and builds it at home.
+- The shops that sell it, who take the calls when a build goes wrong.
 
-**Our solution.** Scan the box and an AI agent rebuilds the guide as a 3D film, one move at a time. Then your phone or a Quest 3 watches the real build, shows where each part goes, and warns you before the mistake.
+**The problem**
+
+You need three hours to build one drawer, because the guide is all drawings and not a single word. It will not tell you which of two look-alike boards you are holding, or which way round it goes. You find out three steps later, with the screwdriver still in your hand.
+
+**Our solution**
+
+Give it one of four things: the code on the box, a photo of the box, the product name, or the PDF guide. An AI agent rebuilds the furniture in 3D, one move at a time, so you can see what you are building before you touch a screw. The same 3D model is what the phone and the headset use to follow your real build and check each part.
 
 ![The phone flow: home, find the guide, the 3D build, the ready guide, a step, build with help](docs/img/phone-flow.jpg)
 
