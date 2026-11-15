@@ -1113,3 +1113,8 @@
     opacity: 1;
   }
 }
+
+/* the part that has just been built, turning in its row (src/build/partview.ts) */
+#feed .partview { flex-basis: 100%; width: 168px; margin: 10px 0 4px; display: grid; justify-items: center; gap: 4px; }
+#feed .partview canvas { width: 168px; height: 168px; display: block; border: 1px solid var(--ag-border-strong); border-radius: 14px; background: var(--ag-surface-2, transparent); }
+#feed .partview code { font-size: 12px; color: var(--ag-text-meta); }
