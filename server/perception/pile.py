@@ -1,7 +1,8 @@
 """Find the part in the pile: where, in one camera picture, the parts and hardware the person must pick up next lie.
 
     items(guide, want)                   the wanted parts and hardware, with names, counts, sizes and reference renders
-    find(guide, jpeg, wanted, lang)      one `gemini-4-hydrogen` vision call per 6 items (in parallel when more)
+    find(guide, jpeg, wanted, lang)      one `gemini-4-hydrogen` vision call per 6 items (in parallel when more; in
+                                         step mode panels and hardware go in separate calls, at the same time)
     simulated(guide, wanted, lang)       the same answer shape with no model call (no key, or PERCEPTION_SIMULATE)
 
 The model sees the camera picture, then one labelled reference render per wanted item (`renders/part-<id>-shaded.png`,
@@ -25,7 +26,7 @@ import json
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -50,7 +51,14 @@ WHITE = 245                          # the renders' background is white: brighte
 SIM_BOX = [350, 350, 650, 650]
 MODES = ("pick", "step")            # pick: one box per item (the default). step: also every instance and how many
 MAX_BOXES = 12                       # per item, in step mode
-_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pile")
+SPLIT_KINDS = True                   # step mode: panels and hardware go in separate requests, sent at the same time
+#                                      (one request for a panel and a hardware code thought 1000-1500 tokens and took
+#                                      7.3-10.6 s on real frames; one item alone 225-460 tokens and 4.6-4.9 s)
+HEDGE_AFTER_S = 6.0                  # a request without an answer after this long is sent a second time and the
+#                                      first answer wins (the same request took 4.5 s or 20 s, real frames). 0: off
+HEDGE_LOOKALIKE = 2.0                # ...times this for a request that carries look-alikes (7.8-12.1 s, never stuck)
+_pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="pile")            # the requests of one /parts call
+_calls = ThreadPoolExecutor(max_workers=12, thread_name_prefix="pile-call")     # the model calls and their second tries
 
 SCHEMA_ITEM = {
     "type": "OBJECT",
@@ -449,10 +457,53 @@ def answer(cat: dict[str, Item], wanted: list[str], seen: dict[str, dict], lang:
     return out
 
 
+def _generate(parts: list, schema: dict) -> str:
+    return gemini.generate(MODEL, parts, timeout=TIMEOUT_S, thinking_budget=THINKING, schema=schema)
+
+
+def _ask(parts: list, schema: dict, patience: float = 1.0) -> str:
+    """The model's text. A request still unanswered after HEDGE_AFTER_S (times `patience`) is sent a second time; the
+    first answer wins and the other is dropped. A request that fails before that is not repeated."""
+    if not HEDGE_AFTER_S or HEDGE_AFTER_S <= 0:
+        return _generate(parts, schema)
+    wait_s = HEDGE_AFTER_S * patience
+    first = _calls.submit(_generate, parts, schema)
+    try:
+        return first.result(timeout=wait_s)
+    except FutureTimeout:
+        if first.done():             # the call's own timeout, not the wait's
+            raise
+    log.info("pile: no answer after %.1f s, asking a second time", wait_s)
+    error: BaseException | None = None
+    for done in as_completed([first, _calls.submit(_generate, parts, schema)]):
+        try:
+            return done.result()
+        except Exception as e:       # noqa: BLE001  the other request may still answer
+            error = error or e
+    raise error
+
+
+def action_item(guide: Guide, step: int | None, action: int | None) -> str | None:
+    """What action `action` of step `step` picks up (the part it places, the hardware it fastens), or None."""
+    if step is None or action is None or isinstance(action, bool) or guide.step(step) is None:
+        return None
+    return guide.expect(step, action).action_id
+
+
+def chunks(cat: dict[str, Item], wanted: list[str], mode: str = "pick") -> list[list[str]]:
+    """The wanted items of each model request, at most PER_CALL in one. In step mode the panels and the hardware are
+    asked for in separate requests: look-alikes are always of one kind, so they stay in one request."""
+    groups = [wanted]
+    if mode == "step" and SPLIT_KINDS:
+        groups = [[w for w in wanted if cat[w].kind == kind] for kind in ("part", "hardware")]
+    return [g[i:i + PER_CALL] for g in groups for i in range(0, len(g), PER_CALL)]
+
+
 def _call(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str], mode: str = "pick") -> dict[str, dict]:
     parts, schema = request(guide, cat, frame, wanted, mode)
     try:
-        raw = json.loads(gemini.generate(MODEL, parts, timeout=TIMEOUT_S, thinking_budget=THINKING, schema=schema))
+        # telling a part from its mirror twin or a screw from the other length takes the model 8-12 s when all is well
+        raw = json.loads(_ask(parts, schema, HEDGE_LOOKALIKE if lookalikes(cat, wanted) else 1.0))
     except json.JSONDecodeError:
         raise RuntimeError("the model returned no usable JSON") from None
     except OSError as e:
@@ -470,11 +521,11 @@ def find(guide: Guide, jpeg: bytes, wanted: list[str], lang: str = "en", step: i
     seen: dict[str, dict] = {}
     if wanted:
         frame = _frame(jpeg)
-        chunks = [wanted[i:i + PER_CALL] for i in range(0, len(wanted), PER_CALL)]
-        if len(chunks) == 1:
-            seen = _call(guide, cat, frame, chunks[0], mode)
+        asked = chunks(cat, wanted, mode)
+        if len(asked) == 1:
+            seen = _call(guide, cat, frame, asked[0], mode)
         else:
-            for got in _pool.map(lambda c: _call(guide, cat, frame, c, mode), chunks):
+            for got in _pool.map(lambda c: _call(guide, cat, frame, c, mode), asked):
                 seen.update(got)
     out = answer(cat, wanted, seen, lang, step, guide, mode)
     out["latency_ms"] = round((time.perf_counter() - t0) * 1000)
