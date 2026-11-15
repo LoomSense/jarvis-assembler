@@ -772,7 +772,7 @@ class PanelPoseTracker(
   @Volatile var latest: Pose3? = null
     private set
 
-  /** The job shown now; the tracker runs only for [PanelFrames.MALM_JOB]. */
+  /** The job shown now; the tracker runs for any job whose current step has a target ([setStep]). */
   fun setJob(jobId: String?) {
     if (jobId != job) {
       job = jobId
@@ -786,7 +786,7 @@ class PanelPoseTracker(
   }
 
   val active: Boolean
-    get() = enabled && job == PanelFrames.MALM_JOB && target != null
+    get() = enabled && job != null && target != null // any guide whose step has a flat base part (StepFootprints)
 
   /**
    * The step shown now and its target ([StepFootprints.target]); null [target] = no flat base part at this step, the
@@ -822,7 +822,7 @@ class PanelPoseTracker(
                 when {
                   target == null -> REASON_NO_TARGET
                   !enabled -> "tracker switched off"
-                  job != PanelFrames.MALM_JOB -> "tracker off: not the drawer guide"
+                  job == null -> "tracker off: no guide loaded"
                   else -> "tracker on"
                 },
         ),
