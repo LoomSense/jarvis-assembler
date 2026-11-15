@@ -1,0 +1,17 @@
+{
+    "name": "AG.World",
+    "rootNamespace": "AG.World",
+    "references": ["AG.Core", "AG.Guide", "AG.Vision", "meta.xr.mrutilitykit", "Unity.TextMeshPro"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.meta.xr.mrutilitykit", "expression": "81.0.0", "define": "AG_HAS_MRUK" },
+        { "name": "com.unity.ugui", "expression": "2.0.0", "define": "AG_HAS_TMP" }
+    ],
+    "noEngineReferences": false
+}
