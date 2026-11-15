@@ -268,7 +268,7 @@ html:has(#landing) { background: #0b0907; }
 #landing .ws .hint:empty { display: none; }
 
 #landing .steps3 { max-width: 480px; margin: 30px 0 0; padding: 0; list-style: none; display: flex; align-items: center; gap: 6px; }
-#landing .steps3 .t { flex: 1 1 0; min-width: 0; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--ag-border); border-radius: 14px; background: var(--ag-surface); color: var(--ag-text-meta); font-size: 12px; white-space: nowrap; animation: ws-step 6s ease-in-out infinite; }
+#landing .steps3 .t { flex: 1 1 0; min-width: 0; height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--ag-border); border-radius: 14px; background: var(--ag-surface); color: var(--ag-text); font-size: 14px; font-weight: 500; white-space: nowrap; animation: ws-step 6s ease-in-out infinite; }
 #landing .steps3 .t:nth-child(3) { animation-delay: 2s; }
 #landing .steps3 .t:nth-child(5) { animation-delay: 4s; }
 #landing .steps3 .t svg { width: 40px; height: 40px; color: var(--ag-accent); stroke-width: 2; }

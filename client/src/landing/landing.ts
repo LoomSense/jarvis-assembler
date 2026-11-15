@@ -21,7 +21,7 @@ const WORDS = {
     home: 'Home', boxes: 'Guides on the shelf',
     dropping: 'Drop it to start', sending: 'Sending the guide',
     how: 'How it works',
-    s1: 'You scan', s2: 'Built in 3D', s3: 'You build',
+    s1: 'Give a guide', s2: 'Built in 3D', s3: 'You build',
     yours: 'My guides', empty: 'No guides yet. Upload the first one.', loading: 'Loading the guides',
     ready: 'Ready', building: 'Building', approve: 'Waiting for your approval', failed: 'Stopped', open: 'Open', watch: 'See progress',
     keyMissing: 'This address has no access key', keyWrong: 'The access key in this address is not accepted',
@@ -38,7 +38,7 @@ const WORDS = {
     home: 'Αρχική', boxes: 'Οδηγοί στο ράφι',
     dropping: 'Άφησέ το για να ξεκινήσει', sending: 'Στέλνω τον οδηγό',
     how: 'Πώς δουλεύει',
-    s1: 'Σκανάρεις', s2: 'Χτίζεται 3D', s3: 'Στήνεις',
+    s1: 'Δίνεις οδηγό', s2: 'Χτίζεται 3D', s3: 'Στήνεις',
     yours: 'Οι οδηγοί μου', empty: 'Δεν υπάρχει ακόμα οδηγός. Ανέβασε τον πρώτο.', loading: 'Φορτώνω τους οδηγούς',
     ready: 'Έτοιμος', building: 'Χτίζεται', approve: 'Περιμένει την έγκρισή σου', failed: 'Σταμάτησε', open: 'Άνοιξε', watch: 'Δες την πρόοδο',
     keyMissing: 'Η διεύθυνση δεν έχει κλειδί πρόσβασης', keyWrong: 'Το κλειδί πρόσβασης στη διεύθυνση δεν έγινε δεκτό',
@@ -105,11 +105,11 @@ export function startLanding(app: HTMLElement): void {
             <a class="primary" href="${esc(link({ mode: 'shelf', scan: '1' }))}"><span>${w.cta}</span>${svg(ICON.arrow)}</a>
           </div>
           <ol class="steps3" aria-label="${w.how}">
-            <li class="t">${svg(ICON.scanbox)}<span>1 · ${w.s1}</span></li>
+            <li class="t">${svg(ICON.scanbox)}<span>${w.s1}</span></li>
             <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
-            <li class="t">${HALF}<span>2 · ${w.s2}</span></li>
+            <li class="t">${HALF}<span>${w.s2}</span></li>
             <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
-            <li class="t">${CUBE}<span>3 · ${w.s3}</span></li>
+            <li class="t">${CUBE}<span>${w.s3}</span></li>
           </ol>
           <p class="hint" id="hint" role="status"></p>
           <input id="file" type="file" accept="application/pdf,image/*" multiple hidden />
