@@ -59,12 +59,23 @@
 #landing .hint.bad { color: var(--ag-error); }
 #landing .hint.busy { color: var(--ag-accent); }
 
-/* the access key */
-#landing .keybox { width: min(520px, 100%); margin: 36px auto 0; padding: 24px; text-align: left; border: 1px solid var(--ag-border-strong); border-radius: var(--ag-radius-lg); background: var(--ag-surface); box-shadow: var(--ag-shadow-card); }
-#landing .keybox h2 { color: var(--ag-warn); font-size: var(--ag-text-h3); font-weight: 600; }
-#landing .keybox p { margin-top: 6px; color: var(--ag-text-meta); font-size: var(--ag-text-small); }
-#landing .keybox .row { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
-#landing .keybox input { flex: 1 1 220px; min-height: 52px; padding: 0 16px; border: 1px solid var(--ag-border-field); border-radius: var(--ag-radius-md); background: var(--ag-field-bg); color: var(--ag-text-strong); font: 16px var(--ag-font-mono); }
+/* the access key: where the page's one action was, a field of the same height beside the same white pill,
+   and one quiet line under them. No panel around it. */
+#landing .keybox { max-width: 460px; margin: 24px 0 0; }
+#landing .keybox .row { display: flex; gap: 10px; }
+#landing .keybox input { flex: 1 1 0; min-width: 0; min-height: 54px; padding: 0 20px; border: 1px solid var(--ag-border-strong); border-radius: var(--ag-radius-pill); background: var(--ag-field-bg); color: var(--ag-text-strong); font: 16px var(--ag-font-mono); transition: border-color var(--ag-dur-micro) var(--ag-ease), box-shadow var(--ag-dur-micro) var(--ag-ease); }
+#landing .keybox input::placeholder { font-family: var(--ag-font); color: var(--ag-text-meta); }
+/* the field's own edge lights up: a second ring around a pill beside a pill reads as two boxes */
+#landing .keybox input:focus-visible { outline: none; border-color: var(--ag-accent); box-shadow: 0 0 0 3px rgba(240, 178, 90, 0.16); }
+#landing .keybox .primary { flex: none; }
+#landing .keybox p { margin-top: 12px; color: var(--ag-text-meta); font-size: var(--ag-text-small); }
+#landing .keybox p.bad { color: var(--ag-warn); }
+#landing.locked :is(.navlink, .tabs) { display: none; }
+#landing.locked .bx { pointer-events: none; }
+@media (max-width: 400px) {
+  #landing .keybox .row { flex-wrap: wrap; }
+  #landing .keybox input, #landing .keybox .primary { flex: 1 1 100%; }
+}
 
 /* how it works */
 #landing h2 { color: var(--ag-text-strong); font-size: var(--ag-text-h3); font-weight: 600; }
@@ -259,7 +270,6 @@ html:has(#landing) { background: #0b0907; }
 #landing .tab.scan i { background: var(--ag-accent); }
 
 #landing .ws { padding: 0 0 56px; text-align: left; display: grid; gap: 0 56px; align-items: center; }
-#landing .ws .keybox { margin-left: 0; }
 #landing .ws h1 { max-width: none; margin: 28px 0 0; font-size: clamp(32px, 4.6vw, 56px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 #landing .ws .actions { margin-top: 24px; justify-content: flex-start; }
 #landing .ws .primary { min-height: 54px; padding: 0 28px; font-weight: 600; }

@@ -24,8 +24,8 @@ const WORDS = {
     s1: 'Give a guide', s2: 'Built in 3D', s3: 'You build',
     yours: 'My guides', empty: 'No guides yet. Upload the first one.', loading: 'Loading the guides',
     ready: 'Ready', building: 'Building', approve: 'Waiting for your approval', failed: 'Stopped', open: 'Open', watch: 'See progress',
-    keyMissing: 'This address has no access key', keyWrong: 'The access key in this address is not accepted',
-    keyHelp: 'Paste the key your team gave you.', keyField: 'Access key', keyGo: 'Continue',
+    keyWrong: 'That key was not accepted. Try again.',
+    keyHelp: 'Enter the key your team gave you.', keyField: 'Access key', keyGo: 'Continue',
     offline: 'The server did not answer. Try again in a moment.', retry: 'Try again',
     notGuide: 'That is not a PDF or a photo.', tooBig: 'The files are too large.', failedSend: 'The guide could not be sent.',
   },
@@ -41,7 +41,7 @@ const WORDS = {
     s1: 'Δίνεις οδηγό', s2: 'Χτίζεται 3D', s3: 'Στήνεις',
     yours: 'Οι οδηγοί μου', empty: 'Δεν υπάρχει ακόμα οδηγός. Ανέβασε τον πρώτο.', loading: 'Φορτώνω τους οδηγούς',
     ready: 'Έτοιμος', building: 'Χτίζεται', approve: 'Περιμένει την έγκρισή σου', failed: 'Σταμάτησε', open: 'Άνοιξε', watch: 'Δες την πρόοδο',
-    keyMissing: 'Η διεύθυνση δεν έχει κλειδί πρόσβασης', keyWrong: 'Το κλειδί πρόσβασης στη διεύθυνση δεν έγινε δεκτό',
+    keyWrong: 'Το κλειδί δεν έγινε δεκτό. Δοκίμασε ξανά.',
     keyHelp: 'Βάλε το κλειδί που σου έδωσε η ομάδα σου.', keyField: 'Κλειδί πρόσβασης', keyGo: 'Συνέχεια',
     offline: 'Ο server δεν απάντησε. Δοκίμασε ξανά σε λίγο.', retry: 'Δοκίμασε ξανά',
     notGuide: 'Αυτό δεν είναι PDF ή φωτογραφία.', tooBig: 'Τα αρχεία είναι πολύ μεγάλα.', failedSend: 'Ο οδηγός δεν στάλθηκε.',
@@ -141,24 +141,33 @@ export function startLanding(app: HTMLElement): void {
     tabs[1]!.classList.toggle('on', e!.isIntersecting)
   }, { rootMargin: '-45% 0px -45% 0px' }).observe($('#guides'))
 
-  // ---- the access key: say which problem it is, and take the key here instead of asking for an edited address
+  // ---- the access key. The page stays the page: the same picture and the same words, and where its one action
+  // was there is now a field for the key, with one quiet line under it (or, for a key that was refused, one line
+  // that says so). No panel. What needs the key is put away: the guides, their link in the bar, the tab bar, and
+  // the boxes on the table stop being links.
   const askForKey = () => {
     if ($('.hero').querySelector('.keybox')) return
-    $<HTMLElement>('.hero .actions').hidden = true
+    $('#landing').classList.add('locked')
+    const actions = $<HTMLElement>('.hero .actions')
+    actions.hidden = true
     hint.hidden = true
     list.innerHTML = ''
     $<HTMLElement>('.guides').hidden = true
+    app.querySelectorAll<HTMLAnchorElement>('#boxes .bx').forEach((bx) => {
+      bx.removeAttribute('href')
+      bx.removeAttribute('aria-label')
+    })
     const box = document.createElement('form')
     box.className = 'keybox'
-    box.innerHTML = `<h2>${key ? w.keyWrong : w.keyMissing}</h2><p>${w.keyHelp}</p>
-      <div class="row"><input name="key" type="text" autocomplete="off" spellcheck="false" aria-label="${w.keyField}" placeholder="${w.keyField}" required />
-      <button class="primary" type="submit"><span>${w.keyGo}</span>${svg(ICON.arrow)}</button></div>`
+    box.innerHTML = `<div class="row"><input name="key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${w.keyField}" placeholder="${w.keyField}" required />
+      <button class="primary" type="submit"><span>${w.keyGo}</span>${svg(ICON.arrow)}</button></div>
+      <p${key ? ' class="bad" role="alert"' : ''}>${key ? w.keyWrong : w.keyHelp}</p>`
     box.addEventListener('submit', (e) => {
       e.preventDefault()
       const v = String(new FormData(box).get('key') ?? '').trim()
       if (v) location.assign(link({}, v))
     })
-    $('.hero').append(box)
+    actions.after(box)
     if (location.hash !== '#guides') box.querySelector('input')!.focus()
   }
 
