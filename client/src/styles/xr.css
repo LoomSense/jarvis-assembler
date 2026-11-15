@@ -1,0 +1,46 @@
+@import './tokens.css';
+
+html, body { margin: 0; height: 100%; overflow: hidden; }
+canvas { display: block; touch-action: none; }
+
+/* Compact glass bar, bottom centre: status on the left, Enter AR on the right. */
+.xr-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: var(--ag-space-4);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-3);
+  max-width: calc(100vw - 2 * var(--ag-gutter));
+  padding: var(--ag-space-2) var(--ag-space-2) var(--ag-space-2) var(--ag-space-5);
+  background: rgba(22, 22, 26, 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--ag-radius-pill);
+  box-shadow: 0 12px 40px -16px rgba(0, 0, 0, 0.7);
+}
+.xr-overlay h1 { display: none; }
+.xr-status {
+  margin: 0;
+  color: var(--ag-text-meta);
+  font-size: var(--ag-text-small);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xr-hint { display: none; }
+.xr-enter {
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--ag-space-5);
+  border: 0;
+  border-radius: var(--ag-radius-pill);
+  background: var(--ag-primary);
+  color: var(--ag-bg);
+  font: var(--ag-weight-heading) var(--ag-text-small) var(--ag-font);
+  cursor: pointer;
+}
+.xr-enter:disabled { opacity: 0.35; cursor: not-allowed; }

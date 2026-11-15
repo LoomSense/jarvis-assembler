@@ -1,0 +1,131 @@
+// UI language for the headset: `?lang=el` for Greek, English by default.
+// Step text comes from the guide data (DemoStep.el); everything else is here.
+
+export type Lang = 'en' | 'el';
+
+export const LANG: Lang = new URLSearchParams(location.search).get('lang') === 'el' ? 'el' : 'en';
+
+const STRINGS = {
+  en: {
+    step: 'Step {n} of {total} · Page {page}',
+    of: '{name} {i} of {n}',
+    screws: '{n} screws',
+    needs: 'This step needs: {what}. Check the drawing.',
+    notThat: 'Not that part',
+    pick: 'Pick up',
+    back: 'Back',
+    next: 'Next',
+    finish: 'Finish',
+    repeat: 'Repeat',
+    move: 'Move',
+    mistake: 'Show mistake',
+    holdHint: 'Hold your hand on the part to confirm',
+    setup1: 'Set up · 1 of 2',
+    setup2: 'Set up · 2 of 2',
+    lookTable: 'Look at your table',
+    pinchPlace: 'Pinch to place the plate',
+    pinchPlaceBody: 'Point at the spot on the table where you will build, then pinch.',
+    lookTableBody: 'Move your head slowly so the headset can find the table surface.',
+    placeFront: 'Place in front of me',
+    chooseSpot: 'Choose a spot',
+    chooseSpotBody: 'Drag the plate to an empty spot. The {product} is built here, virtually.',
+    lineUp: 'Line up the base',
+    lineUpBody: 'Pinch and drag the outline onto the real base panel. Turn it with the arrows.',
+    replace: 'Re-place',
+    done: 'Done',
+    allDone: 'All done!',
+    allDoneBody: 'Your {product} is assembled. Sizes are estimated.',
+    movePlate: 'Move plate',
+    startOver: 'Start over',
+    pinchHint: 'Tip: touch thumb and index finger together to press a button.',
+    pickNow: 'PICK UP NOW',
+    parts: 'PARTS',
+    allIn: 'ALL PARTS IN',
+    pointHint: 'Point at any part to see what it is',
+    beforeStart: 'BEFORE YOU START',
+    gotIt: 'Got it',
+    checkTitle: 'Do you have everything?',
+    checkBody: 'Count the parts before the first step.',
+    haveAll: 'I have them all',
+    missing: 'Something is missing',
+    missingTitle: 'Missing a part?',
+    missingBody: 'Note its code (e.g. {code}) and ask IKEA for it. You can still start.',
+    startAnyway: 'Start anyway',
+    resumed: 'Picked up where you left off',
+  },
+  el: {
+    step: 'Βήμα {n} από {total} · Σελίδα {page}',
+    of: '{name} {i} από {n}',
+    screws: '{n} βίδες',
+    needs: 'Αυτό το βήμα θέλει: {what}. Δες το σχέδιο.',
+    notThat: 'Όχι αυτό το κομμάτι',
+    pick: 'Πάρε',
+    back: 'Πίσω',
+    next: 'Επόμενο',
+    finish: 'Τέλος',
+    repeat: 'Ξανά',
+    move: 'Μετακίνηση',
+    mistake: 'Δείξε λάθος',
+    holdHint: 'Κράτα το χέρι σου στο κομμάτι για επιβεβαίωση',
+    setup1: 'Ρύθμιση · 1 από 2',
+    setup2: 'Ρύθμιση · 2 από 2',
+    lookTable: 'Κοίτα το τραπέζι σου',
+    pinchPlace: 'Κάνε pinch για να βάλεις τη βάση',
+    pinchPlaceBody: 'Δείξε το σημείο όπου θα συναρμολογήσεις και κάνε pinch.',
+    lookTableBody: 'Κούνησε αργά το κεφάλι για να βρει το headset την επιφάνεια.',
+    placeFront: 'Βάλ’ το μπροστά μου',
+    chooseSpot: 'Διάλεξε σημείο',
+    chooseSpotBody: 'Σύρε τη βάση σε άδειο σημείο. Το {product} θα χτιστεί εδώ, εικονικά.',
+    lineUp: 'Ευθυγράμμισε τη βάση',
+    lineUpBody: 'Σύρε το περίγραμμα πάνω στο πραγματικό κομμάτι. Γύρνα το με τα βέλη.',
+    replace: 'Ξανά τοποθέτηση',
+    done: 'Έτοιμο',
+    allDone: 'Έτοιμο!',
+    allDoneBody: 'Το {product} συναρμολογήθηκε. Οι διαστάσεις είναι εκτιμώμενες.',
+    movePlate: 'Μετακίνηση',
+    startOver: 'Από την αρχή',
+    pinchHint: 'Συμβουλή: ένωσε αντίχειρα και δείκτη για να πατήσεις ένα κουμπί.',
+    pickNow: 'ΠΑΡΕ ΤΩΡΑ',
+    parts: 'ΕΞΑΡΤΗΜΑΤΑ',
+    allIn: 'ΟΛΑ ΜΠΗΚΑΝ',
+    pointHint: 'Δείξε ένα κομμάτι για να δεις τι είναι',
+    beforeStart: 'ΠΡΙΝ ΞΕΚΙΝΗΣΕΙΣ',
+    gotIt: 'Εντάξει',
+    checkTitle: 'Τα έχεις όλα;',
+    checkBody: 'Μέτρησε τα κομμάτια πριν από το πρώτο βήμα.',
+    haveAll: 'Τα έχω όλα',
+    missing: 'Λείπει κάτι',
+    missingTitle: 'Λείπει κάποιο κομμάτι;',
+    missingBody: 'Σημείωσε τον κωδικό του (π.χ. {code}) και ζήτα το από την IKEA. Μπορείς να ξεκινήσεις.',
+    startAnyway: 'Ξεκίνα έτσι κι αλλιώς',
+    resumed: 'Συνεχίζεις από εκεί που σταμάτησες',
+  },
+} as const;
+
+export type StringKey = keyof (typeof STRINGS)['en'];
+
+export function t(key: StringKey, vars: Record<string, string | number> = {}, lang: Lang = LANG): string {
+  return STRINGS[lang][key].replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
+}
+
+const PART_NAMES_EL: Record<string, string> = {
+  'Table top': 'Καπάκι',
+  Leg: 'Πόδι',
+  'Side frame': 'Πλαϊνό',
+  Bottom: 'Πάτος',
+  'End board': 'Σανίδα',
+  'Handle board': 'Σανίδα λαβής',
+  'Long screw': 'Μακριά βίδα',
+  'Short screw': 'Κοντή βίδα',
+  'Double screw': 'Διπλή βίδα',
+  // Pipeline jobs (manifest `parts[].short`, capitalised)
+  'Bottom panel': 'Κάτω πάνελ',
+  'Side panel': 'Πλαϊνό πάνελ',
+  'Plain slat': 'Απλή σανίδα',
+  'Slat with the handle cut-out': 'Σανίδα με λαβή',
+  'Double-ended screw': 'Διπλή βίδα',
+};
+
+export function partName(name: string, lang: Lang = LANG): string {
+  return lang === 'el' ? (PART_NAMES_EL[name] ?? name) : name;
+}

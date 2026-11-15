@@ -1,0 +1,26 @@
+{
+  "name": "assembly-guide-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:https": "HTTPS=1 vite",
+    "quest": "adb reverse tcp:5173 tcp:5173 && echo 'Quest Browser: http://localhost:5173/?mode=xr'",
+    "tunnel": "cloudflared tunnel --url http://localhost:5173",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/three": "0.187.0",
+    "@types/webxr": "0.5.24",
+    "@vitejs/plugin-basic-ssl": "2.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  }
+}
