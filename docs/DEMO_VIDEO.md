@@ -56,7 +56,7 @@ In order, with what the wearer does:
 - [ ] **H5, 45 s.** The app asks for the left side panel. Look at the boards for 3 s: the outline is on a side board. Pick it up, look back at the front for 3 s: the ghost of the side panel stands on its left end. Lower the panel onto the two bolts, hands away.
 - [ ] **H6, 30 s, optional.** Press Back once, pick up the back board instead, hold it in view. Stop after 20 s if the app says nothing. Then stop the recording.
 
-Afterwards, at the Mac (the wearer can keep the headset on; it only has to be on USB):
+Afterwards, at the Mac (the headset can stay on the wearer; it only has to answer on adb, as it does for the run log):
 
 ```sh
 tools/quest/pull_recordings.sh                 # lists today's recordings on the headset
@@ -76,7 +76,7 @@ The times above are examples. `map` cuts the span into `headset/H<n>.mp4` and re
 
 Never play a line over a take that does not show what the line says.
 
-- **The take does not show the guide following the front** (shot 8). Screen-record 15 s of the desktop preview to `jobs/_media/cut/headset/H8.mp4` (`cd client && npm run dev`, then `?mode=xr&job=drawer`), swap in the commented shot 8 line in `shots.txt`, run `python3 vo.py nofollow` and `./build.sh`. The line then says that following was logged today but is not in this recording.
+- **The take does not show the guide following the front** (shot 8). Screen-record 15 s of the desktop preview to `jobs/_media/cut/headset/H8.mp4` (`cd client && npm run dev`, then `?mode=xr&job=drawer` in desktop Chrome; not tried with this job, `malm-drawer` is known to load), swap in the commented shot 8 line in `shots.txt`, run `python3 vo.py nofollow` and `./build.sh`. The line then says that following was logged today but is not in this recording.
 - **No H1.** Swap in the commented shot 1 line: the phone photo of the parts, labelled "Phone photo".
 - **No H5.** Swap in the commented shot 9 line: the 13:50 headset capture, labelled as such. It is from the earlier guide rebuilt from the same measurements, on the same real front.
 - **No usable recording at all.** Keep shots 1 to 5, 10 and 11, use the phone photo for shot 1, the 13:50 capture for shot 9, the desktop preview for shots 6 to 8, and replace lines 6 to 8 in `vo-lines.txt` with: "The headset app ran on a Quest 3 today, and its log is in the submission. We do not have a clean recording, so this is the same guidance in the desktop preview." Then `python3 vo.py` and `./build.sh`.
