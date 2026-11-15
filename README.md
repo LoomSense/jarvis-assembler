@@ -2,7 +2,7 @@
 
 Scan a flat-pack box with your phone. An agent finds the assembly guide, rebuilds it as an animated 3D model, and then guides the real build on your phone or in a Meta Quest 3, in Greek or English.
 
-Gen AI Summit Hackathon, Athens, 14–15 Nov 2026 · Try it: <https://agj.boxd.sh> · Evidence and limits: [docs/SUBMISSION.md](docs/SUBMISSION.md)
+Gen AI Summit Hackathon, Athens, 14–15 Nov 2026 · Try it: <https://agj.boxd.sh>
 
 ![The phone flow: home, find the guide, the 3D build, the ready guide, a step, build with help](docs/img/phone-flow.jpg)
 
@@ -35,24 +35,15 @@ flowchart LR
   quest -. camera, voice .-> gemini
 ```
 
-Every model key stays on the server. Other agents can use it too: an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file ([docs/API.md](docs/API.md)).
-
-## Run it
-
-Needs macOS or Linux, [uv](https://docs.astral.sh/uv/), Blender 5.3 and about 5 GB of disk.
-
-```sh
-make setup     # Python 3.12 venv with all packages
-make env       # creates .env with a fresh DEMO_KEY; then add GEMINI_API_KEY to it
-make dev       # server on http://localhost:8000
-make smoke     # second terminal: build a test guide end to end (about 20 s)
-```
-
-Headset (Quest 3 in developer mode): `tools/quest/install.sh android`, then `tools/quest/run.sh android --job drawer --lang el`. Details: [quest-android/README.md](quest-android/README.md).
+Every model key stays on the server.
 
 ## More
 
-- For the judges, what was measured on the headset and what is not proven: [docs/SUBMISSION.md](docs/SUBMISSION.md)
+- For the judges, what was measured on the headset: [docs/SUBMISSION.md](docs/SUBMISSION.md)
 - Routes, MCP tools, command line, deploy: [docs/API.md](docs/API.md)
 - Status, plan, who did what: [docs/HANDOFF.md](docs/HANDOFF.md), [docs/PLAN.md](docs/PLAN.md), [docs/PROGRESS.md](docs/PROGRESS.md)
 - What we did not build ourselves: [CREDITS.md](CREDITS.md)
+
+## For other agents
+
+Any agent can use it through an MCP server with 11 tools, a command line, `/llms.txt` and an OpenAPI file. For example, a furniture shop's customer-support agent gets "I am stuck on step 4 of my wardrobe", finds that product's guide, and answers with the exact step in 3D and how to undo the mistake, with no person on the line.
