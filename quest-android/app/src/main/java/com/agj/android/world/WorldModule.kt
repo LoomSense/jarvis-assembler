@@ -315,10 +315,11 @@ class WorldModule(
   fun setAction(jobId: String?, step: Int, action: Int, act: GuideAction?) {
     curStep = step
     curKind = act?.kind
-    val pick = act != null && (act.kind == ActionKind.PLACE || act.kind == ActionKind.FASTEN)
+    // hardware already seated in its part (the drawer's cam locks) is never looked for: nothing loose exists
+    val pick = act != null && (act.kind == ActionKind.PLACE || act.kind == ActionKind.FASTEN) && !act.preinstalled
     // the action's own item first, then everything else the step picks up (all tracked, every instance)
-    val own = listOfNotNull(act?.partId, act?.code)
-    val rest = guide?.step(step)?.actions?.filter { it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN }
+    val own = if (act?.preinstalled == true) emptyList() else listOfNotNull(act?.partId, act?.code)
+    val rest = guide?.step(step)?.actions?.filter { (it.kind == ActionKind.PLACE || it.kind == ActionKind.FASTEN) && !it.preinstalled }
         ?.flatMap { listOfNotNull(it.partId, it.code) } ?: emptyList()
     parts.setAction(jobId, step, action, pick, own + rest, own)
     flat.setAction(step, action, act) // FLAT-PARTS: the board this action places is the one to light

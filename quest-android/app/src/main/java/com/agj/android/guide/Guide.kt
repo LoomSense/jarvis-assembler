@@ -112,6 +112,8 @@ data class GuideAction(
     val sameCount: Int,
     /** Manifest `hardware[].kind` of [code] (screw, bolt, cam, dowel, pin, ...); null for boards. */
     val hardwareKind: String? = null,
+    /** Manifest `hardware[].preinstalled`: already in its part, nothing to pick up (no "take" phase, no pick marker). */
+    val preinstalled: Boolean = false,
 ) {
   fun label(lang: String): PartLabel? = labels[if (lang == "el") "el" else "en"] ?: labels["en"]
 }
@@ -276,6 +278,7 @@ class Guide(
                       ordinal = maxOf(ordinal, 1),
                       sameCount = maxOf(same.size, 1),
                       hardwareKind = a.code?.let { c -> hwNames[c]?.kind?.takeIf { k -> k.isNotEmpty() } },
+                      preinstalled = a.code?.let { c -> hwNames[c]?.preinstalled } == true,
                   )
                 }
             // The turn, as the guide's own animation does it: the root's pose through the turn action's time.

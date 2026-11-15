@@ -87,6 +87,11 @@ data class ManifestHardware(
     val kind: String = "",
     val color: List<Double> = emptyList(),
     val nodes: List<String> = emptyList(),
+    /**
+     * Already seated in its part when the kit is unpacked (the drawer's cam locks sit in the side panels): there is
+     * nothing loose to pick up, the action is only "turn it" / "tighten it". Optional, false when absent.
+     */
+    val preinstalled: Boolean = false,
 )
 
 /** A step's window in the `walkthrough` clip, seconds. */

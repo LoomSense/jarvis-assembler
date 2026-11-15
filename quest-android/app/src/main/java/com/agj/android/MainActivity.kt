@@ -739,7 +739,7 @@ class MainActivity : AppSystemActivity() {
     val node = act?.node
     val geo = node?.let { assembly?.guide?.parts?.get(it) }
     val l = act?.label(lang)
-    if (act == null || geo == null || l == null || act.kind == ActionKind.TURN) {
+    if (act == null || geo == null || l == null || act.kind == ActionKind.TURN || act.preinstalled) {
       side.part = null
       return
     }
@@ -863,7 +863,8 @@ class MainActivity : AppSystemActivity() {
 
   /** From `showStep`: the action starts at "take" when it has a part with a name, else (a turn) at "put it here". */
   private fun coachStart(step: Int, action: Int, act: com.agj.android.guide.GuideAction?, by: StepBy, again: Boolean) {
-    val ids = if (act?.label(lang) != null) listOfNotNull(act.partId, act.code) else emptyList()
+    // a fastener already seated in its part (the drawer's cam locks) has no "take" phase: straight to "do it here"
+    val ids = if (act?.label(lang) != null && !act.preinstalled) listOfNotNull(act.partId, act.code) else emptyList()
     val next = assembly?.guide?.next(step, action)
     val why = coachWhy ?: if (again) "repeat" else if (by == StepBy.VOICE) "voice" else if (by == StepBy.AUTO) "start" else "next"
     coachWhy = null
@@ -1010,7 +1011,10 @@ class MainActivity : AppSystemActivity() {
       // a hand at the target: the wrist or a fingertip within 6 cm of the ghost part's box (hands not older than 0.5 s)
       val hands = vision.input.hands?.takeIf { SystemClock.elapsedRealtimeNanos() - it.tNs < 500_000_000L }?.hands ?: emptyList()
       val box = vision.handTarget
-      val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= 0.06f } }
+      // a fastener turned with a tool (cam lock, screw) keeps the hand a screwdriver's length away from it
+      val toolKind = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)?.hardwareKind in setOf("cam", "screw")
+      val reach = if (toolKind) 0.22f else 0.06f
+      val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= reach } }
       val sight =
           com.agj.android.ui.PickSight(
               // FLAT-PARTS: the rectangle's own target comes and goes with the camera's view (live for 2 s): it is not a
