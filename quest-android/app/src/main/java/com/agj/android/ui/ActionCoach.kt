@@ -97,7 +97,7 @@ class ActionCoach(private val cfg: Config = Config()) {
       /** …and, where [PickSight.dwellEnds] is set, this long at the target ends the action by itself. */
       val dwellEndsMs: Long = 4_500,
       /** …a board held at its place waits this long instead: the server's "wrong way round" needs about 3 s of frames. */
-      val dwellEndsBoardMs: Long = 7_000,
+      val dwellEndsBoardMs: Long = 9_000,
       /** …and then every tracked hand away from it this long (the step's last action waits [awayLastMs]). */
       val awayMs: Long = 2_000,
       /** On the step's last action the server's `step_complete` gets this long to say it first. */
@@ -146,6 +146,8 @@ class ActionCoach(private val cfg: Config = Config()) {
   private var wrongAtMs = FAR_PAST
   /** A wrong verdict (wrong part, wrong way round) came while "put it here" was shown: a hand that stays at the target no longer ends this action by itself. */
   private var wrongWhilePlacing = false
+  /** The action's item is a board (a `place`), not hardware. */
+  private var board = false
   /**
    * The grip (its `holdingSinceMs`) that ended the last action by closing on the next part. In "take", a grip counts
    * as "closed at the part and carried it off" only when it began in this "take" or is this one: a grip left over
@@ -180,6 +182,7 @@ class ActionCoach(private val cfg: Config = Config()) {
     this.lastOfStep = lastOfStep
     wanted = ids.filter { it.isNotBlank() }.toSet()
     hasPick = (kind == ActionKind.PLACE || kind == ActionKind.FASTEN) && wanted.isNotEmpty()
+    board = kind == ActionKind.PLACE
     phase = if (hasPick) CoachPhase.PICK else CoachPhase.PLACE
     sinceMs = nowMs
     wrongAtMs = FAR_PAST
@@ -230,6 +233,15 @@ class ActionCoach(private val cfg: Config = Config()) {
     return move(CoachPhase.DONE, "step_complete", nowMs)
   }
 
+  /**
+   * The server's `right_way`: the board stands at its place the right way round (its groove, its end): this action
+   * is done, even while a hand still holds it. Only for an action that places a board (the caller checks).
+   */
+  fun rightWay(nowMs: Long): CoachChange? {
+    if (phase == CoachPhase.DONE || !settled(nowMs)) return null
+    return move(CoachPhase.DONE, "right_way", nowMs)
+  }
+
   /** A server `action_complete` (not sent today): this one action is done. */
   fun actionComplete(nowMs: Long): CoachChange? {
     if (phase == CoachPhase.DONE || !settled(nowMs)) return null
@@ -267,7 +279,10 @@ class ActionCoach(private val cfg: Config = Config()) {
         return move(CoachPhase.PLACE, "part_moved", nowMs, "grab")
     var left = false
     var goneNow = false
-    var handThere = sight.holding
+    // a hand where the part lay (or where it is now) makes "gone / moved" mean "taken"; a hand closed somewhere else
+    // does so only for a board that clearly moves (a long board is held far from its middle). Small hardware comes
+    // from the server's answers, which come and go (4 boxes, then 2, then 4 again): those are not "taken"
+    var handThere = false
     for ((key, at) in rest) {
       val cur = sight.spots.firstOrNull { it.key == key }
       val gone = cur == null && sight.looking && sight.spots.none { (it.pos - at).length() < cfg.sameM }
@@ -275,6 +290,7 @@ class ActionCoach(private val cfg: Config = Config()) {
       if (!gone && !(moved && hand != null)) continue // with no hand data only "gone" counts
       left = true
       if (gone) goneNow = true
+      if (moved && sight.holding && board) handThere = true
       if (hand != null && ((hand - at).length() < cfg.nearM || (cur != null && (hand - cur.pos).length() < cfg.nearM))) handThere = true
     }
     if (left && (hand == null || handThere)) {

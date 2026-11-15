@@ -240,11 +240,17 @@ object LiveLines {
   // ---- wrong ----
 
   /** A wrong board was lifted: what it is, and what is needed. [seen] and [needed] are the manifest's names. */
-  fun wrongBoard(lang: String, seen: String, needed: String): String {
-    if (lang != "el") return "That is the ${lower(seen, Locale.ENGLISH)}. You need the ${lower(needed, Locale.ENGLISH)}."
-    val s = El.nom(seen)
+  fun wrongBoard(lang: String, seen: String, needed: String): String = wrongItem(lang, needed)
+
+  /**
+   * A wrong item is in the hand (a board or hardware; seen on the device or by the server): "Λάθος κομμάτι. Πάρε το
+   * αριστερό πλαϊνό." One sentence per needed item, so it is fetched in advance and comes at once; what was taken
+   * is on the badge ([wrongTitle]).
+   */
+  fun wrongItem(lang: String, needed: String): String {
+    if (lang != "el") return "Wrong part. Take the ${lower(needed, Locale.ENGLISH)}."
     val n = El.acc(needed)
-    return if (s != null && n != null) "Αυτό είναι $s. Χρειάζεσαι $n." else "Λάθος κομμάτι: $seen. Χρειάζεσαι: $needed."
+    return if (n != null) "Λάθος κομμάτι. Πάρε $n." else "Λάθος κομμάτι. Πάρε: $needed."
   }
 
   /** The verdict badge's first line for a wrong board: what the hand took. */
@@ -282,6 +288,7 @@ object LiveLines {
       if (a.hasPick) {
         out += PickPrompt.line(lang, a.name, null)
         out += rightInHand(lang, a)
+        out += wrongItem(lang, a.name)
       }
       keepGoing(lang, a.item)?.let { out += it }
       done(lang, a, acts.getOrNull(i + 1))?.let { out += it.text }

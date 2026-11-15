@@ -322,6 +322,23 @@ def _picture(item: Item, caption: str) -> list:
         return [f"{caption} (no reference picture: use the description)"]
 
 
+REAL_COLOURS = True                  # the manifest's `perception_note` goes into the request (off: the request of before)
+
+NOTE = """
+
+How the real items look (true of the real ones; the renders have no real colours). Use it to tell items apart: an
+item of another colour or material than the wanted one is not it, however alike the shape. {note}"""
+
+
+def real_colours(guide: Guide) -> str:
+    """`perception_note` of the manifest: one or two sentences on the real colours and materials. The drawer's steel
+    cam bolts and white plastic pegs are both small and long: by shape alone the pegs were boxed as cam bolts."""
+    if not REAL_COLOURS:
+        return ""
+    note = getattr(guide, "manifest", {}).get("perception_note")
+    return " ".join(str(note).split()) if isinstance(note, str) and note.strip() else ""
+
+
 def request(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str], mode: str = "pick") -> tuple[list, dict]:
     """The prompt parts and the response schema for one call (at most PER_CALL wanted items)."""
     others = lookalikes(cat, wanted)
@@ -331,6 +348,9 @@ def request(guide: Guide, cat: dict[str, Item], frame: bytes, wanted: list[str],
                          if others else "")
     if step:
         text += PROMPT_STEP.format(max_boxes=MAX_BOXES)
+    note = real_colours(guide)
+    if note:
+        text += NOTE.format(note=note)
     parts: list = [text, "Image 1, the camera view:", ("image/jpeg", frame)]
     for w in wanted:
         parts += _picture(cat[w], f"Reference for wanted label `{w}`:")

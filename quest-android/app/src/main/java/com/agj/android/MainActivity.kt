@@ -444,6 +444,7 @@ class MainActivity : AppSystemActivity() {
           // show_part_result are about what is in the hand: the badge at the hand, not the ghost at the target
           // ACTION-COACH: the same event also moves "take" → "put it here" (right) or holds the phase (wrong)
           if (event in com.agj.android.ui.HeldEvent.EVENTS) runOnUiThread { coachHeld(event, raw) }
+          else if (event == "right_way") post(event, raw, (raw["step"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull())
           else if (event in PASS_THROUGH_EVENTS) post(event, raw)
         }
       }
@@ -984,7 +985,12 @@ class MainActivity : AppSystemActivity() {
   }
 
   /** What [held] wants to say, timed by the phase (CONFIRM and PROMPT never talk over the guide, the rest interrupt). */
-  private fun coachSay(text: String, kind: com.agj.android.ui.HeldSpeech) {
+  private fun coachSay(said: String, kind: com.agj.android.ui.HeldSpeech) {
+    // a wrong item in the hand (the server's verdict or the board the device saw lifted): "Λάθος κομμάτι. Πάρε το
+    // αριστερό πλαϊνό." (the user's wording; fetched in advance, so it comes at once)
+    val text =
+        if (kind == com.agj.android.ui.HeldSpeech.WARNING) coachAct()?.label(lang)?.name?.let { com.agj.android.ui.LiveLines.wrongItem(lang, it) } ?: said
+        else said
     val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
     when {
       // LIVE-COACH: this action's part was already praised ("Σωστή βίδα! …"): a later "Σωστό. <name>." adds nothing
@@ -1131,6 +1137,9 @@ class MainActivity : AppSystemActivity() {
    * (`placed`, the server's `step_complete`); the honest line the first time the no-hands timer ends one. Otherwise
    * (Next, "επόμενο") only the line that is now stale stops, and the next action speaks for itself.
    */
+  /** The server's `right_way` sentence while its action ends ([liveDone] puts it first). */
+  private var liveRightWay: String? = null
+
   private fun liveDone(c: com.agj.android.ui.CoachChange) {
     liveEntry = null
     val g = assembly?.guide ?: return
@@ -1147,6 +1156,10 @@ class MainActivity : AppSystemActivity() {
           // nothing to take next: its instruction is its entry line, said after the honest one as one utterance
           honest -> com.agj.android.ui.DoneLine(listOfNotNull(com.agj.android.ui.LiveLines.noHands(lang), next?.takeIf { !it.hasPick }?.text).joinToString(" "), true)
           c.why == "placed" || c.why == "step_complete" || c.why == "action_complete" -> liveAct()?.let { com.agj.android.ui.LiveLines.done(lang, it, next) }
+          // "Σωστά: το αυλάκι κοιτάει προς τα μέσα…" and then the line of the next action
+          c.why == "right_way" ->
+              liveAct()?.let { a -> com.agj.android.ui.LiveLines.done(lang, a, next) }
+                  ?.let { d -> d.copy(text = listOfNotNull(liveRightWay, d.text.removePrefix("Μπράβο! ").removePrefix("Bravo! ")).joinToString(" ")) }
           else -> null
         }
     val text = line?.let { liveSaid.pick(it.text) }
@@ -1258,14 +1271,27 @@ class MainActivity : AppSystemActivity() {
       // step's last action (it cannot skip the actions still to be done)
       event == "step_complete" -> if (!advancing && !finished) coachApply(actionCoach.stepComplete(SystemClock.elapsedRealtime()))
       event == "action_complete" -> if (!advancing && !finished) coachApply(actionCoach.actionComplete(SystemClock.elapsedRealtime()))
+      // the server saw the board at its place the right way round ("Σωστά: το αυλάκι κοιτάει προς τα μέσα…"): that
+      // sentence is the praise, then what comes next. Only a board being placed: the cam locks and pegs that follow
+      // in the same step are not done because the board is right
+      event == "right_way" ->
+          if (!advancing && !finished && coachAct()?.kind == ActionKind.PLACE && !actionCoach.wrongFresh(SystemClock.elapsedRealtime())) {
+            liveRightWay = say
+            coachApply(actionCoach.rightWay(SystemClock.elapsedRealtime()))
+            liveRightWay = null
+          }
       event.startsWith("wrong") -> {
         actionCoach.wrongPart(SystemClock.elapsedRealtime()) // also "the wrong way round": no automatic advance on top of it
         // red dashed outline + octagon ✕ (label) + the spoken reason (spec §4.8); a generic reason if the event has none
         ghost.setState(GhostState.WRONG)
         sounds.play(Sounds.Cue.WARNING)
-        val reason = say ?: s("wrongSay")
+        // LIVE-COACH: a wrong part or wrong hardware in the hand is "Λάθος κομμάτι. Πάρε <the needed one>." (fetched in
+        // advance: it comes at once); the wrong way round is announced with the server's own sentence
+        val needed = coachAct()?.label(lang)?.name
+        val reason =
+            if ((event == "wrong_part" || event == "wrong_hardware") && needed != null) com.agj.android.ui.LiveLines.wrongItem(lang, needed)
+            else say ?: s("wrongSay")
         stepPanel.state = stepPanel.state.copy(status = StatusKind.ERROR, statusText = Strings.upper(lang, s("wrong")), body = reason)
-        // LIVE-COACH: the wrong way round is announced ("Προσοχή: " + the server's sentence)
         voice.say(if (event == "wrong_flip") com.agj.android.ui.LiveLines.wrongWay(lang, say) else reason, lang)
       }
       event == "unsure" -> {

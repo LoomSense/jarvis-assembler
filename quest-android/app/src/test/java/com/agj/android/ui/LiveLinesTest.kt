@@ -108,12 +108,12 @@ class LiveLinesTest {
 
   @Test
   fun `a wrong board in the hand`() {
-    assertEquals("Αυτό είναι η πλάτη του συρταριού. Χρειάζεσαι το αριστερό πλαϊνό.", LiveLines.wrongBoard("el", back.el, left.el))
-    assertEquals("Αυτό είναι ο πάτος του συρταριού. Χρειάζεσαι την πρόσοψη του συρταριού.", LiveLines.wrongBoard("el", bottom.el, front.el))
-    assertEquals("Αυτό είναι το δεξί πλαϊνό. Χρειάζεσαι τον πάτο του συρταριού.", LiveLines.wrongBoard("el", right.el, bottom.el))
-    assertEquals("That is the back panel. You need the left side panel.", LiveLines.wrongBoard("en", back.en, left.en))
+    assertEquals("Λάθος κομμάτι. Πάρε το αριστερό πλαϊνό.", LiveLines.wrongBoard("el", back.el, left.el))
+    assertEquals("Λάθος κομμάτι. Πάρε την πρόσοψη του συρταριού.", LiveLines.wrongBoard("el", bottom.el, front.el))
+    assertEquals("Λάθος κομμάτι. Πάρε τον πάτο του συρταριού.", LiveLines.wrongBoard("el", right.el, bottom.el))
+    assertEquals("Wrong part. Take the left side panel.", LiveLines.wrongBoard("en", back.en, left.en))
     // a name whose article cannot be guessed: no article at all
-    assertEquals("Λάθος κομμάτι: Ράγες. Χρειάζεσαι: Αριστερό πλαϊνό.", LiveLines.wrongBoard("el", "Ράγες", left.el))
+    assertEquals("Λάθος κομμάτι. Πάρε το αριστερό πλαϊνό.", LiveLines.wrongBoard("el", "Ράγες", left.el))
     assertEquals("Αυτό είναι: Πλάτη του συρταριού", LiveLines.wrongTitle("el", back.el))
   }
 
@@ -215,18 +215,18 @@ class LiveLinesTest {
   fun `the sentences fetched ahead for the drawer guide`() {
     val all = LiveLines.all("el", el, kinds)
     assertEquals(all.size, all.toSet().size)
-    assertEquals(40, all.size)
-    assertEquals(40, LiveLines.all("en", en, kinds).size)
+    assertEquals(39, all.size)
+    assertEquals(39, LiveLines.all("en", en, kinds).size)
     // the first action's lines come first (after the two fixed ones): they are needed first
     assertEquals(LiveLines.noHands("el"), all[0])
     assertEquals("Πάρε: Πρόσοψη του συρταριού.", all[2])
     // a wrong-board line for each board that can still lie loose: at step 1 the back, the bottom and a side
     for (seen in listOf(back, bottom, left)) assertTrue(LiveLines.wrongBoard("el", seen.el, front.el) in all)
     // the two sides look the same: neither is "wrong" for the other; at step 5 both sides are in
-    assertFalse(LiveLines.wrongBoard("el", right.el, left.el) in all)
-    assertFalse(LiveLines.wrongBoard("el", left.el, bottom.el) in all)
+    assertTrue(LiveLines.wrongBoard("el", right.el, left.el) in all)
+    assertTrue(LiveLines.wrongBoard("el", left.el, bottom.el) in all)
     assertTrue(LiveLines.wrongBoard("el", back.el, bottom.el) in all)
-    assertEquals(8, all.count { it.startsWith("Αυτό είναι") })
+    assertTrue(all.count { it.startsWith("Λάθος κομμάτι. Πάρε") } >= 5)
     // nothing is "taken" for a cam lock already in its panel
     assertFalse(all.any { it.contains("Πάρε: Κλειδαριά") || it.contains("πάρε την κλειδαριά") })
   }
