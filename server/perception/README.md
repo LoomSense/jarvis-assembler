@@ -161,12 +161,12 @@ In simulated mode every message carries `sim: true`. The field is absent otherwi
 | `latency_ms` | int\|null | frame receipt to event, server side |
 | `votes` | string | how many frames agreed, e.g. `"4 of last 5 frames"` |
 | `reason`, `message` | string | `reason:"unavailable"` with `message` on `vision_paused`; `reason:"hand_summary"` on a `step_complete` that the hand summary supported |
-| `reason` on `flip_needed` | string | [added Sun 15 Nov, 15:05] which way round is wrong: an option key of the step's `wrong_way` question (the drawer: `front_outer_up`, `side_rail_in`, `side_locks_up`, `side_groove_far`, `bottom_brown_in`, `back_groove_up`); `say` is then that mistake's own sentence. Absent on a `flip_needed` that comes from `orientation_ok` alone. See "Wrong part and wrong way round". |
+| `reason` on `flip_needed` | string | [added Sun 15 Nov, 15:05] which way round is wrong: an option key of the step's `wrong_way` question (the drawer: `front_outer_up`, `side_wrong_end`, `side_rail_in`, `side_locks_up`, `side_groove_far`, `bottom_brown_in`, `back_groove_up`); `say` is then that mistake's own sentence. Absent on a `flip_needed` that comes from `orientation_ok` alone. See "Wrong part and wrong way round". |
 | `match` | bool\|null | on `show_part_result` |
 | `reason` on `show_part_result` | string | [added Sun 15 Nov] only when `observed_id` is null: `image_poor`, `hand_may_be_empty` (the model gives "nothing in the hand" 0.1 or more), `not_confirmed` (the choice and the yes/no `right_hardware` disagree), `not_recognised`. `evidence` also carries `image_poor`, `no_hardware` and `right_hardware`. |
 
 - Events [plan]: `wrong_part`, `flip_needed`, `wrong_hardware`, `out_of_order`, `step_complete`, `unsure_show_part`, `vision_paused`.
-- Events [added]: `right_part`, `right_hardware`, `more_light`, `realign_camera` (off by default), `vision_resumed`, `show_part_result`.
+- Events [added]: `right_part`, `right_hardware`, `more_light`, `realign_camera` (off by default), `vision_resumed`, `show_part_result`, `right_way` (Sun 15 Nov, 15:40).
 - An event is sent only when it may be spoken: the cooldowns and mutes are applied on the server. For continuous UI (ring colour, badge) use `status`.
 
 Example, as produced:
@@ -556,6 +556,44 @@ Not solved, and not a matter of thresholds: **a bolt held during step 6 is read 
 | Step 3, real headset frames: side or bottom in the hands, nothing standing yet (6) | `cannot_tell` 0.80 to 0.95 | none |
 | The job's renders of steps 1 to 6 done right (8 answers; renders, not photos) | a mistake 0.51 at most (`bottom_brown_in` on step 5), else 0.36 at most | none |
 
+**`right_way`, and the side panel on real frames** [15:40]. The same question's `ok` gives a positive event, so the headset can end "put it here" at once:
+```json
+{"type":"event","event":"right_way","step":3,"page":4,"action":null,"reason":"ok","p":0.85,"evidence":{"wrong_way.ok":0.85},
+ "votes":"3 of last 4 frames","say":{"en":"Right: the rail looks outwards and the groove inwards, in line with the groove of the front.",
+ "el":"Σωστά: η ράγα κοιτάει προς τα έξω και το αυλάκι προς τα μέσα, στην ίδια ευθεία με της πρόσοψης."},"expected_id":null,"observed_id":null}
+```
+- `ok` at `right_way_min` (0.8) in `right_way_window` (3 of 4) frames with the assembly in view. Once per step; again after a `flip_needed` on that step, and on a new action index. Not held back by the gap between utterances. `say` is the step file's `wrong_way_text.ok` (the drawer: steps 1, 3, 4, 5, 6), else "Right way round." / «Σωστά, έτσι μπαίνει.». `PERCEPTION_TUNING='{"right_way": false}'` turns it off.
+- The drawer's question for steps 3 and 4 now says what is right in visible terms (which face has the rail and the cam locks, which the groove; the cam-lock end down; the left panel on the end of the front with the small metal plate) and step 3 has one more mistake, `side_wrong_end`.
+- **It does not work for the side panel.** The 21 frames the server kept while the user held the left side panel at the front in several ways (15:24:28 to 15:25:00, step 3, real calls), against what the pictures show:
+
+| What the frames show | First wording | Wording in visible terms |
+|---|---|---|
+| Panel in the hands, away from the front (3 frames) | `cannot_tell` 0.56-0.87 | `cannot_tell` 0.43-0.93; once `side_locks_up` 0.41 |
+| Panel STANDING on the plate end of the front with its rail and cam locks towards the middle: the wrong way round (2) | `ok` 0.51, 0.58 | `ok` 0.39, 0.76; `side_rail_in` 0.15, 0.08 |
+| Panel at the other end of the front (3) | `cannot_tell` 0.83-0.97 | `side_wrong_end` 0.58, 0.35; `cannot_tell` 0.96 |
+| Panel leaning, lying outwards or tilted in the hand at the plate end (13) | `cannot_tell` 0.46-0.92 | `cannot_tell` 0.62-0.81, `ok` 0.35-0.36 on two |
+
+  No event came from either wording. The wrong-way panel came within 0.04 of a `right_way`, which is why the line is 0.8 and not the 0.7 of `flip_needed`; no frame of a side panel standing the right way exists, so the event is unproven in both directions.
+- **The slower model does not settle it either** [15:42]. `server/perception/look.py` asks `gemini-4-hydrogen` the step's own `wrong_way` question about one frame and takes one of its option keys (`look(pack, jpeg)`). On the headset's own recording of that minute (1280 x 960, real calls):
+
+| Frame, as the picture reads | Thinking `low`, 3 to 7 s (one took 12 s) | Thinking `high`, 7 to 31 s |
+|---|---|---|
+| 392: panel standing on the plate end, hand off, rail towards the middle (wrong) | `ok`, `side_rail_in`; at 768 px `side_rail_in` | `side_rail_in`, `side_rail_in` |
+| 394: the same panel one second later | `ok` | `ok`, and one call that timed out at 90 s |
+| 378, 386: end at the plate end, leaning or lying outwards | `side_rail_in`, `ok` | `side_rail_in`, `side_rail_in` |
+| 399, 406: held on the plate end, tilted (unclear to the eye) | `ok` | `ok`, `ok` |
+| 418: panel on the other end of the front | `side_wrong_end`, also at 768 px | not run |
+| 368, 412: panel in the hands, away from the front | `cannot_tell`, also at 768 px | not run |
+
+  The other end of the front and "not at its place" were answered right every time (5 of 5). Which way the rail faces was not: the same standing panel is `ok` in one call and `side_rail_in` in the next, and with more thinking an answer takes up to half a minute. So nothing in this server says "right way round" or "wrong way round" for a side panel on evidence that held up: the stream's `right_way` should stay off for the video (`{"right_way": false}`), and a look could be trusted for `side_wrong_end` only.
+
+**The careful look, wired for the wrong end only** [16:05]. `careful_look` (on): the stream suspects, one look confirms. When the stream's `wrong_way` answer has, as its first choice at `look_suspect` (0.3) or more, one of the mistakes the step's question file lists under `wrong_way_look`, that frame goes to `look.py` once, and only the SAME mistake from it becomes `flip_needed` (`reason`, the file's sentence, `votes: "one careful look"`, `evidence: {"look": 1.0}`). Every other answer of the look is dropped; each look is logged as an `events` row `"event": "look"` with what the model saw. One look at a time, `look_gap_s` (4 s) apart, at most `look_max` (6) a step, none after it has fired for the action, none in simulation.
+- The drawer lists `side_wrong_end` on step 3 only («Αυτή είναι η λάθος άκρη της πρόσοψης: το αριστερό πλαϊνό μπαίνει στην άκρη με τη μεταλλική πλάκα.»). Step 4 has none: the other end already carries the left panel.
+- Why both: neither model is safe alone. The stream's `side_wrong_end` on the two real wrong-end frames was 0.58 and 0.61, under its own line of 0.7. The look, asked about each of the 21 kept frames (768 px, as the server gets them), said `side_wrong_end` on both wrong-end frames and also on one frame where the panel is carried in both hands over the front (1 false in 16; the stream's first choice there is `cannot_tell`, so that frame is never sent).
+- Measured as built: the 21 kept frames sent through a real session in one process (real stream, real look, 1.2 s apart): one look, on the second wrong-end frame, answered in 4.0 s, and one `flip_needed` `side_wrong_end`; no look and no event on the other 20 frames. Not proven: through the headset, at 4 frames a second.
+
+**Faster verdicts** [15:30]. `fast` (off): `right_part` / `right_hardware` after `confirm_fast` (2 of 3) frames at `confirm_fast_min` (0.9) instead of 3 of 4, and `wrong_part` after `wrong_part_fast` (3 of 4) frames at `wrong_part_fast_min` (0.8) instead of 4 of 5. Every logged session of the day fed through the `Coach` again with and without it (4,158 answered frames: 3,460 of `drawer`, 698 of `malm-drawer`; the scores as the model gave them): 27 events either way, none new, none lost. `right_part` came one frame sooner in 8 of 10 cases, `right_hardware` in 5 of 14, `wrong_part` in 0 of 2 (the bottom board scored 0.66-0.84, mostly under 0.8). One frame is a quarter of a second at 4 Hz.
+
 **Unproven:** no picture of a wrongly placed side, bottom or back exists, so `side_*`, `bottom_brown_in` and `back_groove_up` have never been seen to fire; the front on its face was seen on one phone photo, not through the headset. The line of 0.7 sits 0.04 under that photo's scores and 0.12 over the highest right-way frame.
 
 ## Settings
@@ -574,7 +612,7 @@ In `server/settings.py`, with commented lines in `.env.example`:
 ```sh
 PERCEPTION_TUNING='{"max_in_flight": 8, "watcher": {"done_yes": 0.5, "windows": {"wrong_hardware": [3, 4]}}, "headset": {"step_complete": [9, 10]}}'
 ```
-- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …). Added Sun 15 Nov: `poor_at` (0.55; `0.3` restores the old line), `dim_luma` (50; `0` lets every poor frame count towards `more_light`), `dark_peak` (60; `0` restores the mean alone), `show_nothing_max` (0.1), `show_right_min` (0.7). Added Sun 15 Nov, 15:27: `hardware_colour` (false), `hardware_colour_min` (0.5). Added Sun 15 Nov, 15:15: `reconfirm` (true), `reconfirm_after_s` (4), `reconfirm_frames` (4). Added Sun 15 Nov, 15:05: `all_choices` (true), `wrong_part_sum` (true), `wrong_part_sum_min` (0.65), `wrong_part_no` (0.3), `wrong_way` (true), `wrong_way_choice` (0.7), `wrong_way_window` (`[4, 5]`); `{"all_choices": false, "wrong_part_sum": false, "wrong_way": false, "reconfirm": false}` is the server of before.
+- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …). Added Sun 15 Nov: `poor_at` (0.55; `0.3` restores the old line), `dim_luma` (50; `0` lets every poor frame count towards `more_light`), `dark_peak` (60; `0` restores the mean alone), `show_nothing_max` (0.1), `show_right_min` (0.7). Added Sun 15 Nov, 16:05: `careful_look` (true), `look_suspect` (0.3), `look_gap_s` (4), `look_max` (6), `look_timeout_s` (20). Added Sun 15 Nov, 15:40: `right_way` (true), `right_way_min` (0.8), `right_way_window` (`[3, 4]`), `fast` (false), `confirm_fast` (`[2, 3]`), `confirm_fast_min` (0.9), `wrong_part_fast` (`[3, 4]`), `wrong_part_fast_min` (0.8). Added Sun 15 Nov, 15:27: `hardware_colour` (false), `hardware_colour_min` (0.5). Added Sun 15 Nov, 15:15: `reconfirm` (true), `reconfirm_after_s` (4), `reconfirm_frames` (4). Added Sun 15 Nov, 15:05: `all_choices` (true), `wrong_part_sum` (true), `wrong_part_sum_min` (0.65), `wrong_part_no` (0.3), `wrong_way` (true), `wrong_way_choice` (0.7), `wrong_way_window` (`[4, 5]`); `{"all_choices": false, "wrong_part_sum": false, "wrong_way": false, "reconfirm": false}` is the server of before.
 - `watcher`: the fields of `Config` in `pipeline/perception/logic.py` (`yes`, `no`, `choice`, `done_yes`, `done_orientation`, `hands`, `unusable`, `windows`, `unsure_frames`, `hands_away_s`, `cooldown_s`, `global_cooldown_s`). Their defaults are not repeated in the server.
 - `fixed`, `headset`: per-source rules; a window given there replaces the Watcher's for that source.
 

@@ -3,6 +3,7 @@ and the sum over parts of other steps. No model is called."""
 from __future__ import annotations
 
 import json
+import time
 
 from pipeline.perception.logic import SPECIAL
 from server.perception.guide import Guide
@@ -398,3 +399,116 @@ def test_right_way_says_the_step_files_sentence_for_ok(tmp_path):
             assert (event["event"], event["reason"], event["step"]) == ("right_way", "ok", 2)
             assert event["say"] == {"en": "Right: the holes are up.", "el": "Σωστά: οι τρύπες είναι από πάνω."}
             assert event["speak"] and event["evidence"] == {"wrong_way.ok": 0.93} and event["observed_id"] is None
+
+
+# ---- the careful look (server/perception/look.py): built and measured, not wired into the session ----
+
+def test_the_careful_look_asks_the_steps_own_question_and_takes_only_its_keys(monkeypatch):
+    from server.perception import look as careful
+    pack = {"header": "STEP 3 of 6. Image 1 is the live camera view of the user's work area.",
+            "questions": {"wrong_way": {"type": "choice", "instructions": "In Image 1, which of these describes the panel?",
+                                        "criteria": {"side_rail_in": "The rail looks inwards in Image 1", "ok": "The rail looks outwards",
+                                                     "cannot_tell": "No panel touches the front"}}}}
+    text, keys = careful.prompt_for(pack, "Real colours: grey.")
+    assert keys == ["side_rail_in", "ok", "cannot_tell"] and "Image 1" not in text and "Real colours: grey." in text
+    assert "- side_rail_in: The rail looks inwards in the photo" in text and "choose cannot_tell" in text
+    assert careful.prompt_for({"questions": {}}) is None
+    calls = []
+
+    def fake(model, parts, **kw):
+        calls.append((model, parts, kw))
+        return json.dumps({"seen": "a panel, rail inwards", "answer": "side_rail_in"})
+    monkeypatch.setattr(careful.gemini, "generate", fake)
+    out = careful.look(pack, b"\\xff\\xd8jpeg")
+    assert (out["answer"], out["why"]) == ("side_rail_in", "a panel, rail inwards") and out["latency_ms"] >= 0
+    model, parts, kw = calls[0]
+    assert model == "gemini-4-hydrogen" and parts[1][0] == "image/jpeg" and kw["schema"]["properties"]["answer"]["enum"] == keys
+    monkeypatch.setattr(careful.gemini, "generate", lambda *a, **k: json.dumps({"seen": "x", "answer": "upside_down"}))
+    try:
+        careful.look(pack, b"jpeg")
+    except ValueError as e:
+        assert "upside_down" in str(e)
+    else:
+        raise AssertionError("an answer outside the options must not be taken")
+
+
+# ---- the careful look, wired: the stream suspects a listed mistake, one look confirms it ---------------
+
+def _look_session(tmp_path, monkeypatch, answer: str, way: str = "wrong_end", tuning: dict | None = None):
+    """A live session (the Decisions API faked) on a step whose file has `wrong_way` and `wrong_way_look`.
+    `way`: the stream's first choice for `wrong_way` (at 0.6); `answer`: what the careful look says."""
+    from server.perception import session as live
+    from tests.test_perception import JOB, app_client, fake_api
+    looks = []
+
+    def fake_look(pack, jpeg, note=None, timeout=25.0, thinking="low"):
+        looks.append(len(jpeg))
+        return {"answer": answer, "why": "seen", "latency_ms": 5}
+
+    def reply(body: dict):
+        answers = {}
+        for key, q in body["questions"].items():
+            if q["type"] == "noul":
+                p = {"hands_present": 0.97, "orientation_ok": 0.9}.get(key, 0.02)
+                answers[key] = {"type": "noul", "noul": p, "confidence": max(p, 1 - p)}
+            else:
+                top = way if key == "wrong_way" else "nothing_held" if key == "part_in_hand" else "no_hardware"
+                rest = [o for o in q["criteria"] if o != top]
+                answers[key] = {"type": "choice", "choice": top, "confidence": 0.6,
+                                "probabilities": {top: 0.6, **{o: round(0.4 / len(rest), 3) for o in rest}}}
+        return 200, json.dumps({"answers": answers}).encode()
+
+    monkeypatch.setattr(live.careful, "look", fake_look)
+    fake_api(monkeypatch, reply)
+    client = app_client(tmp_path, tuning, perception_simulate=False, gemini_api_key="k-123")
+    path = tmp_path / "jobs" / JOB / "refs" / "step-02-questions.json"
+    pack = json.loads(path.read_text())
+    pack["questions"]["wrong_way"] = {"type": "choice", "instructions": "Which of these describes the panel?", "criteria": {
+        "wrong_end": "The panel is on the other end", "rail_in": "The rail looks inwards", "ok": "The panel stands right",
+        "cannot_tell": "No panel touches the base"}}
+    pack["wrong_way_text"] = {"wrong_end": {"en": "That is the wrong end.", "el": "Αυτή είναι η λάθος άκρη."}}
+    pack["wrong_way_look"] = ["wrong_end"]
+    path.write_text(json.dumps(pack, ensure_ascii=False))
+    return client, looks
+
+
+def _events(cam) -> list:
+    return [(m["event"], m.get("reason")) for m in cam.seen if m["type"] == "event"]
+
+
+def test_the_stream_suspects_the_listed_mistake_and_one_careful_look_confirms_it(tmp_path, monkeypatch):
+    from tests.test_perception import Peer, url
+    client, looks = _look_session(tmp_path, monkeypatch, "wrong_end")
+    with client as c, c.websocket_connect(url("camera")) as ws:
+        cam = Peer(ws)
+        cam.send(type="start", step=2)
+        assert cam.frame_ack(1, step=2)["dropped"] is None            # 0.6 is under the stream's own line: no event
+        event = cam.find("event")                                     # ...but enough to ask the slower model
+        assert (event["event"], event["reason"], event["votes"]) == ("flip_needed", "wrong_end", "one careful look")
+        assert event["say"] == {"en": "That is the wrong end.", "el": "Αυτή είναι η λάθος άκρη."} and event["evidence"] == {"look": 1.0}
+        for seq in range(2, 10):
+            cam.frame_ack(seq, step=2)
+        time.sleep(0.1)
+        assert len(looks) == 1 and _events(cam) == [("flip_needed", "wrong_end")]    # not again in this action
+
+
+def test_the_look_must_name_the_same_mistake_and_is_asked_sparingly(tmp_path, monkeypatch):
+    from tests.test_perception import Peer, url
+    for name, answer, way, tuning, asked in (
+            ("the look sees a panel in the air", "cannot_tell", "wrong_end", {"look_gap_s": 0.0, "look_max": 2}, 2),
+            ("the look sees another mistake", "rail_in", "wrong_end", {"look_gap_s": 0.0, "look_max": 2}, 2),
+            ("one look in four seconds", "ok", "wrong_end", None, 1),
+            ("the stream suspects a mistake that is not listed", "wrong_end", "rail_in", None, 0),
+            ("the stream sees nothing wrong", "wrong_end", "ok", None, 0),
+            ("the stream is not sure enough", "wrong_end", "wrong_end", {"look_suspect": 0.7}, 0),
+            ("switched off", "wrong_end", "wrong_end", {"careful_look": False}, 0)):
+        client, looks = _look_session(tmp_path / name.replace(" ", "_"), monkeypatch, answer, way, tuning)
+        with client as c, c.websocket_connect(url("camera")) as ws:
+            cam = Peer(ws)
+            cam.send(type="start", step=2)
+            for seq in range(1, 9):
+                cam.frame_ack(seq, step=2)
+                time.sleep(0.02)
+            time.sleep(0.15)
+            assert len(looks) == asked, name
+            assert ("flip_needed", "wrong_end") not in _events(cam), name
