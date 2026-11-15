@@ -7,6 +7,7 @@ python-multipart>=0.0.9
 google-genai>=3.2
 claude-agent-sdk>=0.2.182      # build agent (PLAN D20); needs the Claude Code CLI it bundles
 httpx>=0.27
+mcp>=2.3,<3                    # MCP server for agents (server/mcp_server.py); FastMCP is named MCPServer in v2
 
 # Pipeline (guide rasters, checks, CAD, placement)
 pymupdf>=1.24

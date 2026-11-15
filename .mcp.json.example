@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "assembly-guide": {
+      "command": "/absolute/path/to/genai-summit-hackathon/.venv/bin/python",
+      "args": ["-m", "server.mcp_server"],
+      "env": {
+        "PYTHONPATH": "/absolute/path/to/genai-summit-hackathon",
+        "AGJ_BASE_URL": "http://127.0.0.1:8000",
+        "AGJ_DEMO_KEY": "<DEMO_KEY from .env>"
+      }
+    }
+  }
+}

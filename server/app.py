@@ -19,6 +19,7 @@ from server.auth import KeyGate, has_key, hide_key_in_logs
 from server.jobs import JobStore
 from server.orchestrator import Orchestrator
 from server.orchestrator.stages import STAGES
+from server.routes import catalog as catalog_routes
 from server.routes import diag as diag_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
@@ -118,6 +119,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "client_built": (settings.client_dist / "index.html").is_file()}
 
     app.include_router(job_routes.router)
+    app.include_router(catalog_routes.router)
     app.include_router(live_routes.router)
     app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)
