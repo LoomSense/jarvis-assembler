@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from pipeline import crops, pack, refs
+from pipeline import ar, crops, pack, refs
 from pipeline.assemble import collide, placement
 from pipeline.cad import harness
 
@@ -76,6 +76,7 @@ def main(plan_path: Path, out: Path) -> int:
         print(e)
         return 3
     t["refs_s"] = time.perf_counter() - t3
+    ar.build(out)                                                # optional: one USDZ per step for AR on an iPhone
     packed = pack.build(out)                                     # optional: skipped when gltfpack is not installed
     cut = crops.build(plan_path, out)                            # optional: skipped when the guide PDF is not there
     summary = dict(json.loads(res[-1][7:]), unique_parts=len(built), part_renders=pictures["part_renders"],

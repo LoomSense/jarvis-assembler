@@ -1,0 +1,28 @@
+/* "See it on your table" on the guide page (src/guide/ar.ts): one white pill above the step controls. The label
+   is drawn from data-label, because Safari opens AR Quick Look only from an <a rel="ar"> that holds just an <img>. */
+#table-ar {
+  position: fixed;
+  z-index: 35;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  min-height: 48px;
+  padding: 0 20px 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font: 600 15px/1 "Google Sans", Arial, system-ui, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 8px 28px -10px rgba(255, 255, 255, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#table-ar[hidden] { display: none; }
+#table-ar::after { content: attr(data-label); }
+#table-ar img { display: block; flex: none; }
+#table-ar:active { transform: translateX(-50%) scale(0.98); }
+#table-ar:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }

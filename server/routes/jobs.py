@@ -18,6 +18,7 @@ from server.orchestrator.stages import validate_plan
 
 mimetypes.add_type("model/gltf-binary", ".glb")
 mimetypes.add_type("application/jsonl", ".jsonl")
+mimetypes.add_type("model/vnd.usdz+zip", ".usdz")           # AR Quick Look on iPhone and iPad opens it from <a rel="ar">
 
 router = APIRouter(dependencies=[Depends(require_key)])
 CROP_RE = re.compile(r"^(part|step)-(.+)\.png$")
