@@ -179,6 +179,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
   /** The coach is given the step in the guide's English words; it says it in the page's language. */
   const tellStep = () => {
     if (!coach?.on) return
+    if (speaking) return void (tellLater = true) // the check's sentence is still being said: the step waits for it
     const s = current()
     if (finished) return coach.tell('[RESULT] Every step is finished. Say that it is built.')
     const actions = s.actions.map((a) => a.text?.en).filter(Boolean).join(' ')
@@ -207,6 +208,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
   // coach's Live session may paraphrase or stay silent; a mistake must be heard exactly as it was found.
   let audioCtx: AudioContext | null = null
   let speaking: AudioBufferSourceNode | null = null
+  let tellLater = false
   const speak = async (text: string, fallback: string) => {
     if (!text) return
     try {
@@ -217,6 +219,20 @@ export async function startLive(app: HTMLElement): Promise<void> {
       const src = audioCtx.createBufferSource()
       src.buffer = buf
       src.connect(audioCtx.destination)
+      // one voice at a time: while this sentence plays, the coach is silent and does not hear it through the microphone
+      coach?.hold(true)
+      src.onended = () => {
+        if (speaking !== src) return
+        speaking = null
+        window.setTimeout(() => {
+          if (speaking) return
+          coach?.hold(false)
+          if (tellLater) {
+            tellLater = false
+            tellStep()
+          }
+        }, 500)
+      }
       src.start()
       speaking = src
     } catch {

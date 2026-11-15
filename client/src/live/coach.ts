@@ -38,6 +38,8 @@ export interface Coach {
   /** a line for the model: `[STEP…]`, `[CHECK…]`, or a question in the person's place */
   tell(text: string): void
   setMic(on: boolean): void
+  /** silence the coach and stop sending the microphone while the page itself is speaking, so two voices never overlap */
+  hold(on: boolean): void
   readonly on: boolean
   stop(): void
 }
@@ -75,6 +77,7 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
   let playing: AudioBufferSourceNode[] = []
   let lastSound = 0
   const play = (pcm: Int16Array) => {
+    if (muted) return
     const buf = o.audio.createBuffer(1, pcm.length, 24000)
     const ch = buf.getChannelData(0)
     for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768
@@ -97,6 +100,7 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
 
   // ---- every turn is held back until its first words show it is something to say: not "ok", not a stray
   // note of the model to itself. That costs a fraction of a second and keeps noise out of the person's ear.
+  let muted = false
   let looking = true
   /** when the last line was sent that has not been answered yet (0: none): no `[LOOK]` on top of an open turn */
   let asked = 0
@@ -196,6 +200,7 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
       micNode = o.audio.createScriptProcessor(4096, 1, 1)
       const ratio = o.audio.sampleRate / MIC_RATE
       micNode.onaudioprocess = (e) => {
+        if (muted) return
         if (!micOn || !open) return
         const input = e.inputBuffer.getChannelData(0)
         const out = new Int16Array(Math.floor(input.length / ratio))
@@ -224,6 +229,13 @@ export async function startCoach(o: CoachOptions): Promise<Coach | null> {
     },
     setMic(on) {
       micOn = on && !!o.mic
+    },
+    hold(on) {
+      muted = on
+      if (on) {
+        hush()
+        held = []
+      }
     },
     get on() {
       return open && !closed
