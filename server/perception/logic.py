@@ -45,6 +45,8 @@ NEVER_SUPPRESSED = ("step_complete", "vision_paused", "vision_resumed", "show_pa
 SILENT = ("vision_paused", "vision_resumed")     # a badge on the screen (§6.5), not speech
 RIGHT_HARDWARE = "right_hardware"                # the question this layer adds to the request
 SCENE_QUESTIONS = ("step_complete", "next_step_part_used", "orientation_ok")   # about the assembly, not the hand
+WRONG_WAY = "wrong_way"                          # optional choice question of a step: WHICH way round is wrong
+WAY_FINE = ("ok", "cannot_tell", "other")        # its answers that name no mistake
 REFUSALS = ("auth", "billing")                   # the API will not answer at all: do not keep asking
 
 
@@ -331,6 +333,8 @@ class Coach:
         self.hw = Latch(t.hold_enter, t.hold_release)
         self.confirm = {"right_part": Window(), "right_hardware": Window()}
         self.confirmed: set[tuple[str, str]] = set()
+        self.way = Window()                         # `wrong_way` answers: the mistake named, or None
+        self.way_said: set[str] = set()             # mistakes already said and not yet seen put right
         self.muted: set[str] = set()
         self.said: Counter = Counter()
         self.last_warning: str | None = None
@@ -449,6 +453,34 @@ class Coach:
             conf = (raw.get("part_in_hand") or {}).get("confidence")
             kw.update(expected_id=e.needed(e.now_kind or "part"), p=conf, evidence={"part_in_hand.top": conf})
         return self._emit(name, **kw)
+
+    def _wrong_way(self, raw: dict, ts: float, blocked: bool, busy: bool) -> Emitted | None:
+        """`flip_needed` with a `reason`: the step's own `wrong_way` question names one mistake (a choice whose
+        options are the ways this step goes wrong, plus `ok` and `cannot_tell`) in enough frames. The yes/no
+        `orientation_ok` cannot say which mistake it is and separates badly on real frames (the front lying right:
+        0.26-0.92; lying on its face: 0.19). Said once per mistake; again only after frames that say `ok`."""
+        answer = raw.get(WRONG_WAY)
+        if not self.t.wrong_way or not isinstance(answer, dict) or answer.get("choice") is None:
+            return None
+        choice, conf = str(answer["choice"]), float(answer.get("confidence") or 0.0)
+        if blocked:
+            return None                                          # the assembly is not in view: not a vote either way
+        named = choice not in WAY_FINE and choice not in SPECIAL and conf >= self.t.wrong_way_choice
+        self.way.push(ts, choice if named else None)
+        if choice == "ok" and conf >= self.t.wrong_way_choice:
+            fine = [p for _, p in list(self.way.votes)[-self.t.wrong_way_window.m:]]
+            if all(p is None for p in fine):
+                self.way_said.clear()                            # put right (or never wrong): may be said again
+        if not named or busy or choice in self.way_said or "flip_needed" in self.muted:
+            return None
+        need = self.t.wrong_way_window
+        if self.way.agreed(need, ts, self.t.window_max_age_s) != choice or not self._free("flip_needed", ts):
+            return None
+        self.way_said.add(choice)
+        recent = [p for _, p in list(self.way.votes)[-need.m:]]
+        return self._say("flip_needed", ts, reason=choice, p=conf,
+                         evidence={f"{WRONG_WAY}.{choice}": conf, "orientation_ok": yes_p(raw, "orientation_ok")},
+                         votes=f"{recent.count(choice)} of last {len(recent)} frames")
 
     # ---- frames ---------------------------------------------------------------------------------
 
@@ -575,6 +607,11 @@ class Coach:
         for ev in events:
             if ev is complete or (complete is None and ev["type"] not in self.muted):
                 out.append(self._from_watcher(ev, raw))
+
+        if complete is None:
+            flip = self._wrong_way(raw, ts, blocked, any(e.event in WARNINGS for e in out))
+            if flip is not None:
+                out.append(flip)
 
         # 2. What is in the hand, read as the Watcher reads it: only when hands are in view.
         hands_p = yes_p(raw, "hands_present")

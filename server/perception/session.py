@@ -364,6 +364,16 @@ class PerceptionSession:
         self._dirty, self._status_at = False, now
         self._broadcast(self._status_message(now))
 
+    def _way_text(self, e: Emitted) -> dict | None:
+        """The sentence the step's question file gives for this `flip_needed` reason (`wrong_way_text`), if any."""
+        if e.event != "flip_needed" or not e.reason or e.step is None:
+            return None
+        got = self._packs.get(e.step)
+        text = (got.pack.get("wrong_way_text") or {}).get(e.reason) if isinstance(got, StepPack) else None
+        if not isinstance(text, dict) or not text.get("en"):
+            return None
+        return {"en": str(text["en"]), "el": str(text.get("el") or text["en"])}
+
     def _event_message(self, e: Emitted, frame: Frame | None = None, extra: dict | None = None) -> dict:
         g = self.guide
         expected, observed = g.label(e.expected_id), g.label(e.observed_id)
@@ -371,7 +381,7 @@ class PerceptionSession:
             say = show_part_sentences(g, e.observed_id, e.expected_id, e.step, e.page)
         else:
             x = self.coach.expect
-            say = sentences(e, g, x.next_step if x else None, x.next_page if x else None)
+            say = self._way_text(e) or sentences(e, g, x.next_step if x else None, x.next_page if x else None)
         speak = spoken(e.event)
         self._event_id += 1
         msg = {"type": "event", "event": e.event, "step": e.step, "page": e.page, "expected": expected,

@@ -79,6 +79,10 @@ class Tuning:
     #                                        0.15). Real frames: a wrong board held where the right one goes
     #                                        0.08-0.27; the right part, named with confidence, 0.32 at the least
     #                                        (21 logged frames), 0.90-0.93 when held up
+    wrong_way: bool = True                 # a step whose questions have the optional `wrong_way` choice: the mistake
+    #                                        it names becomes `flip_needed` with `reason` (README, "Wrong way round")
+    wrong_way_choice: float = 0.75         # ...named with this confidence
+    wrong_way_window: NofM = NofM(4, 5)    # ...in 4 of the last 5 frames in which the assembly is in view
     all_choices: bool = True               # "which part / which hardware is held" also offers the parts of later
     #                                        steps and every hardware code of the guide (questions.complete_choices).
     #                                        A question file lists only its own step's and the next one's, so any
