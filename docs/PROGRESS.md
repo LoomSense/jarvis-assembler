@@ -185,6 +185,8 @@ Columns: **ID** · **Task** · **Owner** · **Status** · **Depends on** · **Do
 | Part pictures, reference sheets and crops | §5.4 | pass | 12 part pictures 1.2 s, 8 reference renders 0.8 s, 8 sheets (1536×768, ≤ 445 kB) 1.9 s, 8 crops at 300 dpi. Sheets not yet sent to Decision 1 | data owner | Sat 23:00 |
 | cloudflared quick tunnel without an account | §13 | pass, with a limit | HTTPS, upload, REST and files work. **SSE is buffered: 0 bytes in 20 s.** Smoke passes in 50.6 s with long-polling | A | Sat 23:14 |
 | First CadQuery import after an install | §13 | note | over 30 s once (bytecode compile), then about 1.4 s. The server waits up to 180 s before it reports CadQuery as missing | A | Sat 23:05 |
+| Phone guide page on the demo host (headless Chrome, iPhone 13 emulation) | §7 | pass, emulated only | KNAGGLIG and MARKUS load through the public URL, step through four screens each, no console errors. Not yet on a real phone | A | Sun 05:40 |
+| Phase-2 lab replay through the host's socket (stand-in render frames, real Decision 1) | §9 | pass, lab only | step 6 of KNAGGLIG: `step_complete` 3.5 s after the scene changed, decision p50 720 ms; 9 s of an unchanged scene: 0 events. No camera, hands or headset | A | Sun 05:30 |
 
 ---
 
@@ -246,6 +248,7 @@ Append one line per update, newest at the bottom of **your own** log only: `Sat 
 - Sun 05:10 · for everyone · added tonight (all on `main`, all tested, 86 tests pass): sub-assemblies (`02d32cc`); shape helpers and an `approximate_shape` flag; `press`, `tighten` and `notes` actions so no step is empty (`e39994c`); image-to-3D parts through fal for shapes CadQuery cannot draw (`generate` in the plan, `985d696`, tested with a real key); a drawing check that scores every step's render against the guide's drawing with Decision 1 and posts it in the feed (`0c65998`, `d046303`; its orientation answer proved unreliable and is not used); optional `size` on upload, passed to the agent as true scale; the MARKUS office chair as a second known guide (`4c36957`)
 - Sun 05:10 · demo host · both known guides build through the public URL: KNAGGLIG 67 s, MARKUS 87 s, with step scores in the feed. The build agent re-ran MARKUS from the PDF alone with the new brief and used the seat sub-assembly, press-fit casters, tightening and notes on its own (610 s, $2.98); it did not choose fal for any part
 - Sun 05:10 · keys · the Gemini and fal keys were printed once in A's coding session by a check command (not in git, not sent elsewhere). Rotate both after the demo
+- Sun 05:45 · where the project stands (A's check) · phase 1 works end to end on the demo host for the known guides and, with the build agent, for new PDFs; its phone page passes in an emulated iPhone, not yet on a real one; the upload/feed/approve screen (`/?mode=build`) is being built in the other session. Phase 2: socket, logic, questions, voice token and the Quest client exist; a lab replay with the real key passes; nothing has run with a real camera, hands, the physical product or the headset (G2, G4, G5 pending). Demo jobs: KNAGGLIG `1115-0453-7ca85e`, MARKUS `1115-0505-4dcc90`. `deploy/redeploy_mac.sh` updates the host to `main`; README has a "Try it" table
 
 ### Log B
 -
