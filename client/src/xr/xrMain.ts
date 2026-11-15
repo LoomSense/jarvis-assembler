@@ -1375,6 +1375,9 @@ export async function startXR(root: HTMLElement): Promise<void> {
     audio ??= new AudioContext(); // the first tap also starts the sound
     void media.request();
   });
+  // On a Quest, ask for the camera as soon as the page opens (no tap needed; the browser shows its own prompt once
+  // and remembers the answer), so the only tap left is Enter AR. Elsewhere the ① Camera button stays.
+  if (!cameraBtn.hidden && /OculusBrowser|Quest/i.test(navigator.userAgent) && params.get('cam') !== 'tap') void media.request();
   guideBtn.hidden = !JOB;
   guideBtn.addEventListener('click', () => openGuide());
 
