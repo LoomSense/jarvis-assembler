@@ -185,42 +185,7 @@ html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webk
 #landing .hint { margin-top: 6px; }
 #landing .tabs { display: none; }
 
-/* the hero's boxes: three cardboard boxes that drop onto each other, then breathe. Each opens a guide. */
-#landing .boxes { position: relative; width: 264px; height: 214px; margin: 30px auto 6px; }
-#landing .bx { --d: 16px; position: absolute; display: block; rotate: var(--r); cursor: pointer; transition: scale 250ms var(--ag-ease), rotate 250ms var(--ag-ease);
-  animation: bx-drop 900ms var(--ag-ease) both, bx-idle 5.2s ease-in-out infinite; animation-delay: calc(var(--i) * 150ms), calc(1100ms + var(--i) * 420ms); }
-#landing .bx.b1 { --r: 0deg; left: 16px; bottom: 16px; width: 216px; height: 62px; }
-#landing .bx.b2 { --r: -2.5deg; left: 30px; bottom: 87px; width: 172px; height: 54px; }
-#landing .bx.b3 { --r: 3deg; left: 62px; bottom: 150px; width: 124px; height: 44px; }
-#landing .bx .face { position: absolute; inset: 0; overflow: hidden; border-radius: 3px; background: linear-gradient(180deg, #d6ad76, #c0935a); box-shadow: inset 0 0 0 1px rgba(60, 38, 12, 0.22); }
-#landing .bx .lid { position: absolute; left: 0; right: 0; top: calc(-1 * var(--d)); height: var(--d); background: linear-gradient(180deg, #ecc998, #dfb884); transform: skewX(-45deg); transform-origin: bottom left; border-radius: 2px 2px 0 0; }
-#landing .bx .side { position: absolute; top: 0; bottom: 0; left: 100%; width: var(--d); background: linear-gradient(90deg, #a47b48, #8f6a3c); transform: skewY(-45deg); transform-origin: top left; border-radius: 0 2px 2px 0; }
-#landing .bx .tape { position: absolute; top: 0; bottom: 0; left: 64%; width: 20px; background: rgba(255, 244, 222, 0.28); }
-#landing .bx .tag { position: absolute; left: 12px; top: 50%; translate: 0 -50%; padding: 4px 9px 5px; display: grid; gap: 1px; border-radius: 3px; background: #fffdf8; color: #17130d; text-align: left; line-height: 1.05; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12); }
-#landing .bx .tag b { font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; color: #5b5346; }
-#landing .bx .tag em { font-style: normal; font-size: 13px; font-weight: 600; letter-spacing: 0.03em; }
-#landing .bx.b3 .tag { left: 9px; padding: 3px 7px 4px; }
-#landing .bx.b3 .tag em { font-size: 11.5px; }
-#landing .bx:hover, #landing .bx:focus-visible { scale: 1.05; rotate: calc(var(--r) * -1.4 + 1deg); z-index: 2; }
-#landing .bx:active { scale: 0.96; }
-#landing .boxes .floor { position: absolute; left: 6px; right: -10px; bottom: 0; height: 26px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent); filter: blur(4px); z-index: -1; }
-:root[data-theme="light"] #landing .boxes .floor { background: radial-gradient(closest-side, rgba(40, 28, 10, 0.28), transparent); }
-@keyframes bx-drop { 0% { transform: translateY(-170px); opacity: 0; } 55% { opacity: 1; } 72% { transform: translateY(5px); } 100% { transform: none; opacity: 1; } }
-@keyframes bx-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 
-/* how it works: three pictures joined by arrows whose dashes run forward; no numbers, no small print */
-#landing .how .flow { margin-top: 28px; display: flex; gap: 0; grid-template-columns: none; }
-#landing .how .flow li { position: relative; flex: 1 1 0; min-width: 0; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 14px; border: 0; background: none; box-shadow: none; text-align: center; }
-#landing .how .flow .ico { width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid var(--ag-border-strong); border-radius: 24px; background: var(--ag-card-fill); color: var(--ag-accent); box-shadow: inset 0 1px 0 var(--ag-border);
-  animation: flow-glow 4.5s ease-in-out infinite; }
-#landing .how .flow li:nth-child(2) .ico { animation-delay: 1.5s; }
-#landing .how .flow li:nth-child(3) .ico { animation-delay: 3s; }
-#landing .how .flow .ico svg { width: 32px; height: 32px; stroke-width: 1.6; }
-#landing .how .flow h3 { max-width: 13ch; font-size: clamp(15px, 2.2vw, 20px); font-weight: 500; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
-#landing .how .flow .arr { position: absolute; top: 22px; left: 0; width: min(46%, 150px); height: 28px; translate: -50% 0; color: var(--ag-accent); stroke-width: 1.7; overflow: visible; }
-#landing .how .flow .arr .dash { stroke-dasharray: 3 6; animation: flow-dash 900ms linear infinite; }
-@keyframes flow-dash { from { stroke-dashoffset: 18; } to { stroke-dashoffset: 0; } }
-@keyframes flow-glow { 0%, 22%, 100% { border-color: var(--ag-border-strong); box-shadow: inset 0 1px 0 var(--ag-border), 0 0 0 0 transparent; } 8% { border-color: var(--ag-accent); box-shadow: inset 0 1px 0 var(--ag-border), 0 0 30px -4px var(--ag-accent-glow); } }
 
 @media (max-width: 640px) {
   #landing .bar { height: calc(56px + env(safe-area-inset-top)); }
@@ -230,13 +195,10 @@ html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webk
   #landing .hero { padding: 34px 0 44px; }
   #landing .eyebrow { margin-bottom: 16px; }
   #landing h1 { font-size: clamp(34px, 9.6vw, 44px); }
-  #landing .boxes { margin-top: 26px; scale: 0.94; }
   #landing .lead { margin-top: 18px; font-size: 16.5px; line-height: 1.55; }
   #landing .actions { margin-top: 26px; gap: 10px; }
   #landing .primary, #landing .ghost { min-height: 56px; font-size: 17px; }
   #landing .how { padding-top: 28px; }
-  #landing .how .flow .ico { width: 64px; height: 64px; border-radius: 21px; }
-  #landing .how .flow .arr { top: 18px; }
   #landing .guides { margin-top: 48px; scroll-margin-top: 72px; }
   #landing .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   #landing .meta { padding: 12px; }
@@ -266,7 +228,6 @@ html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webk
 }
 @media (prefers-reduced-motion: reduce) {
   #landing .bx { animation: none; transition: none; }
-  #landing .how .flow .ico, #landing .how .flow .arr .dash { animation: none; }
   html:has(#landing) { scroll-behavior: auto; }
 }
 
@@ -279,3 +240,96 @@ html:has(#landing) { overscroll-behavior-y: none; scroll-behavior: smooth; -webk
 #landing .state.bad { color: var(--ag-error); }
 #landing .wait { color: var(--ag-text-meta); opacity: 0.55; }
 #landing .wait svg { width: 44px; height: 44px; stroke-width: 1.3; }
+
+/* ---- A workshop at night (Sun 15 Nov): the landing page has its own warm dark look whatever the theme of the
+   other screens. A lamp over a wooden table, the boxes of real guides on it; each box opens, a glowing piece
+   rises out and it closes again. One action (assemble), then three pictures of what happens next. ---- */
+html:has(#landing) { background: #0b0907; }
+#landing {
+  --ag-bg: #0b0907; --ag-text: #e9e1d5; --ag-text-strong: #f5efe6; --ag-text-meta: #b9ad9c;
+  --ag-border: #2a221a; --ag-border-strong: #3a3027; --ag-border-field: #3a3027;
+  --ag-surface: #14100c; --ag-surface-2: #1d1711; --ag-surface-glass: rgba(11, 9, 7, 0.74); --ag-card-fill: #14100c; --ag-field-bg: #14100c;
+  --ag-primary: #f7f2ea; --ag-primary-hover: #ffffff; --ag-text-on-primary: #17110b; --ag-shadow-primary: none;
+  --ag-accent: #f0b25a; --ag-accent-glow: rgba(240, 178, 90, 0.45); --ag-focus-ring: #f0b25a;
+  --ag-success: #8fd3a0; --ag-info: #9ecfff; --ag-unsure: #f0c674; --ag-warn: #f0c674; --ag-error: #ff9d8a;
+  background: var(--ag-bg);
+}
+#landing .bar { border-bottom-color: transparent; }
+#landing .brand svg.logo { width: 34px; height: 34px; padding: 0; border: 0; border-radius: 0; stroke: none; }
+#landing .tab.scan i { background: var(--ag-accent); }
+
+#landing .ws { padding: 0 0 56px; text-align: left; display: grid; gap: 0 56px; align-items: center; }
+#landing .ws .keybox { margin-left: 0; }
+#landing .ws h1 { max-width: none; margin: 28px 0 0; font-size: clamp(32px, 4.6vw, 56px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+#landing .ws .actions { margin-top: 24px; justify-content: flex-start; }
+#landing .ws .primary { min-height: 54px; padding: 0 28px; font-weight: 600; }
+#landing .ws .primary svg { width: 18px; height: 18px; stroke-width: 2; }
+#landing .ws .hint { margin-top: 14px; }
+#landing .ws .hint:empty { display: none; }
+
+#landing .steps3 { max-width: 480px; margin: 30px 0 0; padding: 0; list-style: none; display: flex; align-items: center; gap: 6px; }
+#landing .steps3 .t { flex: 1 1 0; min-width: 0; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--ag-border); border-radius: 14px; background: var(--ag-surface); color: var(--ag-text-meta); font-size: 12px; white-space: nowrap; animation: ws-step 6s ease-in-out infinite; }
+#landing .steps3 .t:nth-child(3) { animation-delay: 2s; }
+#landing .steps3 .t:nth-child(5) { animation-delay: 4s; }
+#landing .steps3 .t svg { width: 40px; height: 40px; color: var(--ag-accent); stroke-width: 2; }
+#landing .steps3 .t svg[viewBox="0 0 24 24"] { stroke-width: 1.3; }
+#landing .steps3 .ar { flex: none; display: grid; color: #6b5f51; }
+#landing .steps3 .ar svg { width: 16px; height: 16px; }
+
+#landing .scene { position: relative; height: 340px; overflow: hidden; border-radius: 20px; }
+#landing .scene > i { position: absolute; }
+#landing .scene .glow { inset: 0; background: radial-gradient(ellipse 78% 70% at 50% 18%, rgba(255, 206, 140, 0.2), transparent 72%); }
+#landing .scene .cord { left: 50%; top: 0; width: 2px; height: 46px; margin-left: -1px; background: #3a3027; }
+#landing .scene .shade { left: 50%; top: 46px; width: 72px; height: 30px; margin-left: -36px; background: #221b15; clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%); }
+#landing .scene .bulb { left: 50%; top: 74px; width: 44px; height: 7px; margin-left: -22px; border-radius: 4px; background: #ffe6b8; box-shadow: 0 0 46px 20px rgba(255, 205, 130, 0.42); }
+#landing .scene .cone { left: 50%; top: 80px; width: 360px; height: 206px; margin-left: -180px; background: linear-gradient(rgba(255, 214, 150, 0.17), rgba(255, 214, 150, 0.02)); clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
+#landing .scene .table { left: 0; right: 0; bottom: 22px; height: 64px; border-top: 1px solid #b07a48;
+  background: radial-gradient(ellipse 62% 120% at 50% 20%, rgba(255, 214, 150, 0.34), transparent 70%), repeating-linear-gradient(90deg, transparent 0 76px, rgba(0, 0, 0, 0.28) 76px 78px), linear-gradient(#8a5a31, #5c3a1e); }
+#landing .scene .edge { left: 0; right: 0; bottom: 0; height: 22px; background: linear-gradient(#3b2413, #1c1109); }
+#landing .scene .row { position: absolute; left: 0; right: 0; bottom: 50px; display: flex; justify-content: center; align-items: flex-end; gap: 22px; }
+
+#landing .bx { position: relative; flex: none; display: block; width: calc(var(--w) + var(--d)); height: calc(var(--h) + var(--d)); color: #2a1c0f; cursor: pointer; transition: translate 200ms var(--ag-ease), scale 200ms var(--ag-ease); }
+#landing .bx.c1 { --w: 128px; --h: 92px; --d: 26px; }
+#landing .bx.c2 { --w: 104px; --h: 124px; --d: 24px; }
+#landing .bx > * { position: absolute; }
+#landing .bx .sh { left: 6px; right: 0; bottom: -8px; height: 16px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); filter: blur(6px); }
+#landing .bx .hole { left: 0; bottom: var(--h); width: var(--w); height: var(--d); background: #3f2a16; transform: skewX(-45deg); transform-origin: bottom left; }
+#landing .bx .lid { left: var(--d); bottom: var(--h); width: var(--w); height: var(--d); background: #dcb585; transform: skewX(-45deg); transform-origin: top left; animation: ws-lid 7s ease-in-out infinite; }
+#landing .bx .pop { left: calc(var(--w) / 2 - 20px); bottom: calc(var(--h) - 8px); width: 40px; height: 40px; opacity: 0; filter: drop-shadow(0 0 10px rgba(255, 205, 130, 0.7)); animation: ws-pop 7s ease-in-out infinite; }
+#landing .bx .pop svg { width: 40px; height: 40px; color: var(--ag-accent); stroke-width: 2.4; }
+#landing .bx.c2 :is(.lid, .pop) { animation-delay: 3.5s; }
+#landing .bx .side { left: var(--w); bottom: 0; width: var(--d); height: var(--h); background: #8f6639; transform: skewY(-45deg); transform-origin: bottom left; }
+#landing .bx .face { left: 0; bottom: 0; width: var(--w); height: var(--h); box-sizing: border-box; padding: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; background: #c59a68; }
+#landing .bx.c2 .face { background: #bb9060; }
+#landing .bx.c2 .lid { background: #d6ad7c; }
+#landing .bx.c2 .side { background: #86603a; }
+#landing .bx .tape { position: absolute; left: calc(50% - 12px); top: 0; width: 24px; height: 30%; background: rgba(240, 220, 185, 0.55); }
+#landing .bx b { font: 500 10px var(--ag-font-mono); letter-spacing: 0.08em; }
+#landing .bx em { overflow: hidden; font-style: normal; font-size: 17px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.15; white-space: nowrap; text-overflow: ellipsis; }
+#landing .bx.c2 em { font-size: 15px; }
+#landing .bx:hover, #landing .bx:focus-visible { translate: 0 -3px; }
+#landing .bx:active { scale: 0.97; }
+
+@keyframes ws-lid { 0%, 12%, 92%, 100% { transform: skewX(-45deg) scaleY(1); } 28%, 76% { transform: skewX(-20deg) scaleY(-1); } }
+@keyframes ws-pop { 0%, 18%, 84%, 100% { opacity: 0; transform: translateY(14px); } 34%, 70% { opacity: 1; transform: translateY(-22px); } }
+@keyframes ws-step { 0%, 34%, 100% { border-color: var(--ag-border); } 10%, 24% { border-color: var(--ag-accent); } }
+
+@media (min-width: 900px) {
+  #landing .ws { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); padding: 40px 0 80px; }
+  #landing .ws .scene { order: 2; height: 500px; background: #0f0c09; }
+  #landing .ws h1 { margin-top: 0; }
+  #landing .scene .row { bottom: 60px; gap: 30px; }
+  #landing .scene .table { height: 84px; bottom: 28px; }
+  #landing .scene .edge { height: 28px; }
+  #landing .bx.c1 { --w: 164px; --h: 116px; --d: 32px; }
+  #landing .bx.c2 { --w: 130px; --h: 158px; --d: 30px; }
+  #landing .bx em { font-size: 21px; }
+  #landing .bx.c2 em { font-size: 18px; }
+}
+@media (max-width: 560px) {
+  #landing .ws { padding-bottom: 40px; }
+  #landing .ws .scene { margin: 0 -16px; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #landing .bx, #landing .bx .lid, #landing .bx .pop, #landing .steps3 .t { animation: none; transition: none; }
+}

@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
-    <title>Assembly Guide</title>
+    <title>Jarvis Assembler</title>
     <!-- added to the home screen it opens without the browser's bars, on iOS and Android -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Assembly Guide" />
+    <meta name="apple-mobile-web-app-title" content="Jarvis Assembler" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
@@ -29,7 +29,7 @@
         try { theme = localStorage.getItem('ag-theme') === 'dark' ? 'dark' : 'light' } catch {}
         root.dataset.theme = theme
         document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#ffffff' : '#000000'
-        document.title = 'Οδηγός συναρμολόγησης'
+        document.title = 'Jarvis Assembler'
         var scheme = document.createElement('meta')
         scheme.name = 'color-scheme'
         scheme.content = theme

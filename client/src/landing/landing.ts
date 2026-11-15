@@ -1,12 +1,11 @@
 import '../styles/landing.css'
-import { themeButton } from '../theme'
 import { appLink } from '../routes'
 import { bw } from '../build/words'
 import { apiFetch, fileUrl } from '../api'
 import { choose, sendGuide, type Chosen } from '../build/intake'
 
-// The landing page (no mode, no job): what the app does, one clear action (add a guide), and the guides that
-// exist, each with its picture and state. The 3D workbench that used to be the home screen is at `?mode=shelf`;
+// The landing page (no mode, no job): a workshop at night with the boxes on the table, one clear action
+// (assemble: it opens the scanner), three pictures of what happens next, and the guides that exist. The 3D workbench that used to be the home screen is at `?mode=shelf`;
 // a finished guide still opens on its "ready" screen (`?mode=ready&job=`, src/home/home.ts).
 
 type Lang = 'el' | 'en'
@@ -14,15 +13,15 @@ interface JobRow { job_id: string; status: string; stage: string; title: string 
 
 const WORDS = {
   en: {
-    brand: 'Assembly Guide', guides: 'My guides', add: 'New guide', other: 'ελ', otherAria: 'Ελληνικά',
+    brand: 'Jarvis Assembler', guides: 'My guides', add: 'New guide', other: 'ελ', otherAria: 'Ελληνικά',
     eyebrow: 'From the first piece to the final fit',
-    h1: 'Build with a little more clarity.',
+    h1: 'The box is here.<br>Let us build it.', cta: 'Assemble',
     lead: 'Scan the box, photograph it or type its name. An agent finds the guide and builds it in 3D, one screw at a time.',
     scan: 'Scan the box', upload: 'Upload a guide', find: 'Find it by name or code', drop: 'or drop a PDF or photos anywhere on this page',
     home: 'Home', boxes: 'Guides on the shelf',
     dropping: 'Drop it to start', sending: 'Sending the guide',
     how: 'How it works',
-    s1: 'Scan the box', s2: 'It is built in 3D', s3: 'Follow the steps',
+    s1: 'You scan', s2: 'Built in 3D', s3: 'You build',
     yours: 'My guides', empty: 'No guides yet. Upload the first one.', loading: 'Loading the guides',
     ready: 'Ready', building: 'Building', approve: 'Waiting for your approval', failed: 'Stopped', open: 'Open', watch: 'See progress',
     keyMissing: 'This address has no access key', keyWrong: 'The access key in this address is not accepted',
@@ -31,15 +30,15 @@ const WORDS = {
     notGuide: 'That is not a PDF or a photo.', tooBig: 'The files are too large.', failedSend: 'The guide could not be sent.',
   },
   el: {
-    brand: 'Οδηγός συναρμολόγησης', guides: 'Οι οδηγοί μου', add: 'Νέος οδηγός', other: 'en', otherAria: 'English',
+    brand: 'Jarvis Assembler', guides: 'Οι οδηγοί μου', add: 'Νέος οδηγός', other: 'en', otherAria: 'English',
     eyebrow: 'Από το πρώτο κομμάτι μέχρι την τελευταία βίδα',
-    h1: 'Κάθε κομμάτι στη θέση του.',
+    h1: 'Το κουτί ήρθε.<br>Ας το στήσουμε.', cta: 'Συναρμολόγησε',
     lead: 'Σκάναρε το κουτί, φωτογράφισέ το ή γράψε το όνομά του. Ένας πράκτορας βρίσκει τον οδηγό και τον χτίζει σε 3D, βίδα βίδα.',
     scan: 'Σκάναρε το κουτί', upload: 'Ανέβασε έναν οδηγό', find: 'Βρες το με όνομα ή κωδικό', drop: 'ή άφησε ένα PDF ή φωτογραφίες οπουδήποτε στη σελίδα',
     home: 'Αρχική', boxes: 'Οδηγοί στο ράφι',
     dropping: 'Άφησέ το για να ξεκινήσει', sending: 'Στέλνω τον οδηγό',
     how: 'Πώς δουλεύει',
-    s1: 'Σκάναρε το κουτί', s2: 'Χτίζεται σε 3D', s3: 'Ακολούθησε τα βήματα',
+    s1: 'Σκανάρεις', s2: 'Χτίζεται 3D', s3: 'Στήνεις',
     yours: 'Οι οδηγοί μου', empty: 'Δεν υπάρχει ακόμα οδηγός. Ανέβασε τον πρώτο.', loading: 'Φορτώνω τους οδηγούς',
     ready: 'Έτοιμος', building: 'Χτίζεται', approve: 'Περιμένει την έγκρισή σου', failed: 'Σταμάτησε', open: 'Άνοιξε', watch: 'Δες την πρόοδο',
     keyMissing: 'Η διεύθυνση δεν έχει κλειδί πρόσβασης', keyWrong: 'Το κλειδί πρόσβασης στη διεύθυνση δεν έγινε δεκτό',
@@ -58,13 +57,17 @@ const ICON = {
   scan: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5C4.7 20 4 19.3 4 18.5V16M7 12h10"/>',
   home: '<path d="M4.5 11 12 4.5 19.5 11M6.5 9.5V19h11V9.5"/>',
   shelf: '<rect x="4" y="4.5" width="7" height="6" rx="1.2"/><rect x="13" y="4.5" width="7" height="6" rx="1.2"/><rect x="4" y="13.5" width="7" height="6" rx="1.2"/><rect x="13" y="13.5" width="7" height="6" rx="1.2"/>',
+  scanbox: '<path d="M4 8V5.5C4 4.7 4.7 4 5.5 4H8M16 4h2.5c.8 0 1.5.7 1.5 1.5V8M20 16v2.5c0 .8-.7 1.5-1.5 1.5H16M8 20H5.5C4.7 20 4 19.3 4 18.5V16"/><path d="m12 8 4 2v4l-4 2-4-2v-4zM8 10l4 2 4-2M12 12v4"/>',
   steps: '<rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="m10.2 12 1.4 1.5 2.4-3"/>',
 }
 const svg = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
-const FLOW_ARROW = (up: boolean) => `<svg class="arr" viewBox="0 0 64 28" aria-hidden="true">
-  <path class="dash" d="${up ? 'M3 21C20 3 42 3 59 15' : 'M3 7C20 25 42 25 59 13'}"/><path class="head" d="${up ? 'M51 9.5 59.5 15.2 50 18.6' : 'M50 9.4 59.5 12.8 51 18.5'}"/></svg>`
-/** One cardboard box of the hero: a face with a label, a lid and a side, drawn with plain elements. */
-const BOX = (n: number, name: string) => `<a class="bx b${n}" style="--i:${n}"><i class="lid"></i><i class="side"></i><span class="face"><i class="tape"></i><span class="tag"><b>3D</b><em>${name}</em></span></span></a>`
+const FILL = 'fill="rgba(240,178,90,.18)"'
+const CUBE = `<svg viewBox="0 0 48 48" aria-hidden="true"><path ${FILL} d="M24 10l14 7v16l-14 7-14-7V17z"/><path d="M10 17l14 7 14-7M24 24v16"/></svg>`
+const HALF = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 33l14-7 14 7-14 7z"/><path ${FILL} d="M10 17l14-7v16l-14 7zM24 10l14 7v16l-14-7z"/></svg>`
+/** The mark: a cardboard box, and above it the dashed ghost of the piece that goes on next. */
+const LOGO = `<svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#c59a68" d="M8 29l16 7v10L8 39z"/><path fill="#8f6639" d="M24 36l16-7v10l-16 7z"/><path fill="#dcb585" d="M24 22l16 7-16 7-16-7z"/><path stroke="#f0b25a" stroke-width="1.2" stroke-dasharray="2 3" opacity=".6" d="M8 13v12M40 13v12"/><path fill="rgba(240,178,90,.2)" stroke="#f0b25a" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" d="M24 3l16 7-16 7-16-7z"/></svg>`
+/** One cardboard box on the table: its lid lifts, a glowing piece rises out of it, and it closes again. */
+const BOX = (n: number, name: string) => `<a class="bx c${n}"><i class="sh"></i><i class="hole"></i><i class="lid"></i><span class="pop">${CUBE}</span><i class="side"></i><span class="face"><i class="tape"></i><b>3D</b><em>${name}</em></span></a>`
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 export function startLanding(app: HTMLElement): void {
@@ -82,7 +85,7 @@ export function startLanding(app: HTMLElement): void {
   app.innerHTML = `
   <div id="landing">
     <header class="bar" id="top">
-      <a class="brand" href="${esc(link({}))}">${svg(ICON.mark)}<span>${w.brand}</span></a>
+      <a class="brand" href="${esc(link({}))}">${LOGO}<span>${w.brand}</span></a>
       <nav aria-label="${w.guides}">
         <a class="navlink" href="#guides" aria-label="${w.guides}">${svg(ICON.mark)}<span>${w.guides}</span></a>
         <a class="navadd" href="${esc(link({ mode: 'build' }))}">${svg(ICON.plus)}<span>${w.add}</span></a>
@@ -91,27 +94,26 @@ export function startLanding(app: HTMLElement): void {
     </header>
 
     <main>
-      <section class="hero">
-        <p class="eyebrow">${w.eyebrow}</p>
-        <h1>${w.h1}</h1>
-        <div class="boxes" id="boxes" role="group" aria-label="${w.boxes}">${BOX(1, 'MARKUS')}${BOX(2, 'KNAGGLIG')}${BOX(3, 'LACK')}<i class="floor"></i></div>
-        <p class="lead">${w.lead}</p>
-        <div class="actions">
-          <a class="primary" href="${esc(link({ mode: 'shelf', scan: '1' }))}">${svg(ICON.scan)}<span>${w.scan}</span></a>
-          <button class="ghost" type="button" id="pick">${svg(ICON.up)}<span>${w.upload}</span></button>
+      <section class="hero ws">
+        <div class="scene" id="boxes" role="group" aria-label="${w.boxes}">
+          <i class="glow"></i><i class="cord"></i><i class="shade"></i><i class="bulb"></i><i class="cone"></i><i class="table"></i><i class="edge"></i>
+          <div class="row">${BOX(1, 'KNAGGLIG')}${BOX(2, 'MARKUS')}</div>
         </div>
-        <a class="textlink" href="${esc(link({ mode: 'build' }))}">${svg(ICON.search)}<span>${w.find}</span></a>
-        <p class="hint" id="hint" role="status">${w.drop}</p>
-        <input id="file" type="file" accept="application/pdf,image/*" multiple hidden />
-      </section>
-
-      <section class="how" aria-labelledby="how-h">
-        <h2 id="how-h">${w.how}</h2>
-        <ol class="flow">
-          <li><span class="ico">${svg(ICON.scan)}</span><h3>${w.s1}</h3></li>
-          <li>${FLOW_ARROW(true)}<span class="ico">${svg(ICON.mark)}</span><h3>${w.s2}</h3></li>
-          <li>${FLOW_ARROW(false)}<span class="ico">${svg(ICON.steps)}</span><h3>${w.s3}</h3></li>
-        </ol>
+        <div class="copy">
+          <h1>${w.h1}</h1>
+          <div class="actions">
+            <a class="primary" href="${esc(link({ mode: 'shelf', scan: '1' }))}"><span>${w.cta}</span>${svg(ICON.arrow)}</a>
+          </div>
+          <ol class="steps3" aria-label="${w.how}">
+            <li class="t">${svg(ICON.scanbox)}<span>1 · ${w.s1}</span></li>
+            <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
+            <li class="t">${HALF}<span>2 · ${w.s2}</span></li>
+            <li class="ar" aria-hidden="true">${svg(ICON.arrow)}</li>
+            <li class="t">${CUBE}<span>3 · ${w.s3}</span></li>
+          </ol>
+          <p class="hint" id="hint" role="status"></p>
+          <input id="file" type="file" accept="application/pdf,image/*" multiple hidden />
+        </div>
       </section>
 
       <section class="guides" id="guides" aria-labelledby="guides-h">
@@ -128,7 +130,7 @@ export function startLanding(app: HTMLElement): void {
   </div>`
 
   const $ = <T extends HTMLElement>(sel: string) => app.querySelector<T>(sel)!
-  $('.bar nav').insertBefore(themeButton(), $('.lang'))
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', '#0b0907')
 
   const list = $('#list')
   const hint = $('#hint')
@@ -178,7 +180,7 @@ export function startLanding(app: HTMLElement): void {
       if (!have || (have.status !== 'done' && j.status === 'done')) by.set(k, j)
     }
     const rows = [...by.values()]
-    // the boxes of the hero carry the names of real guides and open them; with fewer than three, the rest go to the scanner
+    // the boxes of the hero carry the names of real guides and open them; with fewer than two, the rest go to the scanner
     const done = rows.filter((j) => j.status === 'done')
     app.querySelectorAll<HTMLAnchorElement>('#boxes .bx').forEach((bx, i) => {
       const j = done[i]
@@ -227,7 +229,7 @@ export function startLanding(app: HTMLElement): void {
     if (location.hash === '#guides') $('#guides').scrollIntoView()
   })
 
-  // ---- adding a guide from here: the button, or a drop anywhere on the page
+  // ---- adding a guide from here: a PDF or photos dropped anywhere on the page (the scanner screen has the buttons)
   let sending = false
   const send = async (files: File[]) => {
     if (!files.length || sending) return
@@ -238,13 +240,11 @@ export function startLanding(app: HTMLElement): void {
       return
     }
     sending = true
-    $<HTMLButtonElement>('#pick').disabled = true
     $('.hero').setAttribute('aria-busy', 'true')
     hint.textContent = w.sending
     hint.className = 'hint busy'
     const out = await sendGuide(picked.chosen as Chosen, '', key)
     sending = false
-    $<HTMLButtonElement>('#pick').disabled = false
     $('.hero').removeAttribute('aria-busy')
     if (out.ok) location.assign(link({ mode: 'build', job: out.job }))
     else if (out.word === 'noKey') askForKey()
@@ -254,7 +254,6 @@ export function startLanding(app: HTMLElement): void {
     }
   }
   const file = $<HTMLInputElement>('#file')
-  $('#pick').addEventListener('click', () => file.click())
   file.addEventListener('change', () => {
     const files = [...(file.files ?? [])]
     file.value = ''
