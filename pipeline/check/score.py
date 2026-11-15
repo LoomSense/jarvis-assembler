@@ -5,7 +5,9 @@
 For each step it sends two images, the guide's drawing (`crops/step-NN.png`) and our check render from the guide's
 angle (`renders/step_NN.png`), and asks whether they show the same thing. Writes `check` on every manifest step:
     {"score": 0.86, "pass": true, "orientation": "same", "answers": {...}, "latency_ms": 412}
-`score` is the mean of `same_state` and `same_parts`; `pass` needs score >= 0.6 and the same orientation.
+`score` is the mean of `same_state` and `same_parts`; `pass` is score >= 0.6. `orientation` is recorded but does not
+decide anything: on KNAGGLIG the model answered "mirrored or rotated" for the camera on either side of the box (measured
+Sun 15 Nov), so it cannot tell a wrong pose from a line drawing's style.
 Needs GEMINI_API_KEY. Steps without a crop or a render are skipped. Requests run 6 at a time.
 """
 from __future__ import annotations
@@ -48,7 +50,7 @@ def score_step(job: Path, step: dict) -> dict | None:
     parts = float(a.get("same_parts", {}).get("noul", 0.0))
     orient = a.get("orientation", {}).get("choice", "other")
     score = round((same + parts) / 2, 3)
-    return {"score": score, "pass": score >= PASS_SCORE and orient == "same", "orientation": orient,
+    return {"score": score, "pass": score >= PASS_SCORE, "orientation": orient,
             "answers": {"same_state": round(same, 3), "same_parts": round(parts, 3),
                         "orientation_confidence": round(float(a.get("orientation", {}).get("confidence", 0.0)), 3)},
             "latency_ms": out.get("latency_ms")}

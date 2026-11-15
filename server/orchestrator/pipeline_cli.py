@@ -117,8 +117,7 @@ def export(job: Path, job_id: str) -> int:
 
         def report(step, res):
             if "score" in res:
-                verdict = "matches the guide" if res["pass"] else (
-                    "is seen from another side than the guide" if res["orientation"] != "same" else "differs from the guide")
+                verdict = "matches the guide's drawing" if res["pass"] else "may differ from the guide's drawing"
                 event("image", f"Step {step['n']} {verdict}: {round(res['score'] * 100)}% alike", stepN=step["n"],
                       level="success" if res["pass"] else "warn", image_url=f"/files/{job_id}/renders/step_{step['n']:02d}.png",
                       score=res["score"])

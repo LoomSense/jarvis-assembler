@@ -79,7 +79,7 @@ A plan part with `generate` (schema in `agent/BRIEF.md`) is made by `cad/generat
 
 ## Drawing check
 
-`check/score.py` asks Gemini Decision 1, for every step, whether our check render shows the same thing as the guide's drawing (`crops/step-NN.png`), and writes `check: {score, pass, orientation, answers}` on each manifest step. The server runs it in the `export` stage when it has a Gemini key and shows each result in the feed. On KNAGGLIG it scores 0.61 to 0.84 and finds our camera on the other side of the box from the guide's drawings.
+`check/score.py` asks Gemini Decision 1, for every step, whether our check render shows the same thing as the guide's drawing (`crops/step-NN.png`), and writes `check: {score, pass, orientation, answers}` on each manifest step. The server runs it in the `export` stage when it has a Gemini key and shows each result in the feed. On KNAGGLIG it scores 0.61 to 0.84 (all pass at 0.6). Its orientation answer is not used: it said "mirrored" for the camera on either side of the box.
 
 ## Sub-assemblies
 
