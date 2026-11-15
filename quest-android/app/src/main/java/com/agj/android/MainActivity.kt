@@ -667,6 +667,7 @@ class MainActivity : AppSystemActivity() {
         else said
     // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
     val lead = listOfNotNull(stepDone, coachNow?.takeIf { (firstOfStep || again) && !picking })
+    coachLead = if (picking && speak) coachNow?.takeIf { firstOfStep || again } else null
     // ACTION-COACH: a bare "Πάρε: …" the wearer did not ask for is a prompt: it waits for silence, it never cuts a sentence
     if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
       if (!voice.speaking) voice.say(line, lang, interrupt = false)
@@ -786,7 +787,7 @@ class MainActivity : AppSystemActivity() {
       Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to false, "check" to true, "step" to curStep, "action" to curAction))
       return
     }
-    if (r.answer.isNotBlank() && !coached) { // ACTION-COACH: see above
+    if (r.answer.isNotBlank() && !(coached && moved)) { // ACTION-COACH: see above
       val wav = r.ttsWav()
       if (wav != null) voice.play(wav, r.answer, lang) else voice.say(r.answer, lang)
     }
@@ -814,10 +815,11 @@ class MainActivity : AppSystemActivity() {
   private var coachHeldLine: Pair<String, com.agj.android.ui.HeldSpeech>? = null
   /** The entry line already said where the part lies: the located prompt would only repeat it. */
   private var coachSaidWhere = false
+  /** The no-marker line ("… inside the blue outline") of this step entry, kept for the "put it here" moment. */
+  private var coachLead: String? = null
   /** Part id / hardware code of the action shown now (empty: nothing to take). */
   private var coachIds: List<String> = emptyList()
-  /** This frame's pick targets of that item, and the ones drawn (while taking the part, or after a wrong verdict). */
-  private var coachTargets: List<com.agj.android.world.PickTarget> = emptyList()
+  /** The pick targets of that item drawn this frame: while the part is being taken, or after a wrong verdict. */
   private var coachShown: List<com.agj.android.world.PickTarget> = emptyList()
   private var coachSpot: Vec3? = null
   /** Part id / hardware code of the action after this one (the hand going for it says this one is placed). */
@@ -847,7 +849,6 @@ class MainActivity : AppSystemActivity() {
     val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why)
     coachIds = if (actionCoach.hasPick) ids else emptyList()
     coachNextIds = next?.let { n -> assembly?.guide?.step(n.first)?.actions?.getOrNull(n.second) }?.let { listOfNotNull(it.partId, it.code) } ?: emptyList()
-    ghost.emphasis = if (c.to == com.agj.android.ui.CoachPhase.PICK) COACH_DIM else 1f
     coachLog(c)
   }
 
@@ -885,8 +886,9 @@ class MainActivity : AppSystemActivity() {
         coachPaint()
         if (c.why == "part_moved" || c.why == "timer") sounds.play(Sounds.Cue.PLACE) // it moved by itself: one soft cue
         // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us
-        // here, and on the base part's step the no-marker line ("… inside the blue outline") comes with it
-        voice.sayStep(listOfNotNull(lead, coachLine(), coachAct()?.text?.get(lang)), lang)
+        // here, and the no-marker line ("… inside the blue outline") of this step entry comes with it, once
+        voice.sayStep(listOfNotNull(lead, coachLead, coachAct()?.text?.get(lang)), lang)
+        coachLead = null
       }
       com.agj.android.ui.CoachPhase.DONE -> {
         coachWhy = c.why
@@ -966,14 +968,12 @@ class MainActivity : AppSystemActivity() {
       coachGripAt = h.handWorldPos
     }
     if (coach.stage != CoachFlow.Stage.GUIDE || finished || coachIds.isEmpty()) {
-      coachTargets = emptyList()
       coachShown = emptyList()
       return
     }
     val now = SystemClock.elapsedRealtime()
     val all = world.pickTargets
     val mine = all.filter { it.id in coachIds }
-    coachTargets = mine
     val phase = actionCoach.phase
     if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing) {
       mine.firstOrNull()?.let { coachSpot = it.worldPos }
