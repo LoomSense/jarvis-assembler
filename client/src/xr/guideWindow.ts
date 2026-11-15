@@ -98,7 +98,7 @@ export class GuideWindow extends THREE.Group {
       m.emissive.set('#9ecfff'); // the hole ring is light only, as on the page
       m.emissiveIntensity = 1.15;
     });
-    this.player = new StepPlayer(model, manifest);
+    this.player = new StepPlayer(model, manifest, true); // the headset counts actions in the manifest's order
     this.pose = exactPose(this.player, model);
 
     // how big it ever gets, to frame it

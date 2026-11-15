@@ -3,6 +3,7 @@ import {
   AnimationMixer,
   Box3,
   LoopOnce,
+  Matrix4,
   Object3D,
   PropertyBinding,
   Quaternion,
@@ -18,8 +19,10 @@ export interface ActionInfo {
   index: number
   type: ManifestAction['type']
   raw: ManifestAction
-  /** the part or screw that appears with this action; null for `turn` */
+  /** the part or screw this action is about; null for `turn` and `note` */
   node: Object3D | null
+  /** this action brings `node` in from the box. False for a screw that is only tightened, or a part moved again. */
+  fresh: boolean
   /** start and end inside the step clip, seconds */
   t0: number
   t1: number
@@ -33,14 +36,32 @@ export interface StepTimeline {
   /** null for the closing pseudo-step that turns the finished assembly the right way up */
   raw: ManifestStep | null
   clip: AnimationClip | null
+  /** in the manifest's order; `ActionInfo.index` is the place in this list */
   actions: ActionInfo[]
+  /**
+   * The same actions in the order they are played. A manifest lists "put on both arms, then all four screws";
+   * a person puts on one arm, screws it, then the other. So each screw follows the last part it holds.
+   */
+  sequence: ActionInfo[]
+  /** `rank[i]` is where action `i` sits in `sequence`; null when that is the manifest's own order */
+  rank: number[] | null
   /** time of the last key, seconds */
   duration: number
 }
 
+/** a screw holds a part when it ends this close to it, metres */
+const TOUCH = 0.015
+/** a screw that touches none of the step's parts goes with the nearest one, when that is this close */
+const NEAR = 0.08
+
 interface Pose {
   position?: Vector3
   quaternion?: Quaternion
+}
+
+/** an interpolant of a track: the values at a time */
+interface Evaluator {
+  evaluate(time: number): ArrayLike<number>
 }
 
 interface PlacedNode {
@@ -75,8 +96,14 @@ export class StepPlayer {
   private action: AnimationAction | null = null
   private active = -1
   private markerNormal: Vector3 | null = null
+  /** the walkthrough has no closing turn: the last step already leaves the assembly the right way up */
+  private endsAsBuilt = false
 
-  constructor(private model: Model, manifest: Manifest) {
+  /**
+   * `keepOrder`: play every step in the manifest's own order. The headset's guide window asks for it, because it
+   * follows the headset's count of actions, which is the manifest's.
+   */
+  constructor(private model: Model, manifest: Manifest, keepOrder = false) {
     manifest.steps.forEach((raw, index) => {
       const clip = raw.clip ? (model.clips.get(raw.clip) ?? null) : null
       const totals = new Map<string, number>()
@@ -90,6 +117,7 @@ export class StepPlayer {
           type: a.type,
           raw: a,
           node: a.type === 'turn' ? null : (model.node(a.node) ?? null),
+          fresh: false,
           t0: a.t0_s,
           t1: a.t1_s,
           screwIndex: a.type === 'fasten' ? seen.get(code)! : 0,
@@ -97,7 +125,7 @@ export class StepPlayer {
         }
       })
       const lastEnd = Math.max(0, ...actions.map((a) => a.t1))
-      this.steps.push({ index, raw, clip, actions, duration: Math.max(clip?.duration ?? 0, lastEnd) })
+      this.steps.push({ index, raw, clip, actions, sequence: actions, rank: null, duration: Math.max(clip?.duration ?? 0, lastEnd) })
     })
 
     // closing pseudo-step: the root's own keys from the end of the `walkthrough` clip ("turn it the right way up")
@@ -110,8 +138,9 @@ export class StepPlayer {
         .map((t) => t.clone().trim(finish.start_s, finish.end_s).shift(-finish.start_s))
       if (tracks.length) finishClip = new AnimationClip('finish', -1, tracks)
     }
+    this.endsAsBuilt = !!manifest.walkthrough && !finish
     this.finishIndex = this.steps.length
-    this.steps.push({ index: this.finishIndex, raw: null, clip: finishClip, actions: [], duration: finishClip?.duration ?? 0 })
+    this.steps.push({ index: this.finishIndex, raw: null, clip: finishClip, actions: [], sequence: [], rank: null, duration: finishClip?.duration ?? 0 })
 
     // when each part and screw is put on
     const all = [...manifest.parts.flatMap((p) => p.nodes), ...manifest.hardware.flatMap((h) => h.nodes)]
@@ -153,6 +182,21 @@ export class StepPlayer {
       this.finalPoses.push(poses)
     }
 
+    for (const st of this.steps) {
+      for (const a of st.actions) a.fresh = this.nodes.some((n) => n.obj === a.node && n.placed === st.index && n.action === a.index)
+      const sequence = keepOrder ? null : this.playOrder(st)
+      if (!sequence) continue
+      st.sequence = sequence
+      st.rank = st.actions.map((a) => sequence.indexOf(a))
+      const seen = new Map<string, number>() // "screw 2 of 4" counts in the order they are driven
+      for (const a of sequence) {
+        if (a.type !== 'fasten') continue
+        const code = a.raw.code ?? ''
+        seen.set(code, (seen.get(code) ?? 0) + 1)
+        a.screwIndex = seen.get(code)!
+      }
+    }
+
     if (model.marker) {
       // which way the ring faces in its own frame: its thinnest side
       const size = localBox(model.marker).getSize(new Vector3()).toArray()
@@ -176,14 +220,116 @@ export class StepPlayer {
     const st = this.steps[stepIndex]
     if (!st) return
     if (this.active !== stepIndex) this.activate(stepIndex)
+    const at = this.rankOf(st, actionIndex)
     for (const n of this.nodes) {
-      if (n.placed === stepIndex) n.obj.visible = n.action < 0 ? actionIndex >= 0 : n.action <= actionIndex
+      if (n.placed === stepIndex) n.obj.visible = n.action < 0 ? actionIndex >= 0 : this.rankOf(st, n.action) <= at
     }
     if (this.action && this.mixer) {
       this.action.time = Math.min(Math.max(time, 0), st.clip!.duration)
       this.mixer.update(0)
     }
+    if (st.rank && st.clip) {
+      // Played out of the clip's own order, the clock no longer says where a piece is: at the time the second
+      // arm comes down, the clip still holds the first arm's screws in the air. So each piece of this step is
+      // put where its place in the played order says: at its last key when it is done, on its own keys when
+      // it is the one moving. (The mixer is not asked: it only writes a value that changed since its last update.)
+      const t = Math.min(Math.max(time, 0), st.clip.duration)
+      const now = Math.floor(at)
+      for (const n of this.nodes) {
+        if (n.placed !== stepIndex || n.action < 0) continue
+        const r = st.rank[n.action]
+        if (r < now) this.setPose(n.obj, this.finalPoses[stepIndex].get(n.obj) ?? {})
+        else if (r === now) this.sample(st, n.obj, t)
+      }
+    }
     this.poseMarker(st, actionIndex)
+  }
+
+  /** `actionIndex` as `apply` takes it (-1, an index, an index and a half, the count), as a place in the played order. */
+  private rankOf(st: StepTimeline, actionIndex: number): number {
+    if (!st.rank || actionIndex < 0 || actionIndex >= st.actions.length) return actionIndex
+    const k = Math.floor(actionIndex)
+    return st.rank[k] + (actionIndex - k)
+  }
+
+  /** Write `obj`'s own position and turn from the step's clip at `time`. */
+  private sample(st: StepTimeline, obj: Object3D, time: number): void {
+    let tracks = this.tracksOf.get(st)
+    if (!tracks) {
+      tracks = new Map()
+      for (const track of st.clip?.tracks ?? []) {
+        const { nodeName, propertyName } = trackTarget(track)
+        const target = this.model.node(nodeName)
+        if (!target || (propertyName !== 'position' && propertyName !== 'quaternion')) continue
+        const entry = tracks.get(target) ?? {}
+        // the track's own interpolant, the one the mixer uses (three sets it on every track; its types leave it out)
+        entry[propertyName] = (track as unknown as { createInterpolant(): Evaluator }).createInterpolant()
+        tracks.set(target, entry)
+      }
+      this.tracksOf.set(st, tracks)
+    }
+    const mine = tracks.get(obj)
+    if (mine?.position) {
+      const v = mine.position.evaluate(time)
+      obj.position.set(v[0], v[1], v[2])
+    }
+    if (mine?.quaternion) {
+      const v = mine.quaternion.evaluate(time)
+      obj.quaternion.set(v[0], v[1], v[2], v[3])
+    }
+  }
+  private tracksOf = new Map<StepTimeline, Map<Object3D, { position?: Evaluator; quaternion?: Evaluator }>>()
+
+  /**
+   * The order to play a step in, or null for the manifest's own. Only one pattern is touched: two or more parts
+   * put on one after the other, then the screws. Each screw then follows the last of those parts it ends in
+   * (a screw through two of them waits for both); one that touches none goes with the nearest, or stays last.
+   */
+  private playOrder(st: StepTimeline): ActionInfo[] | null {
+    const acts = st.actions
+    const out: ActionInfo[] = []
+    let i = 0
+    while (i < acts.length) {
+      let p = i
+      while (p < acts.length && acts[p].type === 'place' && acts[p].fresh) p++
+      let f = p
+      while (f < acts.length && acts[f].type === 'fasten' && acts[f].fresh) f++
+      if (p - i < 2 || f === p) {
+        out.push(acts[i++])
+        continue
+      }
+      const parts = acts.slice(i, p)
+      const screws = acts.slice(p, f)
+      const holds = screws.map((s) => this.lastHeld(st.index, s.node!, parts.map((a) => a.node!)))
+      if (holds.includes(-1)) out.push(...parts, ...screws)
+      else parts.forEach((part, j) => out.push(part, ...screws.filter((_, k) => holds[k] === j)))
+      i = f
+    }
+    return out.every((a, k) => a === acts[k]) ? null : out
+  }
+
+  /** Which of `parts` (by index) the screw must wait for, from where each ends up in this step. -1: cannot tell. */
+  private lastHeld(stepIndex: number, screw: Object3D, parts: Object3D[]): number {
+    const matrix = (obj: Object3D) => {
+      const pose = this.finalPoses[stepIndex].get(obj) ?? {}
+      const rest = this.rest.get(obj)!
+      return new Matrix4().compose(pose.position ?? rest.position, pose.quaternion ?? rest.quaternion, new Vector3(1, 1, 1))
+    }
+    if (parts.some((p) => p.parent !== screw.parent)) return -1
+    const shape = this.model.fastener(screw)
+    const along = [0, 0.25, 0.5, 0.75, 1].map((k) => new Vector3().lerpVectors(shape.head, shape.tip, k).applyMatrix4(matrix(screw)))
+    const gaps = parts.map((part) => {
+      const box = localBox(part)
+      const inverse = matrix(part).invert()
+      return Math.min(...along.map((p) => box.distanceToPoint(p.clone().applyMatrix4(inverse))))
+    })
+    let last = -1
+    gaps.forEach((gap, j) => {
+      if (gap <= TOUCH) last = j
+    })
+    if (last >= 0) return last
+    const nearest = gaps.indexOf(Math.min(...gaps))
+    return gaps[nearest] <= NEAR ? nearest : parts.length - 1
   }
 
   /** World-space box around every part and screw that is visible right now. */
@@ -223,8 +369,11 @@ export class StepPlayer {
       n.obj.visible = n.placed < stepIndex
       this.setPose(n.obj, n.placed < stepIndex ? this.poseBefore(n.obj, stepIndex) : {})
     }
-    // The closing pseudo-step ends upright. Without a clip for it, the root's rest pose is that upright pose.
-    const upright = stepIndex === this.finishIndex && !st.clip
+    // The closing pseudo-step ends upright. A guide with no walkthrough at all has no clip for it, and there the
+    // root's rest pose is that upright pose. A walkthrough that lists no closing turn needs none: the last step
+    // left the assembly as it should stand, and the rest pose is only where the first step began (a chair built
+    // from its base up rests upside down).
+    const upright = stepIndex === this.finishIndex && !st.clip && !this.endsAsBuilt
     this.setPose(this.model.root, upright ? {} : this.poseBefore(this.model.root, stepIndex))
 
     // 2. A new mixer for this step's clip. A mixer only writes a property when the value differs from the one it
