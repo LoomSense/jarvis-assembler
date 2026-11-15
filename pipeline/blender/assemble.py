@@ -281,7 +281,19 @@ for step in plan["steps"]:
 
     if not any(a.get("base") for a in part_adds):          # a base part is laid down first, then the note is read
         f = emit_notes(f)
-    for a in part_adds:
+    counts, seen = {}, {}
+    for a in hw_adds:
+        code = a["instance"].split("#")[0]; counts[code] = counts.get(code, 0) + 1
+    hw_ids = {id(a) for a in hw_adds}
+    # The actions follow the step's `add` list exactly, as the guide stacks the pieces: a washer that sits behind
+    # a bar goes on before the bar, and one side is finished before the other when the plan says so.
+    for a in adds:
+        if id(a) in hw_ids:
+            inst = a["instance"]; code = inst.split("#")[0]; seen[code] = seen.get(code, 0) + 1
+            acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F, "st": st, "rs": root_ref,
+                         "text": text_for("fasten", HW[code], seen[code], counts[code], press=bool(a.get("press")))})
+            f += APPROACH_F + DRIVE_F + GAP_F
+            continue
         if is_join(a):
             g = a["subassembly"]; d = SUBDEFS.get(g, {"name": g})
             acts.append({"type": "join", "group": g, "f0": f, "f1": f + JOIN_F, "st": st, "rs": root_ref,
@@ -302,15 +314,6 @@ for step in plan["steps"]:
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + PLACE_F, "st": st, "rs": root_ref,
                          "press": bool(a.get("press")), "text": text_for("press" if a.get("press") else "place", d)})
             f += PLACE_F + GAP_F
-    counts = {}
-    for a in hw_adds:
-        code = a["instance"].split("#")[0]; counts[code] = counts.get(code, 0) + 1
-    seen = {}
-    for a in hw_adds:
-        inst = a["instance"]; code = inst.split("#")[0]; seen[code] = seen.get(code, 0) + 1
-        acts.append({"type": "fasten", "inst": inst, "f0": f, "f1": f + APPROACH_F + DRIVE_F, "st": st, "rs": root_ref,
-                     "text": text_for("fasten", HW[code], seen[code], counts[code], press=bool(a.get("press")))})
-        f += APPROACH_F + DRIVE_F + GAP_F
     tight = [i for i in step.get("tighten", []) if i in placed]
     tcounts, tseen = {}, {}
     for inst in tight:

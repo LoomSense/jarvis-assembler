@@ -33,6 +33,13 @@ Never break the build to make the check pass, and never change counts or labels 
 4. The guide has no dimensions. Use the overall size you are given and the drawings' proportions. Put shared dimensions in the plan's `dims` so mating parts agree.
 5. If a drawing is unclear, choose the most likely reading and add an entry to `flags`.
 6. Use only `cadquery` and `pipeline.cad.lib` in part scripts. No file or network access.
+7. Follow the guide's exploded drawing inside a step, not only the step order:
+   - **Stack order.** Along each fastener's dashed line the guide shows what goes on first. List the pieces in `add` in that order: the piece nearest the wood first, the screw last (washer, then the bar, then the screw).
+   - **One place at a time.** When a step draws the same thing at several places (left and right, four corners), finish one place completely (its washers, its part, its screws) before the next.
+   - **Which face.** A screw enters from the face the drawing shows its head on. Check every screw of a step against the drawing before you move on.
+   - **Tool and warnings.** A crossed-out screw, a "do not tighten yet" sign or a "this side up" hand in a step becomes a `notes` entry on that step, in the guide's own meaning.
+8. Model a part as large and as shaped as the guide draws it. Compare it with a neighbour in the same drawing ("the bracket is about a third of the rail's length") and write that ratio in the script's docstring. A fitting made of links that fold (a hinge, a folding stay) is modelled with each link and its joint visible, posed as the guide draws it in the step where it is fitted, not as one straight bar.
+9. Proportions of the whole: when no overall size is given, read the ratios width : depth : height off the cover drawing and the widest side view, and keep them. After a passing build, compare `renders/cover.png` with the cover and correct `dims` if the model is visibly deeper, taller or wider than the drawing.
 
 ## Part script
 
@@ -115,7 +122,7 @@ Library (`pipeline/cad/lib.py`, read it):
 - `color` (optional, on a part or a hardware item): `"#RRGGBB"`, the real finish as the product photo shows it, when there is one. It replaces the `material` colour in the 3D model.
 - `parts[].id`: lower_snake_case descriptive name (guides often have no part letters). `material`: `pine` or `steel`. `short`, `el`, `el_pron` are the English and Greek words used in spoken instructions (`el` in the accusative with its article, `el_pron` the matching pronoun το/την/τον).
 - `steps`: one per numbered step in the guide, in order. If the guide says to repeat steps on the other side (a turn arrow followed by the same drawings), write those as further steps.
-- `add`: the ORDER of this list is the order of the animation: parts first, then each screw, one by one, in a sensible order (around the part, as a person would). Exactly one entry in the whole plan has `"base": true`: the first part laid down. Its local frame is the world frame, Z up.
+- `add`: the ORDER of this list is the order of the animation, exactly, piece by piece. Follow rule 7: usually the part, then each of its screws one by one, but a washer or spacer that sits under a part comes before that part. Exactly one entry in the whole plan has `"base": true`: the first part laid down. Its local frame is the world frame, Z up.
 - An instance is `<part id or hardware code>#<n>`, numbered from 1. `mates[].moving` is a frame name on the new piece; `fixed` is `<instance>.<frame>` on a piece already placed.
 - `pose` + `assembly_rotation_deg`: how the whole assembly sits during this step, as the guide draws it: XYZ Euler angles in degrees applied to the base part's frame (`[0,0,0]` = base part as modelled; `[180,0,0]` = upside down; `[0,90,0]` = stood on one end). The animation turns the assembly when this changes between steps and shows `turn_text`. Set `flip_whole_assembly` true on a step that starts with such a turn.
 - `view_az_el_deg`: camera azimuth and elevation (degrees, Z up, in the turned scene) matching the guide's drawing for that step. `cover_view_az_el_deg`: the same for the finished product on the cover.
