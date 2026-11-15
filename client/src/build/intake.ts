@@ -18,7 +18,7 @@ export interface CatalogItem {
 }
 
 /** What came of an attempt: a job to follow or open, or the word for what went wrong. */
-export type Outcome = { ok: true; job: string; ready: boolean; product?: string } | { ok: false; word: BuildWord }
+export type Outcome = { ok: true; job: string; ready: boolean; product?: string } | { ok: false; word: BuildWord; items?: CatalogItem[] }
 
 const MAX_MB = 40 // the server's max_upload_mb
 const MAX_PHOTOS = 60 // server/photos.py MAX_PHOTOS
@@ -46,6 +46,11 @@ export async function openCatalog(q: string, key: string | null, size?: string):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(size?.trim() ? { q: text, size: size.trim() } : { q: text }),
     })
+    if (res.status === 409) {
+      // the words fit several guides and none exactly: the server lists them so the person can choose
+      const detail = ((await res.json().catch(() => ({}))) as { detail?: { items?: CatalogItem[] } }).detail
+      return { ok: false, word: 'several', items: detail?.items ?? [] }
+    }
     if (!res.ok) return { ok: false, word: openWord(res.status) }
     const body = (await res.json()) as { job_id: string; ready: boolean; product?: string }
     return { ok: true, job: body.job_id, ready: body.ready, product: body.product }

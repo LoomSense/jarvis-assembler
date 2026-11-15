@@ -316,8 +316,8 @@ export function startBuild(app: HTMLElement): void {
     findForm.classList.remove('busy')
     findInput.readOnly = false
     if (!got.ok) {
-      sayFind(got.word)
-      found = []
+      sayFind(got.word, !got.items?.length)
+      found = got.items ?? []
       drawMatches()
       findInput.focus()
       return
