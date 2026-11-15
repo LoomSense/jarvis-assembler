@@ -1,8 +1,8 @@
 # Handoff: where the project stands
 
-Status as of **Sun 15 Nov 2026, 13:05 Athens**. For the team and their coding agents. Deadlines today (Athens): feature freeze 17:00, submission 17:30, code freeze 18:00. Numbers were measured today unless marked UNVERIFIED.
+Status as of **Sun 15 Nov 2026, 14:20 Athens**. For the team and their coding agents. Deadlines today (Athens): feature freeze 17:00, submission 17:30, code freeze 18:00. Numbers were measured today unless marked UNVERIFIED.
 
-**In short:** the demo is the native Android app (`quest-android/`), with no printed marker. On the Quest 3 it shows passthrough, reads the live camera with its pose, loads the guide, finds the current step, gets live checks from the server and speaks Greek. Tracking of the real part without a marker is built and installed but **does not lock on the headset yet**: the first real frames (12:36) were all rejected. Two causes are being fixed now (§3).
+**In short:** the demo is the native Android app (`quest-android/`) on a Quest 3, with no printed marker, guiding the assembly of the team's real drawer from a custom guide (`jobs/drawer`). On the headset it now recognises every board on the floor by its size, locks the guide onto the real drawer front within a few millimetres, knows which way round the front lies from its groove, and moves from "take this" to "put it here" to the next action without a button press. Not yet seen on the headset: the build of 14:19 (new floor UI, installed bolts no longer offered as parts to take). Still weak: telling that a part is the wrong way round (server only), and a wrong small part in the hand.
 
 ---
 
@@ -10,111 +10,112 @@ Status as of **Sun 15 Nov 2026, 13:05 Athens**. For the team and their coding ag
 
 | Decision | Detail |
 |---|---|
-| Demo app | **`quest-android/`** (Kotlin, Meta Spatial SDK 0.15.0). `quest-unity/` is the backup: its round-2 build is installed on the headset but has never been opened there. The WebXR client is not the demo path. |
-| No marker | The marker strip cannot be printed. Registration is markerless (§2). The marker code stays in both apps and still wins if a strip is seen. |
-| Demo flow | Starts with the product preset (`job=malm-drawer`, `lang=el`). Product identification is an optional extra shot. |
+| Demo app | **`quest-android/`** (Kotlin, Meta Spatial SDK 0.15.0). `quest-unity/` is the backup: its round-2 build is installed on the headset but has not been opened there since the morning. The WebXR client is not the demo path. |
+| No marker | The marker strip cannot be printed. Registration is markerless (§2). The marker code stays and still wins if a strip is seen. |
+| Demo guide | **`drawer`**, a custom job for the real drawer on the table (it is not the product of the IKEA guide used earlier): front, two sides, bottom, back; 4 cam bolts, 4 cam locks already seated in the sides, 4 white plastic pegs. `malm-drawer` (rebuilt with tape-measured sizes) is the fallback. `jobs/` is git-ignored: the sources are in `jobs/drawer-src/` on the demo Mac (`build.py` rebuilds in about 20 s). |
+| Demo flow | Launched with the guide preset (`job=drawer`, `lang=el`). Product identification is an optional extra shot. |
 | Build agent model | `claude-fable-5-2` through `AGJ_AGENT_MODEL` in `.env` for the demo; the code default and this morning's timed builds are `claude-opus-5-5`. Check the event's rules on non-Gemini models before submitting. |
-| Judge | Round 2 (static review): Android 39.8, Unity 39.0 (round 1: 36.0 and 23.8). Scores are capped because the round-2 builds had not been seen on the headset. `eval/judge/round-2.md` has the ranked defect lists. |
+| Judge | Round 2 (static review): Android 39.8, Unity 39.0 (round 1: 36.0 and 23.8). `eval/judge/round-2.md`. |
 
 ---
 
-## 2. How the Android app registers the guide on the real part (no marker)
+## 2. How the Android app puts the guide on the real part (no marker)
 
-Sources of the assembly pose, strongest first. `world/AssemblyAnchor.kt` holds the pose (WORLD ← TABLE), `world/WorldModule.kt` orchestrates, `MainActivity.frameTick` draws the ghost from `vision.worldFromAssembly()`. `track.source` and `place.source` in the AGQ log say which one is live.
+`world/AssemblyAnchor.kt` holds the pose (WORLD ← TABLE), `world/WorldModule.kt` orchestrates, `MainActivity.frameTick` draws the ghost from `vision.worldFromAssembly()`. `track.source` and `place.source` in the AGQ log say which source is live.
 
 | Source | What it is | Where |
 |---|---|---|
-| marker | printed AprilTag strip (not used in the demo) | `vision/MarkerDetector.kt`, `MarkerTracker.kt` |
-| `manual` | `world.nudge(...)`; no UI caller yet | `world/WorldModule.kt` |
-| `markerless` | on-device detector of the white drawer front lying flat (380 × 130 × 16 mm in the model), 3 Hz, x, y and yaw; first step only | `vision/PanelPose.kt`, reference `server/perception/panel.py`, method in `tools/markerless/FRONT_PANEL.md` |
-| `flow` | optical flow follows every part between server answers and moves the ghost when the real base part is slid (position only) | `vision/PartFlowTracker.kt`, `world/PartTracks.kt`, `world/PartTracking.kt` |
-| `server_box` | the server's box for the base part (`POST /api/perception/{job}/parts`, `mode: "step"`), ray-cast onto the work surface; must be 0.6–1.5× the part's long side and agree with a second answer | `world/PartsFinder.kt`, `WorldModule.onBase` |
-| `table` / `fixed_spot` | MRUK scene table, else a guess in front of the head | `world/SceneTable.kt`, `world/Table.kt` |
+| `markerless` | **the one that places the ghost**: an on-device detector of the step's flat base part (the drawer front, 400 × 200 × 18 mm from the guide), 3 Hz, x, y and yaw; three trusted results in a row before it reports | `vision/PanelPose.kt`, `vision/StepFootprint.kt` (target per step from the guide's meshes) |
+| which way round | the groove and holes of the base part, from its mesh, matched against the rectified picture; turns the pose by 180° after three agreeing results | `vision/RecessCue.kt` |
+| surface height | a depth ray through the server's box of the base part (Meta environment raycast), median of three, frozen while the detector trusts frames; a steady gaze probe before that. The headset has no room scan, so there is no MRUK table | `WorldModule.placeBase`, `probeSurface`, `surfaceY` |
+| `server_box` | the server's box for the base part: moves the ghost only when the detector has no target for the step | `WorldModule.onBase` |
+| `fixed_spot` | a guess in front of the head until something better arrives | `world/AssemblyAnchor.kt` |
+| marker, `manual` | printed strip (unused), `world.nudge` (no UI caller) | `vision/MarkerTracker.kt` |
 
-The work surface height comes from the MRUK table, else from Meta's depth raycast (`WorldModule.probeSurface`, `surfaceY`). The demo headset has **no room scan**, so only the depth path is used.
+Settings that came from real frames (all in `MainActivity` where `PanelPoseTracker` is built, each with a launch extra): lightness only (`panel_chroma_w` 0: the front is wood-coloured, the colour penalty of the render-tuned detector lost it), size gate 30 / 25 mm (`panel_tol_long_mm`, `panel_tol_short_mm`), closing 7 px (`panel_close_px`: seen from close, the groove cut the front's blob in two and it read 412 × 170 mm).
 
-Also on `main` since this morning: glass step window with guide drawing, parts card, camera preview, push-to-talk voice commands (`/api/voice`), pick-up markers on every instance of every part a step needs, a verdict badge at the hand for right / wrong / unsure part with a manual "check this part" (`ui/HeldVerdict.kt`, `ui/HeldPartGuide.kt`), translucent ghost material with an unlit fallback (`--es ghost_material unlit`).
+Other pieces on `main`:
+- **Every board by its size** (`world/FlatParts.kt`, `world/FlatPartOutline.kt`): one pass finds all bright rectangles on the surface, labels them against the guide's boards (within 45 / 30 mm, clearly the best match), and outlines the one to take now.
+- **Loose hardware** (`world/PartsFinder.kt`, `world/PartTracks.kt`, `vision/PartFlowTracker.kt`): the server's boxes (`/parts`, `mode: "step"`, 5–20 s per answer on the demo link), followed in the picture between answers; anything lying on the assembly is left out.
+- **Two phases per action** (`ui/ActionCoach.kt`): "take" → "put it here" → done, moved by the server's verdict at the hand, the part leaving its place, a hand at the target then away, or the step's `step_complete`; Next and voice remain.
+- **Verdict at the hand** (`ui/HeldVerdict.kt`, `ui/HeldPartGuide.kt`): right / wrong / unsure from the perception socket, and a manual "check this part" that sends one 1280 px frame.
+- **Hands**: finger joints through the body-tracking API (`vision/Hands.kt`, `HandSetup.kt`, `Held.kt`).
+- **Floor-work UI** (`ui/WindowFollow.kt`, `ui/Panels.kt`): looking down steeply, the step window sits just beyond the work facing the eyes; labels read upright in the view; one large instruction and one primary button.
+- **Camera watchdog**: the camera is reopened when frames stop (taking the headset off closed it for good).
 
 ---
 
-## 3. What the headset has shown so far (Android)
+## 3. What the headset has shown (Android, `tools/quest/runs/*-android/`)
 
-| Works on the device | Evidence (AGQ log, `tools/quest/runs/*-android/`) |
+| Seen working | Evidence |
 |---|---|
-| Passthrough behind the app | headset captures |
-| Live camera 1280 × 960 with a camera pose on every frame | `camera`, `camera_pose` |
-| Guide load, step locate | `job_loaded` about 2.2 s, `locate` 1.2–1.6 s |
-| Perception socket | acks 70–120 ms median, 4 Hz |
-| Greek spoken instructions, 80–90 fps | `voice`, `frame` (the first minute after launch dips to p5 37–50 fps) |
-| Server box moves the guide onto the part | twice, confidence 0.96 and 0.98 |
+| Passthrough, live camera 1280 × 960 with a pose per frame, guide load about 2.5 s, Greek speech, 75–88 fps | `camera`, `camera_pose`, `job_loaded`, `frame` |
+| Hand joints | `hands_source: skeleton, joints 70`; `held` with pinch / grip |
+| Boards recognised by size, all labelled correctly | `flat_parts`, 14:11: front 404 × 200, sides 433 × 109, back 335 × 94, bottom 436 × 340 mm; the front lit when it was the part to take |
+| Ghost locked on the real front | `panel … trusted: true`, size error 0–6 mm; `place … source: markerless`; headset capture at 13:50 with the side panel's ghost standing on the real front |
+| Which way round | `panel.cue`: 28–29 for the chosen orientation against 0.5–2 for the turned one, decided on every trusted frame |
+| Actions advance without Next | `coach_phase`, 14:13–14:15: four cam bolts and the first side, by `right_part`, `part_moved`, `placed`, `step_complete` |
+| Right part in the hand | `held_verdict right` for the front, a cam bolt and a side (p 0.76–0.94) |
 
-| Does not work yet | What the log shows | State |
-|---|---|---|
-| Panel detector never trusts a frame | 12:36: 37 real frames examined on a dark floor, good contrast, 35 rejected on size, 2 as not a clean rectangle. Clean rectangles measured about 430 × 110–125 mm against the model's 380 × 130 | The real drawer front is being measured; the model's sizes were estimated from the guide drawings |
-| Work surface height jumps | the depth probe follows the gaze: −0.03 m (floor) to 0.56 m within 30 s, and the ghost followed it | Being fixed: measure the height at the part (depth ray through the server's box) and lock it |
-| Hand tracking | every launch: `skeleton: Native Assert … Failed to initialize session for body` | Being fixed on a branch |
-| `/parts` rarely sees the drawer front | 10 of 194 calls | Most calls were made while the headset lay on a desk |
-| Instruction text for dowel, cam lock and pin says "screw it in" | the served `malm-drawer` job predates the text fix `e32eadd` | Rebuild the job's text |
-
-The headset battery ran out at about 12:45 (it had been kept awake over adb while lying on the desk); it is charging until about 13:30.
-
----
-
-## 4. In progress, not on `main` yet
-
-| Work | Branch (local worktree) |
+| Problem seen on the headset | State |
 |---|---|
-| Tracking at every step: the detector takes the assembly's footprint per step, enabled only where no wrong pose is trusted on 360 rendered frames | `worktree-agent-a19bcb4dade759a5c` |
-| UI fixes from the judge: step window within 30° of the work (done), Re-align reachable, the no-marker instruction shown and spoken, Register card without marker wording | `worktree-agent-a22c5f4481d0ef0c8` |
-| Exact on-object guidance: hole positions, insertion direction, turn sense, "2 of 4" counting | `worktree-agent-a4912ec359f206139` |
-| Hands: real hand joints, clear log line when hand tracking is off in the headset settings | `worktree-agent-a67d038dc77cbaeea` |
-| Frame recorder (`--ez dump_frames true`) and `tools/markerless/eval_real.py` to run the detector on real recordings | `worktree-agent-a37437ea54efe947b`, being merged |
+| Pick marker on bolts already screwed in | Fixed in the 14:19 build, not yet seen |
+| Server box put the ghost on another board for 30 s before the detector locked | Fixed in the 14:19 build, not yet seen |
+| Re-align at step 3 lifted the ghost 22 cm | Fixed in the 14:19 build, not yet seen |
+| Step window out of view and labels sideways when looking down at the floor | New placement in the 14:19 build, not yet seen |
+| A wrong board picked up is not caught; coaching is slow and says little | In progress: on-device grab check against the recognised boards, praise and "next" lines, speech prefetched (`worktree-agent-af370f73aa0b0685a`) |
+| Wrong way round for sides, bottom, back | Server only (`flip_needed` from the step's `orientation_ok` question); measured for the front only, where it will rarely fire |
+| `/parts` answers take 5–20 s | Unchanged; the on-device recognition covers the boards |
+| Launch blocked by a system dialog while the headset is not worn | The user dismisses it; the launch is cached and proceeds |
 
-Local `main` is ahead of `origin/main` between pushes. Agent worktrees start from `origin/main`, so an agent must run `git rebase main` before reading code.
+Not tried on the headset at all: steps 4–6 of `drawer`, a wrong small part in the hand, the finish.
 
 ---
 
-## 5. Build, install, run, read the log (Android)
+## 4. Build, install, run, read the log (Android)
 
 ```sh
-cd quest-android && ./gradlew test assembleDebug && cd ..
-tools/quest/install.sh android                        # installs the debug APK and grants permissions
-tools/quest/run.sh android --job malm-drawer --lang el --secs 300 --keep-running
+cd quest-android && ./gradlew test assembleDebug && cd ..      # 286 JVM tests on main
+tools/quest/install.sh android                                 # installs the debug APK, grants permissions
+tools/quest/run.sh android --job drawer --lang el --secs 600 --keep-running [--dump]
+#   --dump records camera frames with poses on the headset; tools/markerless/pull.sh fetches them,
+#   .venv/bin/python tools/markerless/eval_real.py <run>/dump runs the reference detector on them
 #   --hud adds the debug panel (it shows the server address: never record with it)
 #   --no-launch attaches to a running app; the run folder is tools/quest/runs/<time>-android/
-grep -E '"ev":"(place|place_candidate|panel|surface|part_track|held_verdict)"' tools/quest/runs/<run>/agq.jsonl
 ```
 
-What to read: `panel` (`trusted`, `reason`, `size_err_mm`, `rectness`, `contrast`, `table_y_m`), `place` (`source`, `reason`), `surface`, `part_track` (`alive`, `moved`, `ms`), `ghost_material` (`kind`). A headset view without wearing it: `scrcpy --no-window --no-audio --no-playback --record f.mp4 --time-limit 4`, then crop the left eye with ffmpeg. `adb exec-out screencap` returns an empty image on Quest.
+Events to read in `agq.jsonl`: `flat_parts` (`parts[]` sizes, `needed`, `lit`, `unknown[]`), `panel` (`trusted`, `reason`, `size_err_mm`, `cue`), `place` (`source`, `reason`), `surface`, `coach_phase` (`phase`, `why`), `held_verdict`, `parts`, `camera_restart`. A headset view without wearing it: `scrcpy --no-window --no-audio --no-playback --record f.mp4 --time-limit 4`, then crop the left eye with ffmpeg (`adb exec-out screencap` returns an empty image on Quest); restart the log capture afterwards, scrcpy can restart adb.
 
-Keep the headset on a wall charger when it is not worn: the Mac's USB port does not keep up with the app running.
+Practical: boards on the floor need a gap of 3 cm or more (two touching boards read as one); a dark floor under light boards; keep the headset on a wall charger when it is not worn.
 
 ---
 
-## 6. Server (unchanged contracts, three additions today)
+## 5. Server
 
-Hosted from a Mac with `deploy/mac_host.sh`; the public URL is in `jobs/_host/url.txt` and every route needs `?key=<DEMO_KEY>` or the `X-Demo-Key` header. 324 tests pass on `main`.
+Hosted from a Mac with `deploy/mac_host.sh`; the public URL is in `jobs/_host/url.txt` and every route needs `?key=<DEMO_KEY>` or the `X-Demo-Key` header. 331 tests pass. Killing the uvicorn process restarts it behind the same tunnel in a few seconds (`.env` is read at start).
 
-| Addition | Detail |
-|---|---|
-| `POST /api/perception/{job}/parts` with `"mode": "step"` | one call returns every item a step needs: `items[]` with `id`, `code`, `kind`, `name.en/.el`, `visible`, `box_2d`, `boxes` (every instance), `confidence`, `count_seen`, `count_needed`, `count_text`; median 5.1 s. The default mode is unchanged. |
-| `POST /api/perception/{job}/panel` | JPEG + `fx fy cx cy` + `cam_in_table` (16 floats, row-major) → `{trusted, reason, x, y, yaw, corners_px, ms}`. For clients without OpenCV (Unity). |
-| Step-complete for hardware the reference sheet hides | a close-up reference (`refs/step-NN-detail.png`, written by `python -m pipeline.perception.details jobs/<job>`). On the 55 MALM render pairs: 46 → 50 correct, false "done" 1 → 0. Step 3 (cam locks) is still marginal (0.46 against a 0.45 line). Renders only. |
+Added today (details and examples in `server/perception/README.md`):
+- `POST /api/perception/{job}/parts` with `"mode": "step"`: every item a step needs, every instance, counts.
+- `POST /api/perception/{job}/panel`: the front-panel detector for clients without OpenCV.
+- Step-complete with a close-up reference for hardware the reference sheet hides (`python -m pipeline.perception.details jobs/<job>`): on 55 MALM render pairs 46 → 50 correct, false "done" 1 → 0.
+- Tuning from real headset frames (`PERCEPTION_TUNING`): `poor_at` 0.55 (was 0.3; 77 % of answered headset frames had been discarded, now 33 %), `more_light` only when the discarded frames are dim, `show_part` names a code only on clear evidence.
+- `perception_note` in a manifest: one sentence on the real colours, given to the model (white reference renders made it take the grey bottom board for the wood-coloured front).
+- `PERCEPTION_KEEP_FRAMES=<count>`: keeps real frames of a session under `jobs/_host/frames/` (git-ignored; set to 600 in the demo `.env`).
+- A job folder is a job only when it has `guide.pdf`.
 
-Full API, examples and frame conventions: `server/perception/README.md`. Earlier endpoints (`/api/identify`, `/locate`, `/api/voice`, `/api/tts`, the perception socket) are as documented there and in `quest-android/README.md`.
+Pipeline fix today: every placed piece is now visible in its per-step clip (`pipeline/blender/assemble.py`); before, each screw after the first stayed hidden in the web preview. Open: `pipeline/blender/render_parts.py` ignores a part's `color`.
 
 ### Guide data conventions (for any client)
-- GLB: metres, Y-up. Root `assembly`; parts `part_<id>_<n>`, hardware `hw_<code>_<n>`. **Parts rest hidden (scale 1e-4)**; final transforms exist only at the end of the `walkthrough` clip.
+- GLB: metres, Y-up. Root `assembly`; parts `part_<id>_<n>`, hardware `hw_<code>_<n>` (codes are strings, may contain a hyphen). **Parts rest hidden (scale 1e-4)**; final transforms exist only at the end of the `walkthrough` clip.
 - Manifest `target_m`, `from_dir`, `assemblyRotationDeg` are in Blender's Z-up frame: `(x, y, z)_blender → (x, z, −y)` for glTF. `from_dir` points from the target towards where the part comes from.
-- Test jobs on the host: `malm-drawer` (7 steps, a real drawer exists), `knagglig` (8 steps), `lack`.
 
 ---
 
-## 7. Submission pack
+## 6. Submission pack
 
-- `docs/SUBMISSION.md` and `docs/DEMO_VIDEO.md`: written for the Android demo without a marker; every claim tied to evidence; open items in the "Before submitting" block (`TODO(tracking: confirm on headset)`, team names, the form's track and video length, the model rule).
+- `docs/SUBMISSION.md`, `docs/DEMO_VIDEO.md`: written at 13:00 for the Android demo without a marker; they still describe the earlier guide and say tracking is unconfirmed on the headset. To update before submitting: the custom guide, the device evidence of §3, and the open items in their "Before submitting" block (team names, the form's track and video length, the model rule).
 - Rough cuts with an English voice-over, outside git: `jobs/_media/cut/demo-rough.mp4` (2:47) and `demo-60s.mp4` (1:00). Five headset shots are placeholders; drop recordings as `jobs/_media/cut/headset/H1.mp4` … `H5.mp4` and run `./build.sh` there.
 
-## 8. Backup app (Unity)
+## 7. Backup app (Unity)
 
-`quest-unity/` (Unity 6.3 LTS, Meta XR SDK 209): passthrough fixed on the device this morning; round 2 added the UI, voice, camera preview and a world layer (table placement, server box, pick targets) with the same server calls. Not opened on the headset since. Build and conventions: `quest-unity/README.md`; known defects: `eval/judge/round-2.md`.
+`quest-unity/` (Unity 6.3 LTS, Meta XR SDK 209): passthrough fixed on the device this morning; round 2 added the UI, voice, camera preview and a world layer with the same server calls. Known defects: `eval/judge/round-2.md`.
