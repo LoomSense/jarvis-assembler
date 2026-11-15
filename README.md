@@ -9,7 +9,7 @@
 - Anyone who buys flat-pack furniture and builds it at home.
 - The shops that sell it, who take the calls when a build goes wrong.
 
-![A person sits on the floor holding their head, with a hundred furniture parts scattered around and a paper guide with a question mark](docs/img/frustrated.svg)
+![A man seen from above reads a paper assembly guide, with the unpacked parts of a flat-pack piece of furniture all around him](docs/img/who-its-for.jpg)
 
 **The problem**
 
