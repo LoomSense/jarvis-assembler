@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from server import catalog
 from server.auth import require_key
-from server.fetch_guide import FetchError, fetch_ikea_guide, normalize_article
+from server.fetch_guide import FetchError, fetch_ikea_guide, normalize_article, search_ikea
 from server.routes.jobs import start_job
 from server.settings import ROOT
 
@@ -24,6 +24,16 @@ class OpenBody(BaseModel):
 @router.get("/api/catalog")
 async def list_catalog(request: Request, q: str = "") -> dict:
     return {"items": catalog.search(request.app.state.store, q[:500])}
+
+
+@router.get("/api/catalog/ikea")
+async def search_ikea_products(q: str = "") -> dict:
+    """Products by name from IKEA's public search: `{items: [{name, type, article, url, image}]}`. Open one with
+    POST /api/catalog/open {q: article}; its guide is fetched from IKEA and built."""
+    try:
+        return {"items": await asyncio.to_thread(search_ikea, q)}
+    except FetchError as e:
+        raise HTTPException(e.status, str(e)) from e
 
 
 def _same(a: str, b: str | None) -> bool:
