@@ -4,7 +4,7 @@ import type { Lang, Loc } from './types'
 // no exclamation marks, no em dashes, label parts joined with a middle dot.
 const STRINGS = {
   el: {
-    appTitle: 'Οδηγός συναρμολόγησης',
+    appTitle: 'Jarvis Assembler',
     stepOf: 'Βήμα {n} από {m}',
     phaseGather: 'Μάζεψε',
     phaseBuild: 'Χτίσε',
@@ -56,7 +56,7 @@ const STRINGS = {
     piece: 'κομμάτι',
   },
   en: {
-    appTitle: 'Assembly guide',
+    appTitle: 'Jarvis Assembler',
     stepOf: 'Step {n} of {m}',
     phaseGather: 'Gather',
     phaseBuild: 'Build',
