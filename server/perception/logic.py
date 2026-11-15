@@ -432,10 +432,15 @@ class Coach:
 
     # ---- frames ---------------------------------------------------------------------------------
 
-    def on_bad_frame(self, ts: float, view: str = "dark", source: str | None = None) -> list[Emitted]:
-        """A frame too dark to send, or one the model called too poor to judge."""
+    def on_bad_frame(self, ts: float, view: str = "dark", source: str | None = None,
+                     luma: float | None = None) -> list[Emitted]:
+        """A frame too dark to send, or one the model called too poor to judge. `luma`: the mean brightness of
+        a poor frame, when it was measured; a poor frame in good light does not count towards `more_light`."""
         self.view = view
         if self.expect is None or self.done:
+            return []
+        if view != "dark" and luma is not None and self.t.dim_luma and luma >= self.t.dim_luma:
+            self.bad_since, self.light_said = None, False    # poor, but not for want of light
             return []
         if self.bad_since is None:
             self.bad_since = ts
@@ -449,6 +454,8 @@ class Coach:
     def _prefilter(self, raw: dict, w: Watcher, rules, blocked: bool) -> dict:
         """The answers the Watcher gets: all of them, unless one of this layer's rules takes some out."""
         e, t, drop = self.expect, self.t, set()
+        if (yes_p(raw, "image_poor") or 0) >= w.cfg.unusable:
+            drop.add("image_poor")                               # under `poor_at`: usable, the Watcher must not skip it
         if blocked and not rules.blocked_discards_frame:
             drop.update(("view_blocked", *SCENE_QUESTIONS))      # the hand is in view, the assembly is not
         if t.step_complete_only_on_last_action and e.action is not None and not e.last_action:
@@ -486,7 +493,7 @@ class Coach:
         return self.setup_lost
 
     def on_frame(self, raw: dict, ts: float, source: str = "fixed", hands: Hands | None = None,
-                 now: float | None = None) -> list[Emitted]:
+                 now: float | None = None, luma: float | None = None) -> list[Emitted]:
         """Feed one frame's answers, as the Decisions API returned them. `ts`: when the frame was taken.
         `now`: the time of the hand summary's clock, when it differs. Returns the events to send."""
         e = self.expect
@@ -497,7 +504,7 @@ class Coach:
         cfg, rules, t = w.cfg, self.t.rules(source), self.t
         self.frames += 1
         out: list[Emitted] = []
-        poor = (yes_p(raw, "image_poor") or 0) >= cfg.unusable
+        poor = (yes_p(raw, "image_poor") or 0) >= max(t.poor_at, cfg.unusable)
         blocked = (yes_p(raw, "view_blocked") or 0) >= cfg.unusable
         if rules.check_setup and not poor and not blocked and self._camera_moved(raw, ts, cfg, out):
             self.view = "moved"
@@ -507,7 +514,7 @@ class Coach:
         before = w.last_warning
         events = w.feed(raw if poor else self._prefilter(raw, w, rules, blocked), ts)
         if poor:
-            return self.on_bad_frame(ts, "poor", source)
+            return self.on_bad_frame(ts, "poor", source, luma)
         self.bad_since, self.light_said = None, False
         self.view = "blocked" if blocked else "ok"
         if blocked and rules.blocked_discards_frame:

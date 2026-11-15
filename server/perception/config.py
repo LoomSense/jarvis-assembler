@@ -90,6 +90,23 @@ class Tuning:
     show_part_resolution: str = "high"
     max_frame_bytes: int = 1_500_000
     dark_luma: float = 22.0                # mean brightness (0-255) below this: dark, no call is spent; 0 disables
+    dark_peak: float = 60.0                # ...but only when the brightest 2 % of the frame stay below this as well:
+    #                                        a dark floor with lit parts on it is not a dark frame. 0: the mean alone
+    poor_at: float = 0.55                  # `image_poor` at or above this discards the frame (never below the
+    #                                        Watcher's `unusable`, 0.3, which was the line until Sun 15 Nov and still
+    #                                        is for `view_blocked`). Real frames, headset worn, work in view:
+    #                                        0.08-0.19; a desk 0.26-0.43; of 924 logged frames with a hand seen,
+    #                                        22 % reached 0.3 and 8 % reach 0.55; imitated dark, defocused or
+    #                                        overexposed frames 0.64-0.92
+    dim_luma: float = 50.0                 # `more_light` is said only for poor frames whose mean brightness is under
+    #                                        this (and for frames too dark to send). A poor frame in good light is
+    #                                        blur, a covered lens or a headset put down: real frames of a lit office
+    #                                        had a mean of 82-120, and "more light" was said 53 times that day.
+    #                                        0: every poor frame counts, as before
+    show_nothing_max: float = 0.1          # show_part names a code only if `no_hardware` is below this (an empty
+    #                                        pinching hand scored 0.18-0.76, a held bolt 0.01-0.06; real and drawn)
+    show_right_min: float = 0.7            # ...and, for a code needed now, only if `right_hardware` reaches this
+    #                                        (empty hand 0.14-0.62; the right bolt 0.72-0.94, so the margin is thin)
 
     # ---- failure handling (§6.5) ----
     decision_timeout_s: float = 4.0        # above the measured p95 (up to 2.6 s). PLAN's 800 ms is below the median

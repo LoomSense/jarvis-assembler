@@ -32,16 +32,52 @@ from server.perception.decider import REFUSED, DecisionError, GeminiDecider, Sim
 from server.perception.guide import Guide
 from server.perception.logic import Coach, Emitted, Hands, Health
 from server.perception.phrases import perception_line, sentences, show_part_sentences, spoken
-from server.perception.questions import StepPack, build_ask, forget, load_pack, normalise
+from server.perception.questions import EXTRA, StepPack, build_ask, forget, load_pack, normalise
 from server.perception.wire import FrameError, parse_frame
 
 log = logging.getLogger("agj.perception")
 PROTOCOL = 1
 CONTROL = ("start", "step", "action", "show_part", "stop", "hands", "mute", "unmute", "sim")
-SHOW_PART_QUESTIONS = ("part_in_hand", "hardware_in_hand", "image_poor")
+SHOW_PART_QUESTIONS = ("part_in_hand", "hardware_in_hand", "image_poor", EXTRA)
+KEEP_EVERY_S = 1.0                         # kept frames: one a second at most, and every `show_part` look
 NO_KEY = ("The server has no GEMINI_API_KEY and PERCEPTION_SIMULATE is off, so no frame is looked at. "
           "Steps, actions and hand summaries still work.")
 NOTHING_TO_FEED = {"answers": None}        # what `_ask` returns for a frame without answers: the Stream skips it
+
+
+class FrameKeeper:
+    """Opt-in (`PERCEPTION_KEEP_FRAMES=<count>`): camera frames as they arrived, under `jobs/_host/frames/<session>/`,
+    named `<seq>-<what became of it>.jpg` so they join `frames.jsonl` by `seq`. Off by default; it stops at
+    `count` frames or `megabytes`, whichever comes first, counted over the server's run and what the folder
+    already holds. The frames show the user's room: `jobs/` is git-ignored and they must stay there."""
+
+    def __init__(self, folder: Path | None, count: int = 0, megabytes: int = 200):
+        self.folder = folder if folder is not None and count > 0 else None
+        self.count, self.bytes = count, megabytes * 1024 * 1024
+        self.kept = self.used = 0
+        self._lock = threading.Lock()
+        if self.folder is not None and self.folder.is_dir():      # what earlier runs left counts too
+            for f in self.folder.glob("*/*.jpg"):
+                self.kept, self.used = self.kept + 1, self.used + f.stat().st_size
+
+    @property
+    def on(self) -> bool:
+        return self.folder is not None and self.kept < self.count and self.used < self.bytes
+
+    def keep(self, session: str, seq, tag: str, jpeg: bytes) -> bool:
+        with self._lock:
+            if not self.on or self.used + len(jpeg) > self.bytes:
+                return False
+            self.kept, self.used = self.kept + 1, self.used + len(jpeg)
+        try:
+            folder = self.folder / session
+            folder.mkdir(parents=True, exist_ok=True)
+            name = f"{seq:06d}" if isinstance(seq, int) and not isinstance(seq, bool) and seq >= 0 else "noseq"
+            (folder / f"{name}-{tag}.jpg").write_bytes(bytes(jpeg))
+            return True
+        except OSError as e:                                     # a full disk must not stop the guidance
+            log.warning("kept frame %s: %s", seq, e)
+            return False
 
 
 class Conn:
@@ -77,6 +113,7 @@ class Answers(dict):
     frame: Frame
     ms: int
     resolution: str
+    luma: float | None = None       # the frame's mean brightness, when Pillow measured it
 
 
 class _Handoff:
@@ -120,8 +157,9 @@ class SessionLog:
 
 class PerceptionSession:
     def __init__(self, job_id: str, job_dir: Path, tuning: Tuning, decider, no_decider: str | None = None,
-                 logs: bool = True, clock=time.monotonic):
+                 logs: bool = True, clock=time.monotonic, keeper: FrameKeeper | None = None):
         self.job_id, self.dir, self.t, self.clock = job_id, Path(job_dir), tuning, clock
+        self.keeper, self._kept_at = keeper, float("-inf")
         self.decider = decider
         self.simulated = bool(decider is not None and decider.simulated)
         self.no_decider = no_decider if decider is None else None
@@ -502,7 +540,7 @@ class PerceptionSession:
     def _on_hands(self, conn: Conn, msg: dict) -> None:
         now = self.clock()
         self.hands.update(msg, now)
-        self.log.write("hands", {"t": round(now - self.t0, 3), "seq": msg.get("seq"),
+        self.log.write("hands", {"t": round(now - self.t0, 3), "seq": msg.get("seq"), "wall_ms": int(time.time() * 1000),
                                  "hand_at_target": self.hands.at_target, "still": self.hands.still,
                                  "raised": self.hands.raised, "present": self.hands.present})
         self._dirty = True
@@ -633,9 +671,19 @@ class PerceptionSession:
         self._restore_show(frame)
         self._ack(frame.conn, frame.seq, frame.t_recv, kind)
 
+    def _keep(self, frame: Frame, tag: str) -> None:
+        """With `PERCEPTION_KEEP_FRAMES`: this frame goes to disk, one a second at most (always a `show_part` look)."""
+        k = self.keeper
+        if k is None or not k.on or (not frame.show and frame.t_recv - self._kept_at < KEEP_EVERY_S):
+            return
+        if k.keep(self.id, frame.seq, tag, frame):
+            self._kept_at = frame.t_recv
+
     def _on_lost(self, frame: Frame, reason: str) -> None:
         """A frame that never became a request."""
         current = frame.epoch == self.epoch
+        if reason in ("dark", "bad_frame"):
+            self._keep(frame, reason)
         if reason == "dark" and current:
             self._emit(self.coach.on_bad_frame(frame.ts, "dark", frame.source), frame)
             self._dirty = True
@@ -656,35 +704,70 @@ class PerceptionSession:
         self.log.write("frames", {"clip": clip, "frame": index, "t": clip_t, "latency_ms": answers.ms,
                                   "answers": normalise(answers), "seq": frame.seq, "step": frame.step,
                                   "source": frame.source, "resolution": answers.resolution,
+                                  # added Sun 15 Nov: `t` restarts at every `start`, so the logs could not be joined
+                                  "wall_ms": round((time.time() - (now - frame.t_recv)) * 1000),
+                                  **({"ts": frame.header["ts"]} if isinstance(frame.header.get("ts"), (int, float)) else {}),
+                                  **({"luma": round(answers.luma, 1)} if answers.luma is not None else {}),
                                   **({"show_part": True} if frame.show else {}),
                                   **({"sim": True} if self.simulated else {})})
+        poor = ((answers.get("image_poor") or {}).get("noul") or 0.0) >= max(self.t.poor_at, self.t.watcher_config().unusable)
+        self._keep(frame, "show" if frame.show else "poor" if poor else "used")
         if frame.show:
-            self._emit([self._show_part_result(answers, frame.show)], frame)
+            self._emit([self._show_part_result(answers, frame.show, frame.codes)], frame)
         else:
             hands = self.hands if self.hands.fresh(now) else None
-            events = self.coach.on_frame(answers, ts, frame.source, hands, now)
+            events = self.coach.on_frame(answers, ts, frame.source, hands, now, answers.luma)
             self._emit(events, frame)
             following = self.coach.expect.next_step if self.coach.expect else None
             if following is not None and any(e.event == "step_complete" for e in events):
                 self._warm(following)                # §6.2: load the next step's questions and sheet
         self._dirty = True
 
-    def _show_part_result(self, answers: dict, show: dict) -> Emitted:
-        """One close look at what the person holds up (PLAN §6.4 `show_part_request`). No smoothing."""
-        cfg, x = self.t.watcher_config(), self.coach.expect
+    def _show_part_result(self, answers: dict, show: dict, codes: tuple = ()) -> Emitted:
+        """One close look at what the person holds up (PLAN §6.4 `show_part_request`). No smoothing, so a piece
+        of hardware is named only on clear evidence: the code itself reaches the choice line, the model gives
+        "nothing in the hand" almost no weight (an empty pinching hand was read as the expected screw at 0.77,
+        with `no_hardware` at 0.18), and the yes/no about the hardware needed now (`codes`) does not disagree.
+        Otherwise `observed_id` is None and `reason` says why; the sentence is "show it closer"."""
+        t, cfg, x = self.t, self.t.watcher_config(), self.coach.expect
         part, code = pick(answers, "part_in_hand", cfg.choice), pick(answers, "hardware_in_hand", cfg.choice)
         p_conf = float((answers.get("part_in_hand") or {}).get("confidence") or 0.0)
         h_conf = float((answers.get("hardware_in_hand") or {}).get("confidence") or 0.0)
-        observed, conf = None, max(p_conf, h_conf)
-        if ((answers.get("image_poor") or {}).get("noul") or 0.0) < cfg.unusable:
-            if part and part not in SPECIAL:
-                observed, conf = part, p_conf
-            elif code and code not in SPECIAL:
+        poor = float((answers.get("image_poor") or {}).get("noul") or 0.0)
+        empty = float(((answers.get("hardware_in_hand") or {}).get("probabilities") or {}).get("no_hardware") or 0.0)
+        right = (answers.get(EXTRA) or {}).get("noul")
+        observed, conf, why = None, max(p_conf, h_conf), None
+        if poor >= max(t.poor_at, cfg.unusable):
+            why = "image_poor"
+        elif part and part not in SPECIAL:
+            observed, conf = part, p_conf
+        elif code and code not in SPECIAL:
+            if empty >= t.show_nothing_max:
+                why = "hand_may_be_empty"
+            elif right is not None and code in codes and right < t.show_right_min:
+                why = "not_confirmed"                # the choice names the needed code, the yes/no does not
+            elif right is not None and codes and code not in codes and right >= cfg.yes:
+                why = "not_confirmed"                # the choice names another code, the yes/no says "the right one"
+            else:
                 observed, conf = code, h_conf
+        else:
+            # The Coach's measured rule, for one frame: the yes/no is sure it is NOT the hardware needed, and the
+            # choice leans to another code without reaching the line (a dowel at 50 cm on a dark floor: 0.74, with
+            # `right_hardware` at 0.05). That code is named, so the answer is "wrong", not "show it closer".
+            lean = (answers.get("hardware_in_hand") or {}).get("choice")
+            if (t.hardware_veto and codes and right is not None and right <= cfg.no and not (part and part not in SPECIAL)
+                    and lean is not None and lean not in SPECIAL and lean not in codes
+                    and t.hardware_no_floor <= h_conf and empty < t.show_nothing_max):
+                observed, conf = lean, h_conf
+            else:
+                why = "not_recognised"
         expected = show.get("expected") or (x.action_id if x and x.now_kind else None)
+        evidence = {"part_in_hand.top": round(p_conf, 3), "hardware_in_hand.top": round(h_conf, 3),
+                    "image_poor": round(poor, 3), "no_hardware": round(empty, 3)}
+        if right is not None:
+            evidence[EXTRA] = round(float(right), 3)
         return Emitted("show_part_result", self.step, x.page if x else None, expected_id=expected,
-                       observed_id=observed, p=round(conf, 3),
-                       evidence={"part_in_hand.top": round(p_conf, 3), "hardware_in_hand.top": round(h_conf, 3)})
+                       observed_id=observed, p=round(conf, 3), evidence=evidence, reason=why)
 
     # ---- frames: in a Stream worker thread ------------------------------------------------------
 
@@ -702,7 +785,7 @@ class PerceptionSession:
             info = imaging.probe(frame)
             if info is None:
                 return self._lose(frame, "bad_frame")
-            if t.dark_luma and info[2] < t.dark_luma:            # too dark to be worth a call (§6.5)
+            if imaging.too_dark(info, t.dark_luma, t.dark_peak):     # too dark to be worth a call (§6.5)
                 return self._lose(frame, "dark")
             try:
                 pack = self._pack(frame.step)
@@ -725,6 +808,7 @@ class PerceptionSession:
             return self._lose(frame, "error")
         answers = Answers(raw["answers"])
         answers.frame, answers.ms, answers.resolution = frame, ms, resolution
+        answers.luma = info[2] if imaging.Image is not None else None
         self._post(self._on_answered, frame, answers)
         return {"answers": answers, "latency_ms": ms}
 
@@ -756,6 +840,9 @@ class Registry:
             log.error(self.tuning_error)
         self.sessions: dict[str, PerceptionSession] = {}
         self._gemini: GeminiDecider | None = None
+        keep = int(getattr(settings, "perception_keep_frames", 0) or 0)
+        self.keeper = FrameKeeper(Path(settings.jobs_dir) / "_host" / "frames" if keep > 0 else None, keep,
+                                  int(getattr(settings, "perception_keep_frames_mb", 200) or 200))
 
     def _decider(self):
         s = self.settings
@@ -773,7 +860,8 @@ class Registry:
         if session is None:
             decider, reason = self._decider()
             session = self.sessions[job_id] = PerceptionSession(job_id, job_dir, self.tuning, decider, reason,
-                                                                logs=self.settings.perception_logs)
+                                                                logs=self.settings.perception_logs,
+                                                                keeper=self.keeper)
         return session
 
     async def close(self) -> None:

@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     perception_simulate: bool = False       # phase 2 answers come from a debug script, not from Decision 1
     perception_logs: bool = True            # write jobs/<id>/perception/<session>/{frames,events,hands}.jsonl
     perception_tuning: str = ""             # JSON overrides for server/perception/config.py, e.g. {"max_hz": 2}
+    perception_keep_frames: int = 0         # opt-in: keep up to this many camera frames under jobs/_host/frames/
+    perception_keep_frames_mb: int = 200    # ...and stop at this many megabytes. They show the user's room
 
     @field_validator("jobs_dir", "client_dist")
     @classmethod

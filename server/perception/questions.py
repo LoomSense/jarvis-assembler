@@ -176,6 +176,22 @@ def right_hardware_question(guide: Guide, sp: StepPack, codes) -> dict | None:
                          "false_description": f"The hardware in the user's hands is a different item{other}, or no hardware is held"}}
 
 
+NOTE_MAX = 400
+
+
+def real_look_note(guide: Guide) -> str | None:
+    """`perception_note` in the manifest (optional): a sentence or two on how the real parts differ from the
+    reference pictures, which are rendered in one plain colour. It becomes the last text block of every request.
+    Measured on real headset frames of the MALM drawer (Sun 15 Nov), whose front is wood-coloured while the sheet
+    shows it white: holding the front, `drawer_front` rose from 0.63-0.66 to 0.74-0.76 and `right_part` from
+    0.75-0.78 to 0.84-0.92; holding the light grey bottom panel, a false `drawer_front` (0.78, `right_part` 0.82)
+    fell to 0.31 (`right_part` 0.21)."""
+    note = guide.manifest.get("perception_note")
+    if not isinstance(note, str) or not note.strip():
+        return None
+    return " ".join(note.split())[:NOTE_MAX]
+
+
 def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str = "medium",
               only: tuple | None = None, extra: bool = True) -> Ask:
     """The request for one frame. `only` keeps a subset of the questions (a `show_part` look)."""
@@ -186,9 +202,15 @@ def build_ask(guide: Guide, sp: StepPack, jpeg: bytes, codes=(), resolution: str
     if pack.get("sheet"):
         inputs += [pack["sheet_note"], ("image/jpeg", bench.sheet_jpeg(str(guide.dir), pack["sheet"]))]
         inputs += bench.detail_blocks(guide.dir, pack)               # Image 3: the close-up of hidden hardware, if any
+    note = real_look_note(guide)
+    if note:
+        inputs.append(note)
     questions = dict(questions)
     if only is not None:
         questions = {k: v for k, v in questions.items() if k in only}
+        added = right_hardware_question(guide, sp, codes) if extra and EXTRA in only else None
+        if added and EXTRA not in questions:
+            questions[EXTRA] = added
     elif extra:
         added = right_hardware_question(guide, sp, codes)
         if added and EXTRA not in questions:
