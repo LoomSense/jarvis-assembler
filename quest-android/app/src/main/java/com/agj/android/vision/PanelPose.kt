@@ -104,6 +104,8 @@ data class PanelParams(
     val ringOuterPx: Int = 15,
     val ringInnerPx: Int = 5,
     val maxCut: Double = 0.03,
+    /** RECESS-CUE: the target's recess map ([PanelTarget.recess]); null = no 180° cue. */
+    val recess: RecessMap? = null,
 )
 
 /**
@@ -124,9 +126,11 @@ data class PanelTarget(
     val fillHull: Boolean,
     val assemblyFromFootprint: Pose3,
     val slab: String? = null,
+    /** RECESS-CUE: the grooves and holes of the part's top face ([RecessCue.map]); null = none, no 180° cue. */
+    val recess: RecessMap? = null,
 ) {
   /** [base] with this rectangle: every gate and constant stays as it is. */
-  fun params(base: PanelParams = PanelParams()): PanelParams = base.copy(longM = lengthM, shortM = widthM, thickM = topM, fillHull = fillHull)
+  fun params(base: PanelParams = PanelParams()): PanelParams = base.copy(longM = lengthM, shortM = widthM, thickM = topM, fillHull = fillHull, recess = recess) // RECESS-CUE
 
   /** Length, width and top height in whole millimetres, for the log. */
   fun footprintMm(): List<Long> = listOf(Math.round(lengthM * 1000), Math.round(widthM * 1000), Math.round(topM * 1000))
@@ -170,6 +174,8 @@ class PanelPoseResult(
     val contrast: Double? = null,
     val score: Double? = null,
     val imageSize: IntArray? = null,
+    /** RECESS-CUE: both orientations scored against the part's recesses; null = not trusted or the part has none. */
+    val cue: RecessCueResult? = null,
 )
 
 /** The rectified top-down window for one camera pose. [h]: 3 × 3 row-major, bird pixel (i, j, 1) → image pixel. */
@@ -721,6 +727,8 @@ object PanelPose {
       val contrast = if (ringValid > 0 && nIn > 0) sumIn / nIn - sumRing / ringValid else 0.0
       val reason = PanelMath.gate(c.errL, c.errS, c.rectness, cut, contrast, p)
       val corners = PanelMath.cornersPx(xyYaw[0], xyYaw[1], xyYaw[2], k.fx, k.fy, k.cx, k.cy, v, p)
+      // RECESS-CUE: a rectangle that passed the gates is scored both ways round on the same rectified lightness
+      val cue = if (reason == null) p.recess?.let { RecessCue.score(it, labBytes, 3, valid, inB, n, v.x0, v.y0, v.s, xyYaw[0], xyYaw[1], xyYaw[2]) } else null
       return PanelPoseResult(
           reason == null,
           reason ?: PanelMath.REASON_OK,
@@ -734,6 +742,7 @@ object PanelPose {
           contrast,
           c.score,
           size,
+          cue, // RECESS-CUE
       )
     } finally {
       bestCnt?.release()
@@ -1152,6 +1161,7 @@ class PanelPoseTracker(
   private var lastYaw: Double? = null
   private var lastReported: PanelSample? = null
   private var reports = 0
+  private val recessTurn = RecessTurn() // RECESS-CUE: the 3-in-a-row rule and the yaw kept after a turn
   private var nativeOk: Boolean? = null
 
   /** The latest reported WORLD ← ASSEMBLY, null before the first report. */
@@ -1168,6 +1178,7 @@ class PanelPoseTracker(
         consensus.reset()
         lastReported = null
         lastYaw = null
+        recessTurn.reset() // RECESS-CUE
       }
       latest = null
     }
@@ -1190,6 +1201,7 @@ class PanelPoseTracker(
         consensus.reset()
         lastReported = null
         lastYaw = null
+        recessTurn.reset() // RECESS-CUE
       }
     }
     val state = listOf(active, step, target)
@@ -1205,6 +1217,7 @@ class PanelPoseTracker(
             "footprint_mm" to target?.footprintMm(),
             "hull" to target?.fillHull,
             "slab" to target?.slab,
+            "recess_px" to target?.recess?.let { listOf(it.narrowCount, it.asymmetric) }, // RECESS-CUE: null = no 180° cue for this part
             "trusted" to false,
             "reason" to
                 when {
@@ -1267,7 +1280,8 @@ class PanelPoseTracker(
     try {
       val jpeg = frame.jpegAt(grabLongEdge, grabQuality) // live buffers are only valid inside this callback
       val k = frame.intrinsics
-      val prev = if (look) ghostPose()?.let { PanelFrames.panelYawInTable(wt, it, t!!.assemblyFromFootprint) } ?: synchronized(this) { lastYaw } else null
+      // RECESS-CUE: once the cue has turned the pose, the choice continues from that yaw; else the ghost's (fallback)
+      val prev = if (look) synchronized(this) { recessTurn.yaw } ?: ghostPose()?.let { PanelFrames.panelYawInTable(wt, it, t!!.assemblyFromFootprint) } ?: synchronized(this) { lastYaw } else null
       val w = worker ?: Executors.newSingleThreadExecutor { Thread(it, "agj-panel").apply { isDaemon = true } }.also { worker = it }
       w.execute {
         try {
@@ -1314,9 +1328,11 @@ class PanelPoseTracker(
   @Synchronized
   fun onResult(r: PanelPoseResult, worldFromTable: Pose3?, nowMs: Long, t: PanelTarget? = target) {
     if (t == null || !t.sameRectangle(target)) return
+    // RECESS-CUE: true once, when 3 confident results in a row say the part lies the other way round
+    val turned = recessTurn.add(r.trusted && worldFromTable != null, r.yaw, r.cue)
     val sample =
         if (r.trusted && r.x != null && r.y != null && r.yaw != null && worldFromTable != null)
-            PanelSample(r.x, r.y, r.yaw, worldFromTable.t.y, r.score ?: 0.0, nowMs)
+            PanelSample(r.x, r.y, if (turned) r.yaw + Math.PI else r.yaw, worldFromTable.t.y, r.score ?: 0.0, nowMs)
         else null
     if (sample != null) lastYaw = sample.yaw
     val agreed = consensus.add(sample)
@@ -1333,7 +1349,7 @@ class PanelPoseTracker(
         log.error("panel", t.message)
       }
     }
-    if (nowMs - lastLogMs >= 1000) {
+    if (turned || nowMs - lastLogMs >= 1000) { // RECESS-CUE: the turn is always logged
       lastLogMs = nowMs
       val pos = if (r.x != null && r.y != null && worldFromTable != null) worldFromTable.transform(Vec3(r.x.toFloat(), r.y.toFloat(), 0f)) else null
       log.event(
@@ -1344,7 +1360,7 @@ class PanelPoseTracker(
               "ms" to Math.round(r.ms * 10) / 10.0,
               "pos_m" to pos,
               "xy_m" to (if (r.x != null && r.y != null) listOf(r.x, r.y) else null),
-              "yaw_deg" to r.yaw?.let { Math.toDegrees(it) },
+              "yaw_deg" to (sample?.yaw ?: r.yaw)?.let { Math.toDegrees(it) }, // RECESS-CUE: the yaw used (turned or not)
               "size_err_mm" to r.sizeErrMm,
               "rectness" to r.rectness,
               "contrast" to r.contrast,
@@ -1356,6 +1372,7 @@ class PanelPoseTracker(
               "step" to step,
               "footprint_mm" to t.footprintMm(),
               "hull" to t.fillHull,
+              "cue" to RecessCueLog.of(r.cue, recessTurn, turned), // RECESS-CUE
           ),
       )
     }

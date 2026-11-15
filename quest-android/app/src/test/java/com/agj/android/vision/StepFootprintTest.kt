@@ -106,8 +106,9 @@ class StepFootprintTest {
     assertEquals(listOf(1, 2, 3), guide.stepNumbers.filter { StepFootprints.target(guide, manifest, it) != null })
     assertEquals(listOf(false, true, true), (1..3).map { StepFootprints.target(guide, manifest, it)!!.fillHull })
     val t1 = StepFootprints.target(guide, manifest, 1)!!
-    assertEquals(PanelParams(), t1.params()) // step 1 is exactly the detector as it was
-    assertEquals(PanelParams(fillHull = true), StepFootprints.target(guide, manifest, 3)!!.params())
+    // step 1 is exactly the detector as it was, plus the front's own recess map for the 180° cue (RECESS-CUE)
+    assertEquals(PanelParams(recess = t1.recess), t1.params())
+    assertEquals(PanelParams(fillHull = true, recess = t1.recess), StepFootprints.target(guide, manifest, 3)!!.params())
     assertTrue(t1.sameRectangle(PanelTarget.FRONT_PANEL))
     assertTrue(t1.sameRectangle(StepFootprints.target(guide, manifest, 3)))
     assertEquals("part_drawer_front_1", t1.slab)
