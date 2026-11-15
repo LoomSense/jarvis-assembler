@@ -231,6 +231,11 @@ const PART_NAMES_EL: Record<string, string> = {
   'Double-ended screw': 'Διπλή βίδα',
 };
 
+/** Greek names that a pipeline job brings in its manifest (`parts[].names`, `hardware[].names`). */
+export function addGreekName(en: string, el: string): void {
+  if (en && el) PART_NAMES_EL[en] = el;
+}
+
 export function partName(name: string, lang: Lang = LANG): string {
   return lang === 'el' ? (PART_NAMES_EL[name] ?? name) : name;
 }

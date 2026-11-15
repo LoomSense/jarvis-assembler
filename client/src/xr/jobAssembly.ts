@@ -4,6 +4,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { DemoPart, DemoProduct, DemoStep, Vec3 } from './demoAssembly';
 import { apiBase } from '../api';
+import { addGreekName } from './i18n';
+import { HARDWARE_NAMES } from './stepGuides';
 
 // Loads a job made by the 3D pipeline (pipeline/README.md, PLAN §4.3): manifest.json plus
 // walkthrough(.packed).glb, served at /files/<job>/ (the server's route; the dev server
@@ -81,6 +83,14 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
   const toRoot = root.matrixWorld.clone().invert();
 
   const partNames = new Map(m.parts.map((p) => [p.id, cap(p.short)]));
+  // The manifest names every part and fitting in English and Greek: use them, so the panel says
+  // "Cam bolt 2 of 2" / "Βίδα έκκεντρου 2 από 2" instead of the bare code.
+  for (const p of m.parts as { short: string; names?: { en?: string; el?: string } }[]) addGreekName(cap(p.short), cap(p.names?.el ?? ''));
+  for (const h of m.hardware as { code: string; short: string; names?: { en?: string; el?: string } }[]) {
+    const en = cap(h.names?.en ?? h.short ?? '');
+    if (en && !HARDWARE_NAMES[h.code]) HARDWARE_NAMES[h.code] = en;
+    addGreekName(en, cap(h.names?.el ?? ''));
+  }
   const partItems = new Map(m.parts.map((p) => [p.id, { name: p.name, short: p.short }]));
   const measured = new Set(m.parts.filter((p) => p.dimsEstimated === false).map((p) => p.id));
   const hwColor = new Map(m.hardware.map((h) => [h.code, hex(h.color)]));
