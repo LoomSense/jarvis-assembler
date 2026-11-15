@@ -277,13 +277,17 @@ class WorldModule(
     val fp = footprint() ?: return
     val bp = BasePlacement.fromBox(found.box_2d, g, cur.t.y, cur, fp, vision.config.detector.useDistortion)
     val onTable = bp != null && (scene.table?.contains(bp.partCenter, 0.10f) ?: true)
-    val ok = bp != null && onTable && found.confidence >= MIN_BASE_CONFIDENCE
+    // The box must be about the size of the part: on the first device run a 0.89 m box (not the 0.38 m drawer
+    // front) at confidence 0.95 moved the ghost 1.36 m away.
+    val longSide = 2f * maxOf(fp.halfX, fp.halfZ)
+    val sizeOk = bp?.lengthM?.let { it >= 0.6f * longSide && it <= 1.5f * longSide } ?: false
+    val ok = bp != null && onTable && sizeOk && found.confidence >= MIN_BASE_CONFIDENCE
     val applied = if (ok) anchor.onServerBox(bp!!.worldFromTable) else false
     Agq.log.event(
         "place_candidate",
         mapOf("source" to "server_box", "part" to found.id, "confidence" to found.confidence, "box_2d" to found.box_2d,
             "center_m" to bp?.partCenter, "length_m" to bp?.lengthM, "yaw_from_box" to bp?.yawFromBox,
-            "dist_m" to bp?.let { AssemblyAnchor.flatDist(it.worldFromTable.t, cur.t) }, "on_table" to onTable,
+            "dist_m" to bp?.let { AssemblyAnchor.flatDist(it.worldFromTable.t, cur.t) }, "on_table" to onTable, "size_ok" to sizeOk,
             "cam_pose" to (g.worldFromCamera != null), "applied" to applied),
     )
   }
