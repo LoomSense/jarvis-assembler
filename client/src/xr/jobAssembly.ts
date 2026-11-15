@@ -31,7 +31,7 @@ interface Manifest {
   rootNode: string;
   overall_mm: { L: number; W: number; H: number };
   walkthrough: { clip: string };
-  parts: { id: string; short: string; name: string }[];
+  parts: { id: string; short: string; name: string; dimsEstimated?: boolean }[];
   hardware: { code: string; short: string; color: [number, number, number] }[];
   steps: {
     n: number;
@@ -81,6 +81,7 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
 
   const partNames = new Map(m.parts.map((p) => [p.id, cap(p.short)]));
   const partItems = new Map(m.parts.map((p) => [p.id, { name: p.name, short: p.short }]));
+  const measured = new Set(m.parts.filter((p) => p.dimsEstimated === false).map((p) => p.id));
   const hwColor = new Map(m.hardware.map((h) => [h.code, hex(h.color)]));
 
   function partFrom(a: ManifestAction): DemoPart | null {
@@ -136,6 +137,8 @@ export async function loadJob(id: string, key?: string): Promise<DemoProduct> {
       text: a.text,
       color: screw && a.code ? hwColor.get(a.code) : undefined,
       item: screw ? undefined : partItems.get(a.partId ?? ''),
+      ref: screw ? (a.code ?? a.partId) : a.partId,
+      dimsEstimated: !measured.has(a.partId ?? ''),
     };
   }
 

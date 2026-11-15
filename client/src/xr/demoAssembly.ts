@@ -39,6 +39,10 @@ export interface DemoPart {
   item?: { name: string; short?: string };
   /** From a pipeline job: the index of the manifest action that adds this part. */
   actionIndex?: number;
+  /** From a pipeline job: the manifest's part id or hardware code (what live guidance calls it). */
+  ref?: string;
+  /** From a pipeline job: false when the guide prints this part's dimensions; otherwise they are the model's. */
+  dimsEstimated?: boolean;
 }
 
 export interface DemoStep {

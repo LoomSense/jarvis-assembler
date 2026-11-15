@@ -280,6 +280,7 @@ Debug: headset on USB with developer mode, then `chrome://inspect` on the laptop
 | Parameter | Effect |
 |---|---|
 | `job=<id>` | Load a pipeline job (`manifest.json` + GLB) from `/files/<id>/`, the server's route. The dev server mirrors it from `<repo>/jobs/<id>/`. Add `key=<DEMO_KEY>` against the real server. |
+| `judge=0` | Turn off the hand judge (`handJudge.ts`): the ghost then changes colour only from live guidance and the buttons. |
 | `sim=1` | No real furniture: placed parts are solid, a "Show mistake" button plays the wrong-part warning. Defaults the product to the LACK side table. |
 | `product=lack\|knagglig` | Built-in hand-made product when no `job` is given. |
 | `lang=el` | Greek UI, step text and voice. |
@@ -305,7 +306,9 @@ To build a job: `.venv/bin/python -m pipeline.run eval/golden/knagglig/plan.json
 | `src/xr/i18n.ts` | English and Greek strings, Greek part names |
 | `vite.config.ts` | Dev server: `POST /api/tts` (Gemini TTS) and `GET /files/<job>/…` (job files) |
 | `src/xr/panels.ts` | Canvas-texture step panel and pinch buttons (BRAND.md §5) |
-| `src/xr/handChecks.ts` | `hand_at_target`, `still`, `raised` at 10 Hz (WebSocket wiring waits for LIV-01) |
+| `src/xr/handChecks.ts` | `hand_at_target`, `still`, `raised` at 10 Hz, sent to the perception socket through `live.ts` |
+| `src/xr/handJudge.ts` | Green or red from hand tracking alone: green when a hand is at the ghost, red when a hand stays where another part goes (a different screw's hole, a later board's place). No camera or server needed |
+| `src/xr/dims.ts` | A part's size as text (`≈ 436 × 282 × 30 mm`, `≈ ⌀5 × 55 mm`), shown on the panel, on the name tag and by the hand |
 | `src/xr/demoAssembly.ts` | Hand-made KNAGGLIG box and LACK side table (sizes estimated), guide tips |
 
 ## Headset check page

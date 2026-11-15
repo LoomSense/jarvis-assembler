@@ -25,7 +25,11 @@ export interface LiveView {
   cue: boolean;
   /** watching, simulated, paused, no camera, no connection ... or null when guidance is off */
   word: string | null;
+  /** what the camera sees in the hand: the job's part id or hardware code, and whether it is what this action needs */
+  holding: { id: string; right: boolean | null } | null;
 }
+
+const OFF: LiveView = { ghost: null, sentence: null, cue: false, word: null, holding: null };
 
 export interface LiveOptions {
   job: string;
@@ -46,7 +50,7 @@ const WORDS = {
 
 export class Live {
   assist: Assist | null = null;
-  view: LiveView = { ghost: null, sentence: null, cue: false, word: null };
+  view: LiveView = OFF;
   private at: { step: number; action: number | null } = { step: 1, action: null };
   private advancedAt = '';
 
@@ -85,7 +89,7 @@ export class Live {
 
   stop(): void {
     this.assist?.stop();
-    this.set({ ghost: null, sentence: null, cue: false, word: null });
+    this.set(OFF);
   }
 
   private set(view: LiveView): void {
@@ -112,7 +116,7 @@ export class Live {
   }
 
   private onStatus(s: AssistStatus): void {
-    if (!s.running) return this.set({ ghost: null, sentence: null, cue: false, word: null });
+    if (!s.running) return this.set(OFF);
     const server = s.server;
     const seeing = (s.vision === 'live' || s.vision === 'simulated') && !!server && this.current(server.step, server.action);
     const e = s.say?.from === 'event' ? s.say.event : null;
@@ -132,7 +136,9 @@ export class Live {
       show_part_result: e?.match === true ? 'correct' : e?.match === false ? 'wrong' : 'unsure',
     };
     const fits = !!e && about[e.event] === ghost;
-    this.set({ ghost, sentence: ghost && fits ? sentence : null, cue: seeing && s.state === 'STEP_COMPLETE', word: this.word(s) });
+    const held = seeing && (s.holding.kind === 'part' || s.holding.kind === 'hardware') && s.holding.id ? s.holding : null;
+    const holding = held ? { id: held.id!, right: s.verdict === 'right' ? true : s.verdict === 'wrong' ? false : null } : null;
+    this.set({ ghost, sentence: ghost && fits ? sentence : null, cue: seeing && s.state === 'STEP_COMPLETE', word: this.word(s), holding });
   }
 
   private word(s: AssistStatus): string | null {

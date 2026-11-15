@@ -5,10 +5,15 @@ import type { DemoPart, DemoStep } from './demoAssembly';
 import { StepGuides, actionLabel } from './stepGuides';
 import type { Lang } from './i18n';
 
-export type GhostState = 'next' | 'correct' | 'wrong' | 'unsure';
+/**
+ * `next` the part to add · `good` the wearer is doing the right thing (steady green, stays) · `correct` done
+ * (green, fades) · `wrong` red, dashed · `unsure` amber.
+ */
+export type GhostState = 'next' | 'good' | 'correct' | 'wrong' | 'unsure';
 
 const GHOST_STYLE = {
   next: AG_XR.ghostNext,
+  good: AG_XR.ghostCorrect,
   correct: AG_XR.ghostCorrect,
   wrong: AG_XR.ghostWrong,
   unsure: AG_XR.ghostUnsure,
@@ -70,6 +75,8 @@ export class AssemblyView extends THREE.Group {
   private raycaster = new THREE.Raycaster();
   private actions: ActionView[][] = [];
   private badges = new Map<GhostState, THREE.Sprite>();
+  /** ✕ at the place a hand is wrongly at (handJudge.ts) */
+  private notHere = makeBadge('error');
   private stateSince = 0;
   private clock = 0;
 
@@ -123,6 +130,8 @@ export class AssemblyView extends THREE.Group {
       this.badges.set(s, b);
       this.add(b);
     }
+    this.notHere.visible = false;
+    this.add(this.notHere);
     this.poses = this.computePoses();
     this.setStep(0);
     this.snapPose();
@@ -291,6 +300,7 @@ export class AssemblyView extends THREE.Group {
         a.guides.visible = on;
       }),
     );
+    this.notHere.visible = false;
     this.poseFrom = this.isTurn ? (before.q.equals(this.pose.q) ? this.poses[Math.max(0, this.stepIndex - 1)] : before) : null;
     this.setState('next');
   }
@@ -398,7 +408,7 @@ export class AssemblyView extends THREE.Group {
     if (act) {
       act.mover.visible = state === 'next' || state === 'unsure';
       // Arrows and the callout guide the hand; hide them once the result is known (badge shows).
-      act.guides.visible = state === 'next' || state === 'unsure';
+      act.guides.visible = state === 'next' || state === 'unsure' || state === 'good';
       const toPosed = this.poseMatrix().invert();
       act.guides.placeCallout(box, toPosed, this.pose.q.clone().invert());
     }
@@ -406,6 +416,36 @@ export class AssemblyView extends THREE.Group {
       badge.visible = s === state && !box.isEmpty();
       if (badge.visible) badge.position.set((box.min.x + box.max.x) / 2, box.max.y + 0.05, (box.min.z + box.max.z) / 2);
     }
+  }
+
+  /**
+   * Where the parts that are not due now go, in world space: later actions and later steps, except pieces of the
+   * same kind in the same step (three identical slats or eight identical screws may go in in any order).
+   * A hand that stays at one of these is at the wrong place (handJudge.ts).
+   */
+  otherSpots(): { box: THREE.Box3; what: DemoPart }[] {
+    const cur = this.currentParts;
+    if (!cur.length) return [];
+    const same = new Set(cur.map(identity));
+    const pose = this.poseMatrix();
+    this.updateWorldMatrix(true, false);
+    const out: { box: THREE.Box3; what: DemoPart }[] = [];
+    for (const [part, w] of this.where) {
+      if (part.base || this.statusOf(part) !== 'todo') continue;
+      if (w.s === this.stepIndex && same.has(identity(part))) continue;
+      const c = new THREE.Vector3(...part.pos);
+      const h = partHalfExtents(part);
+      out.push({ box: new THREE.Box3(c.clone().sub(h), c.add(h)).applyMatrix4(pose).applyMatrix4(this.matrixWorld), what: part });
+    }
+    return out;
+  }
+
+  /** Put the ✕ just above a point in world space (where a hand is at the wrong place), or take it away. */
+  markWrongAt(point: THREE.Vector3 | null): void {
+    this.notHere.visible = !!point;
+    if (!point) return;
+    this.notHere.position.copy(this.worldToLocal(point.clone()));
+    this.notHere.position.y += 0.05;
   }
 
   /** Restart the insertion loop from the beginning (the "Repeat" button). */
@@ -484,6 +524,11 @@ export class AssemblyView extends THREE.Group {
     }
     this.moverFill.opacity = 0.16 * (1 - k * 0.5);
   }
+}
+
+/** What a part is, whichever copy of it: the job's part id or hardware code, else its name. */
+function identity(part: DemoPart): string {
+  return part.ref ?? `${part.kind}:${part.name}`;
 }
 
 /** Half extents of a part's box in the plate frame (screws: diameter x length along `axis`). */

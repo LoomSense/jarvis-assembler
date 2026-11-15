@@ -12,6 +12,9 @@ import { displayName } from './stepGuides';
 import { nowWords } from './nowWords';
 import { GUIDE_WINDOW_H, GUIDE_WINDOW_W, GuideWindow } from './guideWindow';
 import { HandChecker } from './handChecks';
+import { HandJudge } from './handJudge';
+import { dimsText } from './dims';
+import type { DemoPart } from './demoAssembly';
 import { Live } from './live';
 import { Media } from './media';
 import { AG_XR } from './palette';
@@ -23,7 +26,7 @@ import '../styles/xr.css';
 /**
  * Quest 3 phase-2 experience (PLAN §6.0), opened with `?mode=xr`.
  * Outside a headset the same page is a desktop preview: orbit with the mouse, click the
- * panel buttons, keys 1–4 switch the ghost state, arrow keys change step.
+ * panel buttons, keys 1–5 switch the ghost state, arrow keys change step.
  *
  * Flow in the headset: place (pinch on the table) → align (drag/rotate the plate onto
  * the real base) → guide (ghost of the next part, Back / Repeat / Next).
@@ -44,6 +47,9 @@ let PRODUCT_NAME = LANG === 'el' ? PRODUCT.nameEl : PRODUCT.name;
 // Hands-free confirm: a hand held still on the target for DWELL_S counts as "done" (`?auto=0` turns it off).
 const AUTO_CONFIRM = params.get('auto') !== '0';
 const DWELL_S = 1.5;
+// The ghost turns green when a hand is at it and red when a hand stays where another part goes (handJudge.ts);
+// `?judge=0` leaves the ghost to live guidance and the buttons.
+const JUDGE = params.get('judge') !== '0';
 // `?debug=1` shows tracking diagnostics in the panel footer instead of the user tips.
 const DEBUG = params.get('debug') === '1';
 const PREVIEW_TABLE_Y = 0.75;
@@ -281,8 +287,24 @@ export async function startXR(root: HTMLElement): Promise<void> {
     const part = ray ? assembly.partAt(ray) : null;
     tag.sprite.visible = !!part;
     if (!part) return;
-    tag.set(part.kind === 'screw' ? `${displayName(part)} · ${part.name}` : displayName(part));
+    tag.set(`${nameOf(part)} · ${dimsText(part)}`);
     tag.sprite.position.copy(assembly.partTop(part));
+  }
+  /** A part by the name the wearer knows, a screw with its code. */
+  function nameOf(part: DemoPart): string {
+    return part.kind === 'screw' && displayName(part) !== part.name ? `${displayName(part)} · ${part.name}` : displayName(part);
+  }
+  // The real part in the hand, as the camera names it (live guidance): its name and size, by the hand.
+  const heldTag = makeTag();
+  scene.add(heldTag.sprite);
+  const byRef = new Map<string, DemoPart>();
+  for (const st of PRODUCT.steps) for (const p of st.parts) if (p.ref && !byRef.has(p.ref)) byRef.set(p.ref, p);
+  function heldText(): string | null {
+    const h = live?.view.holding;
+    if (!h) return null;
+    const part = byRef.get(h.id);
+    const mark = h.right === true ? '✓ ' : h.right === false ? '✕ ' : '';
+    return part ? `${mark}${nameOf(part)} · ${dimsText(part)}` : `${mark}${h.id}`;
   }
   placement.plateRoot.add(assembly);
   scene.add(planes, placement.reticle, placement.plateRoot);
@@ -334,7 +356,38 @@ export async function startXR(root: HTMLElement): Promise<void> {
   handChecker.onSummary = (s) => live?.sendHands(s); // about ten a second; the module passes them on
 
   // ---------- live guidance (live.ts): the ghost's own states, the server's sentence, Next cued ----------
-  let liveGhost = false; // the ghost's state was set by live guidance, not by the wearer
+  let autoGhost = false; // the ghost's state was set by live guidance or the hand judge, not by the wearer
+  let wrongBy: 'hand' | 'live' | null = null;
+  const judge = new HandJudge<DemoPart>();
+  /**
+   * One ghost for both judges. Red when the camera sees the wrong part in the hand or a hand stays where another
+   * part goes; green when a hand is at the ghost or the camera sees the right part; amber when the camera is unsure.
+   */
+  function resolveGhost(): void {
+    if (advancing) return;
+    if (!(mode === 'guide' || mode === 'preview') || !prepDone) {
+      // setting up or moving the plate: nothing is judged, and a colour it left behind goes
+      if (autoGhost) assembly.setState('next');
+      autoGhost = false;
+      assembly.markWrongAt(null);
+      return;
+    }
+    const lv = live?.view.ghost ?? null;
+    const hv = JUDGE ? judge.verdict : 'none';
+    const want: GhostState = lv === 'wrong' || hv === 'wrong' ? 'wrong' : hv === 'good' || lv === 'correct' ? 'good' : lv === 'unsure' ? 'unsure' : 'next';
+    wrongBy = want !== 'wrong' ? null : lv === 'wrong' ? 'live' : 'hand';
+    if (want !== 'next' && assembly.state !== want) {
+      assembly.setState(want);
+      autoGhost = true;
+      if (want === 'wrong') buzz();
+      if (want === 'good') tone(1318.5, 0, 0.16, 0.04);
+    } else if (want === 'next' && autoGhost) {
+      assembly.setState('next');
+      autoGhost = false;
+    }
+    assembly.markWrongAt(wrongBy === 'hand' && judge.wrongSpot ? judge.wrongAt : null);
+    refreshPanel();
+  }
   let advancing = false; // Next was pressed: green, fade, then the next ghost
   const live = LIVE
     ? new Live({
@@ -345,18 +398,8 @@ export async function startXR(root: HTMLElement): Promise<void> {
         autoAdvance: AUTO_ADVANCE,
         onSay: (text) => void say(text, LANG),
         onAdvance: () => onButton('next'),
-        onView: (v) => {
-          if (!advancing && (mode === 'guide' || mode === 'preview') && prepDone) {
-            if (v.ghost && assembly.state !== v.ghost) {
-              assembly.setState(v.ghost);
-              liveGhost = true;
-              if (v.ghost === 'wrong') buzz();
-              if (v.ghost === 'correct') chime();
-            } else if (!v.ghost && liveGhost) {
-              assembly.setState('next');
-              liveGhost = false;
-            }
-          }
+        onView: () => {
+          resolveGhost();
           refreshPanel();
         },
       })
@@ -547,18 +590,28 @@ export async function startXR(root: HTMLElement): Promise<void> {
         // The guide drawing stays on the right while it fits.
         const step = assembly.step;
         const state = assembly.state;
-        const status = state === 'correct' ? 'success' : state === 'wrong' ? 'error' : state === 'unsure' ? 'unsure' : 'info';
+        const part = assembly.currentParts[0];
+        const byHand = state === 'wrong' && wrongBy === 'hand';
+        const other = byHand && judge.wrongSpot ? nameOf(judge.wrongSpot.what) : '';
+        const status = state === 'correct' || state === 'good' ? 'success' : state === 'wrong' ? 'error' : state === 'unsure' ? 'unsure' : 'info';
         const buttons: PanelButton[] = [{ id: 'back', label: t('back') }];
         if (JOB) buttons.push({ id: 'guide', label: GUIDE_LABEL });
         buttons.push({ id: 'next', label: assembly.isLast ? t('finish') : t('next'), primary: true, cue: !!live?.view.cue });
         if (mode === 'guide') buttons.unshift({ id: 'move', label: t('move') });
         return {
           status,
-          title: state === 'wrong' ? t('notThat') : nowWords(step, assembly.currentParts[0], LANG),
+          title: byHand ? t('notThere') : state === 'wrong' ? t('notThat') : nowWords(step, part, LANG),
           image: step.crop || undefined,
           // a correction or a confirmation from live guidance says the server's own sentence; his own otherwise
-          body: (liveGhost && live?.view.sentence) || (state === 'wrong' ? t('needs', { what: calloutText(step) }) : undefined),
-          foot: footer(live?.view.word ?? undefined),
+          // otherwise: where it goes when the hand is at the wrong place, "right place" when it is at the ghost,
+          // and the part's size, to tell it from its look-alikes
+          body:
+            (byHand ? (other ? t('goesHere', { other }) : t('goesHereBare')) : undefined) ||
+            (autoGhost && live?.view.sentence) ||
+            (state === 'wrong' ? t('needs', { what: calloutText(step) }) : undefined) ||
+            (state === 'good' && judge.verdict === 'good' ? `${t('rightSpot')}. ${AUTO_CONFIRM ? t('holdHint') : ''}`.trim() : undefined) ||
+            (part ? (part.kind === 'screw' ? `${displayName(part)} · ${dimsText(part)}` : dimsText(part)) : undefined),
+          foot: footer((heldText() && t('holding', { what: heldText()! })) || (live?.view.word ?? undefined)),
           buttons,
         };
       }
@@ -586,6 +639,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       const key = `${at.step}:${at.action}`;
       if (key !== lastPlace) {
         lastPlace = key;
+        judge.reset(); // another part: a hand already at its place is reported again
         live?.setStep(at.step, at.action);
       }
     }
@@ -633,7 +687,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
       case 'back':
         movedByWearer = true;
         advancing = false;
-        liveGhost = false;
+        autoGhost = false;
         window.clearTimeout(advanceTimer);
         assembly.retreat();
         refreshPanel();
@@ -664,7 +718,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
         if (advancing) break; // already advancing
         movedByWearer = true;
         advancing = true;
-        liveGhost = false;
+        autoGhost = false;
         window.clearTimeout(advanceTimer);
         assembly.setState('correct');
         chime();
@@ -781,7 +835,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
     pointAt(raycaster.ray);
   });
 
-  const KEY_STATES: Record<string, GhostState> = { '1': 'next', '2': 'correct', '3': 'wrong', '4': 'unsure' };
+  const KEY_STATES: Record<string, GhostState> = { '1': 'next', '2': 'correct', '3': 'wrong', '4': 'unsure', '5': 'good' };
   window.addEventListener('keydown', (e) => {
     if (KEY_STATES[e.key]) {
       assembly.setState(KEY_STATES[e.key]);
@@ -808,7 +862,7 @@ export async function startXR(root: HTMLElement): Promise<void> {
     <button class="xr-guide xr-camera" type="button" hidden>${CAMERA_LABEL}</button>
     <button class="xr-guide" type="button" hidden>${GUIDE_LABEL}</button>
     <button class="xr-enter" disabled>Enter AR</button>
-    <p class="xr-hint">Preview: drag to orbit, click the panel buttons, keys 1–4 change the ghost state, arrows change step.</p>`;
+    <p class="xr-hint">Preview: drag to orbit, click the panel buttons, keys 1–5 change the ghost state, arrows change step.</p>`;
   root.appendChild(overlay);
   const statusEl = overlay.querySelector<HTMLParagraphElement>('.xr-status')!;
   const enterBtn = overlay.querySelector<HTMLButtonElement>('.xr-enter')!;
@@ -889,6 +943,21 @@ export async function startXR(root: HTMLElement): Promise<void> {
   // ---------- loop ----------
   enterPreview();
   const targetBox = new THREE.Box3();
+  const judgeBox = new THREE.Box3();
+  let lastJudge = 0;
+  // Dev only: a stand-in hand at a world point, to try the green and red ghost without a headset:
+  // `__xrHand(x, y, z)`, `__xrHand()` takes it away; `__xrSpots()` lists the ghost's box and the other places.
+  let fakeHand: THREE.Vector3 | null = null;
+  if (import.meta.env.DEV)
+    Object.assign(window, {
+      __xrHand: (x?: number, y?: number, z?: number) => (fakeHand = x === undefined ? null : new THREE.Vector3(x, y, z)),
+      __xrSpots: () => ({
+        ghost: assembly.targetBox(new THREE.Box3()),
+        others: assembly.otherSpots().map((o) => ({ name: o.what.name, id: o.what.id, c: o.box.getCenter(new THREE.Vector3()) })),
+        verdict: judge.verdict,
+        state: assembly.state,
+      }),
+    });
   let lastT = 0;
   let lastDiag = 0;
 
@@ -942,10 +1011,19 @@ export async function startXR(root: HTMLElement): Promise<void> {
 
       handChecker.update(t, mode === 'guide' ? assembly.targetBox(targetBox) : null);
 
+      // The real part's name and size by the hand that holds it, when the camera has named it.
+      const held = heldText();
+      const holder = held ? hands.map((h) => h.joints['index-finger-tip']).find((j) => j?.visible) : undefined;
+      heldTag.sprite.visible = !!holder;
+      if (holder) {
+        heldTag.set(held!);
+        holder.getWorldPosition(heldTag.sprite.position).y += 0.07;
+      }
+
       // Hands-free confirm: hand held still at the target for DWELL_S → same as Next.
       dwellCooldown = Math.max(0, dwellCooldown - dt);
       const hs = handChecker.last;
-      const holding = AUTO_CONFIRM && prepDone && mode === 'guide' && assembly.state === 'next' && dwellCooldown === 0 && !!hs?.hand_at_target && hs.still;
+      const holding = AUTO_CONFIRM && prepDone && mode === 'guide' && (assembly.state === 'next' || assembly.state === 'good') && dwellCooldown === 0 && !!hs?.hand_at_target && hs.still;
       const before = dwell;
       dwell = holding ? dwell + dt : 0;
       if (dwell >= DWELL_S) {
@@ -962,6 +1040,28 @@ export async function startXR(root: HTMLElement): Promise<void> {
       }
     } else {
       controls.update();
+    }
+
+    // Green or red from where the hands are, ten times a second.
+    if (JUDGE && t - lastJudge >= 100) {
+      lastJudge = t;
+      const probes: THREE.Vector3[][] = [];
+      if (frame && session) {
+        for (const hand of hands) {
+          if (!hand.joints['wrist']?.visible) continue;
+          probes.push(
+            (['index-finger-tip', 'thumb-tip', 'wrist'] as const)
+              .map((j) => hand.joints[j])
+              .filter((j): j is THREE.XRJointSpace => !!j?.visible)
+              .map((j) => j.getWorldPosition(new THREE.Vector3())),
+          );
+        }
+      }
+      if (fakeHand) probes.push([fakeHand]);
+      const judging = prepDone && !advancing && (mode === 'guide' || (mode === 'preview' && !!fakeHand));
+      const changed = judge.update(t, probes, judging && !assembly.isTurn ? assembly.targetBox(judgeBox) : null, judging ? assembly.otherSpots() : []);
+      if (changed) resolveGhost();
+      else if (wrongBy === 'hand' && judge.wrongSpot) assembly.markWrongAt(judge.wrongAt); // the ✕ follows the hand
     }
 
     assembly.update(dt);
