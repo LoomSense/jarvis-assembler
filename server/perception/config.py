@@ -94,9 +94,15 @@ class Tuning:
     #                                        a dark floor with lit parts on it is not a dark frame. 0: the mean alone
     poor_at: float = 0.55                  # `image_poor` at or above this discards the frame (never below the
     #                                        Watcher's `unusable`, 0.3, which was the line until Sun 15 Nov and still
-    #                                        is for `view_blocked`). Real headset frames with a hand in view scored
-    #                                        0.13-0.47 (p50-p90), frames of a floor or a desk about 0.5; imitated
-    #                                        dark, defocused or overexposed frames 0.64-0.92
+    #                                        is for `view_blocked`). Real frames, headset worn, work in view:
+    #                                        0.08-0.19; a desk 0.26-0.43; of 924 logged frames with a hand seen,
+    #                                        22 % reached 0.3 and 8 % reach 0.55; imitated dark, defocused or
+    #                                        overexposed frames 0.64-0.92
+    dim_luma: float = 50.0                 # `more_light` is said only for poor frames whose mean brightness is under
+    #                                        this (and for frames too dark to send). A poor frame in good light is
+    #                                        blur, a covered lens or a headset put down: real frames of a lit office
+    #                                        had a mean of 82-120, and "more light" was said 53 times that day.
+    #                                        0: every poor frame counts, as before
     show_nothing_max: float = 0.1          # show_part names a code only if `no_hardware` is below this (an empty
     #                                        pinching hand scored 0.18-0.44, a held screw 0.01-0.04)
     show_right_min: float = 0.7            # ...and, for a code needed now, only if `right_hardware` reaches this

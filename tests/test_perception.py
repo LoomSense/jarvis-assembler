@@ -1351,8 +1351,24 @@ def test_clear_no_lets_a_leaning_other_code_warn():
 
 # ---- real headset frames (Sun 15 Nov): the poor line, the dark rule, the close look, kept frames --------------
 
+def test_more_light_is_asked_only_when_the_frames_are_dim():
+    """A lit office, the headset put down or turned fast: poor frames, but more light would not help."""
+    poor = dict(EMPTY, image_poor=noul(0.7))
+
+    def said(c, luma):
+        return [e.event for k in range(40) for e in c.on_frame(poor, k * 0.25, "headset", luma=luma)]
+
+    c = coach(STEP2)
+    assert said(c, 100.0) == [] and c.belief()["view"] == "poor"      # measured: real frames had a mean of 82 to 120
+    assert said(coach(STEP2), 30.0) == ["more_light"]
+    assert said(coach(STEP2), None) == ["more_light"]                 # not measured (no Pillow): as before
+    assert said(coach(STEP2, dim_luma=0), 100.0) == ["more_light"]    # switched off: every poor frame counts
+    c = coach(STEP2)                                                  # too dark to send: always a light problem
+    assert [e.event for k in range(21) for e in c.on_bad_frame(k * 0.25, "dark", "headset")] == ["more_light"]
+
+
 def test_a_frame_the_model_is_only_half_sure_is_poor_still_counts():
-    """Real headset frames with a hand in view scored `image_poor` 0.13 to 0.47; the Watcher's 0.3 threw them away."""
+    """Of 924 logged headset frames in which the model saw a hand, 22 % scored `image_poor` 0.3 or more."""
     held = dict(frame("hardware_only", LONG, right_hardware=0.95), image_poor=noul(0.45))
     c = coach(STEP2)
     said, _ = feed(c, [held] * 6)
@@ -1421,6 +1437,20 @@ def test_a_close_look_names_hardware_only_on_clear_evidence(tmp_path):
     guide = Guide(s.dir)
     ask = build_ask(guide, load_pack(guide, 2), jpeg(), codes={LONG}, resolution="high", only=SHOW_PART_QUESTIONS)
     assert set(ask.questions) == {"part_in_hand", "hardware_in_hand", "image_poor", EXTRA}
+
+
+def test_a_job_can_say_what_its_real_parts_look_like(tmp_path, guide):
+    """The reference pictures are rendered in one plain colour; the real MALM front is wood-coloured."""
+    plain = build_ask(guide, load_pack(guide, 2), jpeg(), codes={LONG})
+    assert not any(isinstance(b, str) and b.startswith("Note:") for b in plain.inputs)
+    note = "Note: the real   end slats are oak-coloured;\nthe reference pictures show them white."
+    told = Guide(make_job(tmp_path / "told", manifest={**MANIFEST, "perception_note": note}))
+    for only in (None, ("part_in_hand", "hardware_in_hand", "image_poor")):
+        ask = build_ask(told, load_pack(told, 2), jpeg(), codes={LONG}, only=only)
+        assert ask.inputs[-1] == "Note: the real end slats are oak-coloured; the reference pictures show them white."
+        assert ask.inputs[:-1] == build_ask(guide, load_pack(guide, 2), jpeg(), codes={LONG}, only=only).inputs
+    empty = Guide(make_job(tmp_path / "empty", manifest={**MANIFEST, "perception_note": "  "}))
+    assert build_ask(empty, load_pack(empty, 2), jpeg(), codes={LONG}).inputs == plain.inputs
 
 
 def test_frames_are_kept_only_when_asked_and_only_up_to_the_cap(tmp_path):

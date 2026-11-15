@@ -113,6 +113,7 @@ class Answers(dict):
     frame: Frame
     ms: int
     resolution: str
+    luma: float | None = None       # the frame's mean brightness, when Pillow measured it
 
 
 class _Handoff:
@@ -711,7 +712,7 @@ class PerceptionSession:
             self._emit([self._show_part_result(answers, frame.show, frame.codes)], frame)
         else:
             hands = self.hands if self.hands.fresh(now) else None
-            events = self.coach.on_frame(answers, ts, frame.source, hands, now)
+            events = self.coach.on_frame(answers, ts, frame.source, hands, now, answers.luma)
             self._emit(events, frame)
             following = self.coach.expect.next_step if self.coach.expect else None
             if following is not None and any(e.event == "step_complete" for e in events):
@@ -803,6 +804,7 @@ class PerceptionSession:
             return self._lose(frame, "error")
         answers = Answers(raw["answers"])
         answers.frame, answers.ms, answers.resolution = frame, ms, resolution
+        answers.luma = info[2] if imaging.Image is not None else None
         self._post(self._on_answered, frame, answers)
         return {"answers": answers, "latency_ms": ms}
 

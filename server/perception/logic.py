@@ -432,10 +432,15 @@ class Coach:
 
     # ---- frames ---------------------------------------------------------------------------------
 
-    def on_bad_frame(self, ts: float, view: str = "dark", source: str | None = None) -> list[Emitted]:
-        """A frame too dark to send, or one the model called too poor to judge."""
+    def on_bad_frame(self, ts: float, view: str = "dark", source: str | None = None,
+                     luma: float | None = None) -> list[Emitted]:
+        """A frame too dark to send, or one the model called too poor to judge. `luma`: the mean brightness of
+        a poor frame, when it was measured; a poor frame in good light does not count towards `more_light`."""
         self.view = view
         if self.expect is None or self.done:
+            return []
+        if view != "dark" and luma is not None and self.t.dim_luma and luma >= self.t.dim_luma:
+            self.bad_since, self.light_said = None, False    # poor, but not for want of light
             return []
         if self.bad_since is None:
             self.bad_since = ts
@@ -488,7 +493,7 @@ class Coach:
         return self.setup_lost
 
     def on_frame(self, raw: dict, ts: float, source: str = "fixed", hands: Hands | None = None,
-                 now: float | None = None) -> list[Emitted]:
+                 now: float | None = None, luma: float | None = None) -> list[Emitted]:
         """Feed one frame's answers, as the Decisions API returned them. `ts`: when the frame was taken.
         `now`: the time of the hand summary's clock, when it differs. Returns the events to send."""
         e = self.expect
@@ -509,7 +514,7 @@ class Coach:
         before = w.last_warning
         events = w.feed(raw if poor else self._prefilter(raw, w, rules, blocked), ts)
         if poor:
-            return self.on_bad_frame(ts, "poor", source)
+            return self.on_bad_frame(ts, "poor", source, luma)
         self.bad_since, self.light_said = None, False
         self.view = "blocked" if blocked else "ok"
         if blocked and rules.blocked_discards_frame:

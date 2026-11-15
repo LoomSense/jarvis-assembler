@@ -80,7 +80,7 @@ Refusals:
 |---|---|---|
 | `start` | `step:int`, `action?:int` | [plan] + `action` [added]. Also resets cooldowns. |
 | `step` | `n:int` (`step` also accepted), `action?:int` | [plan] + `action` [added] |
-| `show_part` | `expected?:string` (part id or hardware code) | [plan] The next frame is sent at `high` with only the "what is held" questions; the answer comes as event `show_part_result`. Waits 8 s for a frame. |
+| `show_part` | `expected?:string` (part id or hardware code) | [plan] The next frame is sent at `high` with only the "what is held" questions (and, since Sun 15 Nov, the yes/no `right_hardware`); the answer comes as event `show_part_result`. Waits 8 s for a frame. **Send that one frame at the camera's full size** (1280 x 960, not the 768 px stream size): see "Real headset frames". |
 | `stop` | | [plan] |
 | `hands` | `seq:int`, `hand_at_target:bool`, `still:bool`, `raised:bool`, `ts:number`, `present?:bool` | [plan] + `present` [added]: `false` when no hand is tracked |
 | `action` | `index:int` (0-based into the step's manifest `actions`), `step?:int` | [added] |
@@ -162,6 +162,7 @@ In simulated mode every message carries `sim: true`. The field is absent otherwi
 | `votes` | string | how many frames agreed, e.g. `"4 of last 5 frames"` |
 | `reason`, `message` | string | `reason:"unavailable"` with `message` on `vision_paused`; `reason:"hand_summary"` on a `step_complete` that the hand summary supported |
 | `match` | bool\|null | on `show_part_result` |
+| `reason` on `show_part_result` | string | [added Sun 15 Nov] only when `observed_id` is null: `image_poor`, `hand_may_be_empty` (the model gives "nothing in the hand" 0.1 or more), `not_confirmed` (the choice and the yes/no `right_hardware` disagree), `not_recognised`. `evidence` also carries `image_poor`, `no_hardware` and `right_hardware`. |
 
 - Events [plan]: `wrong_part`, `flip_needed`, `wrong_hardware`, `out_of_order`, `step_complete`, `unsure_show_part`, `vision_paused`.
 - Events [added]: `right_part`, `right_hardware`, `more_light`, `realign_camera` (off by default), `vision_resumed`, `show_part_result`.
@@ -453,6 +454,39 @@ curl -s -X POST "$BASE/api/perception/malm-drawer/panel" -H "X-Demo-Key: $DEMO_K
   -d "{\"image\": \"$(base64 -i frame.jpg)\", \"fx\": 870, \"fy\": 870, \"cx\": 640, \"cy\": 480, \"cam_in_table\": [ ...16 numbers... ]}"
 ```
 
+## Real headset frames [added Sun 15 Nov, 13:45]
+
+What the server had kept from the day's headset sessions: `frames.jsonl` (every answered frame's scores), `events.jsonl`, `hands.jsonl`. **No pictures.** Pictures came from the Android app's own dump (199 frames, 1280 x 960, a bright office, grey carpet, the headset worn); 41 of them were labelled by eye and sent as the app sends them (768 px, nearest-neighbour, quality 70), one real call each.
+
+**The frame gate.** A frame is discarded when the model's `image_poor` reaches a line. That line was the Watcher's `unusable` (0.3, shared with `view_blocked`); it is now the server's own `poor_at`, **0.55**. `view_blocked` keeps 0.3.
+
+| | discarded at 0.3 | discarded at 0.55 |
+|---|---|---|
+| Labelled real frames, usable (32: boards in view, hands on parts, hardware in the hand; `image_poor` 0.08-0.19) | 0 | 0 |
+| Labelled real frames, bad (9: 3 motion-blurred, 2 blurred and off the work, 4 sharp but of the desk; 0.16-0.43) | 5 | 0 |
+| Session logs, answered headset frames in which the model saw a hand (924 of 5411) | 205 (22 %; 55 % in the 12:14 session) | 76 (8 %; 23 % in that session) |
+| Session logs, all answered headset frames (5411) | 4169 (77 %) | 1791 (33 %) |
+| Session logs, unbroken 5 s stretches of discarded frames (what makes `more_light`; 53 were really said) | 56 | 14 |
+| Imitated unreadable frames, not real (8: dark, defocused, overexposed, motion blur; 0.37-0.92) | 8 (3 without a call) | 6 (3 without a call) |
+
+- With the headset worn in good light the old line lost no usable frame. In the session logs it discarded 22 % of the frames in which the model saw a hand (no pictures of those exist, so how many a person would call usable is not known), and most frames without a hand in view, which scored about 0.5 (median 0.51; by the user's account the headset was lying on a desk or looking at the floor). A desk seen from the head scores 0.26 to 0.43.
+- **`more_light` was the event said most often that day: 53 times, against 14 of every other kind, in a lit office.** It is now said only when the discarded frames are dim: a poor frame whose mean brightness is `dim_luma` (50) or more does not count (real frames had 82 to 120). Frames too dark to send count as before.
+- `image_poor` does not catch motion blur (real blurred frames: 0.16, 0.25, 0.41) and cannot tell "no work in view" from a murky usable frame. What keeps verdicts off such frames is the rest of the logic: hand questions count only with `hands_present` at 0.5, scene questions are dropped for a headset when `view_blocked` reaches 0.3, a choice needs 0.75. Each of the 9 bad frames, held for 3 s, gave no event at either line. A client that knows the head is turning fast should not send those frames.
+- The local dark check (`dark_luma`, no call spent) never fired on real frames: the headset's exposure brings a grey carpet to a mean of 82 to 120. It now also needs the brightest 2 % of the frame under `dark_peak` (60), so that a dark floor with lit parts on it is not thrown away. Unproven on a really dim room.
+- The app's new 2 x 2 averaged downscale at quality 80 changes little for the gate: `image_poor` 0.11, 0.11, 0.13, 0.25 became 0.11, 0.10, 0.09, 0.22 on four real frames.
+
+**Is the part in my hand right?** Send `show_part`, then one frame at the camera's full 1280 x 960 (`hint` is not needed; the look is always at `high`) while the hand is still.
+
+- Right hardware, real frames, hand at about 45 to 70 cm: named in the 768 px stream in 6 of 8 frames (`118331` 0.84-0.91, `right_hardware` 0.77-0.89) and in 3 of 4 full-size looks (0.83-0.94).
+- Wrong hardware (drawn hands only, no real frame exists): caught to about 25 cm in the 768 px stream and to about 50 cm in a full-size look; at 70 cm it is never called right, the answer is "show it closer".
+- An empty pinching hand was once read as the expected screw (0.77, with `no_hardware` at 0.18, `right_hardware` 0.57). A code is now named only when `no_hardware` is under `show_nothing_max` (0.1), and a code needed now only when `right_hardware` reaches `show_right_min` (0.7). Five empty-hand looks (2 real, 3 drawn) answer `match: null`. By the same rule the two earlier measurements that went wrong would too: that empty hand, and a wrong plastic pin that scored 0.78 as the needed screw with `right_hardware` at 0.42 (both were measured with the stream's questions, not re-run as looks).
+- A sure "not the right one" (`right_hardware` at 0.15 or less) lets a leaning other code (0.4 or more) be named, as in the stream's rule.
+- So: **hold it still, about 30 to 50 cm from the headset.**
+
+**What the real parts look like.** The reference pictures are rendered in one plain colour; the real MALM front is wood-coloured, its sides and back light grey. On real frames the front in the hands scored `drawer_front` 0.63 to 0.87 (three of six frames under the 0.75 line), and the light grey bottom panel was taken for the front (0.78, `right_part` 0.82: a false "right part"). One sentence about the real colours, appended to the request, moved the front to 0.74-0.83 (`right_part` 0.84-0.94) and the bottom panel to 0.31 (`right_part` 0.21); six frames, one call each. A job can carry that sentence as **`perception_note`** in `manifest.json` (optional, at most 400 characters, added as the last text block of every request). The better fix is the real material colour in the job's renders, which needs the refs stage again.
+
+**Keeping frames.** `PERCEPTION_KEEP_FRAMES=<count>` keeps camera frames as they arrived under `jobs/_host/frames/<session>/<seq>-<used|poor|dark|show|bad_frame>.jpg`: one a second at most, every `show_part` look, until `count` frames or `PERCEPTION_KEEP_FRAMES_MB` megabytes (what the folder already holds counts). They join `frames.jsonl` by `seq`. Off by default. The frames show the user's room; `jobs/` is git-ignored and they must stay there.
+
 ## Settings
 
 In `server/settings.py`, with commented lines in `.env.example`:
@@ -461,13 +495,15 @@ In `server/settings.py`, with commented lines in `.env.example`:
 |---|---|---|
 | `PERCEPTION_SIMULATE` | `false` | Answers come from the debug script; every message carries `sim:true`. Takes precedence over a key. |
 | `PERCEPTION_LOGS` | `true` | Write the per-session JSONL files under the job folder. |
+| `PERCEPTION_KEEP_FRAMES` | `0` | Opt-in: keep up to this many camera frames under `jobs/_host/frames/` ("Real headset frames"). |
+| `PERCEPTION_KEEP_FRAMES_MB` | `200` | ...and stop at this many megabytes. |
 | `PERCEPTION_TUNING` | empty | One JSON object of overrides. An invalid value is ignored, logged, and reported to each client as `error` `bad_tuning`. |
 
 `PERCEPTION_TUNING` reaches every number:
 ```sh
 PERCEPTION_TUNING='{"max_in_flight": 8, "watcher": {"done_yes": 0.5, "windows": {"wrong_hardware": [3, 4]}}, "headset": {"step_complete": [9, 10]}}'
 ```
-- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …).
+- Top level: the fields of `Tuning` in `server/perception/config.py` (`max_in_flight`, `max_hz`, `decision_timeout_s`, `confirmations`, `ask_right_hardware`, `step_complete_only_on_last_action`, …). Added Sun 15 Nov: `poor_at` (0.55; `0.3` restores the old line), `dim_luma` (50; `0` lets every poor frame count towards `more_light`), `dark_peak` (60; `0` restores the mean alone), `show_nothing_max` (0.1), `show_right_min` (0.7).
 - `watcher`: the fields of `Config` in `pipeline/perception/logic.py` (`yes`, `no`, `choice`, `done_yes`, `done_orientation`, `hands`, `unusable`, `windows`, `unsure_frames`, `hands_away_s`, `cooldown_s`, `global_cooldown_s`). Their defaults are not repeated in the server.
 - `fixed`, `headset`: per-source rules; a window given there replaces the Watcher's for that source.
 
