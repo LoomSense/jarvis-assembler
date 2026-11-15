@@ -18,7 +18,7 @@ import { startCoach, type Coach } from './coach'
 
 type Lang = 'el' | 'en'
 interface Action { type: string; text?: { en?: string; el?: string }; partId?: string; code?: string; node?: string }
-interface Step { n: number; title: string; actions: Action[]; crop?: string | null; hardware?: { code: string; qty: number }[] }
+interface Step { n: number; title: string; actions: Action[]; crop?: string | null; ar?: string; hardware?: { code: string; qty: number }[] }
 interface Named { id?: string; code?: string; name: string; short?: string; names?: { en?: string; el?: string }; thumb?: string }
 
 const W = {
@@ -32,6 +32,7 @@ const W = {
     finished: 'It is built.', toGuide: 'Open the 3D steps', dark: 'It is too dark here', blocked: 'Something is in the way of the camera',
     poor: 'Hold the phone steadier', moved: 'Point the camera at the parts again', noCamera: 'The camera could not be opened. Allow it in the browser and try again.',
     noVision: 'The server is not watching right now', sim: 'simulated', move: 'action',
+    vRight: 'Right', vWrong: 'Not this', vDone: 'Done', vUnsure: 'I can’t see it well',
     coach: 'coach', coachOff: 'voice coach off', mic: 'Microphone', askHeld: 'What am I holding, and is it right for this action?',
   },
   el: {
@@ -44,6 +45,7 @@ const W = {
     finished: 'Χτίστηκε.', toGuide: 'Άνοιξε τα βήματα σε 3D', dark: 'Είναι πολύ σκοτεινά εδώ', blocked: 'Κάτι κρύβει την κάμερα',
     poor: 'Κράτα το κινητό πιο σταθερά', moved: 'Στρέψε ξανά την κάμερα στα κομμάτια', noCamera: 'Η κάμερα δεν άνοιξε. Δώσε άδεια στον browser και δοκίμασε ξανά.',
     noVision: 'Ο server δεν βλέπει αυτή τη στιγμή', sim: 'προσομοίωση', move: 'κίνηση',
+    vRight: 'Σωστά', vWrong: 'Όχι αυτό', vDone: 'Έγινε', vUnsure: 'Δεν βλέπω καλά',
     coach: 'βοηθός', coachOff: 'ο φωνητικός βοηθός είναι κλειστός', mic: 'Μικρόφωνο', askHeld: 'Τι κρατάω, και είναι το σωστό για αυτή την κίνηση;',
   },
 } as const
@@ -68,12 +70,15 @@ export async function startLive(app: HTMLElement): Promise<void> {
       <a class="round" href="${esc(appLink({ mode: 'ready', job }))}" aria-label="${w.back}"><svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></a>
       <p class="where"><b></b><span class="title"></span></p>
       <p class="link" role="status"><i></i><span></span></p>
+      <a class="round ar" rel="ar" hidden><img alt="AR" width="22" height="22" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 5.5 7v7.5L12 18l6.5-3.5V7L12 3.5Z'/%3E%3Cpath d='M5.5 7 12 10.5 18.5 7M12 10.5V18M3 20.5h18'/%3E%3C/svg%3E" /></a>
       <button class="round mic" type="button" aria-pressed="true" aria-label="${w.mic}" hidden><svg viewBox="0 0 24 24"><path d="M12 4a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 12 4ZM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3"/></svg></button>
     </header>
     <p class="said" aria-live="polite" hidden><b></b><span></span></p>
     <section class="sees" aria-live="polite"><small></small><strong></strong><span></span></section>
     <p class="toast" role="alert" hidden></p>
+    <div class="verdict" role="status" hidden><i></i><b></b><span></span></div>
     <footer>
+      <ol class="ticks" aria-hidden="true"></ol>
       <div class="now">
         <img class="thumb" alt="" hidden />
         <div><small></small><p></p></div>
@@ -118,6 +123,8 @@ export async function startLive(app: HTMLElement): Promise<void> {
   let toldStep = ''
   let finished = false
 
+  /** actions of each step seen finished (by the coach, the step check, or the person's own "Done") */
+  const doneActions = new Set<string>()
   const current = () => steps[at.step]
   const action = () => current().actions[at.action] ?? null
 
@@ -135,6 +142,13 @@ export async function startLive(app: HTMLElement): Promise<void> {
     const crop = $<HTMLButtonElement>('.crop')
     crop.hidden = !s.crop
     if (s.crop) (crop.firstElementChild as HTMLImageElement).src = fileUrl(job, s.crop, key)
+    // this step life-size on the table (AR Quick Look), where the browser can open it
+    const arLink = $<HTMLAnchorElement>('.ar')
+    arLink.hidden = !(s.ar && arLink.relList?.supports?.('ar'))
+    if (s.ar) arLink.href = `${fileUrl(job, s.ar, key)}#allowsContentScaling=0`
+    // the step's actions as a row: finished ones ticked, the current one ringed
+    $('.ticks').innerHTML = s.actions.map((_, k) =>
+      `<li class="${doneActions.has(`${at.step}:${k}`) ? 'done' : ''}${k === at.action && !finished ? ' now' : ''}"></li>`).join('')
     $<HTMLButtonElement>('.prev').disabled = at.step === 0 && at.action === 0
     assist?.setStep(s.n, at.action)
     tellStep()
@@ -154,6 +168,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
   const go = (d: 1 | -1) => {
     const s = current()
     if (d > 0) {
+      doneActions.add(`${at.step}:${at.action}`)
       if (at.action < s.actions.length - 1) at = { step: at.step, action: at.action + 1 }
       else if (at.step < steps.length - 1) at = { step: at.step + 1, action: 0 }
       else finished = true
@@ -212,7 +227,40 @@ export async function startLive(app: HTMLElement): Promise<void> {
     sees.querySelector('small')!.textContent = head
     sees.querySelector('strong')!.textContent = big
     sees.querySelector('span')!.textContent = small
-    root.dataset.tone = tone
+    root.dataset.tone = verdictTone || tone // a verdict on show keeps the frame's colour
+  }
+
+  // ---- the verdict: one large mark in the middle of the picture, with a few words, for a few seconds
+  let verdictTimer = 0
+  let verdictTone = ''
+  const showVerdict = (v: 'right' | 'wrong' | 'done' | 'unsure', what = '') => {
+    const el = $('.verdict')
+    el.dataset.v = v
+    el.querySelector('b')!.textContent = v === 'right' ? w.vRight : v === 'wrong' ? w.vWrong : v === 'done' ? w.vDone : w.vUnsure
+    el.querySelector('span')!.textContent = what
+    el.hidden = false
+    el.classList.remove('pop')
+    void el.offsetWidth // restart the animation
+    el.classList.add('pop')
+    verdictTone = v === 'wrong' ? 'bad' : v === 'unsure' ? 'warn' : 'ok'
+    root.dataset.tone = verdictTone
+    if (v === 'wrong') navigator.vibrate?.([60, 40, 60])
+    else if (v === 'done') navigator.vibrate?.(40)
+    clearTimeout(verdictTimer)
+    verdictTimer = window.setTimeout(() => {
+      el.hidden = true
+      verdictTone = ''
+    }, v === 'wrong' ? 5000 : 2600)
+  }
+  /** The current action is finished: tick it and move to the next one after the sentence has had a moment. */
+  const actionDone = () => {
+    const mark = `${at.step}:${at.action}`
+    if (doneActions.has(mark)) return
+    doneActions.add(mark)
+    paintStep()
+    window.setTimeout(() => {
+      if (`${at.step}:${at.action}` === mark) go(1)
+    }, 1600)
   }
 
   let toastTimer = 0
@@ -228,7 +276,10 @@ export async function startLive(app: HTMLElement): Promise<void> {
   const onEvent = (e: GuidanceEvent) => {
     const text = e.say?.[lang] || e.say?.en || e.message || ''
     if (text) toast(text, BAD.has(e.event) ? 'bad' : e.event === 'step_complete' || e.event.startsWith('right_') ? 'ok' : 'info')
-    if (BAD.has(e.event)) navigator.vibrate?.([60, 40, 60])
+    const seen = e.observed || e.expected || ''
+    if (BAD.has(e.event)) showVerdict('wrong', text)
+    else if (e.event === 'right_part' || e.event === 'right_hardware') showVerdict('right', seen)
+    else if (e.event === 'step_complete') showVerdict('done', current().title)
     if (coach?.on && e.speak !== false && (e.perception || text)) coach.tell(`[CHECK] ${e.perception || e.say?.en || text}`)
     // the camera saw the step finished: move on by itself, after the sentence has had a moment
     if (e.event === 'step_complete' && e.step === current().n) {
@@ -289,6 +340,12 @@ export async function startLive(app: HTMLElement): Promise<void> {
             at = { step: n - 1, action: 0 }
             paintStep()
           } else if (name === 'show_part_request') assist?.showPart()
+          else if (name === 'report') {
+            const v = String(args.verdict)
+            if (v === 'right' || v === 'wrong' || v === 'done' || v === 'unsure') showVerdict(v, String(args.what ?? ''))
+            if (v === 'done') actionDone()
+            return { shown: true }
+          }
           const s = current()
           return { step: s.n, of: steps.length, title: s.title, action: at.action + 1, instruction: action()?.text?.en ?? s.title }
         },

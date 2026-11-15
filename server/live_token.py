@@ -21,7 +21,7 @@ from server.settings import ROOT, Settings
 PROMPT_FILE = ROOT / "prompts" / "live_voice.md"
 PROMPT_VERSION = "live_voice.md@1"
 COACH_FILE = ROOT / "prompts" / "live_coach.md"          # the coach that sees the camera (mode "see")
-COACH_VERSION = "live_coach.md@1"
+COACH_VERSION = "live_coach.md@2"
 API_VERSIONS = ("v1beta", "v1alpha")     # PLAN says v1beta; SDK 3.3 documents token creation as v1alpha
 
 _NO_ARGS = {"type": "object", "properties": {}}
@@ -47,6 +47,19 @@ TOOLS = [types.Tool(function_declarations=[
                               parameters_json_schema={"type": "object",
                                                       "properties": {"expected_part_id": {"type": "string"}}}),
 ])]
+
+
+# The coach that sees also says, as data, whether what it sees is right: the screen shows it as a large tick or cross.
+REPORT = types.FunctionDeclaration(
+    name="report", behavior=_NAV,
+    description="Tell the screen your verdict on what the person is doing now. Call it every time you speak about their work.",
+    parameters_json_schema={"type": "object", "required": ["verdict", "what"], "properties": {
+        "verdict": {"type": "string", "enum": ["right", "wrong", "done", "unsure"],
+                    "description": "right: the correct part or screw is in hand, or it is going to the correct place. "
+                                   "wrong: another part or screw, the wrong hole, or turned the wrong way. "
+                                   "done: the current action is visibly finished. unsure: you cannot tell from the picture."},
+        "what": {"type": "string", "description": "Two to six words in the person's language: what is right, wrong or finished."}}})
+COACH_TOOLS = [types.Tool(function_declarations=[*TOOLS[0].function_declarations, REPORT])]
 
 
 def guide_context(job: Job) -> str:
@@ -110,7 +123,7 @@ async def mint(settings: Settings, job: Job, mode: str = "voice", lang: str = "e
             config=types.LiveConnectConfig(
                 response_modalities=[types.Modality.AUDIO],
                 system_instruction=coach_instruction(job, lang) if see else system_instruction(job),
-                tools=TOOLS,
+                tools=COACH_TOOLS if see else TOOLS,
                 # the coach's words are also shown on the screen, and the person's are logged by the page
                 output_audio_transcription=types.AudioTranscriptionConfig() if see else None,
                 context_window_compression=types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow()),

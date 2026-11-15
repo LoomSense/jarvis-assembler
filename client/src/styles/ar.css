@@ -26,3 +26,9 @@
 #table-ar img { display: block; flex: none; }
 #table-ar:active { transform: translateX(-50%) scale(0.98); }
 #table-ar:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* the way into live guidance, on every device: the primary pill. With the AR pill, AR sits above it, quieter. */
+#table-live { position: fixed; z-index: 35; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); min-height: 48px; padding: 0 22px; display: inline-flex; align-items: center; border-radius: 999px; background: #fff; color: #000; font: 600 15px/1 "Google Sans", Arial, system-ui, sans-serif; text-decoration: none; white-space: nowrap; box-shadow: 0 8px 28px -10px rgba(255, 255, 255, 0.3); -webkit-tap-highlight-color: transparent; }
+#table-live:active { transform: translateX(-50%) scale(0.98); }
+:root[data-table-ar] #table-ar { bottom: calc(154px + env(safe-area-inset-bottom, 0px)); background: rgba(12, 12, 12, 0.82); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: none; }
+:root[data-table-ar] #table-ar img { filter: invert(1); }
