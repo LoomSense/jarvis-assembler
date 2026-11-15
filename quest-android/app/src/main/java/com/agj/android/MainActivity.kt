@@ -255,6 +255,9 @@ class MainActivity : AppSystemActivity() {
                         // it on the dark carpet. On 199 real frames: 2 trusted with 1.5, 80 with 0 (size error
                         // p50 +6 / -0.4 mm, consecutive poses 5 mm / 0.24 deg apart).
                         chromaWeight = (intent?.getFloatExtra("panel_chroma_w", 0f) ?: 0f).toDouble(),
+                        // 7 px = 17.5 mm: bridges a groove (first run with the real front seen from close: its
+                        // groove split the blob and the front read 412 x 170 mm), not the 3 cm gap between boards
+                        closePx = intent?.getIntExtra("panel_close_px", 7) ?: 7,
                     ),
             )
             .also {

@@ -87,6 +87,12 @@ data class PanelParams(
     /** Gaussian blur and opening kernel sizes, pixels. */
     val blurPx: Int = 5,
     val openPx: Int = 3,
+    /**
+     * Closing kernel, pixels (0 = off, as the reference). A groove is a dark line a few millimetres wide: seen from
+     * close it cut the real drawer front's blob in two (the front read 412 x 170 mm instead of 400 x 200 on the
+     * device, 15 Nov 14:07), so on the device thin dark lines are bridged before the contours are taken.
+     */
+    val closePx: Int = 0,
     /** Threshold sweep: percentiles of the whiteness of the valid pixels. */
     val percentiles: List<Double> = listOf(50.0, 60.0, 70.0, 78.0, 85.0, 90.0, 94.0, 97.0),
     /** Contour area as a multiple of the panel's area. */
@@ -639,6 +645,7 @@ object PanelPose {
       val thresholds = p.percentiles.map { PanelMath.percentile(vals, it) }.distinct().sorted()
 
       val kernel = mat(Mat.ones(p.openPx, p.openPx, CvType.CV_8U))
+      val closeKernel = if (p.closePx > 1) mat(Mat.ones(p.closePx, p.closePx, CvType.CV_8U)) else null
       val mask = mat(Mat(n, n, CvType.CV_8UC1))
       val opened = mat(Mat())
       val hierarchy = mat(Mat())
@@ -648,6 +655,7 @@ object PanelPose {
         for (i in 0 until n * n) maskBytes[i] = if (white[i] > thr) 1 else 0
         mask.put(0, 0, maskBytes)
         Imgproc.morphologyEx(mask, opened, Imgproc.MORPH_OPEN, kernel)
+        if (closeKernel != null) Imgproc.morphologyEx(opened, opened, Imgproc.MORPH_CLOSE, closeKernel)
         val contours = ArrayList<MatOfPoint>()
         Imgproc.findContours(opened, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
         for (raw in contours) {
@@ -784,6 +792,7 @@ object PanelPose {
       val thresholds = p.percentiles.map { PanelMath.percentile(vals, it) }.distinct().sorted()
 
       val kernel = mat(Mat.ones(p.openPx, p.openPx, CvType.CV_8U))
+      val closeKernel = if (p.closePx > 1) mat(Mat.ones(p.closePx, p.closePx, CvType.CV_8U)) else null
       val kOuter = mat(Mat.ones(p.ringOuterPx, p.ringOuterPx, CvType.CV_8U))
       val kInner = mat(Mat.ones(p.ringInnerPx, p.ringInnerPx, CvType.CV_8U))
       val mask = mat(Mat(n, n, CvType.CV_8UC1))
@@ -801,6 +810,7 @@ object PanelPose {
         for (i in 0 until n * n) maskBytes[i] = if (white[i] > thr) 1 else 0
         mask.put(0, 0, maskBytes)
         Imgproc.morphologyEx(mask, opened, Imgproc.MORPH_OPEN, kernel)
+        if (closeKernel != null) Imgproc.morphologyEx(opened, opened, Imgproc.MORPH_CLOSE, closeKernel)
         val contours = ArrayList<MatOfPoint>()
         Imgproc.findContours(opened, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
         for (cnt in contours) {
@@ -901,6 +911,7 @@ object PanelPose {
             try {
               sub.put(0, 0, subB)
               Imgproc.morphologyEx(sub, subOpen, Imgproc.MORPH_OPEN, kernel)
+              if (closeKernel != null) Imgproc.morphologyEx(subOpen, subOpen, Imgproc.MORPH_CLOSE, closeKernel)
               Imgproc.findContours(subOpen, subCnts, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
             } finally {
               sub.release()
