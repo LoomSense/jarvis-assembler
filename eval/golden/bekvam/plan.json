@@ -1,0 +1,922 @@
+{
+ "title": "BEKVÄM step stool",
+ "guide_id": "AA-498351-9",
+ "units": "mm",
+ "overall_mm": {
+  "L": 430,
+  "W": 390,
+  "H": 500
+ },
+ "cover_view_az_el_deg": [
+  -125,
+  22
+ ],
+ "dims": {
+  "tx": 22,
+  "Win": 346,
+  "H_under": 480,
+  "run": 140,
+  "wy": 47,
+  "rail_h": 45,
+  "rail_end": 280,
+  "rear_top_z": 478,
+  "rear_run": 72,
+  "rear_T": 36,
+  "z_up": 324,
+  "z_lo": 158,
+  "stay_z": 243.36,
+  "stay_y_rear": 333.55,
+  "stay_y_front": 94.48,
+  "hinge_d1": 25,
+  "hinge_d2": 60,
+  "hinge_t": 2.5,
+  "leaf_s1h": 64,
+  "leaf_s2h": 94,
+  "rail_y1": 200,
+  "rail_y2": 260,
+  "washer_t": 2,
+  "top_w": 430,
+  "top_y0": 110,
+  "top_d": 230,
+  "top_t": 20
+ },
+ "parts": [
+  {
+   "id": "front_leg",
+   "name": "Front leg with short top rail",
+   "short": "front leg",
+   "el": "το μπροστινό πόδι",
+   "el_pron": "το",
+   "count": 2,
+   "script": "parts/front_leg.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 1, lying on the floor with the short rail pointing up"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the overall size 43 x 39 x 50 cm"
+   },
+   "color": "#D9B98C"
+  },
+  {
+   "id": "tread_upper",
+   "name": "Upper step board",
+   "short": "upper step",
+   "el": "το πάνω σκαλοπάτι",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/tread.py",
+   "params": {
+    "z_top": 333,
+    "z_hole": 324,
+    "y_front": 92,
+    "depth": 108
+   },
+   "material": "pine",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 1, upper inset (the shorter-looking board, nearer the top)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the overall size"
+   },
+   "color": "#D9B98C"
+  },
+  {
+   "id": "tread_lower",
+   "name": "Lower step board",
+   "short": "lower step",
+   "el": "το κάτω σκαλοπάτι",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/tread.py",
+   "params": {
+    "z_top": 167,
+    "z_hole": 158,
+    "y_front": 44,
+    "depth": 128
+   },
+   "material": "pine",
+   "cite": {
+    "page": 5,
+    "label": null,
+    "note": "step 1, lower inset (the board nearer the feet)"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the overall size"
+   },
+   "color": "#D9B98C"
+  },
+  {
+   "id": "hinge",
+   "name": "Hinge bracket",
+   "short": "hinge bracket",
+   "el": "τον μεντεσέ",
+   "el_pron": "τον",
+   "count": 2,
+   "script": "parts/hinge.py",
+   "params": {},
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": "122127",
+    "note": "fitted in step 2"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "compared with the short rail in step 2"
+   },
+   "color": "#AEB4BB"
+  },
+  {
+   "id": "top",
+   "name": "Top board",
+   "short": "top board",
+   "el": "το πάνω πάτημα",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/top.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 6,
+    "label": null,
+    "note": "step 3, label on the underside"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "width from the overall size, depth from the cover"
+   },
+   "color": "#D9B98C"
+  },
+  {
+   "id": "rear_frame",
+   "name": "Rear frame with crossed braces (pre-assembled)",
+   "short": "rear frame",
+   "el": "το πίσω πλαίσιο",
+   "el_pron": "το",
+   "count": 1,
+   "script": "parts/rear_frame.py",
+   "params": {},
+   "material": "pine",
+   "cite": {
+    "page": 7,
+    "label": null,
+    "note": "step 4"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "scaled from the overall size"
+   },
+   "color": "#D9B98C"
+  },
+  {
+   "id": "stay_left",
+   "name": "Folding stay, left",
+   "short": "left folding stay",
+   "el": "τον αριστερό βραχίονα",
+   "el_pron": "τον",
+   "count": 1,
+   "script": "parts/stay.py",
+   "params": {
+    "side": -1
+   },
+   "material": "steel",
+   "cite": {
+    "page": 8,
+    "label": "122128",
+    "note": "step 5, marked L"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "spans from the rear leg to the front leg on the cover"
+   },
+   "color": "#AEB4BB"
+  },
+  {
+   "id": "stay_right",
+   "name": "Folding stay, right",
+   "short": "right folding stay",
+   "el": "τον δεξιό βραχίονα",
+   "el_pron": "τον",
+   "count": 1,
+   "script": "parts/stay.py",
+   "params": {
+    "side": 1
+   },
+   "material": "steel",
+   "cite": {
+    "page": 8,
+    "label": "122148",
+    "note": "step 5, marked R"
+   },
+   "dims": {
+    "estimated": true,
+    "basis": "spans from the rear leg to the front leg on the cover"
+   },
+   "color": "#AEB4BB"
+  }
+ ],
+ "hardware": [
+  {
+   "code": "100215",
+   "kind": "screw",
+   "name": "Long screw with smooth shank",
+   "short": "thick long screw",
+   "el": "χοντρή μακριά βίδα",
+   "count": 4,
+   "script": "parts/screw.py",
+   "params": {
+    "length": 70,
+    "shank_d": 6.5,
+    "head_d": 11,
+    "head_h": 4
+   },
+   "material": "steel",
+   "cite": {
+    "page": 3,
+    "label": "100215"
+   },
+   "color": "#C8CBD0"
+  },
+  {
+   "code": "109180",
+   "kind": "screw",
+   "name": "Short screw",
+   "short": "short screw",
+   "el": "κοντή βίδα",
+   "count": 12,
+   "script": "parts/screw.py",
+   "params": {
+    "length": 16,
+    "shank_d": 5,
+    "head_d": 9,
+    "head_h": 3.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 3,
+    "label": "109180",
+    "note": "4x on page 3 plus 8x in the bag on page 4"
+   },
+   "color": "#C8CBD0"
+  },
+  {
+   "code": "122824",
+   "kind": "screw",
+   "name": "Long thin screw",
+   "short": "long thin screw",
+   "el": "λεπτή μακριά βίδα",
+   "count": 4,
+   "script": "parts/screw.py",
+   "params": {
+    "length": 58,
+    "shank_d": 4.5,
+    "head_d": 9,
+    "head_h": 3.5
+   },
+   "material": "steel",
+   "cite": {
+    "page": 4,
+    "label": "122824"
+   },
+   "color": "#C8CBD0"
+  },
+  {
+   "code": "110097",
+   "kind": "washer",
+   "name": "Washer",
+   "short": "washer",
+   "el": "ροδέλα",
+   "count": 4,
+   "script": "parts/washer.py",
+   "params": {},
+   "material": "steel",
+   "color": "#1E1E20",
+   "cite": {
+    "page": 3,
+    "label": "110097"
+   }
+  }
+ ],
+ "steps": [
+  {
+   "n": 1,
+   "title": "Screw the two step boards between the front legs",
+   "cite": {
+    "page": 5,
+    "label": "1"
+   },
+   "add": [
+    {
+     "instance": "front_leg#1",
+     "base": true
+    },
+    {
+     "instance": "tread_upper#1",
+     "mates": [
+      {
+       "moving": "end_L",
+       "fixed": "front_leg#1.upper_xp"
+      },
+      {
+       "moving": "end_L_b",
+       "fixed": "front_leg#1.upper_b_xp"
+      }
+     ]
+    },
+    {
+     "instance": "100215#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#1.upper_xm"
+      }
+     ]
+    },
+    {
+     "instance": "tread_lower#1",
+     "mates": [
+      {
+       "moving": "end_L",
+       "fixed": "front_leg#1.lower_xp"
+      },
+      {
+       "moving": "end_L_b",
+       "fixed": "front_leg#1.lower_b_xp"
+      }
+     ]
+    },
+    {
+     "instance": "100215#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#1.lower_xm"
+      }
+     ]
+    },
+    {
+     "instance": "front_leg#2",
+     "mates": [
+      {
+       "moving": "upper_xm",
+       "fixed": "tread_upper#1.end_R"
+      },
+      {
+       "moving": "upper_b_xm",
+       "fixed": "tread_upper#1.end_R_b"
+      },
+      {
+       "moving": "lower_xm",
+       "fixed": "tread_lower#1.end_R"
+      }
+     ]
+    },
+    {
+     "instance": "100215#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#2.upper_xp"
+      }
+     ]
+    },
+    {
+     "instance": "100215#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#2.lower_xp"
+      }
+     ]
+    }
+   ],
+   "notes": [
+    {
+     "en": "Use the thick long screws 100215 here, not the thin long screws 122824.",
+     "el": "Χρησιμοποίησε εδώ τις χοντρές μακριές βίδες 100215, όχι τις λεπτές μακριές 122824."
+    },
+    {
+     "en": "Turn each step board as the hand shows: the rounded edge up and the end hole lined up with the hole in the leg.",
+     "el": "Γύρισε κάθε σκαλοπάτι όπως δείχνει το χέρι: η στρογγυλεμένη άκρη προς τα πάνω και η τρύπα στην άκρη απέναντι από την τρύπα του ποδιού."
+    },
+    {
+     "en": "Tighten with the hex key in its handle (100092 in 121030) until the screw head is flush with the wood.",
+     "el": "Σφίξε με το κλειδί άλεν μέσα στη λαβή του (100092 στο 121030) μέχρι το κεφάλι της βίδας να έρθει πρόσωπο με το ξύλο."
+    }
+   ],
+   "parts_added": [
+    "front_leg",
+    "tread_upper",
+    "tread_lower"
+   ],
+   "hardware_used": {
+    "100215": 4
+   },
+   "pose": "front frame lying face down, short rails pointing up",
+   "assembly_rotation_deg": [
+    106.26,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    135,
+    30
+   ]
+  },
+  {
+   "n": 2,
+   "title": "Screw a hinge bracket to each front leg",
+   "cite": {
+    "page": 6,
+    "label": "2"
+   },
+   "add": [
+    {
+     "instance": "hinge#1",
+     "mates": [
+      {
+       "moving": "arm_in_1",
+       "fixed": "front_leg#1.back_1"
+      },
+      {
+       "moving": "arm_in_2",
+       "fixed": "front_leg#1.back_2"
+      }
+     ]
+    },
+    {
+     "instance": "109180#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.arm_out_1"
+      }
+     ]
+    },
+    {
+     "instance": "109180#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.arm_out_2"
+      }
+     ]
+    },
+    {
+     "instance": "hinge#2",
+     "mates": [
+      {
+       "moving": "arm_in_1",
+       "fixed": "front_leg#2.back_1"
+      },
+      {
+       "moving": "arm_in_2",
+       "fixed": "front_leg#2.back_2"
+      }
+     ]
+    },
+    {
+     "instance": "109180#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.arm_out_1"
+      }
+     ]
+    },
+    {
+     "instance": "109180#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.arm_out_2"
+      }
+     ]
+    }
+   ],
+   "notes": [
+    {
+     "en": "Place each hinge bracket as the hand shows, with its hinged leaf at the free end of the short rail.",
+     "el": "Βάλε κάθε μεντεσέ όπως δείχνει το χέρι, με το κινητό φύλλο του στην ελεύθερη άκρη της κοντής τραβέρσας."
+    }
+   ],
+   "parts_added": [
+    "hinge"
+   ],
+   "hardware_used": {
+    "109180": 4
+   },
+   "pose": "front frame lying face down, short rails pointing up",
+   "assembly_rotation_deg": [
+    106.26,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    135,
+    30
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Screw the top board to the short rails",
+   "cite": {
+    "page": 6,
+    "label": "3"
+   },
+   "add": [
+    {
+     "instance": "top#1",
+     "mates": [
+      {
+       "moving": "under_L_a",
+       "fixed": "front_leg#1.rail_top_a"
+      },
+      {
+       "moving": "under_L_b",
+       "fixed": "front_leg#1.rail_top_b"
+      },
+      {
+       "moving": "under_R_a",
+       "fixed": "front_leg#2.rail_top_a"
+      },
+      {
+       "moving": "under_R_b",
+       "fixed": "front_leg#2.rail_top_b"
+      }
+     ]
+    },
+    {
+     "instance": "122824#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.plate_out_a"
+      }
+     ]
+    },
+    {
+     "instance": "122824#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.plate_out_b"
+      }
+     ]
+    },
+    {
+     "instance": "122824#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.plate_out_a"
+      }
+     ]
+    },
+    {
+     "instance": "122824#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.plate_out_b"
+      }
+     ]
+    }
+   ],
+   "notes": [
+    {
+     "en": "Use the thin long screws 122824 here, not the thick screws 100215.",
+     "el": "Χρησιμοποίησε εδώ τις λεπτές μακριές βίδες 122824, όχι τις χοντρές 100215."
+    },
+    {
+     "en": "The side of the top board with the label faces the legs.",
+     "el": "Η πλευρά του πάνω πατήματος με την ετικέτα κοιτάζει προς τα πόδια."
+    }
+   ],
+   "parts_added": [
+    "top"
+   ],
+   "hardware_used": {
+    "122824": 4
+   },
+   "pose": "front frame lying face down, top board standing on its edge",
+   "assembly_rotation_deg": [
+    106.26,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    135,
+    30
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Screw the rear frame to the hinge brackets",
+   "cite": {
+    "page": 7,
+    "label": "4"
+   },
+   "add": [
+    {
+     "instance": "rear_frame#1",
+     "mates": [
+      {
+       "moving": "hinge_L_1",
+       "fixed": "hinge#1.leaf_in_1"
+      },
+      {
+       "moving": "hinge_L_2",
+       "fixed": "hinge#1.leaf_in_2"
+      },
+      {
+       "moving": "hinge_R_1",
+       "fixed": "hinge#2.leaf_in_1"
+      },
+      {
+       "moving": "hinge_R_2",
+       "fixed": "hinge#2.leaf_in_2"
+      }
+     ]
+    },
+    {
+     "instance": "109180#5",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.leaf_out_1"
+      }
+     ]
+    },
+    {
+     "instance": "109180#6",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#1.leaf_out_2"
+      }
+     ]
+    },
+    {
+     "instance": "109180#7",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.leaf_out_1"
+      }
+     ]
+    },
+    {
+     "instance": "109180#8",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "hinge#2.leaf_out_2"
+      }
+     ]
+    }
+   ],
+   "parts_added": [
+    "rear_frame"
+   ],
+   "hardware_used": {
+    "109180": 4
+   },
+   "pose": "upside down, standing on the top board",
+   "assembly_rotation_deg": [
+    180,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Stand the ladder upside down on its top board.",
+    "el": "Στήσε τη σκάλα ανάποδα, πάνω στο πάνω πάτημά της."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    120,
+    25
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Fit the two folding stays with their washers",
+   "cite": {
+    "page": 8,
+    "label": "5"
+   },
+   "add": [
+    {
+     "instance": "110097#1",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "rear_frame#1.stay_L"
+      }
+     ]
+    },
+    {
+     "instance": "110097#2",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#1.stay_xm"
+      }
+     ]
+    },
+    {
+     "instance": "stay_left#1",
+     "mates": [
+      {
+       "moving": "rear_in",
+       "fixed": "110097#1.top"
+      },
+      {
+       "moving": "front_in",
+       "fixed": "110097#2.top"
+      }
+     ]
+    },
+    {
+     "instance": "109180#9",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "stay_left#1.rear_out"
+      }
+     ]
+    },
+    {
+     "instance": "109180#10",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "stay_left#1.front_out"
+      }
+     ]
+    },
+    {
+     "instance": "110097#3",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "rear_frame#1.stay_R"
+      }
+     ]
+    },
+    {
+     "instance": "110097#4",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "front_leg#2.stay_xp"
+      }
+     ]
+    },
+    {
+     "instance": "stay_right#1",
+     "mates": [
+      {
+       "moving": "rear_in",
+       "fixed": "110097#3.top"
+      },
+      {
+       "moving": "front_in",
+       "fixed": "110097#4.top"
+      }
+     ]
+    },
+    {
+     "instance": "109180#11",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "stay_right#1.rear_out"
+      }
+     ]
+    },
+    {
+     "instance": "109180#12",
+     "mates": [
+      {
+       "moving": "seat",
+       "fixed": "stay_right#1.front_out"
+      }
+     ]
+    }
+   ],
+   "notes": [
+    {
+     "en": "Stay 122128 goes on the left (L) and stay 122148 on the right (R), with the locking clip as the hands show.",
+     "el": "Ο βραχίονας 122128 μπαίνει αριστερά (L) και ο 122148 δεξιά (R), με το κλιπ ασφάλισης όπως δείχνουν τα χέρια."
+    },
+    {
+     "en": "Put a washer 110097 between the wood and the stay at each screw.",
+     "el": "Βάλε μια ροδέλα 110097 ανάμεσα στο ξύλο και τον βραχίονα σε κάθε βίδα."
+    },
+    {
+     "en": "Stop: do not tighten these screws fully. Turn each one back a little so the stay can still fold.",
+     "el": "Προσοχή: μη σφίξεις τέρμα αυτές τις βίδες. Ξεβίδωσε λίγο την καθεμία ώστε ο βραχίονας να διπλώνει."
+    },
+    {
+     "en": "To use the ladder, open it fully and press each locking clip down over the joint.",
+     "el": "Για να χρησιμοποιήσεις τη σκάλα, άνοιξέ την τελείως και πίεσε κάθε κλιπ ασφάλισης προς τα κάτω πάνω στην άρθρωση."
+    }
+   ],
+   "parts_added": [
+    "stay_left",
+    "stay_right"
+   ],
+   "hardware_used": {
+    "110097": 4,
+    "109180": 4
+   },
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "turn_text": {
+    "en": "Turn the ladder the right way up and stand it on its feet.",
+    "el": "Γύρισε τη σκάλα στην κανονική της θέση, όρθια στα πόδια της."
+   },
+   "flip_whole_assembly": true,
+   "view_az_el_deg": [
+    -125,
+    22
+   ]
+  },
+  {
+   "n": 6,
+   "title": "Fix the wall hook to the wall",
+   "cite": {
+    "page": 10,
+    "label": "6"
+   },
+   "add": [],
+   "notes": [
+    {
+     "en": "Screw the wall hook 122132 to the wall with 2 screws, at least 70 cm above the floor. The wall screws are not included: choose countersunk screws that suit your wall.",
+     "el": "Βίδωσε τον γάντζο τοίχου 122132 στον τοίχο με 2 βίδες, τουλάχιστον 70 εκ. πάνω από το πάτωμα. Οι βίδες τοίχου δεν περιλαμβάνονται: διάλεξε φρεζάτες βίδες κατάλληλες για τον τοίχο σου."
+    },
+    {
+     "en": "Fold the ladder and hang it on the hook by the slot under the top board.",
+     "el": "Δίπλωσε τη σκάλα και κρέμασέ την στον γάντζο από την εγκοπή κάτω από το πάνω πάτημα."
+    }
+   ],
+   "parts_added": [],
+   "hardware_used": {},
+   "pose": "upright",
+   "assembly_rotation_deg": [
+    0,
+    0,
+    0
+   ],
+   "flip_whole_assembly": false,
+   "view_az_el_deg": [
+    -125,
+    22
+   ]
+  }
+ ],
+ "final_turn_text": {
+  "en": "Stand the ladder on its feet.",
+  "el": "Στήσε τη σκάλα στα πόδια της."
+ },
+ "flags": [
+  {
+   "ref": "step:1",
+   "kind": "unclear_drawing",
+   "message": "The hex key 100092 and its handle 121030 are tools and are not modelled. The two step boards are drawn in separate insets; they are modelled the same length, the lower one deeper, as on the cover."
+  },
+  {
+   "ref": "part:hinge",
+   "kind": "approximate_shape",
+   "message": "The hinge bracket 122127 is modelled rigid, with its leaf already in the position it has on the open ladder. In steps 2 and 3 the guide draws the leaf folded out straight beyond the end of the rail."
+  },
+  {
+   "ref": "part:stay_left",
+   "kind": "approximate_shape",
+   "message": "The folding stays 122128 and 122148 are modelled opened out and locked, as on the finished ladder. Step 5 draws them slightly folded while they are fitted."
+  },
+  {
+   "ref": "plan",
+   "kind": "estimated_size",
+   "message": "Overall size 43 x 39 x 50 cm was typed in by a person from memory of the maker's product page; the guide prints no dimensions."
+  }
+ ],
+ "guide": "eval/guides/ikea/bekvaem-step-stool__AA-498351-9.pdf"
+}

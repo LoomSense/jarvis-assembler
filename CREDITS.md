@@ -14,6 +14,7 @@ Everything in this repository that we did not build ourselves during the hackath
 | boxd | The VM that hosts the server | boxd.sh |
 | fal | Image-to-3D for odd, non-board parts (optional) | fal.ai |
 | Cloudflare Tunnel (`cloudflared`) | HTTPS URL for a laptop during development | Cloudflare, Apache-2.0 |
+| Simple Icons | The vendor logos drawn in `docs/img/steps.svg` (TypeScript, Claude, Gemini, Blender, three.js, Apple, Kotlin, Meta, OpenCV). The logos are trademarks of their owners | simpleicons.org, CC0-1.0 |
 
 ## Software
 
