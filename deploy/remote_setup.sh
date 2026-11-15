@@ -39,6 +39,8 @@ grep -q '^JOBS_DIR=' .env || echo "JOBS_DIR=$APP/jobs" >> .env
 if grep -q '^ANTHROPIC_API_KEY=.\+' .env; then
   grep -q '^AGJ_BUILD_AGENT=' .env || echo "AGJ_BUILD_AGENT=claude" >> .env
   grep -q '^AGJ_AGENT_MAX_USD=' .env || echo "AGJ_AGENT_MAX_USD=5" >> .env
+  # a known guide uses its checked plan (about a minute); only a guide never seen goes to the agent (several minutes)
+  grep -q '^AGJ_KNOWN_FIRST=' .env || echo "AGJ_KNOWN_FIRST=1" >> .env
 fi
 grep -q '^AGJ_QUESTIONS=' .env || echo "AGJ_QUESTIONS=model" >> .env
 
