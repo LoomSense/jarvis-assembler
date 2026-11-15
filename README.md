@@ -4,6 +4,12 @@
 
 <https://agj.boxd.sh>
 
+**Who it's for.** Anyone who buys flat-pack furniture and builds it at home. And the shops that sell it, who take the calls when a build goes wrong.
+
+**The problem.** Paper guides are drawings with no words. They cannot tell you which of two look-alike boards you are holding or which way round it goes, so you find the mistake three steps later and take it all apart.
+
+**Our solution.** Scan the box and an AI agent rebuilds the guide as a 3D film, one move at a time. Then your phone or a Quest 3 watches the real build, shows where each part goes, and warns you before the mistake.
+
 ![The phone flow: home, find the guide, the 3D build, the ready guide, a step, build with help](docs/img/phone-flow.jpg)
 
 ## How it works
