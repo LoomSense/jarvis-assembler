@@ -567,6 +567,7 @@ class MainActivity : AppSystemActivity() {
         val a = withContext(Dispatchers.IO) { repo.load(id) }
         assembly = a
         world.setAssembly(a)
+        liveLoad(a) // LIVE-COACH: the coach's sentences for this guide, fetched ahead of time
         panel?.setJob(a.jobId)
         // the detector's target comes from the loaded guide from the first moment (its built-in default is the
         // old estimated 380 x 130 mm front)
@@ -693,8 +694,16 @@ class MainActivity : AppSystemActivity() {
     // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
     val lead = listOfNotNull(stepDone, coachNow?.takeIf { (firstOfStep || again) && !picking })
     coachLead = if (picking && speak) coachNow?.takeIf { firstOfStep || again } else null
+    // LIVE-COACH: the line said the moment the last action ended ("Μπράβο! … Πάρε: …") already carried this action's
+    // call to action, as one utterance: its entry line is not said again on top of it
+    val carried = liveEntry?.let { it.first == step && it.second == action && SystemClock.elapsedRealtime() - it.third < 4000 } == true
+    liveEntry = null
+    if (carried) coachSaidWhere = liveEntryPrompted // "Πάρε: …" was said: the located prompt would only repeat it
+    else if (speak) liveSaid.other()
     // ACTION-COACH: a bare "Πάρε: …" the wearer did not ask for is a prompt: it waits for silence, it never cuts a sentence
-    if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
+    if (carried) {
+      // nothing more to say
+    } else if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
       if (!voice.speaking) voice.say(line, lang, interrupt = false)
     } else if (speak) voice.sayStep(lead + line, lang)
     stepDone = null
@@ -859,7 +868,7 @@ class MainActivity : AppSystemActivity() {
       Agq.log.event(
           "coach_phase",
           mapOf("step" to c.step, "action" to c.action, "phase" to c.to.wire, "why" to c.why, "from" to c.from?.wire, "source" to source,
-              "how" to actionCoach.how.takeIf { source == "hands" }),
+              "how" to actionCoach.how.takeIf { source == "hands" || source == "device" }), // LIVE-COACH: `device` = ui/GrabJudge.kt
       )
 
   /** From `showStep`: the action starts at "take" when it has a part with a name, else (a turn) at "put it here". */
@@ -872,7 +881,9 @@ class MainActivity : AppSystemActivity() {
     coachHeldLine = null
     coachSaidWhere = false
     coachSpot = null
-    val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why)
+    // LIVE-COACH: the hardware kind sets how long "put it here" lasts when the headset gives no hands at all
+    val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why, act?.hardwareKind)
+    liveStart(step, action) // LIVE-COACH: this action's praise and encouragement start again
     coachIds = if (actionCoach.hasPick) ids else emptyList()
     coachNextIds = next?.let { n -> assembly?.guide?.step(n.first)?.actions?.getOrNull(n.second) }?.let { listOfNotNull(it.partId, it.code) } ?: emptyList()
     coachLog(c)
@@ -913,11 +924,18 @@ class MainActivity : AppSystemActivity() {
         if (c.why == "part_moved" || c.why == "timer") sounds.play(Sounds.Cue.PLACE) // it moved by itself: one soft cue
         // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us
         // here, and the no-marker line ("… inside the blue outline") of this step entry comes with it, once
-        voice.sayStep(listOfNotNull(lead, coachLead, coachAct()?.text?.get(lang)), lang)
+        // LIVE-COACH: the right part is in the hand (the server's verdict, or the device saw the board lifted): the
+        // praise and the short instruction as one cached utterance; any other way into "put it here" reads the
+        // step's own line, as before
+        if (!(c.why == "right_part" && liveSayRight(coachLead))) {
+          liveSaid.other()
+          voice.sayStep(listOfNotNull(lead, coachLead, coachAct()?.text?.get(lang)), lang)
+        }
         coachLead = null
       }
       com.agj.android.ui.CoachPhase.DONE -> {
         coachWhy = c.why
+        liveDone(c) // LIVE-COACH: "Μπράβο!" and what comes next, now (the next action's entry is a second away)
         advance(if (c.why == "next") StepBy.BUTTON else if (c.why == "voice") StepBy.VOICE else StepBy.AUTO, wholeStep = c.why == "step_complete")
       }
     }
@@ -932,12 +950,14 @@ class MainActivity : AppSystemActivity() {
   }
 
   /** A held-part event: the badge as before ([held]), then the phase: right → "put it here", wrong → it stays. */
-  private fun coachHeld(event: String, raw: JsonObject) {
+  private fun coachHeld(event: String, raw: JsonObject, how: String? = null, seen: String? = null) {
     if (coachAct()?.preinstalled == true) return // nothing is picked up: a verdict about the hand would only confuse
     coachHeldLine = null
     coachHolding = true
     try {
-      held.onServerEvent(event, raw)
+      // LIVE-COACH: a verdict decided on the device ([how]) goes the same way; a wrong one names what the hand took
+      if (how == null) held.onServerEvent(event, raw)
+      else held.onLocalEvent(event, raw, seen?.let { com.agj.android.ui.LiveLines.wrongTitle(lang, it) })
     } finally {
       coachHolding = false
     }
@@ -948,12 +968,13 @@ class MainActivity : AppSystemActivity() {
     if (ev != null && coach.stage == CoachFlow.Stage.GUIDE && !finished && !advancing && (ev.step == null || ev.step == curStep)) {
       val now = SystemClock.elapsedRealtime()
       when (ev.verdict) {
-        com.agj.android.ui.Verdict.RIGHT -> c = actionCoach.rightPart(now, ev.expectedId)
+        com.agj.android.ui.Verdict.RIGHT -> c = actionCoach.rightPart(now, ev.expectedId, how)
         com.agj.android.ui.Verdict.WRONG -> actionCoach.wrongPart(now)
         com.agj.android.ui.Verdict.UNSURE -> {}
       }
     }
-    if (c != null) coachApply(c, lead = line?.first) else line?.let { coachSpeak(it.first, it.second) } // no change: as before
+    if (c != null) coachApply(c, lead = line?.first, source = how?.let { "device" }) // LIVE-COACH: `source: device`, `how: grab_rect`
+    else line?.let { coachSpeak(it.first, it.second) } // no change: as before
   }
 
   /** One place for the urgency of a held-part line: CONFIRM and PROMPT wait for silence, the rest interrupt. */
@@ -965,6 +986,12 @@ class MainActivity : AppSystemActivity() {
   private fun coachSay(text: String, kind: com.agj.android.ui.HeldSpeech) {
     val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
     when {
+      // LIVE-COACH: this action's part was already praised ("Σωστή βίδα! …"): a later "Σωστό. <name>." adds nothing
+      kind == com.agj.android.ui.HeldSpeech.CONFIRM && livePraised -> {}
+      // LIVE-COACH: the server confirms the part after "put it here" began by itself (the part had left its place):
+      // the praise and the short instruction now, in place of the long line being read
+      kind == com.agj.android.ui.HeldSpeech.CONFIRM && coachHolding && actionCoach.hasPick && actionCoach.phase == com.agj.android.ui.CoachPhase.PLACE &&
+          liveSayRight() -> {}
       // the verdict that may end "take" (a confirmation, or the answer to a check): [coachHeld] says it, in front of
       // the "put it here" line when the phase moves, by itself when it does not
       coachHolding && picking && (kind == com.agj.android.ui.HeldSpeech.CONFIRM || kind == com.agj.android.ui.HeldSpeech.ANSWER) ->
@@ -994,6 +1021,8 @@ class MainActivity : AppSystemActivity() {
       coachGripSince = h.sinceMs
       coachGripAt = h.handWorldPos
     }
+    // LIVE-COACH: which board the hand lifts is decided on the device (ui/GrabJudge.kt), every frame while guiding
+    if (coach.stage == CoachFlow.Stage.GUIDE && !finished) liveGrab(SystemClock.elapsedRealtime(), h)
     // a pre-installed fastener has no ids (no "take" phase) but its "do it here" phase still ends by the hands
     if (coach.stage != CoachFlow.Stage.GUIDE || finished || (coachIds.isEmpty() && coachAct()?.preinstalled != true)) {
       coachShown = emptyList()
@@ -1035,10 +1064,149 @@ class MainActivity : AppSystemActivity() {
               dwellEnds = toolKind || (coachAct()?.kind == ActionKind.PLACE && !actionCoach.lastOfStep),
           )
       coachApply(actionCoach.tick(now, sight), source = "hands")
+      liveWork(now, hands, box) // LIVE-COACH: one quiet "keep going" while the hand works at the target
     }
     coachShown = if (actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)) mine else emptyList()
     // FLAT-PARTS: the outline on the real board follows the same rule as the other pick cues
     world.flatShow = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)
+  }
+
+  // ---- LIVE-COACH (ui/LiveLines.kt, ui/GrabJudge.kt): what a coach would say, at once; the wrong board, seen here ----
+
+  private val grabJudge = com.agj.android.ui.GrabJudge()
+  private val liveSaid = com.agj.android.ui.NoRepeat()
+  /** The guide's actions as the lines need them, and the boards that look the same from above (part ids). */
+  private var liveActs: List<com.agj.android.ui.LiveAct> = emptyList()
+  private var liveKinds: List<List<String>> = emptyList()
+  /** Boards placed by the actions before the one shown now (never candidates for a pick). */
+  private var livePlaced: Set<String> = emptySet()
+  /** This action: its part was praised; the encouragement was said; how long a hand has worked at the target. */
+  private var livePraised = false
+  private var liveCheered = false
+  private var liveWorkMs = 0L
+  private var liveTickMs = 0L
+  private var liveActionAtMs = 0L
+  /** The action whose entry line the last "done" line stands for, when it was said, and whether it said "Πάρε: …". */
+  private var liveEntry: Triple<Int, Int, Long>? = null
+  private var liveEntryPrompted = false
+  /** "I cannot see your hands, so I go by time" was said in this session. */
+  private var liveNoHandsSaid = false
+  private var liveRects: List<com.agj.android.ui.GrabRect> = emptyList()
+  private var liveRectsMs = 0L
+
+  private fun liveAct(step: Int = curStep, action: Int = curAction) = liveActs.firstOrNull { it.step == step && it.action == action }
+
+  /** Job loaded: this guide's lines, fetched ahead (2 requests at a time, AGQ `tts_prefetch`) so none waits to be heard. */
+  private fun liveLoad(a: Assembly) {
+    liveActs = a.guide?.let { com.agj.android.ui.LiveLines.of(it, lang) } ?: emptyList()
+    liveKinds =
+        runCatching { com.agj.android.world.FlatMatch.kinds(com.agj.android.world.FlatBoards.of(a)).map { k -> k.boards.map { it.partId } } }
+            .getOrDefault(emptyList())
+    grabJudge.reset()
+    voice.prefetch(com.agj.android.ui.LiveLines.all(lang, liveActs, liveKinds), lang)
+  }
+
+  private fun liveStart(step: Int, action: Int) {
+    livePraised = false
+    liveCheered = false
+    liveWorkMs = 0L
+    liveActionAtMs = SystemClock.elapsedRealtime()
+    livePlaced =
+        liveActs.takeWhile { !(it.step == step && it.action == action) }.filter { it.item == com.agj.android.ui.CoachItem.BOARD }.mapNotNull { it.id }.toSet()
+  }
+
+  /** "Σωστή βίδα! Βίδωσέ τη στην τρύπα που φωτίζεται." ([extra]: the no-marker line of this step entry). False: no line for it. */
+  private fun liveSayRight(extra: String? = null): Boolean {
+    val a = liveAct() ?: return false
+    val line = liveSaid.pick(com.agj.android.ui.LiveLines.rightInHand(lang, a), com.agj.android.ui.LiveLines.instruction(lang, a)) ?: return false
+    livePraised = true
+    voice.sayStep(listOfNotNull(line, extra), lang)
+    return true
+  }
+
+  /**
+   * The action ended: the praise and the next call to action as one utterance, at once, when the work was seen done
+   * (`placed`, the server's `step_complete`); the honest line the first time the no-hands timer ends one. Otherwise
+   * (Next, "επόμενο") only the line that is now stale stops, and the next action speaks for itself.
+   */
+  private fun liveDone(c: com.agj.android.ui.CoachChange) {
+    liveEntry = null
+    val g = assembly?.guide ?: return
+    if (coach.stage != CoachFlow.Stage.GUIDE || advancing || finished) return
+    // where `advance` goes: the next action; after `step_complete` the next step's first one
+    val n =
+        if (c.why == "step_complete") g.flatten().let { f -> f.drop(f.indexOf(curStep to curAction) + 1).firstOrNull { it.first != curStep } }
+        else g.next(curStep, curAction)
+    val next = n?.let { liveAct(it.first, it.second) }
+    val honest = c.why == "timer" && actionCoach.how == "no_hands" && !liveNoHandsSaid
+    val line =
+        when {
+          n == null -> null // the guide's end has its own line
+          // nothing to take next: its instruction is its entry line, said after the honest one as one utterance
+          honest -> com.agj.android.ui.DoneLine(listOfNotNull(com.agj.android.ui.LiveLines.noHands(lang), next?.takeIf { !it.hasPick }?.text).joinToString(" "), true)
+          c.why == "placed" || c.why == "step_complete" || c.why == "action_complete" -> liveAct()?.let { com.agj.android.ui.LiveLines.done(lang, it, next) }
+          else -> null
+        }
+    val text = line?.let { liveSaid.pick(it.text) }
+    if (n == null || line == null || text == null) {
+      voice.stop() // "put it here" is over: its line must not run into the next action
+      return
+    }
+    if (honest) liveNoHandsSaid = true
+    voice.say(text, lang)
+    if (line.entry) {
+      liveEntry = Triple(n.first, n.second, SystemClock.elapsedRealtime())
+      liveEntryPrompted = !honest && next?.hasPick == true
+    }
+  }
+
+  /** "Put it here", a hand within reach of the target for 3 s in all: one quiet encouragement, at most once per action. */
+  private fun liveWork(now: Long, hands: List<com.agj.android.vision.HandSample>, box: Aabb?) {
+    val dt = (now - liveTickMs).coerceIn(0L, 100L)
+    liveTickMs = now
+    if (actionCoach.phase != com.agj.android.ui.CoachPhase.PLACE || liveCheered || box == null) return
+    if (hands.any { hd -> hd.points.any { box.distanceTo(it) <= 0.20f } }) liveWorkMs += dt
+    if (liveWorkMs < 3000) return
+    liveCheered = true
+    val line = liveAct()?.let { com.agj.android.ui.LiveLines.keepGoing(lang, it.item) } ?: return
+    if (!voice.speaking) liveSaid.pick(line)?.let { voice.say(it, lang, interrupt = false) }
+  }
+
+  /**
+   * Every frame while guiding: the hands and the labelled rectangles into [grabJudge]. A board lifted while one is to
+   * be taken is right (the same path as the server's `right_part`: badge, chime, "put it here", `how: grab_rect`) or
+   * wrong (the badge names it, the warning sound, the spoken line, the phase stays). AGQ `grab`.
+   */
+  private fun liveGrab(now: Long, h: com.agj.android.vision.HeldState) {
+    val act = coachAct()
+    // only a board being taken is judged, once "take" has settled (the coach ignores a verdict in its first 0.6 s)
+    val needed =
+        act?.takeIf { it.kind == ActionKind.PLACE && actionCoach.phase == com.agj.android.ui.CoachPhase.PICK && !advancing && now - liveActionAtMs >= 700 }?.partId
+    if (now - liveRectsMs >= 100) {
+      liveRectsMs = now
+      // world/FlatParts.kt exposes only the lit rectangle today (the needed board): the right board is seen being
+      // lifted, a wrong one is not, until it has an accessor for every live labelled rectangle (then: `world.flat.live()`)
+      liveRects =
+          listOfNotNull(world.flat.lit()).map { l -> com.agj.android.ui.GrabRect(l.key, liveKinds.firstOrNull { l.partId in it } ?: l.partId.split('+'), l.corners) }
+    }
+    val frame = vision.input.hands?.takeIf { SystemClock.elapsedRealtimeNanos() - it.tNs < 500_000_000L }
+    val hands = ArrayList<com.agj.android.ui.GrabHand>(2)
+    frame?.left?.let { hands += com.agj.android.ui.GrabHand(0, it.wrist, it.points, h.holding && h.which.ordinal == 0, h.sinceMs) }
+    frame?.right?.let { hands += com.agj.android.ui.GrabHand(1, it.wrist, it.points, h.holding && h.which.ordinal == 1, h.sinceMs) }
+    // a holding hand that dropped out of the joints for a few frames keeps its last wrist (vision/Held.kt)
+    if (h.holding && hands.none { it.closed }) h.handWorldPos?.let { hands += com.agj.android.ui.GrabHand(h.which.ordinal, it, emptyList(), true, h.sinceMs) }
+    val g = grabJudge.tick(now, hands, liveRects, needed, livePlaced) ?: return
+    Agq.log.event(
+        "grab",
+        mapOf("part" to g.part, "needed" to g.needed, "verdict" to g.verdict, "dist_m" to g.distM, "moved_m" to g.movedM, "step" to curStep, "action" to curAction),
+    )
+    val seen = if (g.right) null else heldName(g.part)?.name ?: g.part
+    val say = seen?.let { com.agj.android.ui.LiveLines.wrongBoard(lang, it, act?.label(lang)?.name ?: g.needed) }
+    val raw =
+        JsonObject(
+            listOfNotNull("expected_id" to JsonPrimitive(g.needed), "observed_id" to JsonPrimitive(g.part), "step" to JsonPrimitive(curStep), say?.let { "say" to JsonPrimitive(it) })
+                .toMap())
+    coachHeld(if (g.right) "right_part" else "wrong_part", raw, how = "grab_rect", seen = seen)
   }
 
   /**
@@ -1096,7 +1264,8 @@ class MainActivity : AppSystemActivity() {
         sounds.play(Sounds.Cue.WARNING)
         val reason = say ?: s("wrongSay")
         stepPanel.state = stepPanel.state.copy(status = StatusKind.ERROR, statusText = Strings.upper(lang, s("wrong")), body = reason)
-        voice.say(reason, lang)
+        // LIVE-COACH: the wrong way round is announced ("Προσοχή: " + the server's sentence)
+        voice.say(if (event == "wrong_flip") com.agj.android.ui.LiveLines.wrongWay(lang, say) else reason, lang)
       }
       event == "unsure" -> {
         ghost.setState(GhostState.UNSURE)

@@ -156,6 +156,26 @@ class HeldPartGuide(
     return true
   }
 
+  /**
+   * LIVE-COACH: a verdict decided on the device (ui/GrabJudge.kt: the hand lifted a board), given as the message the
+   * server would send: the same debounce, badge, sounds and speech as [onServerEvent]. [title]: what the hand took
+   * ("Αυτό είναι: Πλάτη του συρταριού"), the badge's first line when this wrong verdict is the one shown now.
+   */
+  @Synchronized
+  fun onLocalEvent(event: String, raw: JsonObject, title: String? = null): Boolean {
+    val before = machine.shown
+    val handled = onServerEvent(event, raw)
+    val shown = machine.shown
+    val state = badge.state
+    if (title != null && state != null && shown != null && shown !== before && shown.ev.verdict == Verdict.WRONG) {
+      val named = state.copy(title = title)
+      badge.state = named
+      if (side.verdict != null) side.verdict = named
+      if (badgeE == null) setStatus(named)
+    }
+    return handled
+  }
+
   /** "Is this right?" from the mic: true when it was taken as a check (the verdict then speaks, not the answer). */
   fun onVoice(transcript: String, intent: String): Boolean {
     if (!active || expected == null || !CheckPhrase.matches(transcript, intent)) return false
