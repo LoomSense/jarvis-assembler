@@ -8,7 +8,7 @@
 
 ## How it works
 
-![Six steps: scan the box, the agent reads the guide, every part in 3D, a 3D film of the build, follow it on your phone, or wear a Quest 3](docs/img/steps.svg)
+![Four steps build the 3D guide, then you follow it on your phone or in a Quest 3](docs/img/steps.svg)
 
 ## How it fits together
 
