@@ -307,7 +307,8 @@ def _target(base, done, parts, T_ta):
         top = float(hi[1] - y0)
         if (abs(lo[1] - y0) <= SLAB_REST_M and top <= SLAB_MAX_M
                 and abs((hi[0] - lo[0]) - (x1 - x0)) <= SLAB_SPAN_M and abs((hi[2] - lo[2]) - (z1 - z0)) <= SLAB_SPAN_M):
-            return {"length_m": base["length_m"], "width_m": base["width_m"], "top_m": top, "slab": n,
+            # sizes to 0.1 mm: the drawer front comes out as exactly 0.380 x 0.130 x 0.016, today's numbers
+            return {"length_m": round(base["length_m"], 4), "width_m": round(base["width_m"], 4), "top_m": round(top, 4), "slab": n,
                     "fill_hull": bool(done is not None and done["height_m"] > top + SLAB_REST_M),
                     "assembly_from_footprint": base["assembly_from_footprint"]}
     return None
