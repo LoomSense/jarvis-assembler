@@ -24,6 +24,8 @@ import kotlinx.serialization.json.jsonObject
  * @property replay true = read camera frames from the replay folder instead of the headset camera.
  * @property hud true = show the debug HUD panel.
  * @property reducedMotion true = no breathing, mover or travelling dash (XR_NATIVE_SPEC §7); extra `reduced_motion`.
+ * @property markerless true (the default) = the front-panel detector (vision/PanelPose.kt) may snap the ghost onto
+ *   the real drawer front; `--ez markerless false` switches it off.
  */
 data class Params(
     val server: String = "",
@@ -33,6 +35,7 @@ data class Params(
     val replay: Boolean = false,
     val hud: Boolean = false,
     val reducedMotion: Boolean = false,
+    val markerless: Boolean = true,
 ) {
   /** For the `start` log event: the key is reduced to whether it is set. */
   fun toLogMap(): Map<String, Any?> =
@@ -44,10 +47,11 @@ data class Params(
           "replay" to replay,
           "hud" to hud,
           "reduced_motion" to reducedMotion,
+          "markerless" to markerless,
       )
 
   companion object {
-    val KEYS = listOf("server", "key", "job", "lang", "replay", "hud", "reduced_motion")
+    val KEYS = listOf("server", "key", "job", "lang", "replay", "hud", "reduced_motion", "markerless")
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     /**
@@ -89,6 +93,7 @@ data class Params(
           replay = bool(m["replay"]),
           hud = bool(m["hud"]),
           reducedMotion = bool(m["reduced_motion"]),
+          markerless = m["markerless"]?.let { bool(it) } ?: true,
       )
     }
 

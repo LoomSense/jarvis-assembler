@@ -73,6 +73,17 @@ class ParamsTest {
   }
 
   @Test
+  fun markerlessDefaultsToOnAndCanBeSwitchedOff() {
+    assertTrue(Params().markerless)
+    assertTrue(Params.resolve(null, emptyMap()).markerless)
+    assertFalse(Params.resolve(null, mapOf("markerless" to false)).markerless) // --ez markerless false
+    assertFalse(Params.resolve(null, mapOf("markerless" to "false")).markerless) // --es markerless false
+    assertFalse(Params.resolve("""{"markerless":false}""", emptyMap()).markerless)
+    assertTrue(Params.resolve("""{"markerless":false}""", mapOf("markerless" to true)).markerless)
+    assertEquals(true, Params().toLogMap()["markerless"])
+  }
+
+  @Test
   fun logMapHidesKey() {
     val m = Params(key = "secret").toLogMap()
     assertFalse(m.containsKey("key"))
