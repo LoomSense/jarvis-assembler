@@ -7,7 +7,8 @@ import './styles/tokens.css'
 //   (no mode)        the guide page for phone and laptop    src/guide/page.ts     with src/styles/page.css
 //   ?mode=xr         the Quest experience of src/xr         src/xr/xrMain.ts      with src/styles/xr.css
 //   ?mode=build      upload a guide, watch the agent build  src/build/build.ts    with src/styles/build.css
-//   every screen but the headset's   the app's navigation: my guides, new guide   src/nav.ts   with src/styles/nav.css
+//   the workbench and the build screen   the app's navigation: my guides, new guide   src/nav.ts   with src/styles/nav.css
+//   (the steps have one way out, their back button, and the other ways to build beside the language: src/guide/ar.ts)
 //   (no mode, no job)   the landing page: upload a guide, my guides   src/landing/landing.ts   with src/styles/landing.css
 //   ?mode=ready&job= / ?mode=shelf   the workbench: one guide ready, or the shelf   src/home/home.ts   with src/styles/home.css
 //
@@ -43,5 +44,4 @@ if (mode === 'xr') {
   app.append(document.querySelector<HTMLTemplateElement>('#guide-page')!.content)
   void import('./guide/page').then((m) => m.startGuidePage())
   void import('./guide/ar').then((m) => m.startTableAR())
-  void import('./nav').then((m) => m.mountNav('guide'))
 }

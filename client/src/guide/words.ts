@@ -6,6 +6,9 @@ export const WORDS = {
   el: {
     prev: 'Προηγούμενο',
     next: 'Επόμενο',
+    back: 'Πίσω',
+    finish: 'Τέλος',
+    look: 'Δες το από κοντά',
     stock: 'Μένουν στο κουτί',
     progress: 'Πρόοδος',
     hardware: '{name} {code}, {i} από {n}',
@@ -19,6 +22,9 @@ export const WORDS = {
   en: {
     prev: 'Previous',
     next: 'Next',
+    back: 'Back',
+    finish: 'Finish',
+    look: 'See it up close',
     stock: 'Left in the box',
     progress: 'Progress',
     hardware: '{name} {code}, {i} of {n}',

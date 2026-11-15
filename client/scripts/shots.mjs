@@ -130,6 +130,7 @@ const state = (page) =>
       spoken: document.querySelector('#now .sr')?.textContent ?? '',
       prevOff: document.getElementById('prev').getAttribute('aria-disabled'),
       nextOff: document.getElementById('next').getAttribute('aria-disabled'),
+      nextDone: document.getElementById('next').classList.contains('done'),
       time: performance.now(),
     }
   })
@@ -225,7 +226,8 @@ async function walk(view) {
     await sleep(400)
   }
   const end = await state(page)
-  if (end.cur !== last || end.nextOff !== 'true') fail(where, 'the end was not reached, or Next is not marked as unavailable there')
+  // at the end Next is not dead: it is the tick that leads out of the steps
+  if (end.cur !== last || !end.nextDone || end.nextOff !== 'false') fail(where, 'the end was not reached, or Next has not become the way out there')
   if (end.left.some((n) => n !== 0)) fail(where, `pieces are left over at the end: ${end.left.join(',')}`)
   out.beats = plan.length
   out.words = [...new Set(texts)]

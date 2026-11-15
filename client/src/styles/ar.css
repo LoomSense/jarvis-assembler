@@ -1,34 +1,50 @@
-/* "See it on your table" on the guide page (src/guide/ar.ts): one white pill above the step controls. The label
-   is drawn from data-label, because Safari opens AR Quick Look only from an <a rel="ar"> that holds just an <img>. */
-#table-ar {
-  position: fixed;
-  z-index: 35;
-  left: 50%;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  min-height: 48px;
-  padding: 0 20px 0 14px;
+/* The other ways to build this guide (src/guide/ar.ts): one quiet row in the corner, beside the language switch.
+   Nothing of it lies over the room: the foot of the screen belongs to the piece to pick up. On a phone the row
+   is its icons alone, inside the strip above the row of parts. */
+#modes {
+  position: absolute;
+  z-index: 5;
+  top: calc(4px + env(safe-area-inset-top, 0px));
+  right: calc(52px + env(safe-area-inset-right, 0px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity var(--ag-dur-micro) var(--ag-ease);
+}
+#modes a {
+  height: 40px;
+  padding: 0 14px 0 11px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
+  border: 1px solid var(--hair);
   border-radius: 999px;
-  background: #fff;
-  color: #000;
-  font: 600 15px/1 "Google Sans", Arial, system-ui, sans-serif;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ink);
+  font: 500 14px/1 var(--ag-font);
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 8px 28px -10px rgba(255, 255, 255, 0.3);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  transition: border-color var(--ag-dur-micro) var(--ag-ease), transform var(--ag-dur-micro) var(--ag-ease);
 }
-#table-ar[hidden] { display: none; }
+#modes a[hidden] { display: none; }
+#modes a:hover { border-color: var(--ink); }
+#modes a:active { transform: scale(0.96); }
+#modes a:focus-visible { outline: 2px solid var(--ag-focus-ring); outline-offset: 2px; }
+#modes svg,
+#modes img { display: block; flex: none; width: 18px; height: 18px; }
+#modes svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* Safari opens AR Quick Look only from an <a rel="ar"> that holds just an <img>: its words are drawn from data-label */
 #table-ar::after { content: attr(data-label); }
-#table-ar img { display: block; flex: none; }
-#table-ar:active { transform: translateX(-50%) scale(0.98); }
-#table-ar:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* in the Quest, the Quest is the way that matters */
+#table-quest { border-color: rgba(158, 207, 255, 0.55); color: var(--ag-accent); }
 
-/* the way into live guidance, on every device: the primary pill. With the AR pill, AR sits above it, quieter. */
-#table-live { position: fixed; z-index: 35; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); min-height: 48px; padding: 0 22px; display: inline-flex; align-items: center; border-radius: 999px; background: #fff; color: #000; font: 600 15px/1 "Google Sans", Arial, system-ui, sans-serif; text-decoration: none; white-space: nowrap; box-shadow: 0 8px 28px -10px rgba(255, 255, 255, 0.3); -webkit-tap-highlight-color: transparent; }
-#table-live:active { transform: translateX(-50%) scale(0.98); }
-:root[data-table-ar] #table-ar { bottom: calc(154px + env(safe-area-inset-bottom, 0px)); background: rgba(12, 12, 12, 0.82); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: none; }
-:root[data-table-ar] #table-ar img { filter: invert(1); }
+@media (max-width: 720px) {
+  #modes a { width: 40px; padding: 0; justify-content: center; }
+  #modes a span { display: none; }
+  #table-ar::after { content: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #modes, #modes a { transition: none; }
+}

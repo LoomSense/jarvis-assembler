@@ -98,6 +98,37 @@ export class Stage {
   readonly crispLamp = new SpotLight('#ffe6c6', 0.085, 0, 0.3, 1, 2)
   /** how bright that lamp is, 1 = as set: live guidance lifts it for a moment over the piece it is talking about */
   crispLevel = 1
+  /**
+   * Two soft dark bands, 0..1: under the row of parts and under the piece to pick up. With the camera close on a
+   * screw the assembly runs out behind both; the bands keep them readable. They are drawn over the workshop and
+   * under the piece in flight and the tray, so neither is dimmed by them.
+   */
+  shade = 0
+  private shadeScene = new Scene()
+  private shadeFoot: Mesh
+  private shadeSheet = new Mesh(
+    new PlaneGeometry(1, 1),
+    new ShaderMaterial({
+      uniforms: { uA: { value: 0 } },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        varying float vUp;
+        void main() {
+          vUp = uv.y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uA;
+        varying float vUp;
+        void main() {
+          gl_FragColor = vec4(0.0, 0.0, 0.0, uA * 0.9 * smoothstep(0.0, 0.7, vUp));
+        }`,
+    }),
+  )
+  /** a dark sheet between the workshop and the tray: a piece opened large has the screen to itself */
+  private veilSheet = new Mesh(new PlaneGeometry(60, 60), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }))
   private crispBase = 0.085
 
   readonly key = new SpotLight(WARM, 46, 0, 0.3, 0.9, 2)
@@ -267,6 +298,14 @@ export class Stage {
     this.trayScene.add(trayKey, trayRim, new HemisphereLight('#ffe7cb', '#2a1b0e', HEMI_TRAY))
     this.crispLamp.penumbra = 1
     this.trayScene.add(this.crispLamp, this.crispLamp.target)
+    this.veilSheet.position.z = -3 // behind every piece of the tray, in front of nothing else: the tray pass clears the depth
+    this.veilSheet.visible = false
+    this.trayScene.add(this.veilSheet)
+    this.shadeSheet.frustumCulled = false
+    this.shadeFoot = new Mesh(this.shadeSheet.geometry, this.shadeSheet.material)
+    this.shadeFoot.rotation.z = Math.PI // darkest at the bottom edge
+    this.shadeFoot.frustumCulled = false
+    this.shadeScene.add(this.shadeSheet, this.shadeFoot)
 
     // ---- the same two tray lights, riding on the workshop camera, for the piece in flight
     this.flightKey.position.copy(trayKey.position)
@@ -365,6 +404,12 @@ export class Stage {
     this.dustUniforms.uReach.value = s
   }
 
+  /** How dark the workshop is behind the tray, 0..1. */
+  set veil(amount: number) {
+    ;(this.veilSheet.material as MeshBasicMaterial).opacity = amount
+    this.veilSheet.visible = amount > 0.004
+  }
+
   /** Point the small lamp at the piece to pick up (tray coordinates). */
   aimCrisp(at: Vector3, reach: number): void {
     this.crispLamp.position.set(at.x - reach * 0.6, at.y + reach * 1.0, at.z + reach * 1.1)
@@ -392,6 +437,13 @@ export class Stage {
       cam.setViewOffset(width, height, 0, -this.shiftY, width, height)
       cam.updateProjectionMatrix()
     }
+    // the bands: from the top edge to a little below the counts, from a little above the piece to pick up to the bottom edge
+    const band = insetTop + 40
+    this.trayPoint(width / 2, band / 2, this.shadeSheet.position)
+    this.shadeSheet.scale.set(width * this.trayUnit * 1.05, band * this.trayUnit, 1)
+    const foot = insetBottom + 40
+    this.trayPoint(width / 2, height - foot / 2, this.shadeFoot.position)
+    this.shadeFoot.scale.set(width * this.trayUnit * 1.05, foot * this.trayUnit, 1)
   }
 
   /**
@@ -448,6 +500,10 @@ export class Stage {
     const r = this.renderer
     r.clear()
     r.render(this.scene, this.camera)
+    if (this.shade > 0.004) {
+      ;(this.shadeSheet.material as ShaderMaterial).uniforms.uA.value = this.shade
+      r.render(this.shadeScene, this.trayCamera)
+    }
 
     const w = this.flight
     if (w > 0.004) {

@@ -1,31 +1,65 @@
 import '../styles/overview.css'
-import { apiUrl, fileUrl } from '../api'
 import type { AgentEvent } from './stream'
 
-// The agent at work, beside the feed of `?mode=build&job=`: which stage the job is in and what the agent is doing
-// in it right now, how much it has read, written, built and checked, and what it is looking at or has just
-// written (the guide page, its own render next to the guide's drawing, the code of a part).
+// The agent at work, on the build screen (`?mode=build&job=`). Two things, and no panel:
+//
+//   top left      a row of dots, one per stage, and the time so far (with how long it usually takes while the
+//                 agent reads the guide, the long wait)
+//   the centre    under build.ts's one picture of the work and its stage line: what the agent is doing right
+//                 now, in plain words ("Reads page 8 of the guide", "Designs a part in 3D", "Compares each step
+//                 with the guide's drawing"). It changes with the picture.
+//
+// No file names, no code, no model, no cost: those are for the builders, in the full feed (`&feed=1`).
 // build.ts sends every event it applies as a window `agj:event`; nothing here talks to the server's feed itself.
 
 type Lang = 'el' | 'en'
 const W = {
   en: {
-    title: 'The agent at work', sees: 'What the agent sees', wrote: 'The agent wrote', compare: 'Checking against the guide',
-    guide: 'The guide', ours: 'Its 3D model', alike: 'alike',
-    ingest: 'Reads the guide', extract_plan: 'Writes the plan and the parts', await_approval: 'Your approval',
-    parts: 'Builds every part', place: 'Fits the parts together', steps: 'Animates each step', finish: 'Finishes the guide', done: 'Ready',
-    time: 'Time', read: 'Files read', written: 'Files written', builds: 'Builds', checks: 'Checks', cost: 'Cost', turns: 'Turns',
-    reading: 'Reading', writing: 'Writing', fixing: 'Fixing', building: 'Building and testing the fit', checking: 'Comparing with the guide’s drawings',
-    thinking: 'Thinking', passed: 'The parts fit', failed: 'Something does not fit yet', page: 'page', nothing: 'Nothing yet',
+    usually: 'usually 7–10 min',
+    page: (n: string, of?: string) => (of ? `Reads page ${n} of ${of} of the guide` : `Reads page ${n} of the guide`),
+    looksAtModel: 'Looks at the 3D model it made',
+    gettingReady: 'Gets ready to read the guide',
+    studies: 'Studies how to make each part',
+    thinking: 'Works out how the pieces go together',
+    designs: (part: string) => (part ? `Designs the ${part} in 3D` : 'Designs a part in 3D'),
+    redesigns: (part: string) => (part ? `Corrects the ${part}` : 'Corrects a part'),
+    writesSteps: 'Writes down the steps of the assembly',
+    fixesSteps: 'Corrects the steps',
+    tryFit: 'Tries whether the parts fit together',
+    fits: 'The parts fit together',
+    noFit: 'Something does not fit yet. It is fixing it',
+    compares: 'Compares each step with the guide’s drawing',
+    matched: (n: string, of: string) => `${n} of ${of} steps match the guide`,
+    approval: 'The plan is ready',
+    built: (part: string) => (part ? `Made the ${part}` : 'Made a part'),
+    place: 'Puts every piece in its place',
+    steps: 'Animates each step',
+    finish: 'Gets the guide ready for the phone and the Quest',
+    done: '',
   },
   el: {
-    title: 'Ο πράκτορας δουλεύει', sees: 'Τι βλέπει ο πράκτορας', wrote: 'Ο πράκτορας έγραψε', compare: 'Έλεγχος με τον οδηγό',
-    guide: 'Ο οδηγός', ours: 'Το 3D μοντέλο του', alike: 'ομοιότητα',
-    ingest: 'Διαβάζει τον οδηγό', extract_plan: 'Γράφει το σχέδιο και τα κομμάτια', await_approval: 'Η έγκρισή σου',
-    parts: 'Φτιάχνει κάθε κομμάτι', place: 'Ταιριάζει τα κομμάτια', steps: 'Κινεί κάθε βήμα', finish: 'Ολοκληρώνει τον οδηγό', done: 'Έτοιμος',
-    time: 'Χρόνος', read: 'Αρχεία που διάβασε', written: 'Αρχεία που έγραψε', builds: 'Δοκιμές', checks: 'Έλεγχοι', cost: 'Κόστος', turns: 'Γύροι',
-    reading: 'Διαβάζει', writing: 'Γράφει', fixing: 'Διορθώνει', building: 'Χτίζει και δοκιμάζει αν ταιριάζουν', checking: 'Συγκρίνει με τα σχέδια του οδηγού',
-    thinking: 'Σκέφτεται', passed: 'Τα κομμάτια ταιριάζουν', failed: 'Κάτι δεν ταιριάζει ακόμα', page: 'σελίδα', nothing: 'Τίποτα ακόμα',
+    usually: 'συνήθως 7–10 λεπτά',
+    page: (n: string, of?: string) => (of ? `Διαβάζει τη σελίδα ${n} από ${of} του οδηγού` : `Διαβάζει τη σελίδα ${n} του οδηγού`),
+    looksAtModel: 'Κοιτάζει το 3D μοντέλο που έφτιαξε',
+    gettingReady: 'Ετοιμάζεται να διαβάσει τον οδηγό',
+    studies: 'Μελετά πώς θα φτιάξει κάθε κομμάτι',
+    thinking: 'Σκέφτεται πώς δένουν τα κομμάτια μεταξύ τους',
+    // the part names are English ids until the guide is finished: in Greek the sentence stays general
+    designs: () => 'Σχεδιάζει ένα κομμάτι σε 3D',
+    redesigns: () => 'Διορθώνει ένα κομμάτι',
+    writesSteps: 'Γράφει τα βήματα της συναρμολόγησης',
+    fixesSteps: 'Διορθώνει τα βήματα',
+    tryFit: 'Δοκιμάζει αν τα κομμάτια ταιριάζουν μεταξύ τους',
+    fits: 'Τα κομμάτια ταιριάζουν',
+    noFit: 'Κάτι δεν ταιριάζει ακόμα. Το διορθώνει',
+    compares: 'Συγκρίνει κάθε βήμα με το σχέδιο του οδηγού',
+    matched: (n: string, of: string) => `${n} από ${of} βήματα ταιριάζουν με τον οδηγό`,
+    approval: 'Το σχέδιο είναι έτοιμο',
+    built: () => 'Έφτιαξε ένα κομμάτι σε 3D',
+    place: 'Βάζει κάθε κομμάτι στη θέση του',
+    steps: 'Φτιάχνει την κίνηση κάθε βήματος',
+    finish: 'Ετοιμάζει τον οδηγό για το κινητό και το Quest',
+    done: '',
   },
 } as const
 
@@ -35,192 +69,132 @@ const stageOf = (s: string): StageId | null =>
   s === 'refs' || s === 'export' ? 'finish' : (STAGES as readonly string[]).includes(s) ? (s as StageId) : null
 const IMAGE = /\.(png|jpe?g|webp)$/i
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`
-const base = (p: string) => p.split('/').pop() ?? p
+/** "job/parts/side_panel.py" -> "side panel" (English only: the ids are English) */
+const partName = (path: string) => (/parts\/([^/]+)\.py$/.exec(path)?.[1] ?? '').replace(/_\d+$/, '').replace(/_/g, ' ')
 
 export function startOverview(): void {
-  const q = new URLSearchParams(location.search)
-  const key = q.get('key')
   let root: HTMLElement | null = null
-  let job = ''
   const t = { first: 0, last: 0, ended: false }
-  const n = { read: 0, written: 0, builds: 0, checks: 0 }
   const seen = new Set<number>()
-  const reached = new Map<StageId, number>() // stage -> ts it started
   let current: StageId | null = null
-  let doing = ''
-  let cost = ''
-  let turns = ''
-  let model = ''
-  let codeFor = ''
+  /** the agent itself is at work (not a known guide's checked plan): the wait is long, say how long */
+  let agent = false
+  /** it has opened a page of the guide: a text file after that is its own tools, not the start */
+  let readPage = false
+  /** what it is doing, as a function of the language, so the switch rewrites it */
+  let doing: (w: (typeof W)[Lang]) => string = () => ''
   let heard = Date.now()
 
-  const w = () => W[(document.documentElement.lang === 'en' ? 'en' : 'el') as Lang]
+  const lang = (): Lang => (document.documentElement.lang === 'en' ? 'en' : 'el')
   const $ = <T extends HTMLElement>(sel: string) => root!.querySelector<T>(sel)!
 
   const mount = () => {
     root = document.createElement('aside')
     root.id = 'agentview'
     root.innerHTML = `
-      <section class="rail">
-        <h2><span class="t"></span><code class="model" hidden></code></h2>
-        <ol class="stages">${STAGES.map((s) => `<li data-stage="${s}"><i></i><div><b></b><small></small></div><time></time></li>`).join('')}</ol>
-        <dl class="stats">
-          <div><dt data-k="time"></dt><dd data-v="time">0:00</dd></div>
-          <div><dt data-k="read"></dt><dd data-v="read">0</dd></div>
-          <div><dt data-k="written"></dt><dd data-v="written">0</dd></div>
-          <div><dt data-k="builds"></dt><dd data-v="builds">0</dd></div>
-          <div><dt data-k="checks"></dt><dd data-v="checks">0</dd></div>
-          <div><dt data-k="cost"></dt><dd data-v="cost">–</dd></div>
-        </dl>
-      </section>
-      <section class="eye">
-        <h2></h2>
-        <div class="show"><p class="none"></p></div>
-        <p class="cap"></p>
+      <section class="rail" aria-hidden="true">
+        <ol class="stages">${STAGES.filter((s) => s !== 'done').map((s) => `<li data-stage="${s}"></li>`).join('')}</ol>
+        <p class="sum"><span data-v="time">0:00</span><span data-v="usually" hidden></span></p>
       </section>`
     document.body.append(root)
     document.documentElement.dataset.agentview = '1'
     window.setInterval(() => {
       if (t.ended || !t.first) return
-      // no file opened or written for a while inside the agent's stage: it is reasoning about what it read
-      if (current === 'extract_plan' && Date.now() - heard > 6000 && !/^(Building|Χτίζει|Comparing|Συγκρίνει)/.test(doing)) {
-        doing = w().thinking
+      // no file opened or written for a while while the agent reads the guide: it is reasoning about what it read
+      if (current === 'extract_plan' && agent && Date.now() - heard > 6000) {
+        doing = (w) => w.thinking
         paint()
-      } else paintStats()
+      } else paintTime()
     }, 1000)
     new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
   }
 
-  const paintStats = () => {
+  const paintTime = () => {
     const end = t.ended ? t.last : Math.max(t.last, Date.now())
     $('[data-v="time"]').textContent = clock(Math.max(0, end - t.first))
-    for (const k of ['read', 'written', 'builds', 'checks'] as const) $(`[data-v="${k}"]`).textContent = String(n[k])
-    $('[data-v="cost"]').textContent = cost || '–'
+    const u = $('[data-v="usually"]')
+    u.hidden = !(agent && current === 'extract_plan' && !t.ended)
+    u.textContent = W[lang()].usually
+  }
+
+  /** The plain-words line, under the build screen's picture and its stage line (#now, made by build.ts). */
+  const line = (): HTMLParagraphElement | null => {
+    const what = document.querySelector('#now .what')
+    if (!what) return null
+    let p = what.parentElement!.querySelector<HTMLParagraphElement>('p.doing')
+    if (!p) {
+      p = document.createElement('p')
+      p.className = 'doing'
+      p.setAttribute('aria-live', 'polite')
+      what.after(p)
+    }
+    return p
   }
 
   const paint = () => {
     if (!root) return
-    const words = w()
-    $('.rail h2 .t').textContent = words.title
-    const m = $('.model')
-    m.hidden = !model
-    m.textContent = model
-    for (const k of ['time', 'read', 'written', 'builds', 'checks', 'cost'] as const) $(`[data-k="${k}"]`).textContent = words[k]
     const at = current ? STAGES.indexOf(current) : -1
     root.querySelectorAll<HTMLLIElement>('.stages li').forEach((li, i) => {
-      const id = li.dataset.stage as StageId
-      li.dataset.state = t.ended && id === 'done' ? 'done' : i < at ? 'done' : i === at ? 'now' : 'todo'
-      li.querySelector('b')!.textContent = words[id]
-      li.querySelector('small')!.textContent = i === at && !t.ended ? doing : ''
-      const from = reached.get(id)
-      const next = STAGES.slice(i + 1).map((s) => reached.get(s)).find((v) => v) ?? (i === at ? (t.ended ? t.last : 0) : 0)
-      li.querySelector('time')!.textContent = from && next && next > from ? clock(next - from) : ''
+      li.dataset.state = t.ended || i < at ? 'done' : i === at ? 'now' : 'todo'
     })
-    if (!$('.eye .show').querySelector('img, pre')) {
-      $('.eye h2').textContent = words.sees
-      $('.eye .none').textContent = words.nothing
-    }
-    paintStats()
+    const p = line()
+    if (p) p.textContent = t.ended ? '' : doing(W[lang()])
+    paintTime()
   }
 
-  // ---- the right-hand panel
-  const showImage = (url: string, caption: string) => {
-    codeFor = '' // a file still being fetched must not replace this
-    $('.eye h2').textContent = w().sees
-    $('.eye .show').innerHTML = `<img alt="" />`
-    $<HTMLImageElement>('.eye img').src = url
-    $('.eye .cap').textContent = caption
-  }
-  const showPair = (guide: string, ours: string, score: number | null, caption: string, level: string) => {
-    const words = w()
-    codeFor = ''
-    $('.eye h2').textContent = words.compare
-    $('.eye .show').innerHTML = `<div class="pair"><figure><img alt="" /><figcaption>${words.guide}</figcaption></figure>
-      <figure><img alt="" /><figcaption>${words.ours}</figcaption></figure></div>
-      ${score === null ? '' : `<p class="score" data-level="${level}">${Math.round(score * 100)}% ${words.alike}</p>`}`
-    const [a, b] = [...root!.querySelectorAll<HTMLImageElement>('.eye .pair img')]
-    a.src = guide
-    b.src = ours
-    a.addEventListener('error', () => a.closest('figure')!.remove())
-    $('.eye .cap').textContent = caption
-  }
-  const showCode = async (path: string, tries = 6): Promise<void> => {
-    codeFor = path
-    try {
-      const res = await fetch(fileUrl(job, `agent/${path}`, key), { cache: 'no-store' })
-      if (!res.ok) throw new Error(String(res.status))
-      const text = await res.text()
-      if (codeFor !== path) return
-      const lines = text.split('\n')
-      $('.eye h2').textContent = w().wrote
-      $('.eye .show').innerHTML = '<pre></pre>'
-      $('.eye pre').textContent = lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '')
-      $('.eye .cap').textContent = `${base(path)} · ${lines.length} lines`
-    } catch {
-      // the event comes as the agent starts to write; the file is there a moment later
-      if (tries > 0 && codeFor === path) window.setTimeout(() => void showCode(path, tries - 1), 1500)
-    }
-  }
-
-  const take = (e: AgentEvent & { score?: number }) => {
+  const take = (e: AgentEvent) => {
     if (seen.has(e.seq)) return
     seen.add(e.seq)
     if (!root) mount()
     heard = Date.now()
-    job = e.jobId || job || q.get('job') || ''
     if (!t.first) t.first = e.ts
     t.last = Math.max(t.last, e.ts)
-    const words = w()
     const text = e.text ?? ''
 
     const s = e.type === 'done' ? 'done' : stageOf(e.stage)
-    if (s && !reached.has(s)) reached.set(s, e.ts)
     if (s && !(e.type === 'progress' && / finished$/.test(text))) {
-      if (current !== s) doing = ''
+      if (current !== s) {
+        // each stage starts with its own sentence, until the agent says something more precise
+        doing = s === 'place' ? (w) => w.place : s === 'steps' ? (w) => w.steps : s === 'finish' ? (w) => w.finish : () => ''
+        if (s === 'await_approval') doing = (w) => w.approval
+      }
       current = s
     }
     if (e.type === 'done') t.ended = true
-    if (e.type === 'error') doing = text.slice(0, 90)
 
-    const mm = /\((claude-[a-z0-9-]+)\)/.exec(text)
-    if (mm) model = mm[1]
-    const sum = /(\d+) turns.*?\$([0-9]+(?:\.[0-9]+)?)/.exec(text)
-    if (sum) { turns = sum[1]; cost = `$${sum[2]}` }
-    void turns
+    const page = /^Read page (\d+) of (\d+)/.exec(text)
+    if (page) doing = (w) => w.page(page[1], page[2])
 
     if (e.type === 'tool_call') {
+      agent = true
       const read = /^Looking at (.+)$/.exec(text)
       const wrote = /^(Writing|Fixing) (.+)$/.exec(text)
       if (e.tool === 'read' && read) {
-        n.read++
-        doing = `${words.reading} ${base(read[1])}`
-        if (IMAGE.test(read[1]) && !read[1].startsWith('/') && !read[1].includes('..')) {
-          const page = /page-(\d+)\./.exec(read[1])
-          showImage(apiUrl(`/files/${encodeURIComponent(job)}/agent/${read[1]}`, key, { v: e.seq }), page ? `${words.guide} · ${words.page} ${page[1]}` : base(read[1]))
-        }
+        const n = /page-0*(\d+)\./.exec(read[1])
+        if (n) {
+          readPage = true
+          doing = (w) => w.page(n[1])
+        } else if (IMAGE.test(read[1])) doing = (w) => w.looksAtModel
+        else doing = (w) => (readPage ? w.studies : w.gettingReady)
       } else if ((e.tool === 'write' || e.tool === 'edit') && wrote) {
-        if (e.tool === 'write') n.written++
-        doing = `${e.tool === 'write' ? words.writing : words.fixing} ${base(wrote[2])}`
-        if (!wrote[2].startsWith('/') && !wrote[2].includes('..')) void showCode(wrote[2])
-      } else if (e.tool === 'build') {
-        n.builds++
-        doing = words.building
-      } else if (e.tool === 'check') {
-        n.checks++
-        doing = words.checking
-      }
+        const fix = wrote[1] === 'Fixing'
+        if (/plan\.json$/.test(wrote[2])) doing = (w) => (fix ? w.fixesSteps : w.writesSteps)
+        else {
+          const part = partName(wrote[2])
+          doing = (w) => (fix ? w.redesigns(part) : w.designs(part))
+        }
+      } else if (e.tool === 'build') doing = (w) => w.tryFit
+      else if (e.tool === 'check') doing = (w) => w.compares
     } else if (e.type === 'tool_result' && e.tool === 'build') {
-      doing = e.level === 'success' ? words.passed : words.failed
-    } else if (e.type === 'thought' && current === 'extract_plan' && !doing) {
-      doing = words.thinking
-    } else if (e.type === 'image' && e.image_url) {
-      const step = e.stepN ?? null
-      if (step && typeof e.score === 'number') {
-        const nn = String(step).padStart(2, '0')
-        showPair(fileUrl(job, `crops/step-${nn}.png`, key), apiUrl(e.image_url, key, { v: e.seq }), e.score, text, e.level ?? 'info')
-      } else showImage(apiUrl(e.image_url, key, { v: e.seq }), text)
-    } else if (e.type === 'progress' && current !== 'extract_plan' && text && !/^Stage /.test(text)) {
-      doing = text.slice(0, 90)
+      doing = (w) => (e.level === 'success' ? w.fits : w.noFit)
+    } else if (e.type === 'tool_result' && e.tool === 'check') {
+      const m = /(\d+) of (\d+) steps match/.exec(text)
+      if (m) doing = (w) => w.matched(m[1], m[2])
+    } else if (e.type === 'part_status' && e.level !== 'error' && e.partId) {
+      const part = e.partId.replace(/_/g, ' ')
+      doing = (w) => w.built(/^\d+$/.test(part) ? '' : part)
+    } else if (e.type === 'error') {
+      doing = () => '' // build.ts says what went wrong, in the line under this one
     }
     paint()
   }

@@ -27,7 +27,7 @@ const W = {
     start: 'Start', startHelp: 'Hold the phone so the camera sees the parts. Build one step, then let it check your work.',
     step: 'Step', of: 'of', check: 'I’m done, check it', checking: 'Checking your work', hold: 'Hold the phone still',
     done: 'Step finished', notYet: 'Not finished yet', cantSee: 'I can’t see it', next: 'Next step', isWrong: 'Something is the wrong way', maybe: 'Check this',
-    skip: 'Skip', back: 'Back', drawing: 'Show the drawing', close: 'OK', mic: 'Microphone',
+    skip: 'Skip', back: 'Back', drawing: 'Show the drawing', close: 'OK', mic: 'Microphone', steps: 'See this step in 3D',
     built: 'It is built.', failed: 'The check did not answer. Try again.',
     noCamera: 'The camera could not be opened. Allow it in the browser and try again.',
   },
@@ -35,7 +35,7 @@ const W = {
     start: 'Ξεκίνα', startHelp: 'Κράτα το κινητό ώστε η κάμερα να βλέπει τα κομμάτια. Χτίσε ένα βήμα και μετά άφησέ το να ελέγξει τη δουλειά σου.',
     step: 'Βήμα', of: 'από', check: 'Τελείωσα, έλεγξέ το', checking: 'Ελέγχω τη δουλειά σου', hold: 'Κράτα το κινητό σταθερό',
     done: 'Το βήμα τελείωσε', notYet: 'Δεν τελείωσε ακόμα', cantSee: 'Δεν το βλέπω', next: 'Επόμενο βήμα', isWrong: 'Κάτι μπήκε λάθος', maybe: 'Έλεγξε αυτό',
-    skip: 'Παράλειψη', back: 'Πίσω', drawing: 'Δείξε το σχέδιο', close: 'Εντάξει', mic: 'Μικρόφωνο',
+    skip: 'Παράλειψη', back: 'Πίσω', drawing: 'Δείξε το σχέδιο', close: 'Εντάξει', mic: 'Μικρόφωνο', steps: 'Δες το βήμα σε 3D',
     built: 'Χτίστηκε.', failed: 'Ο έλεγχος δεν απάντησε. Δοκίμασε ξανά.',
     noCamera: 'Η κάμερα δεν άνοιξε. Δώσε άδεια στον browser και δοκίμασε ξανά.',
   },
@@ -61,6 +61,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
     <header>
       <a class="round" href="${esc(appLink({ mode: 'ready', job }))}" aria-label="${w.back}"><svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></a>
       <div class="where"><b></b><ol class="bar" aria-hidden="true"></ol></div>
+      <a class="round steps" aria-label="${w.steps}" title="${w.steps}"><svg viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 20 7.5M12 12v9M12 12 4 7.5"/></svg></a>
       <button class="round mic" type="button" aria-pressed="true" aria-label="${w.mic}" hidden><svg viewBox="0 0 24 24"><path d="M12 4a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 12 4ZM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3"/></svg></button>
     </header>
 
@@ -145,6 +146,7 @@ export async function startLive(app: HTMLElement): Promise<void> {
   const paint = () => {
     const s = current()
     $('.where b').textContent = finished ? w.built : `${w.step} ${at + 1} ${w.of} ${steps.length}`
+    $<HTMLAnchorElement>('.steps').href = appLink({ job, step: String(current().n) }) // the same step, as the 3D walk
     $('.bar').innerHTML = steps.map((_, i) => `<li class="${i < at || finished ? 'done' : i === at ? 'now' : ''}"></li>`).join('')
     $('.card strong').textContent = finished ? w.built : s.title
     $('.card small').textContent = finished ? '' : needs(s)

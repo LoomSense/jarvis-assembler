@@ -569,6 +569,19 @@ export function startBuild(app: HTMLElement): void {
       img.onload = () => { nowVis.dataset.show = 'img' }
       img.src = url
     }
+    /** A step checked against the guide: the guide's drawing beside the agent's 3D, and how alike they are. */
+    let pairHost: HTMLElement | null = null
+    const showPair = (step: number, ours: string, score: number) => {
+      if (!pairHost) nowVis.append((pairHost = el('span', 'pair')))
+      const nn = String(step).padStart(2, '0')
+      pairHost.innerHTML = `<img alt="" /><img alt="" /><b></b>`
+      const [guide, model] = [...pairHost.querySelectorAll('img')]
+      guide.src = apiUrl(`/files/${encodeURIComponent(id)}/crops/step-${nn}.png`, key)
+      guide.addEventListener('error', () => guide.remove()) // no drawing cut yet: the 3D alone
+      model.src = ours
+      pairHost.querySelector('b')!.textContent = lang === 'el' ? `${Math.round(score * 100)}% ίδιο με τον οδηγό` : `${Math.round(score * 100)}% like the guide`
+      nowVis.dataset.show = 'pair'
+    }
     const showBuilt = (pid: string) => {
       if (!partHost) nowVis.append((partHost = el('span', 'partview')))
       nowVis.dataset.show = 'part'
@@ -593,7 +606,9 @@ export function startBuild(app: HTMLElement): void {
     const calmly = (e: AgentEvent) => {
       if (e.type === 'part_status' && e.level !== 'error' && e.partId) return showBuilt(e.partId)
       const url = imageOf(e)
-      if (url) showPicture(url)
+      const score = (e as AgentEvent & { score?: number }).score
+      if (url && e.type === 'image' && e.stepN && typeof score === 'number') showPair(e.stepN, url, score)
+      else if (url) showPicture(url)
       if (e.type === 'error') {
         nowWhy.textContent = (e.text ?? '').split('\n')[0].slice(0, 200)
         nowWhy.hidden = false

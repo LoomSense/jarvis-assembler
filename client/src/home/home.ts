@@ -2,7 +2,7 @@ import { appLink } from '../routes'
 // The workbench: where the app starts (no mode, no job) and where a finished guide waits (`?mode=ready&job=<id>`).
 // One lamp over a bench, and a shelf of flat-pack boxes, one per guide the server can open at once (GET /api/catalog).
 // A box taken from the shelf, a code typed or scanned, or a guide found by name opens the ready screen: the real
-// model on the bench and three ways on: the steps on this screen, building with the camera's help, or the Quest.
+// model on the bench, its name, and one row of ways on: the steps, building with the camera's help, the Quest.
 // A guide that does not exist yet is built by the build screen (`?mode=build`).
 //
 //   (no mode, no job)        the shelf
@@ -39,9 +39,8 @@ const WORDS = {
     photo: 'Φωτογράφισε το κουτί', unsure: 'Δεν αναγνώρισα το προϊόν. Δοκίμασε τον κωδικό ή το όνομα.',
     noKey: 'Λείπει ο κωδικός πρόσβασης από τη διεύθυνση (?key=).', fromIkea: 'Από την IKEA',
     notFound: 'Δεν βρήκα αυτόν τον οδηγό. Ανέβασέ τον.', several: 'Ταιριάζουν πολλά. Γράψε πιο συγκεκριμένα.', offline: 'Ο server δεν απαντά. Ξαναδοκίμασε.',
-    steps: 'Δες τα βήματα', help: 'Συναρμολόγησε με βοήθεια', quest: 'Άνοιξε στο Quest',
-    nsteps: (n: number) => (n === 1 ? '1 βήμα' : `${n} βήματα`), loading: 'Φέρνω το έπιπλο',
-    flags: (n: number) => (n === 1 ? '1 σημείο να ελέγξεις' : `${n} σημεία να ελέγξεις`), empty: 'Κανένας οδηγός ακόμα',
+    steps: 'Βήματα', stepsLong: 'Δες τα βήματα', help: 'Με κάμερα', helpLong: 'Συναρμολόγησε με βοήθεια από την κάμερα', quest: 'Quest', questLong: 'Άνοιξε στο Quest',
+    loading: 'Φέρνω το έπιπλο', empty: 'Κανένας οδηγός ακόμα',
   },
   en: {
     title: 'Jarvis Assembler', pdf: 'Choose the guide PDF', sending: 'Sending the guide', wCam: 'Camera', wCode: 'Code', wPdf: 'PDF', ways: 'How to find it',
@@ -51,9 +50,8 @@ const WORDS = {
     photo: 'Photograph the box', unsure: 'I could not tell which product this is. Try the code or the name.',
     noKey: 'The access key is missing from the address (?key=).', fromIkea: 'From IKEA',
     notFound: 'I could not find that guide. Upload it.', several: 'Several match. Be more specific.', offline: 'The server does not answer. Try again.',
-    steps: 'See the steps', help: 'Build with help', quest: 'Open in Quest',
-    nsteps: (n: number) => (n === 1 ? '1 step' : `${n} steps`), loading: 'Bringing the furniture',
-    flags: (n: number) => (n === 1 ? '1 thing to check' : `${n} things to check`), empty: 'No guides yet',
+    steps: 'Steps', stepsLong: 'See the steps', help: 'With camera', helpLong: 'Build with the camera’s help', quest: 'Quest', questLong: 'Open in Quest',
+    loading: 'Bringing the furniture', empty: 'No guides yet',
   },
 }
 type Words = (typeof WORDS)['el']
@@ -68,7 +66,6 @@ const ICON = {
   go: '<path d="M5 12h13M13 6.5 18.5 12 13 17.5"/>',
   pdf: '<path d="M6 3h8l4 4v14H6zM14 3v4h4"/>',
   shot: '<path d="M4 8.5h3.2l1.4-2h6.8l1.4 2H20v10H4z"/><circle cx="12" cy="13.2" r="3.2"/>',
-  warn: '<path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4.5M12 17.2v.1"/>',
 }
 const svg = (p: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`
 
@@ -121,10 +118,11 @@ export function startHome(app: HTMLElement): void {
     </div>
     <div class="foot" data-for="ready" hidden>
       <p class="line readyname"></p>
-      <p class="meta warn flagline" hidden></p>
-      <a class="pill r-steps">${svg(ICON.cube)}<span></span></a>
-      <a class="ghost r-help">${svg(ICON.phone)}<span></span></a>
-      <a class="ghost xr r-quest" hidden>${svg(ICON.quest)}<span></span></a>
+      <div class="ways">
+        <a class="pill r-steps">${svg(ICON.cube)}<span></span></a>
+        <a class="ghost r-help">${svg(ICON.phone)}<span></span></a>
+        <a class="ghost xr r-quest" hidden>${svg(ICON.quest)}<span></span></a>
+      </div>
     </div>
     <p class="sr status" role="status"></p>`
   app.append(root)
@@ -285,6 +283,7 @@ export function startHome(app: HTMLElement): void {
     flap([-W / 2, H, 0], [0.045, T, D * 0.8], [-0.022, 0, 0.02], [0, 0, 0.35]) // torn: only a stub is left
     carton.position.set(-0.31, 0, -0.27)
     carton.rotation.y = 0.42
+    carton.name = 'carton'
     unpacked.add(carton)
     piece(unpacked, board, [0.085, T, D * 0.78], [-0.4, T / 2, 0.16], [0, 1.15, 0]) // the torn-off flap
     piece(unpacked, board, [0.07, 0.004, 0.035], [0.33, 0.002, 0.27], [0, 0.7, 0])
@@ -497,9 +496,12 @@ export function startHome(app: HTMLElement): void {
     $('.codefield button[type="submit"]').setAttribute('aria-label', w().go)
     $('.shot').setAttribute('aria-label', w().photo)
     $('.go-pdf span').textContent = w().pdf
-    $('.r-steps span').textContent = w().steps
-    $('.r-help span').textContent = w().help
-    $('.r-quest span').textContent = w().quest
+    // two or three short words on the screen; the full sentence for a screen reader and on hover
+    for (const [sel, short, long] of [['.r-steps', w().steps, w().stepsLong], ['.r-help', w().help, w().helpLong], ['.r-quest', w().quest, w().questLong]]) {
+      $(`${sel} span`).textContent = short
+      $(sel).setAttribute('aria-label', long)
+      $<HTMLAnchorElement>(sel).title = long
+    }
     if (ready) readyWords()
   }
   $('.lang').addEventListener('click', () => {
@@ -795,12 +797,8 @@ export function startHome(app: HTMLElement): void {
   let ready: { job: string; manifest: Manifest } | null = null
   const readyWords = () => {
     if (!ready) return
-    const m = ready.manifest
-    $('.readyname').innerHTML = `${boxName(m.title)} <span class="of">· ${w().nsteps(m.steps.length)}</span>`
-    const flags = (m as Manifest & { flags?: unknown[] }).flags?.length ?? 0
-    const fl = $<HTMLParagraphElement>('.flagline')
-    fl.hidden = !flags
-    fl.innerHTML = flags ? `${svg(ICON.warn)} ${w().flags(flags)}` : ''
+    // the name alone: how many steps it has and what the build agent was unsure of are not what this screen is for
+    $('.readyname').textContent = boxName(ready.manifest.title)
   }
   const setReadyLinks = (job: string) => {
     $<HTMLAnchorElement>('.r-steps').href = link({ job })
@@ -844,31 +842,6 @@ export function startHome(app: HTMLElement): void {
       say(w().offline)
     }
   }
-  /**
-   * The carton, the foam and the scraps were laid out around a small product. A wide one (a drawer, a table top)
-   * stood in the middle of them: a carton flap came up through its floor. Each thing left from the unpacking is
-   * put back where it was laid out and then slid straight away from the product until it stands clear of it.
-   */
-  const clearAround = (product: Object3D) => {
-    product.updateMatrixWorld(true)
-    const foot = new Box3().setFromObject(product).expandByScalar(0.03)
-    const centre = foot.getCenter(new Vector3())
-    for (const thing of unpacked.children) {
-      const home = (thing.userData.home ??= thing.position.clone()) as Vector3
-      thing.position.copy(home)
-      thing.updateMatrixWorld(true)
-      const away = new Vector3(home.x - centre.x, 0, home.z - centre.z)
-      if (away.lengthSq() < 1e-6) away.set(1, 0, 0)
-      away.normalize()
-      for (let i = 0; i < 80; i++) {
-        const b = new Box3().setFromObject(thing)
-        const apart = b.max.x < foot.min.x || b.min.x > foot.max.x || b.max.z < foot.min.z || b.min.z > foot.max.z
-        if (apart) break
-        thing.position.addScaledVector(away, 0.02)
-        thing.updateMatrixWorld(true)
-      }
-    }
-  }
   const placeModel = (g: Object3D) => {
     if (model) scene.remove(model)
     const holder = new Group()
@@ -885,14 +858,108 @@ export function startHome(app: HTMLElement): void {
     holder.position.set(0.06, 0, 0.02)
     modelYaw = -0.5
     holder.rotation.y = modelYaw
+    clearSpot(holder)
     model = holder
     scene.add(holder)
-    clearAround(holder)
     if (!reduce) { // it settles on the bench
       holder.position.y = 0.25
       void moveObj(holder, new Vector3(0.06, 0, 0.02), null, 900)
     }
   }
+  /**
+   * The furniture sways on its spot, so it sweeps a circle on the floor: a wide piece (a chair with its arms, a
+   * table) would swing through the open carton and the packing beside it. Everything of the unpacking spot that
+   * lies inside that circle is slid out of it, straight away from the spot. Each thing starts again from where
+   * the scene was drawn with it, so a small piece opened after a wide one finds the carton back in its place.
+   *
+   * Clear on the floor is not yet clear in the picture. From where the camera stands, a chair's arm drawn over the
+   * open carton still reads as the carton passing through the chair. So the carton is also slid sideways until,
+   * in the picture, it ends to the left of the furniture's outline with a gap, wherever the furniture is in its sway.
+   */
+  const clearSpot = (holder: Object3D) => {
+    const p = new Vector3()
+    const corner = (m: Mesh, i: number, j: number, k: number) => {
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+      const b = m.geometry.boundingBox!
+      return p.set(MathUtils.lerp(b.min.x, b.max.x, i), MathUtils.lerp(b.min.y, b.max.y, j), MathUtils.lerp(b.min.z, b.max.z, k)).applyMatrix4(m.matrixWorld)
+    }
+    const spot = holder.position
+    holder.updateWorldMatrix(true, true)
+    let reach = 0
+    holder.traverse((o) => {
+      const m = o as Mesh
+      if (!m.isMesh) return
+      for (let n = 0; n < 8; n++) {
+        const c = corner(m, n & 1, (n >> 1) & 1, (n >> 2) & 1)
+        reach = Math.max(reach, Math.hypot(c.x - spot.x, c.z - spot.z))
+      }
+    })
+    const keep = reach + 0.035
+    for (const prop of unpacked.children) {
+      const home = (prop.userData.home ??= prop.position.clone()) as Vector3
+      prop.position.copy(home)
+      const away = new Vector3(home.x - spot.x, 0, home.z - spot.z)
+      if (away.lengthSq() < 1e-6) away.set(-1, 0, -1)
+      away.normalize()
+      for (let pass = 0; pass < 4; pass++) {
+        prop.updateWorldMatrix(true, true)
+        let near = Infinity // the closest this thing comes to the spot, along the floor
+        prop.traverse((o) => {
+          const m = o as Mesh
+          if (!m.isMesh) return
+          for (let i = 0; i <= 4; i++) for (let j = 0; j <= 1; j++) for (let k = 0; k <= 4; k++) {
+            const c = corner(m, i / 4, j, k / 4)
+            near = Math.min(near, Math.hypot(c.x - spot.x, c.z - spot.z))
+          }
+        })
+        if (near >= keep) break
+        prop.position.addScaledVector(away, keep - near + 0.005)
+      }
+    }
+
+    const carton = unpacked.getObjectByName('carton')
+    if (!carton) return
+    const view = poseCam(POSES.ready)
+    const eye = camera.clone()
+    eye.position.copy(view.p)
+    eye.lookAt(view.t)
+    eye.updateMatrixWorld(true)
+    const left = new Vector3(-1, 0, 0).applyQuaternion(eye.quaternion).setY(0).normalize() // to the left of the picture, along the floor
+    /** the furthest to one side that `thing` reaches in the picture, -1 (left edge) .. 1 (right edge) */
+    const reachIn = (thing: Object3D, side: 'left' | 'right') => {
+      thing.updateWorldMatrix(true, true)
+      let x = side === 'left' ? Infinity : -Infinity
+      thing.traverse((o) => {
+        const m = o as Mesh
+        if (!m.isMesh) return
+        for (let n = 0; n < 8; n++) {
+          const at = corner(m, n & 1, (n >> 1) & 1, (n >> 2) & 1).project(eye).x
+          x = side === 'left' ? Math.min(x, at) : Math.max(x, at)
+        }
+      })
+      return x
+    }
+    let edge = Infinity
+    for (const yaw of [modelYaw - 0.12, modelYaw, modelYaw + 0.12]) {
+      holder.rotation.y = yaw
+      edge = Math.min(edge, reachIn(holder, 'left'))
+    }
+    holder.rotation.y = modelYaw
+    holder.updateWorldMatrix(true, true)
+    const want = edge - 0.05 // a twentieth of half the picture's width between them
+    for (let pass = 0; pass < 6; pass++) {
+      const x = reachIn(carton, 'right')
+      if (x <= want) break
+      carton.position.addScaledVector(left, 0.05) // one step, to learn how far a step moves it in the picture
+      const moved = x - reachIn(carton, 'right')
+      if (moved <= 1e-4) break
+      carton.position.addScaledVector(left, Math.max(0, (x - want) / moved - 1) * 0.05)
+    }
+  }
+  // a window of another shape shows the spot from another distance: place them again
+  addEventListener('resize', () => {
+    if (model) clearSpot(model)
+  })
   const showQuest = async () => {
     const xr = (navigator as Navigator & { xr?: { isSessionSupported(m: string): Promise<boolean> } }).xr
     const yes = q.get('quest') === '1' || (xr ? await xr.isSessionSupported('immersive-ar').catch(() => false) : false)

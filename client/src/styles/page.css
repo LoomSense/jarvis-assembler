@@ -243,6 +243,122 @@ body {
   transform: none;
 }
 
+/* the walk is over: Next is a tick on a lit disc, the way out */
+#next .tick {
+  display: none;
+}
+
+#next.done .go {
+  display: none;
+}
+
+#next.done .tick {
+  display: inline;
+}
+
+#next.done {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #0b0907;
+}
+
+/* out of the steps, back to where the person came from: one ring in the corner, as on the workbench */
+#back {
+  position: absolute;
+  z-index: 6; /* above the pad that turns an open piece: there it closes the piece */
+  top: calc(4px + env(safe-area-inset-top, 0px));
+  left: calc(8px + env(safe-area-inset-left, 0px));
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color var(--ag-dur-micro) var(--ag-ease),
+    transform var(--ag-dur-micro) var(--ag-ease);
+}
+
+#back:hover {
+  border-color: var(--ink);
+}
+
+#back:active {
+  transform: scale(0.96);
+}
+
+#back:focus-visible,
+#look:focus-visible {
+  outline: 2px solid var(--ag-focus-ring);
+  outline-offset: 2px;
+}
+
+#back .shut,
+#stage.looking #back .go {
+  display: none;
+}
+
+#stage.looking #back .shut {
+  display: inline;
+}
+
+/* the piece to pick up can be opened large: the whole of it is the button, with a small mark that it turns */
+#look {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: none;
+  color: var(--ink-quiet);
+  cursor: zoom-in;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#look[hidden],
+#look-pad[hidden] {
+  display: none;
+}
+
+#look svg {
+  position: absolute;
+  top: 0;
+  right: 14px;
+  opacity: 0.5;
+  transition: opacity var(--ag-dur-micro) var(--ag-ease);
+}
+
+#look:hover svg,
+#look:focus-visible svg {
+  opacity: 1;
+  color: var(--ink);
+}
+
+/* while a piece is open the whole screen turns it; everything else steps aside */
+#look-pad {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: grab;
+  touch-action: none;
+}
+
+#look-pad:active {
+  cursor: grabbing;
+}
+
+#stage.looking :is(#stock, .step, #seat, #lang, #modes, #watch, #watch-word, #hint, #look) {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* a hairline along the bottom edge: how far through the moves, or how much of the model has arrived */
 #progress {
   position: absolute;
@@ -297,7 +413,7 @@ body {
   --assist-size: 38px; /* the camera's round picture, while it watches */
   position: absolute;
   top: calc(2px + env(safe-area-inset-top, 0px));
-  left: calc(4px + env(safe-area-inset-left, 0px));
+  left: calc(52px + env(safe-area-inset-left, 0px)); /* the corner itself is the way out (#back) */
   min-width: 44px;
   min-height: 44px;
   padding: 0;
@@ -335,7 +451,7 @@ body {
 
 #watch[aria-pressed='true'] {
   top: calc(1px + env(safe-area-inset-top, 0px));
-  left: calc(3px + env(safe-area-inset-left, 0px));
+  left: calc(51px + env(safe-area-inset-left, 0px));
   opacity: 1;
 }
 
@@ -360,7 +476,7 @@ body {
 #watch-word {
   position: absolute;
   top: calc(1px + env(safe-area-inset-top, 0px));
-  left: calc(54px + env(safe-area-inset-left, 0px));
+  left: calc(102px + env(safe-area-inset-left, 0px));
   height: 44px;
   margin: 0;
   display: flex;
@@ -483,9 +599,21 @@ body {
     --assist-size: 52px;
   }
 
+  #back {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(16px + env(safe-area-inset-left, 0px));
+    width: 44px;
+    height: 44px;
+  }
+
+  #watch {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(68px + env(safe-area-inset-left, 0px));
+  }
+
   #watch[aria-pressed='true'] {
     top: calc(8px + env(safe-area-inset-top, 0px));
-    left: calc(10px + env(safe-area-inset-left, 0px));
+    left: calc(66px + env(safe-area-inset-left, 0px));
   }
 
   #watch .assist-mark {
@@ -498,7 +626,7 @@ body {
 
   #watch-word {
     top: calc(8px + env(safe-area-inset-top, 0px));
-    left: calc(72px + env(safe-area-inset-left, 0px));
+    left: calc(128px + env(safe-area-inset-left, 0px));
     height: 52px;
   }
 }
@@ -514,6 +642,8 @@ noscript {
   #stock li,
   #seat g,
   .step,
+  #back,
+  #look svg,
   #lang,
   #watch,
   #hint,

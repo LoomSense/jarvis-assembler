@@ -59,7 +59,9 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
 #home .results em { font-style: normal; color: var(--ink-quiet); font-size: 14px; }
 #home .results small { flex-basis: 100%; color: var(--ink-quiet); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
-/* the foot: one line, one white pill, one quiet word */
+/* the foot: one line, one white pill, one quiet word; on the ready screen, the name over one row of ways on */
+#home .ways { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+#home .ways .pill, #home .ways .ghost { min-height: 50px; padding: 0 22px; }
 #home .foot { position: absolute; left: 16px; right: 16px; bottom: var(--foot); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
   transition: opacity 400ms var(--ease), transform 600ms var(--ease); }
 #home .foot[hidden] { display: flex; opacity: 0; transform: translateY(12px); pointer-events: none; visibility: hidden; transition: opacity 200ms, transform 200ms, visibility 0s 200ms; }

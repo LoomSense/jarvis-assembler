@@ -3,6 +3,7 @@
 // into the document, hidden. The styles of the page arrive with this file, so the markup is shown here.
 import '../styles/page.css'
 import { fetchManifest, fileUrl, readParams } from '../api'
+import { appLink } from '../routes'
 import { startGuide, type Guide } from './guide'
 import type { Watch } from './watch'
 import { Stage } from './stage'
@@ -22,9 +23,26 @@ export async function startGuidePage(): Promise<void> {
   const now = $<HTMLParagraphElement>('now')
   const progress = $<HTMLElement>('progress')
   const langButton = $<HTMLButtonElement>('lang')
+  const backButton = $<HTMLButtonElement>('back')
   let lang: Lang = params.lang ?? 'el'
   let guide: Guide | null = null
   let watch: Watch | null = null
+
+  // ---- the way out. Back goes to where the person was before the steps (the guide's ready screen, the camera
+  // guide, the build feed); a page opened by its address has no such place, so it goes to the ready screen.
+  // The tick at the end of the walk always goes there: it is where the next thing to do with this guide is.
+  const hub = () => appLink(params.job ? { mode: 'ready', job: params.job } : {})
+  backButton.addEventListener('click', () => {
+    if (guide?.closeLook()) return // a piece is open large: back puts it away
+    let inApp = false
+    try {
+      inApp = !!document.referrer && new URL(document.referrer).origin === location.origin
+    } catch {
+      /* a referrer that is not an address */
+    }
+    if (inApp && history.length > 1) history.back()
+    else location.assign(hub())
+  })
 
   // ---- the one line of words, before the guide takes it over: loading, or what went wrong
   let said: () => void = () => {}
@@ -71,6 +89,7 @@ export async function startGuidePage(): Promise<void> {
     langButton.textContent = WORDS[l].otherLanguageShort
     langButton.setAttribute('aria-label', WORDS[l].otherLanguage)
     langButton.lang = l === 'el' ? 'en' : 'el'
+    backButton.setAttribute('aria-label', WORDS[l].back)
     if (guide) guide.setLang(l)
     else said()
     watch?.setLang(l)
@@ -156,9 +175,13 @@ export async function startGuidePage(): Promise<void> {
   // `?at=<n>` opens with action n already done (0-based, debug); `?step=<n>` opens at the start of step n.
   const at = query.has('at') ? Number(query.get('at')) : null
   let openAt = at !== null && Number.isInteger(at) && at >= 0 ? at : null
+  let playOn = false
   if (openAt === null && params.step) {
     const before = manifest.steps.slice(0, params.step - 1).reduce((n, s) => n + Math.max(1, s.actions?.length ?? 0), 0)
-    if (before > 0) openAt = before - 1 // everything before that step is done; step 1 is the ordinary opening
+    if (before > 0) {
+      openAt = before - 1 // everything before that step is done; step 1 is the ordinary opening
+      playOn = true // and its first action plays, so the page is in that step: the camera guide sent the person here
+    }
   }
 
   now.replaceChildren()
@@ -170,7 +193,9 @@ export async function startGuidePage(): Promise<void> {
     model,
     lang,
     openAt,
+    playOn,
     material: query.get('material'),
+    onDone: () => location.assign(hub()),
     page: {
       stock: $<HTMLUListElement>('stock'),
       now,
@@ -178,6 +203,9 @@ export async function startGuidePage(): Promise<void> {
       next: $<HTMLButtonElement>('next'),
       progress,
       seat: document.querySelector<SVGGElement>('#seat g')!,
+      stage: $<HTMLElement>('stage'),
+      look: $<HTMLButtonElement>('look'),
+      pad: $<HTMLElement>('look-pad'),
     },
   })
   document.documentElement.dataset.ready = 'true'

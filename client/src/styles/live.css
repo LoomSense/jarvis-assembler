@@ -7,7 +7,10 @@
 #live :is(a, button):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 /* the step */
-#live header { position: absolute; left: 0; right: 0; top: 0; padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 30px; display: flex; align-items: center; gap: 12px; background: linear-gradient(rgba(0, 0, 0, 0.72), transparent); }
+/* above the start screen (.gate), so back and the 3D steps are in reach before the camera is on; the check's
+   answer and the drawing cover it as before */
+#live .result, #live .sheet { z-index: 3; }
+#live header { z-index: 2; position: absolute; left: 0; right: 0; top: 0; padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 30px; display: flex; align-items: center; gap: 12px; background: linear-gradient(rgba(0, 0, 0, 0.72), transparent); }
 #live .round { flex: none; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.22); color: #fff; }
 #live .round svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #live .mic[aria-pressed='false'] { opacity: 0.4; }
