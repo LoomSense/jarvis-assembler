@@ -207,6 +207,19 @@ def key_matrix(o, M, frame):
 
 
 # --- actions: what a person does, one thing at a time, in the guide's order -----------------------------
+ARTICLES = ("τους ", "τις ", "την ", "τον ", "τη ", "το ", "τα ", "οι ", "η ", "ο ")
+
+
+def names(d):
+    """{"en", "el"} display names: `short` in English, and the plan's Greek `el` without its leading article."""
+    el = (d.get("el") or "").strip()
+    for a in ARTICLES:
+        if el.lower().startswith(a):
+            el = el[len(a):]
+            break
+    return {"en": d.get("short", d["name"]), "el": el or d.get("short", d["name"])}
+
+
 def text_for(kind, d, i=0, n=0, first=False):
     name, el = d.get("short", d["name"]).lower(), d.get("el", d["name"])
     if kind == "tighten":
@@ -273,9 +286,17 @@ for step in plan["steps"]:
         if a.get("into"):
             grot.setdefault(a["into"], [0, 0, 0])
     st = snapshot()
-    for note in step.get("notes", []):
-        acts.append({"type": "note", "f0": f, "f1": f + NOTE_F, "text": {"en": note.get("en", ""), "el": note.get("el", note.get("en", ""))}})
-        f += NOTE_F + GAP_F
+    notes = list(step.get("notes", []))
+
+    def emit_notes(f):
+        for note in notes:
+            acts.append({"type": "note", "f0": f, "f1": f + NOTE_F, "text": {"en": note.get("en", ""), "el": note.get("el", note.get("en", ""))}})
+            f += NOTE_F + GAP_F
+        notes.clear()
+        return f
+
+    if not any(a.get("base") for a in part_adds):          # a base part is laid down first, then the note is read
+        f = emit_notes(f)
     for a in part_adds:
         if is_join(a):
             g = a["subassembly"]; d = SUBDEFS.get(g, {"name": g})
@@ -287,10 +308,12 @@ for step in plan["steps"]:
         if a.get("base") and not a.get("into"):
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "base": True, "text": text_for("place", d, first=True)})
             f += 8 + GAP_F
+            f = emit_notes(f)
         elif a.get("base"):
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + 8, "gbase": True, "st": st, "rs": root_ref,
                          "text": text_for("place", d, first=True)})
             f += 8 + GAP_F
+            f = emit_notes(f)
         else:
             acts.append({"type": "place", "inst": inst, "f0": f, "f1": f + PLACE_F, "st": st, "rs": root_ref,
                          "press": bool(a.get("press")), "text": text_for("press" if a.get("press") else "place", d)})
@@ -681,10 +704,10 @@ manifest = {
     "title": plan["title"], "guideId": plan.get("guide_id"), "glb": "walkthrough.glb", "units": "m", "fps": FPS,
     "rootNode": "assembly", "markerNode": "marker", "overall_mm": plan.get("overall_mm"),
     "walkthrough": {"clip": "walkthrough", "duration_s": round(TOTAL_FRAMES / FPS, 2), "steps": timeline},
-    "parts": [{"id": p["id"], "name": p["name"], "short": p.get("short", p["name"]), "count": p["count"], "cite": p["cite"],
+    "parts": [{"id": p["id"], "name": p["name"], "short": p.get("short", p["name"]), "names": names(p), "count": p["count"], "cite": p["cite"],
                "dimsEstimated": p.get("dims", {}).get("estimated", True),
                "nodes": [n for i, n in nodes.items() if i.split("#")[0] == p["id"]]} for p in plan["parts"]],
-    "hardware": [{"code": h["code"], "name": h["name"], "short": h.get("short", h["name"]), "kind": h["kind"], "count": h["count"], "cite": h["cite"],
+    "hardware": [{"code": h["code"], "name": h["name"], "short": h.get("short", h["name"]), "names": names(h), "kind": h["kind"], "count": h["count"], "cite": h["cite"],
                   "color": [round(c, 3) for c in MATERIALS[f"hw_{h['code']}"][0][:3]],
                   "nodes": [n for i, n in nodes.items() if i.split("#")[0] == h["code"]]} for h in plan["hardware"]],
     "steps": steps_out, "flags": plan.get("flags", []),
