@@ -1,0 +1,195 @@
+/* Test bench for the assist module. The stage and its foot are the workshop's (client/mockups/workshop);
+   the bench in the corner is a tool for whoever tests, and is not part of the look. */
+
+:root {
+  color-scheme: dark;
+  --void: #000000;
+  --ink: #f6ecdb;
+  --ink-quiet: rgba(246, 236, 219, 0.64);
+  --hair: rgba(246, 236, 219, 0.2);
+  --hair-strong: rgba(246, 236, 219, 0.46);
+  --font: "Google Sans", Arial, system-ui, sans-serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --foot: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+/* where a page would mount the module: the eye above the one line, at the foot of the scene */
+#presence {
+  position: absolute;
+  left: 50%;
+  bottom: var(--foot);
+  width: min(62ch, 100vw - 32px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  --assist-size: 88px;
+}
+
+#presence .assist-line {
+  min-height: 2.6em; /* room for two lines, so the eye does not jump when a sentence wraps */
+}
+
+/* ---- the bench ---- */
+
+#bench {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: min(400px, 100vw - 32px);
+  max-height: calc(100dvh - 232px);
+  overflow: hidden auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-quiet);
+  font-variant-numeric: tabular-nums;
+  scrollbar-width: thin;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.k {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.row:has(output) .k {
+  flex-basis: auto;
+  margin-right: 2px;
+}
+
+.row:has(output) .k:not(:first-child) {
+  margin-left: 12px;
+}
+
+#bench button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 200ms var(--ease),
+    transform 200ms var(--ease);
+}
+
+#bench button:hover {
+  border-color: var(--ink);
+}
+
+#bench button:active {
+  transform: scale(0.98);
+}
+
+#bench button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+#bench button[aria-pressed="true"] {
+  border-color: var(--ink);
+  border-style: dashed; /* pressed is not shown by colour alone */
+}
+
+#bench output {
+  min-width: 2ch;
+  text-align: center;
+  color: var(--ink);
+}
+
+#read {
+  margin: 4px 0 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 14px;
+}
+
+#read dt {
+  color: var(--ink-quiet);
+}
+
+#read dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+#log {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+#log li {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+#log b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+@media (max-width: 699px) {
+  #bench {
+    font-size: 12.5px;
+    max-height: calc(100dvh - 250px);
+  }
+
+  #presence {
+    --assist-size: 72px;
+    gap: 12px;
+  }
+
+  #presence .assist-line {
+    min-height: 3.9em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bench button {
+    transition: none;
+  }
+}

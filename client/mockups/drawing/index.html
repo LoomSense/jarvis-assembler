@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <title>Οδηγός συναρμολόγησης</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body class="loading">
+    <canvas id="stage" aria-hidden="true"></canvas>
+
+    <!-- the drawn layer: guide line, insertion axis, seat mark -->
+    <svg id="ink" aria-hidden="true">
+      <path id="leader-soft" />
+      <path id="leader" />
+      <line id="axis" />
+      <g id="seat">
+        <circle r="8" />
+        <path d="M-16 0H-4M4 0H16M0 -16V-4M0 4V16" />
+      </g>
+      <circle id="pulse" r="1" />
+      <circle id="pulse2" r="1" />
+    </svg>
+
+    <!-- the parts still in the box: one callout under each floating piece -->
+    <ul id="list" aria-label="Κομμάτια στο κουτί"></ul>
+
+    <!-- the piece to pick up now; pressing it plays the move again -->
+    <button id="again" type="button" aria-label="Δείξε το ξανά">
+      <svg id="turn" viewBox="0 0 120 80" aria-hidden="true">
+        <path class="axis" d="M60 6v68" />
+        <path d="M80 28.4A40 18 0 1 1 40 28.4" />
+        <path d="M31.3 26.3L40 28.4L33.4 34.5" />
+      </svg>
+    </button>
+    <p id="say" aria-live="polite"></p>
+    <div id="rule" role="progressbar" aria-label="Πρόοδος" aria-valuemin="1"></div>
+
+    <button id="prev" class="step" type="button" aria-label="Προηγούμενο">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5" /></svg>
+    </button>
+    <button id="next" class="step" type="button" aria-label="Επόμενο">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5" /></svg>
+    </button>
+
+    <noscript>Η σελίδα χρειάζεται JavaScript.</noscript>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

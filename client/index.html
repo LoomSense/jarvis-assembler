@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <title>Assembly Guide</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script>
+      // One document, three experiences (src/main.ts picks one from `mode` in the address).
+      // `?mode=xr` takes the document as it is written here: English, the theme the browser prefers,
+      // an empty #app. The guide page (no mode) is a dark, Greek-first page.
+      // They say so here, before the first paint, so a browser in light mode never shows them white.
+      ;(function () {
+        var query = new URLSearchParams(location.search)
+        if (query.get('mode') === 'xr') return
+        var root = document.documentElement
+        root.lang = query.get('lang') === 'en' ? 'en' : 'el'
+        root.dataset.theme = 'dark'
+        document.title = 'Οδηγός συναρμολόγησης'
+        var scheme = document.createElement('meta')
+        scheme.name = 'color-scheme'
+        scheme.content = 'dark'
+        document.head.appendChild(scheme)
+      })()
+    </script>
+  </head>
+  <body>
+    <!-- Where the experience of the address is put: `?mode=xr`, or the guide page below. -->
+    <div id="app"></div>
+
+    <!-- The guide page (no mode). src/main.ts moves this into #app, and only for that page:
+         in a <template> nothing of it is drawn, has an id or takes a style in the other two. -->
+    <template id="guide-page">
+      <main id="stage" hidden>
+        <!-- the room, the assembly and every piece are drawn here -->
+        <canvas id="view" aria-hidden="true"></canvas>
+
+        <!-- how many of each piece are still in the box, under the piece itself; filled by the page -->
+        <ul id="stock"></ul>
+
+        <!-- where the piece on its way will sit -->
+        <svg id="seat" aria-hidden="true">
+          <g>
+            <circle r="7" />
+            <path d="M-15 0H-4M4 0H15M0 -15V-4M0 4V15" />
+          </g>
+        </svg>
+
+        <!-- the one thing to read -->
+        <p id="now" aria-live="polite"></p>
+
+        <button id="prev" class="step" type="button" aria-label="Προηγούμενο" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14.5 5.5 8 12l6.5 6.5" />
+          </svg>
+        </button>
+        <button id="next" class="step" type="button" aria-label="Επόμενο" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9.5 5.5 16 12l-6.5 6.5" />
+          </svg>
+        </button>
+
+        <div id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><i></i></div>
+
+        <button id="lang" type="button" lang="en" aria-label="English">en</button>
+
+        <!-- live guidance, where its socket can exist: one quiet round control in the other corner.
+             While it watches, the camera's picture with its ring is put inside it. -->
+        <button id="watch" type="button" aria-pressed="false" hidden>
+          <svg class="eye" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+            <circle cx="12" cy="12" r="2.6" />
+          </svg>
+        </button>
+        <!-- simulated, paused, no vision, camera refused: two or three quiet words beside it -->
+        <p id="watch-word" aria-hidden="true"></p>
+        <!-- what the camera saw, in the fewest words, under the page's own line -->
+        <p id="hint" aria-hidden="true"></p>
+        <!-- the full sentence, for a screen reader -->
+        <div id="heard" class="sr"></div>
+      </main>
+    </template>
+
+    <noscript style="position: fixed; inset: auto 0 40% 0; text-align: center">Η σελίδα χρειάζεται JavaScript. This page needs JavaScript.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

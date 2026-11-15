@@ -15,10 +15,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from server.auth import KeyGate, has_key
+from server.auth import KeyGate, has_key, hide_key_in_logs
 from server.jobs import JobStore
 from server.orchestrator import Orchestrator
 from server.orchestrator.stages import STAGES
+from server.routes import diag as diag_routes
 from server.routes import jobs as job_routes
 from server.routes import live as live_routes
 from server.settings import ROOT, Settings
@@ -77,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     if not settings.demo_key:
         raise RuntimeError("DEMO_KEY is not set. Run `make env`, or add DEMO_KEY to .env (see .env.example).")
+    hide_key_in_logs()                                 # `?key=` must not end up in the request log
     store = JobStore(settings.jobs_dir)
     orch = Orchestrator(store, settings, STAGES)
 
@@ -117,6 +119,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(job_routes.router)
     app.include_router(live_routes.router)
+    app.include_router(diag_routes.router)             # device check reports (the headset page posts here)
     try:                                               # phase-2 perception WebSocket (LIV-01, person E)
         app.include_router(importlib.import_module("server.perception.routes").router)
     except ModuleNotFoundError as e:

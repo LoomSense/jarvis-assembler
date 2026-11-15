@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Assist · test bench</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./page.css" />
+  </head>
+  <body>
+    <!--
+      Test bench for client/src/assist. The address carries everything:
+        ?api=http://127.0.0.1:PORT   the server (empty: this origin)
+        &job=1115-0022-2d4ab6        a job built by the server
+        &key=...                     the demo key
+        &lang=el|en  &view=fixed|headset  &step=2  &action=0  &role=display|camera  &camera=open|none|given
+        &codes=0                     hardware codes are shown but not read aloud   &speaker=default   the module's own speaker
+      Simulated answers need the server started with PERCEPTION_SIMULATE=true.
+    -->
+    <main id="stage">
+      <!-- the module's two elements, where a page would put them: over the scene, at the foot -->
+      <div id="presence"></div>
+
+      <aside id="bench" aria-label="Test bench">
+        <div class="row">
+          <button type="button" data-do="start">Start</button>
+          <button type="button" data-do="stop">Stop</button>
+          <button type="button" data-do="mute" aria-pressed="false">Mute</button>
+          <button type="button" data-do="lang">EL</button>
+          <button type="button" data-do="drop">Drop socket</button>
+        </div>
+        <div class="row">
+          <span class="k">Step</span>
+          <button type="button" data-do="step-" aria-label="Previous step">−</button>
+          <output id="o-step">2</output>
+          <button type="button" data-do="step+" aria-label="Next step">+</button>
+          <span class="k">Action</span>
+          <button type="button" data-do="action-" aria-label="Previous action">−</button>
+          <output id="o-action">0</output>
+          <button type="button" data-do="action+" aria-label="Next action">+</button>
+        </div>
+        <div class="row" id="sim">
+          <span class="k">Simulate</span>
+          <button type="button" data-sim='{"holding":"108560"}'>Short screw 108560</button>
+          <button type="button" data-sim='{"holding":"108363"}'>Long screw 108363</button>
+          <button type="button" data-sim='{"holding":null}'>Empty hands</button>
+          <button type="button" data-sim='{"step_complete":true,"hands":false}'>Step done</button>
+          <button type="button" data-sim='{"image_poor":true}'>Poor image</button>
+          <button type="button" data-sim='{"latency_ms":700}'>Slow 700 ms</button>
+          <button type="button" data-sim='{"fail":"timeout"}'>Timeouts</button>
+          <button type="button" data-sim='{"reset":true}'>Reset</button>
+        </div>
+        <div class="row">
+          <button type="button" data-do="show">Show part</button>
+          <button type="button" data-do="know">I know</button>
+        </div>
+        <dl id="read"></dl>
+        <ol id="log" aria-label="Events and messages"></ol>
+      </aside>
+    </main>
+    <noscript>This page needs JavaScript.</noscript>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

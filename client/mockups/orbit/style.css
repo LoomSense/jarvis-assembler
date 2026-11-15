@@ -1,0 +1,234 @@
+/* Planet and orbit. One canvas, two buttons, one line of words. */
+
+:root {
+  color-scheme: dark;
+  --space: #03050a; /* deep space, a little blue in the black */
+  --azure: #9ecfff; /* the one accent, used as light */
+  --ink: #ffffff;
+  --ink-quiet: rgba(255, 255, 255, 0.66);
+  --hairline: rgba(255, 255, 255, 0.18);
+  --font: 'Google Sans', Arial, system-ui, sans-serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --button: 56px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--space);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+#space {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+
+#space:active {
+  cursor: grabbing;
+}
+
+/* ---- the sky: a number under each kind of piece still in the box ---- */
+
+.sat {
+  position: fixed;
+  transform: translateX(-50%);
+  margin: 0;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 400ms var(--ease);
+}
+
+.sat b {
+  display: block;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.sat i {
+  display: block;
+  font-size: 12px;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  color: var(--ink-quiet);
+}
+
+.sat.gone {
+  opacity: 0;
+}
+
+/* ---- the dock: previous, the piece to pick up now, next ---- */
+
+#dock {
+  position: fixed;
+  left: 50%;
+  bottom: max(30px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  pointer-events: none;
+}
+
+#dock button {
+  flex: none;
+  width: var(--button);
+  height: var(--button);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: rgba(3, 5, 10, 0.35);
+  color: var(--ink);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 200ms,
+    opacity 200ms,
+    transform 200ms var(--ease);
+}
+
+#dock button svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#dock #next {
+  border-color: rgba(158, 207, 255, 0.55);
+}
+
+#dock button:hover:not(:disabled) {
+  border-color: var(--azure);
+}
+
+#dock button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+#dock button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+#dock button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+#now {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#piece {
+  position: relative;
+  width: 100%;
+  height: 104px;
+  display: grid;
+  place-items: center;
+}
+
+#piece svg {
+  height: 56px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#piece svg[hidden] {
+  display: none;
+}
+
+#say {
+  margin: 0;
+  height: 32px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+#say .of {
+  margin-left: 0.7em;
+  font-weight: 400;
+  color: var(--ink-quiet);
+}
+
+/* ---- phone ---- */
+
+@media (max-width: 600px) {
+  #dock {
+    left: 16px;
+    right: 16px;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    transform: none;
+    gap: 6px;
+  }
+
+  #now {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
+  #piece {
+    height: 84px;
+  }
+
+  #piece svg {
+    height: 48px;
+  }
+
+  #say {
+    font-size: 20px;
+  }
+
+  .sat b {
+    font-size: 15px;
+  }
+
+  .sat i {
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sat,
+  #dock button {
+    transition: none;
+  }
+}

@@ -1,0 +1,221 @@
+/* Workshop at night. The page has no surfaces of its own: everything but the type and two rings is the 3D scene. */
+
+:root {
+  color-scheme: dark;
+  --void: #000000; /* BRAND --ag-bg */
+  --ink: #f6ecdb; /* pine lifted to paper: every word on the page */
+  --ink-quiet: rgba(246, 236, 219, 0.64);
+  --hair: rgba(246, 236, 219, 0.2);
+  --hair-strong: rgba(246, 236, 219, 0.46);
+  --brass: #efd176; /* plating of screw 108560; main.ts overwrites it with the manifest's colour */
+  --font: "Google Sans", Arial, system-ui, sans-serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1); /* BRAND easing */
+  --reach: min(232px, 50vw - 44px); /* from the middle of the screen to the middle of a button */
+  --foot: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#view {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+#view:active {
+  cursor: grabbing;
+}
+
+/* how many of each piece are still in the box, under the piece itself */
+#stock {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+#stock li {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: opacity 300ms var(--ease);
+}
+
+#stock li[data-left="0"] {
+  opacity: 0;
+}
+
+#stock b {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+#stock span {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-quiet);
+}
+
+/* the one thing to read */
+#now {
+  position: absolute;
+  left: 50%;
+  bottom: var(--foot);
+  height: 56px;
+  margin: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
+}
+
+#now .of {
+  font-weight: 400;
+  color: var(--ink-quiet);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.step {
+  position: absolute;
+  bottom: var(--foot);
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 200ms var(--ease),
+    opacity 200ms var(--ease),
+    transform 200ms var(--ease);
+}
+
+#prev {
+  left: calc(50% - var(--reach) - 28px);
+}
+
+#next {
+  left: calc(50% + var(--reach) - 28px);
+  border-color: var(--hair-strong);
+}
+
+.step:hover {
+  border-color: var(--ink);
+}
+
+.step:active {
+  transform: scale(0.96);
+}
+
+.step:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.step[aria-disabled="true"] {
+  opacity: 0.28;
+  cursor: default;
+  border-style: dashed; /* not by dimness alone */
+}
+
+.step[aria-disabled="true"]:hover {
+  border-color: var(--hair);
+}
+
+.step[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* a hairline along the bottom edge: how far through the 41 moves */
+#progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(246, 236, 219, 0.07);
+  pointer-events: none;
+}
+
+#progress i {
+  display: block;
+  height: 100%;
+  background: var(--brass);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 500ms var(--ease);
+}
+
+@media (max-width: 699px) {
+  #now {
+    font-size: 19px;
+  }
+
+  #stock b {
+    font-size: 14px;
+  }
+
+  #stock span {
+    font-size: 11.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #stock li,
+  .step,
+  #progress i {
+    transition: none;
+  }
+}

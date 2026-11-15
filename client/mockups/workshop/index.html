@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <title>Οδηγός συναρμολόγησης</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./workshop.css" />
+  </head>
+  <body>
+    <main id="stage">
+      <canvas id="view" aria-hidden="true"></canvas>
+      <ul id="stock"></ul>
+      <p id="now" aria-live="polite"></p>
+      <button id="prev" class="step" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14.5 5.5 8 12l6.5 6.5" />
+        </svg>
+      </button>
+      <button id="next" class="step" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9.5 5.5 16 12l-6.5 6.5" />
+        </svg>
+      </button>
+      <div id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="41" aria-valuenow="0"><i></i></div>
+    </main>
+    <noscript>Η σελίδα χρειάζεται JavaScript.</noscript>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

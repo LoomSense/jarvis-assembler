@@ -36,6 +36,8 @@ Everything in this repository that we did not build ourselves during the hackath
 | three.js | 3D viewer and WebXR on the phone and headset; its GLB loader in `eval/glb_check` | MIT | https://threejs.org |
 | gltfpack (meshoptimizer) | Compressing the GLB (`pipeline/pack.py`); the viewer needs its meshopt decoder, which ships with three.js | MIT | https://github.com/zeux/meshoptimizer |
 | MediaPipe Tasks Vision | On-device hand gate on the phone | Apache-2.0 | https://developers.google.com/edge/mediapipe |
+| Vite, TypeScript, @types/three | Building and type-checking the client | MIT; Apache-2.0; MIT | https://vite.dev |
+| puppeteer-core | Drives the installed Chrome for the client's automated check (`client/scripts/shots.mjs`). Development only | Apache-2.0 | https://pptr.dev |
 | uv | Python environment | Apache-2.0 or MIT | https://docs.astral.sh/uv |
 | gitleaks | Secret scan before pushing | MIT | https://gitleaks.io |
 
@@ -53,4 +55,5 @@ Everything in this repository that we did not build ourselves during the hackath
 
 - blender-mcp (development-time debugging only, not in the pipeline): check its licence before listing it. https://github.com/ahujasid/blender-mcp
 - Licence of the IKEA-Manual dataset.
-- Any client-side package added after this file was written (`client/package.json`).
+- `client/public/xr-check.html` (the headset check page) loads three.js 0.187.0 from the jsDelivr CDN at run time instead of from the build.
+- Fonts: the client loads Google Sans and JetBrains Mono from Google Fonts at run time (`client/src/styles/tokens.css`). Check their licence terms before listing them above.

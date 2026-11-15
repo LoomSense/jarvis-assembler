@@ -1,0 +1,2103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>Headset check</title>
+<!-- three.js r187, pinned. Loaded only when the check starts; the page works without it. -->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js" } }
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #000000;
+    --surface: #0c0c0c;
+    --surface-2: #161618;
+    --text-strong: #ffffff;
+    --text: rgba(255, 255, 255, 0.86);
+    --meta: rgba(255, 255, 255, 0.68);
+    --border: rgba(255, 255, 255, 0.12);
+    --border-strong: rgba(255, 255, 255, 0.22);
+    --accent: #9ecfff;
+    --accent-deep: #274a6b;
+    --success: #6fdc9b;
+    --error: #ff8a7a;
+    --unsure: #e8c14b;
+    --font: "Google Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font); font-size: 18px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  .eyebrow { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.08; font-weight: 500; letter-spacing: -0.03em; color: var(--text-strong); }
+  h2 { margin: 0 0 12px; font-size: 23px; line-height: 1.25; font-weight: 500; letter-spacing: -0.01em; color: var(--text-strong); }
+  p { margin: 0 0 12px; }
+  .lead { font-size: 20px; color: var(--text); max-width: 46em; }
+  .meta { color: var(--meta); font-size: 16px; }
+  .card {
+    margin-top: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 16px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.055), rgba(255,255,255,0.016) 55%), var(--surface);
+  }
+  .answer { border-color: var(--border-strong); }
+  .answer .label { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--meta); }
+  .answer-text { margin: 0; font-size: 24px; line-height: 1.35; color: var(--text-strong); display: flex; gap: 12px; align-items: flex-start; }
+  .answer-text svg { flex: none; width: 34px; height: 34px; margin-top: 1px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    appearance: none; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-strong);
+    font: inherit; font-size: 20px; font-weight: 500; min-height: 56px; padding: 12px 26px; border-radius: 999px;
+    cursor: pointer; transition: transform 200ms var(--ease), background 200ms var(--ease);
+  }
+  .btn:hover { background: #222226; }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary { background: #fff; color: #000; border-color: #fff; }
+  .btn.primary:hover { background: #f2f2f2; }
+  .btn.big { font-size: 24px; min-height: 72px; padding: 16px 40px; }
+  .btn.small { font-size: 17px; min-height: 44px; padding: 8px 18px; }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+  .btn[aria-pressed="true"] { background: var(--accent-deep); border-color: var(--accent); }
+  .btn[aria-pressed="true"]::before { content: "\2713\00a0"; }
+  .stage { margin: 16px 0 0; font-size: 20px; color: var(--text-strong); display: flex; gap: 10px; align-items: center; min-height: 30px; }
+  .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
+  .dot.on { background: var(--accent); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .dot.on { animation: none; } .btn { transition: none; } }
+  .steps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .steps li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 16px; color: var(--meta); line-height: 1.3; }
+  .steps li b { display: block; font-weight: 600; color: var(--text); }
+  .steps li[data-state="doing"] { border-color: var(--accent); color: var(--text); }
+  .steps li[data-state="done"] b::after { content: " \2713"; color: var(--success); }
+  .steps li[data-state="skipped"] b::after { content: " (skipped)"; font-weight: 400; color: var(--meta); }
+  .previews { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .previews figure { margin: 0; width: 128px; }
+  .previews video { display: block; width: 128px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); background: #050505; }
+  figcaption { font-size: 13px; line-height: 1.3; color: var(--meta); margin-top: 4px; overflow-wrap: anywhere; }
+  details { margin-top: 16px; }
+  summary { cursor: pointer; font-size: 18px; color: var(--text-strong); min-height: 44px; display: flex; align-items: center; gap: 8px; }
+  summary::before { content: "\203A"; display: inline-block; transition: transform 200ms var(--ease); color: var(--accent); font-size: 22px; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  summary::-webkit-details-marker { display: none; }
+  .log { max-height: 320px; overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: #050505; font-family: var(--mono); font-size: 14.5px; line-height: 1.5; }
+  .log div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log .warn { color: var(--unsure); }
+  .log .t { color: var(--meta); }
+  table { width: 100%; border-collapse: collapse; }
+  caption { text-align: left; color: var(--meta); font-size: 16px; padding-bottom: 8px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 10px; border-top: 1px solid var(--border); }
+  thead th { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--meta); border-top: 0; }
+  tbody th[scope="row"] { font-weight: 500; color: var(--text-strong); width: 32%; }
+  tr.group th { padding-top: 22px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); border-top: 0; }
+  td.st { width: 132px; white-space: nowrap; }
+  td.detail { color: var(--text); overflow-wrap: anywhere; }
+  .st-badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .st-badge svg { width: 26px; height: 26px; flex: none; }
+  .st-pass { color: var(--success); }
+  .st-fail { color: var(--error); }
+  .st-unknown { color: var(--unsure); }
+  .ref { color: var(--meta); font-size: 14.5px; }
+  .manual { display: grid; gap: 16px; }
+  .manual .q { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border); }
+  .manual .q:first-child { border-top: 0; padding-top: 0; }
+  .manual .q p { margin: 0; flex: 1 1 320px; }
+  textarea { width: 100%; min-height: 260px; margin-top: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--border-strong); background: #050505; color: var(--text); font-family: var(--mono); font-size: 13.5px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; margin-top: 16px; }
+  .thumbs figure { margin: 0; }
+  .thumbs img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); background: #050505; }
+  .alert { margin-top: 16px; padding: 18px 20px; border-radius: 16px; border: 2px solid var(--unsure); background: rgba(232, 193, 75, 0.1); font-size: 20px; }
+  .alert h2 { font-size: 26px; }
+  .alert ol { margin: 0 0 14px; padding-left: 26px; }
+  .alert li { margin: 4px 0; }
+  .note { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); font-size: 17px; }
+  footer { margin-top: 28px; color: var(--meta); font-size: 14.5px; }
+  .xr-overlay { pointer-events: none; }
+  .xr-overlay p { position: fixed; left: 16px; right: 16px; bottom: 24px; margin: 0; padding: 14px 18px; border-radius: 16px; background: rgba(12,12,12,0.82); color: #fff; font-size: 20px; }
+  #glHolder { position: fixed; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+  [hidden] { display: none !important; }
+  @media (max-width: 720px) {
+    body { font-size: 17px; }
+    h1 { font-size: 30px; }
+    .answer-text { font-size: 21px; }
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .btn.big { width: 100%; }
+    table, tbody, tr, th, td { display: block; width: auto; }
+    thead { display: none; }
+    tbody tr { padding: 12px 0; border-top: 1px solid var(--border); }
+    tbody tr.group { border-top: 0; padding: 14px 0 0; }
+    th, td { border-top: 0; padding: 2px 0; }
+    tbody th[scope="row"] { width: auto; }
+    td.st { width: auto; padding: 4px 0; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Assembly Guide · device check</p>
+    <h1>Headset check</h1>
+    <p class="lead">One visit measures what this browser can do for the headset experience: WebXR, the cameras, the microphone, sound and the network. It takes about two minutes on a Meta Quest 3. On a laptop or a phone it runs the checks that do not need the headset.</p>
+  </header>
+
+  <section class="card answer" aria-live="polite">
+    <p class="label">Gate G2 · which camera watches the work</p>
+    <p class="answer-text" id="g2Text">Not measured yet. Start the check.</p>
+    <p class="meta" id="g2Meta" style="margin:10px 0 0"></p>
+  </section>
+
+  <section class="card" id="runCard">
+    <div class="actions">
+      <button id="btnStart" class="btn primary big" type="button">Start check</button>
+      <button id="btnXR" class="btn primary big" type="button" hidden>Start headset session</button>
+      <button id="btnSkip" class="btn" type="button" hidden>Skip the headset session</button>
+    </div>
+    <p class="stage" role="status"><span class="dot" id="stageDot"></span><span id="stageText">Tap the button. Allow the camera and the microphone when the browser asks. On a Quest, tick "Headset cameras" in the camera prompt.</span></p>
+    <div class="alert" id="permNotice" role="alert" hidden>
+      <h2>Tick "Headset cameras" for this site</h2>
+      <p id="permText"></p>
+      <ol>
+        <li>Tap the lock icon at the left of the address bar.</li>
+        <li>Open the camera permission and tick <b>Headset cameras</b>.</li>
+        <li>Reload this page and start the check again.</li>
+      </ol>
+      <div class="actions"><button id="btnReload" class="btn primary" type="button">Reload the page</button></div>
+      <p class="meta" style="margin:12px 0 0">You can also carry on without it: every other check still runs, and the camera answer will say that this permission was off.</p>
+    </div>
+    <ol class="steps" id="steps">
+      <li data-step="env"><b>1 · Environment</b>browser, WebXR support</li>
+      <li data-step="before"><b>2 · Before the session</b>cameras, microphone, sound</li>
+      <li data-step="xr"><b>3 · In the session</b>hands, planes, anchors, camera</li>
+      <li data-step="after"><b>4 · After the session</b>camera and microphone again</li>
+    </ol>
+    <div class="previews" id="previews" aria-label="Live camera previews"></div>
+    <details id="logBox">
+      <summary>Log</summary>
+      <div class="log" id="log" role="log" aria-live="polite"></div>
+    </details>
+  </section>
+
+  <section class="card" id="resultsCard" hidden>
+    <h2>Results</h2>
+    <p class="meta" id="runMeta"></p>
+    <table>
+      <thead><tr><th scope="col">Question</th><th scope="col">Result</th><th scope="col">Measured</th></tr></thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="manualCard" hidden>
+    <h2>Two things only you can tell</h2>
+    <div class="manual" id="manualBody"></div>
+  </section>
+
+  <section class="card" id="reportCard" hidden>
+    <h2>Report</h2>
+    <p id="uploadLine" class="note" role="status"></p>
+    <div class="actions" style="margin-top:12px">
+      <button id="btnDownload" class="btn" type="button">Download JSON</button>
+      <button id="btnCopy" class="btn" type="button">Copy JSON</button>
+      <button id="btnUpload" class="btn" type="button" hidden>Upload again</button>
+    </div>
+    <p class="meta" id="copyLine" role="status" style="margin-top:10px"></p>
+    <div class="thumbs" id="thumbs" aria-label="Camera thumbnails from the report"></div>
+    <details>
+      <summary>Show the JSON</summary>
+      <textarea id="jsonText" readonly aria-label="Report JSON"></textarea>
+    </details>
+  </section>
+
+  <footer id="foot"></footer>
+</main>
+<div id="xrOverlay" class="xr-overlay" hidden><p id="xrOverlayText">Headset check running</p></div>
+<div id="glHolder" aria-hidden="true"></div>
+
+<script type="module">
+// ============================================================================
+// Headset check: a one-visit diagnostic for WebXR, cameras, microphone, sound
+// and network. Every check has a timeout and a try/catch, and writes into one
+// report object (R). Nothing here needs a build step.
+// ============================================================================
+
+const PAGE_VERSION = '1.0.0';
+const SCHEMA = 'xr-check/1';
+const THREE_VERSION = '0.187.0';
+const THREE_URL = `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.js`;
+const LS_KEY = 'xr-check:last';
+const UPLOAD_LIMIT = 250 * 1024;            // the server refuses bodies over 256 KB
+const params = new URLSearchParams(location.search);
+const KEY = params.get('key');
+const SESSION_SECS = Math.min(180, Math.max(10, Number(params.get('secs')) || 45));
+const SKIP = (params.get('skip') || '').split(',').map((f) => f.trim()).filter(Boolean);   // ?skip=depth-sensing,camera-access
+const PLAN_FEATURES = ['hand-tracking', 'plane-detection', 'anchors', 'hit-test', 'depth-sensing'].filter((f) => !SKIP.includes(f));
+const EXTRA_FEATURES = ['dom-overlay', 'camera-access'].filter((f) => !SKIP.includes(f));
+const DEPTH_ORDER = params.get('depth') === 'cpu' ? ['cpu-optimized', 'gpu-optimized'] : ['gpu-optimized', 'cpu-optimized'];   // ?depth=cpu
+const DEPTH_INIT = { usagePreference: DEPTH_ORDER, dataFormatPreference: [] };
+const APP_CAMERA = { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } };
+const MIC = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+const FONT = '"Google Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+
+const $ = (id) => document.getElementById(id);
+const now = () => performance.now();
+const iso = () => new Date().toISOString();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const r1 = (v) => (typeof v === 'number' && isFinite(v) ? Math.round(v * 10) / 10 : null);
+const r2 = (v) => (typeof v === 'number' && isFinite(v) ? Math.round(v * 100) / 100 : null);
+const r3 = (v) => (typeof v === 'number' && isFinite(v) ? Math.round(v * 1000) / 1000 : null);
+const errText = (e) => (e && e.name ? [e.name, e.message, e.constraint ? `constraint "${e.constraint}" cannot be met` : ''].filter(Boolean).join(': ') : String(e));
+const safeCall = (fn, fallback = null) => { try { const v = fn(); return v === undefined ? fallback : v; } catch { return fallback; } };
+const db = (v) => (v > 0 ? r1(20 * Math.log10(v)) : null);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let R = null;                 // the report of the current run
+let T0 = 0;                   // performance.now() at the start of the run
+let audioCtx = null;
+let micStream = null;
+let threePromise = null;
+let finished = false;
+const kept = [];              // camera streams held open across the session
+const fullDeviceIds = new Map();
+const secs = () => r1((now() - T0) / 1000);
+
+// ---------------------------------------------------------------- utilities
+
+function withTimeout(promise, ms, label, onLate) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(`${label || 'operation'} timed out after ${Math.round(ms / 100) / 10} s`));
+    }, ms);
+    Promise.resolve(promise).then(
+      (v) => { if (done) { if (onLate) { try { onLate(v); } catch {} } return; } done = true; clearTimeout(timer); resolve(v); },
+      (e) => { if (done) return; done = true; clearTimeout(timer); reject(e); });
+  });
+}
+
+async function waitUntil(test, ms, every = 60) {
+  const end = now() + ms;
+  while (now() < end) { if (safeCall(test, false)) return true; await sleep(every); }
+  return !!safeCall(test, false);
+}
+
+function noteError(where, e) {
+  const message = typeof e === 'string' ? e : errText(e);
+  if (R && R.errors.length < 80) R.errors.push({ t: secs(), where, message });
+  return message;
+}
+
+// Runs one check. A failure or a hang is recorded and never stops the run.
+async function step(where, fn, timeoutMs = 20000) {
+  try {
+    return await withTimeout(Promise.resolve().then(fn), timeoutMs, where);
+  } catch (e) {
+    const message = noteError(where, e);
+    log(`${where}: ${message}`, 'warn');
+    return { error: message };
+  }
+}
+
+function log(msg, level = 'info') {
+  const t = R ? secs() : 0;
+  if (R && R.log.length < 400) R.log.push({ t, level, msg });
+  const box = $('log');
+  if (box) {
+    const line = document.createElement('div');
+    if (level === 'warn') line.className = 'warn';
+    line.innerHTML = `<span class="t">${String(t.toFixed ? t.toFixed(1) : t).padStart(5)} s</span>  ${esc(msg)}`;
+    box.appendChild(line);
+    while (box.childElementCount > 300) box.firstElementChild.remove();
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function ev(type, data = {}) {
+  if (R && R.events.length < 300) R.events.push({ t: secs(), type, ...data });
+}
+
+function setStage(text, busy = true) {
+  $('stageText').textContent = text;
+  $('stageDot').classList.toggle('on', busy);
+}
+
+function setStep(name, state) {
+  const li = document.querySelector(`#steps li[data-step="${name}"]`);
+  if (li) li.dataset.state = state;
+}
+
+function stopStream(stream) {
+  try { stream.getTracks().forEach((t) => t.stop()); } catch {}
+}
+
+// ------------------------------------------------------------- environment
+
+function parseBrowser(ua) {
+  const m = (re) => ((ua.match(re) || [])[1] || '').replace(/\.+$/, '') || null;
+  const quest = m(/OculusBrowser\/([\d.]+)/);
+  const out = { name: 'unknown', version: null, chromium: m(/Chrome\/([\d.]+)/), device: m(/;\s*(Quest[^;)]*)[;)]/) };
+  if (quest) { out.name = 'Meta Quest Browser'; out.version = quest; }
+  else if (m(/Edg\/([\d.]+)/)) { out.name = 'Edge'; out.version = m(/Edg\/([\d.]+)/); }
+  else if (m(/Firefox\/([\d.]+)/)) { out.name = 'Firefox'; out.version = m(/Firefox\/([\d.]+)/); }
+  else if (m(/CriOS\/([\d.]+)/)) { out.name = 'Chrome (iOS)'; out.version = m(/CriOS\/([\d.]+)/); }
+  else if (out.chromium) { out.name = 'Chrome'; out.version = out.chromium; }
+  else if (m(/Version\/([\d.]+).*Safari/)) { out.name = 'Safari'; out.version = m(/Version\/([\d.]+).*Safari/); }
+  return out;
+}
+
+async function stageEnvironment() {
+  const ua = navigator.userAgent;
+  const browser = parseBrowser(ua);
+  const uaData = navigator.userAgentData
+    ? { platform: navigator.userAgentData.platform, mobile: navigator.userAgentData.mobile, brands: (navigator.userAgentData.brands || []).map((b) => `${b.brand} ${b.version}`) }
+    : null;
+  const headsetUA = /Quest|OculusBrowser|Pico|VisionOS/i.test(ua);
+  const device = headsetUA ? 'headset' : /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'phone' : 'desktop';
+  // A headset user agent on a desktop platform means an emulator is faking the headset.
+  const emu = [];
+  if (headsetUA && uaData && /mac|win/i.test(uaData.platform || '')) emu.push(`user agent says headset, platform says ${uaData.platform}`);
+  if (headsetUA && /Mac|Win/i.test(navigator.platform || '')) emu.push(`user agent says headset, navigator.platform says ${navigator.platform}`);
+  if (typeof window.IWER !== 'undefined' || typeof window.IWE !== 'undefined') emu.push('a WebXR emulator object is on the page');
+  const E = R.environment = {
+    secure_context: window.isSecureContext === true,
+    protocol: location.protocol,
+    user_agent: ua,
+    ua_data: uaData,
+    browser,
+    device,
+    emulator_suspected: emu.length > 0,
+    emulator_reasons: emu,
+    platform: navigator.platform || null,
+    languages: safeCall(() => Array.from(navigator.languages || []).slice(0, 6), []),
+    hardware_concurrency: navigator.hardwareConcurrency || null,
+    device_memory_gb: navigator.deviceMemory || null,
+    max_touch_points: navigator.maxTouchPoints || 0,
+    screen: { width: screen.width, height: screen.height, avail_width: screen.availWidth, avail_height: screen.availHeight, dpr: window.devicePixelRatio, orientation: safeCall(() => screen.orientation.type) },
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    visibility: document.visibilityState,
+    xr: { present: !!navigator.xr, immersive_ar: null, immersive_vr: null, errors: {} },
+    apis: {
+      media_devices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      enumerate_devices: !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices),
+      audio_context: typeof (window.AudioContext || window.webkitAudioContext) === 'function',
+      audio_worklet: typeof window.AudioWorkletNode === 'function',
+      speech_synthesis: 'speechSynthesis' in window,
+      web_socket: typeof window.WebSocket === 'function',
+      track_processor: typeof window.MediaStreamTrackProcessor === 'function',
+      video_frame_callback: 'requestVideoFrameCallback' in HTMLVideoElement.prototype,
+      xr_webgl_binding: typeof window.XRWebGLBinding === 'function',
+      xr_rigid_transform: typeof window.XRRigidTransform === 'function',
+      wake_lock: 'wakeLock' in navigator,
+      clipboard: !!(navigator.clipboard && navigator.clipboard.writeText),
+    },
+    permissions: {},
+    webgl: null,
+  };
+  if (navigator.xr) {
+    for (const mode of ['immersive-ar', 'immersive-vr']) {
+      const key = mode.replace('-', '_');
+      try { E.xr[key] = (await withTimeout(navigator.xr.isSessionSupported(mode), 4000, `isSessionSupported(${mode})`)) === true; }
+      catch (e) { E.xr.errors[key] = noteError(`isSessionSupported(${mode})`, e); }
+    }
+  }
+  for (const name of ['camera', 'microphone']) {
+    try { E.permissions[name] = (await withTimeout(navigator.permissions.query({ name }), 2000, 'permissions.query')).state; }
+    catch { E.permissions[name] = 'unknown'; }
+  }
+  E.webgl = safeCall(() => {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return { supported: false };
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const out = { supported: true, webgl2: typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext,
+      renderer: String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)).slice(0, 120) };
+    const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+    return out;
+  }, { supported: false });
+  log(`${browser.name} ${browser.version || ''}${browser.device ? ` on ${browser.device}` : ''} · ${E.secure_context ? 'secure context' : 'NOT a secure context'} · screen ${screen.width}×${screen.height} @${window.devicePixelRatio}x`);
+  log(`WebXR: ${E.xr.present ? 'present' : 'missing'} · immersive-ar ${fmtBool(E.xr.immersive_ar)} · immersive-vr ${fmtBool(E.xr.immersive_vr)}`);
+  if (E.emulator_suspected) log(`This looks like an emulated headset (${emu[0]}). Results will be marked as emulated.`, 'warn');
+}
+
+const fmtBool = (v) => (v === true ? 'supported' : v === false ? 'not supported' : 'unknown');
+
+// ------------------------------------------------------------------ camera
+
+const small = document.createElement('canvas'); small.width = 64; small.height = 48;
+const sctx = small.getContext('2d', { willReadFrequently: true });
+const thumbCanvas = document.createElement('canvas');
+const tctx = thumbCanvas.getContext('2d');
+
+// Mean and spread of brightness (0..255) on a 64×48 copy of the frame.
+function lumaStats(source) {
+  sctx.drawImage(source, 0, 0, 64, 48);
+  const d = sctx.getImageData(0, 0, 64, 48).data;
+  const n = 64 * 48, luma = new Uint8Array(n);
+  let sum = 0, sum2 = 0, mn = 255, mx = 0;
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const y = 0.2126 * d[j] + 0.7152 * d[j + 1] + 0.0722 * d[j + 2];
+    luma[i] = y; sum += y; sum2 += y * y; if (y < mn) mn = y; if (y > mx) mx = y;
+  }
+  const mean = sum / n;
+  return { mean: r1(mean), sd: r1(Math.sqrt(Math.max(0, sum2 / n - mean * mean))), min: Math.round(mn), max: Math.round(mx), luma };
+}
+
+// 'black': dark and uniform. 'flat': one uniform colour. 'image': anything with structure.
+function classifyStats(s) {
+  if (!s) return 'no-frames';
+  if (s.mean < 6 && s.sd < 3) return 'black';
+  if (s.sd < 1.5) return 'flat';
+  return 'image';
+}
+
+function framesDiffer(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+  return sum / a.length > 0.12;
+}
+
+function makeThumb(source, w, h) {
+  if (!w || !h) return null;
+  thumbCanvas.width = 160; thumbCanvas.height = Math.max(60, Math.min(220, Math.round(160 * h / w)));
+  tctx.drawImage(source, 0, 0, thumbCanvas.width, thumbCanvas.height);
+  return thumbCanvas.toDataURL('image/jpeg', 0.5);
+}
+
+function facingOf(label, settings) {
+  const fm = settings && settings.facingMode;
+  if (fm === 'environment') return 'back';
+  if (fm === 'user') return 'front';
+  const l = String(label || '').toLowerCase();
+  if (/facing back|\bback\b|rear|environment|world|passthrough/.test(l)) return 'back';
+  if (/facing front|\bfront\b|\buser\b|selfie|avatar|facetime/.test(l)) return 'front';
+  return 'unknown';
+}
+
+function trackInfo(track) {
+  const s = safeCall(() => track.getSettings(), {}) || {};
+  const c = safeCall(() => (track.getCapabilities ? track.getCapabilities() : null));
+  return {
+    ready_state: track.readyState, muted: track.muted, enabled: track.enabled,
+    settings: { width: s.width ?? null, height: s.height ?? null, frame_rate: r1(s.frameRate), facing_mode: s.facingMode ?? null },
+    capabilities: c ? { width_max: c.width?.max ?? null, height_max: c.height?.max ?? null, frame_rate_max: r1(c.frameRate?.max), facing_mode: c.facingMode ?? null } : null,
+  };
+}
+
+// Reads frames straight from the track (Chromium). Independent of the <video> element.
+function startTrackReader(track) {
+  if (typeof window.MediaStreamTrackProcessor !== 'function') return null;
+  let clone = null, reader = null, stopped = false, frames = 0, first = null, last = null, lastFrame = null, error = null;
+  try {
+    clone = track.clone();
+    reader = new MediaStreamTrackProcessor({ track: clone, maxBufferSize: 2 }).readable.getReader();
+  } catch (e) {
+    try { clone && clone.stop(); } catch {}
+    return null;
+  }
+  (async () => {
+    try {
+      while (!stopped) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (stopped) { value.close(); break; }
+        frames++; const t = now(); if (first === null) first = t; last = t;
+        if (lastFrame) lastFrame.close();
+        lastFrame = value;
+      }
+    } catch (e) { error = errText(e); }
+  })();
+  return {
+    async stop(wantThumb) {
+      stopped = true;
+      const out = { frames, fps: frames >= 2 && last > first ? r1((frames - 1) * 1000 / (last - first)) : null, stats: null, thumb: null, width: null, height: null, error };
+      try {
+        if (lastFrame) {
+          out.width = lastFrame.displayWidth; out.height = lastFrame.displayHeight;
+          out.stats = lumaStats(lastFrame);
+          if (wantThumb) out.thumb = makeThumb(lastFrame, out.width, out.height);
+        }
+      } catch (e) { out.error = out.error || errText(e); }
+      try { lastFrame && lastFrame.close(); } catch {}
+      lastFrame = null;
+      try { await withTimeout(reader.cancel(), 500, 'reader.cancel'); } catch {}
+      try { clone.stop(); } catch {}
+      return out;
+    },
+  };
+}
+
+// Looks at one open stream for `durMs` and decides whether its frames are real.
+async function measureCamera(rec, stream, video, durMs = 1200) {
+  const track = stream.getVideoTracks()[0];
+  if (!track) { rec.verdict = 'no-track'; return rec; }
+  rec.track = trackInfo(track);
+  rec.label = track.label || rec.label || '';
+  rec.facing = facingOf(rec.label, rec.track.settings);
+  if (track.readyState !== 'live') { rec.verdict = 'ended'; return rec; }
+  if (video.paused) {
+    try { await withTimeout(video.play(), 2500, 'video.play'); } catch (e) { rec.play_error = errText(e); }
+  }
+  await waitUntil(() => video.videoWidth > 0 && video.readyState >= 2, 3000);
+  let rvfc = 0, counting = true;
+  if (video.requestVideoFrameCallback) {
+    const tick = () => { rvfc++; if (counting) video.requestVideoFrameCallback(tick); };
+    video.requestVideoFrameCallback(tick);
+  }
+  const quality = () => safeCall(() => video.getVideoPlaybackQuality().totalVideoFrames);
+  const q0 = quality();
+  const reader = startTrackReader(track);
+  const samples = [];
+  const started = now();
+  for (let i = 0; i < 4; i++) {
+    await sleep(durMs / 4);
+    if (video.videoWidth > 0) {
+      try { samples.push(lumaStats(video)); } catch (e) { rec.draw_error = errText(e); }
+    }
+  }
+  const elapsed = (now() - started) / 1000;
+  counting = false;
+  const q1 = quality();
+  const qDelta = q0 !== null && q1 !== null ? q1 - q0 : null;
+  let changed = false;
+  for (let i = 1; i < samples.length; i++) if (framesDiffer(samples[i - 1].luma, samples[i].luma)) changed = true;
+  const best = samples.length ? samples.reduce((a, b) => (b.sd > a.sd ? b : a)) : null;
+  const videoClass = classifyStats(best);
+  const videoMoving = rvfc >= 2 || (qDelta !== null && qDelta >= 2) || changed;
+  const videoVerdict = videoClass === 'image' ? (videoMoving ? 'real' : 'frozen') : videoClass;
+  let thumb = null;
+  if (best && video.videoWidth > 0) { try { thumb = makeThumb(video, video.videoWidth, video.videoHeight); } catch {} }
+  const tr = reader ? await reader.stop(!thumb || videoVerdict !== 'real') : null;
+  let trackVerdict = 'unsupported';
+  if (tr) {
+    const c = classifyStats(tr.stats);
+    trackVerdict = tr.frames === 0 ? 'no-frames' : c === 'image' ? (tr.frames >= 2 ? 'real' : 'frozen') : c;
+  }
+  rec.video = { width: video.videoWidth, height: video.videoHeight, ready_state: video.readyState, verdict: videoVerdict,
+    luma: best ? { mean: best.mean, sd: best.sd, min: best.min, max: best.max } : null,
+    frames_changed: changed, frame_callbacks: rvfc, frames_presented: qDelta };
+  rec.track_reader = tr ? { verdict: trackVerdict, frames: tr.frames, fps: tr.fps, width: tr.width, height: tr.height,
+    luma: tr.stats ? { mean: tr.stats.mean, sd: tr.stats.sd, min: tr.stats.min, max: tr.stats.max } : null, error: tr.error || undefined } : null;
+  rec.width = video.videoWidth || (tr && tr.width) || rec.track.settings.width || null;
+  rec.height = video.videoHeight || (tr && tr.height) || rec.track.settings.height || null;
+  if (tr && tr.fps) { rec.fps = tr.fps; rec.fps_source = 'frames read from the track'; }
+  else if (rvfc >= 2) { rec.fps = r1(rvfc / elapsed); rec.fps_source = 'video frame callbacks'; }
+  else if (qDelta) { rec.fps = r1(qDelta / elapsed); rec.fps_source = 'frames presented by the video element'; }
+  else { rec.fps = null; rec.fps_source = 'not measured'; }
+  rec.verdict = videoVerdict === 'real' || trackVerdict === 'real' ? 'real' : (videoVerdict === 'no-frames' && tr ? trackVerdict : videoVerdict);
+  rec.real_via = videoVerdict === 'real' && trackVerdict === 'real' ? 'video element and track reader' : videoVerdict === 'real' ? 'video element' : trackVerdict === 'real' ? 'track reader only' : null;
+  rec.thumb = videoVerdict === 'real' || !tr || !tr.thumb ? thumb : tr.thumb;
+  const end = safeCall(() => track.readyState);
+  rec.track.ready_state_after = end; rec.track.muted_after = safeCall(() => track.muted);
+  if (end !== 'live') rec.verdict = 'ended';
+  return rec;
+}
+
+function makePreview(stream, caption) {
+  const fig = document.createElement('figure');
+  const video = document.createElement('video');
+  video.muted = true; video.autoplay = true; video.playsInline = true;
+  video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
+  video.srcObject = stream;
+  const cap = document.createElement('figcaption'); cap.textContent = caption;
+  fig.append(video, cap);
+  $('previews').appendChild(fig);
+  return { video, remove() { try { video.srcObject = null; } catch {} fig.remove(); } };
+}
+
+const shortId = (id) => (id ? `${String(id).slice(0, 8)}…` : '');
+const camLine = (c) => {
+  const what = c.label ? `"${c.label}"` : 'camera';
+  if (!c.ok) return `${what}: not opened (${c.error})`;
+  const size = c.width ? ` ${c.width}×${c.height}` : '';
+  const fps = c.fps ? ` at ${c.fps} fps` : '';
+  const luma = c.video && c.video.luma ? `, brightness ${c.video.luma.mean} ± ${c.video.luma.sd}` : '';
+  return `${what}: ${c.verdict}${size}${fps}${luma}${c.real_via === 'track reader only' ? ' (only when reading frames from the track, not through a video element)' : ''}`;
+};
+
+// Opens a camera, measures it, and closes it unless `keep` is set.
+async function cameraTest(o) {
+  const rec = { id: o.id, phase: o.phase || 'before', how: o.how, t: secs(), constraints: o.constraints.video,
+    device: o.deviceId ? shortId(o.deviceId) : undefined, label: o.label || '', facing: 'unknown', ok: false, verdict: 'not-opened' };
+  let stream = null, pv = null;
+  try {
+    const started = now();
+    stream = await withTimeout(navigator.mediaDevices.getUserMedia(o.constraints), o.timeout || 10000, 'getUserMedia', stopStream);
+    rec.ok = true; rec.open_ms = Math.round(now() - started);
+    pv = makePreview(stream, o.caption || o.id);
+    await withTimeout(measureCamera(rec, stream, pv.video, o.dur || 1200), 12000, 'camera measurement');
+  } catch (e) {
+    rec.error = errText(e);
+    if (rec.ok) rec.verdict = 'error';
+    noteError(`camera ${o.id}`, e);
+  }
+  if (o.session) { rec.session_t = r1(o.session.t()); rec.in_session = o.session.live(); rec.xr_visibility = o.session.visibility(); }
+  log(`${o.caption || o.id} · ${camLine(rec)}`, rec.verdict === 'real' ? 'info' : 'warn');
+  if (stream && o.keep) return { rec, stream, pv };
+  if (stream) stopStream(stream);
+  if (pv) pv.remove();
+  return { rec };
+}
+
+async function measureKept(k, phase, tag, session) {
+  const rec = { id: `${phase}:kept:${k.key}:${tag}`, phase, how: 'kept', t: secs(), device: k.short, label: k.label, facing: k.facing, ok: true, verdict: 'error' };
+  try { await withTimeout(measureCamera(rec, k.stream, k.pv.video, 1200), 12000, 'camera measurement'); }
+  catch (e) { rec.error = errText(e); noteError(`camera ${rec.id}`, e); }
+  if (session) { rec.session_t = r1(session.t()); rec.in_session = session.live(); rec.xr_visibility = session.visibility(); }
+  log(`stream kept open (${tag}) · ${camLine(rec)}`, rec.verdict === 'real' ? 'info' : 'warn');
+  return rec;
+}
+
+async function listDevices() {
+  const list = await withTimeout(navigator.mediaDevices.enumerateDevices(), 4000, 'enumerateDevices');
+  const out = { counts: { videoinput: 0, audioinput: 0, audiooutput: 0 }, list: [] };
+  for (const d of list) {
+    out.counts[d.kind] = (out.counts[d.kind] || 0) + 1;
+    const id = shortId(d.deviceId);
+    if (d.kind === 'videoinput' && d.deviceId) fullDeviceIds.set(id, d.deviceId);
+    if (out.list.length < 24) out.list.push({ kind: d.kind, label: d.label || '', id, facing: d.kind === 'videoinput' ? facingOf(d.label) : undefined });
+  }
+  return out;
+}
+
+const byDevice = (deviceId) => ({ video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 960 } } });
+
+// ------------------------------------------------------------------- audio
+
+async function ensureAudio() {
+  if (!audioCtx) return false;
+  if (audioCtx.state !== 'running') { try { await withTimeout(audioCtx.resume(), 1500, 'AudioContext.resume'); } catch {} }
+  return audioCtx.state === 'running';
+}
+
+async function measureMic(stream, ms = 2000) {
+  const track = stream.getAudioTracks()[0];
+  const s = safeCall(() => track.getSettings(), {}) || {};
+  const out = { label: track ? track.label : '', ready_state: track ? track.readyState : 'none', muted: track ? track.muted : null,
+    settings: { sample_rate: s.sampleRate ?? null, channels: s.channelCount ?? null, echo_cancellation: s.echoCancellation ?? null, noise_suppression: s.noiseSuppression ?? null, auto_gain: s.autoGainControl ?? null },
+    verdict: 'unknown' };
+  if (!track || track.readyState !== 'live') { out.verdict = 'ended'; return out; }
+  if (!(await ensureAudio())) { out.note = `AudioContext is ${audioCtx ? audioCtx.state : 'missing'}, so the level could not be measured`; return out; }
+  const src = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048;
+  const mute = audioCtx.createGain(); mute.gain.value = 0;
+  src.connect(analyser); analyser.connect(mute); mute.connect(audioCtx.destination);
+  const buf = new Float32Array(analyser.fftSize);
+  let sum = 0, n = 0, peak = 0;
+  const end = now() + ms;
+  try {
+    while (now() < end) {
+      await sleep(50);
+      analyser.getFloatTimeDomainData(buf);
+      for (let i = 0; i < buf.length; i++) { const v = buf[i]; sum += v * v; const a = v < 0 ? -v : v; if (a > peak) peak = a; }
+      n += buf.length;
+    }
+  } finally {
+    try { src.disconnect(); analyser.disconnect(); mute.disconnect(); } catch {}
+  }
+  const rms = n ? Math.sqrt(sum / n) : 0;
+  out.rms = r3(rms) ?? 0; out.peak = r3(peak) ?? 0; out.rms_db = db(rms); out.peak_db = db(peak);
+  out.context_rate = audioCtx.sampleRate;
+  out.ready_state_after = track.readyState; out.muted_after = track.muted;
+  out.verdict = track.readyState !== 'live' ? 'ended' : rms > 1e-5 ? 'signal' : 'silent';
+  return out;
+}
+
+const micLine = (m) => {
+  if (!m) return 'not measured';
+  if (m.error) return `failed: ${m.error}`;
+  if (m.verdict === 'signal') return `signal, RMS ${m.rms_db} dBFS, peak ${m.peak_db} dBFS${m.rms_db !== null && m.rms_db < -55 ? ' (very quiet: talk while it measures to be sure)' : ''}`;
+  if (m.verdict === 'silent') return 'open but silent (all samples zero)';
+  if (m.verdict === 'ended') return 'the track has ended';
+  return m.note || 'unknown';
+};
+
+async function playBeep() {
+  const out = { played: false, state: audioCtx ? audioCtx.state : 'missing' };
+  if (!(await ensureAudio())) { out.note = 'AudioContext is not running'; return out; }
+  const t = audioCtx.currentTime + 0.05;
+  const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 880;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.2, t + 0.02);
+  gain.gain.setValueAtTime(0.2, t + 0.26); gain.gain.linearRampToValueAtTime(0, t + 0.3);
+  const analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
+  osc.connect(gain); gain.connect(audioCtx.destination); gain.connect(analyser);
+  osc.start(t); osc.stop(t + 0.32);
+  await sleep(190);
+  const buf = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf);
+  let sum = 0; for (const v of buf) sum += v * v;
+  await sleep(220);
+  try { gain.disconnect(); analyser.disconnect(); } catch {}
+  out.graph_rms = r3(Math.sqrt(sum / buf.length));
+  out.state = audioCtx.state; out.sample_rate = audioCtx.sampleRate;
+  out.base_latency_ms = r1((audioCtx.baseLatency || 0) * 1000); out.output_latency_ms = r1((audioCtx.outputLatency || 0) * 1000);
+  out.played = audioCtx.state === 'running' && out.graph_rms > 0.01;
+  return out;
+}
+
+async function checkAudioPipeline() {
+  const out = { worklet: null, context_16k: null };
+  if (audioCtx && audioCtx.audioWorklet) {
+    const code = 'class P extends AudioWorkletProcessor{process(){return false}}registerProcessor("xr-check-probe",P)';
+    const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    try { await withTimeout(audioCtx.audioWorklet.addModule(url), 4000, 'audioWorklet.addModule'); out.worklet = { ok: true }; }
+    catch (e) { out.worklet = { ok: false, error: errText(e) }; }
+    URL.revokeObjectURL(url);
+  } else out.worklet = { ok: false, error: 'audioWorklet is missing' };
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const c = new AC({ sampleRate: 16000 });
+    out.context_16k = { ok: c.sampleRate === 16000, sample_rate: c.sampleRate };
+    c.close();
+  } catch (e) { out.context_16k = { ok: false, error: errText(e) }; }
+  return out;
+}
+
+async function checkSpeech() {
+  if (!('speechSynthesis' in window)) return { supported: false };
+  const synth = window.speechSynthesis;
+  let voices = synth.getVoices();
+  if (!voices.length) {
+    await new Promise((res) => {
+      const timer = setTimeout(res, 2500);
+      synth.addEventListener('voiceschanged', () => { clearTimeout(timer); res(); }, { once: true });
+    });
+    voices = synth.getVoices();
+  }
+  const langs = {};
+  for (const v of voices) { const k = String(v.lang || '?').slice(0, 2).toLowerCase(); langs[k] = (langs[k] || 0) + 1; }
+  const pick = (re) => voices.filter((v) => re.test(v.lang || '')).slice(0, 8).map((v) => ({ name: v.name, lang: v.lang, local: v.localService }));
+  const out = { supported: true, voices: voices.length, languages: langs, greek: pick(/^el([-_]|$)/i), english: pick(/^en([-_]|$)/i), spoke: null };
+  // One short utterance: does speak() fire its events here?
+  if (voices.length) {
+    out.spoke = await new Promise((res) => {
+      const result = { started: false, ended: false };
+      const timer = setTimeout(() => { result.note = 'no end event in 4 s'; res(result); }, 4000);
+      try {
+        const u = new SpeechSynthesisUtterance('Check');
+        u.lang = 'en-US'; u.volume = 0.6;
+        u.onstart = () => { result.started = true; };
+        u.onend = () => { result.ended = true; clearTimeout(timer); res(result); };
+        u.onerror = (e) => { result.error = e.error || 'error'; clearTimeout(timer); res(result); };
+        synth.speak(u);
+      } catch (e) { result.error = errText(e); clearTimeout(timer); res(result); }
+    });
+    try { synth.cancel(); } catch {}
+  }
+  return out;
+}
+
+// ----------------------------------------------------------------- network
+
+function wsProbe() {
+  return new Promise((resolve) => {
+    const path = params.get('ws') || '/ws/perception/xr-check?role=display';
+    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let url = `${scheme}//${location.host}${path}`;
+    if (KEY) url += `${path.includes('?') ? '&' : '?'}key=${encodeURIComponent(KEY)}`;
+    const out = { path, opened: false };
+    const started = now();
+    let done = false, ws = null;
+    const finish = () => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      out.ms = Math.round(now() - started);
+      try { ws && ws.close(); } catch {}
+      resolve(out);
+    };
+    const timer = setTimeout(() => { out.error = 'no answer in 5 s'; finish(); }, 5000);
+    try { ws = new WebSocket(url); } catch (e) { out.error = errText(e); finish(); return; }
+    ws.onopen = () => { out.opened = true; finish(); };
+    ws.onerror = () => { out.error = out.error || 'the connection was refused or there is no WebSocket endpoint at this path'; };
+    ws.onclose = (e) => { out.close_code = e.code; finish(); };
+  });
+}
+
+async function netCheck() {
+  const out = { fetch: { ok: false }, ws: null };
+  const started = now();
+  try {
+    const res = await withTimeout(fetch(`${location.pathname}?ping=${Date.now()}`, { cache: 'no-store' }), 6000, 'fetch');
+    await res.arrayBuffer();
+    out.fetch = { ok: true, status: res.status, ms: Math.round(now() - started) };
+  } catch (e) { out.fetch = { ok: false, error: errText(e), ms: Math.round(now() - started) }; }
+  out.ws = await wsProbe();
+  return out;
+}
+
+const netLine = (n) => {
+  if (!n || n.error) return `not measured${n && n.error ? `: ${n.error}` : ''}`;
+  const f = n.fetch.ok ? `fetch answered ${n.fetch.status} in ${n.fetch.ms} ms` : `fetch failed (${n.fetch.error})`;
+  const w = n.ws.opened ? `WebSocket opened in ${n.ws.ms} ms` : `WebSocket did not open (${n.ws.error || `close code ${n.ws.close_code}`})`;
+  return `${f}; ${w}`;
+};
+
+// -------------------------------------------------------- stage 2: before
+
+async function stageBefore() {
+  const B = R.before_xr = { devices_before_permission: null, devices: null, cameras: [], kept: [], kept_note: null, mic: null, beep: null, audio: null, speech: null, network: null };
+  const md = navigator.mediaDevices;
+  if (!md || !md.getUserMedia) {
+    B.media_error = window.isSecureContext ? 'navigator.mediaDevices.getUserMedia is missing in this browser' : 'not a secure context: the camera and the microphone need HTTPS or localhost';
+    log(B.media_error, 'warn');
+  } else {
+    B.devices_before_permission = await step('enumerateDevices before permission', listDevices, 6000);
+    setStage('Opening the camera. Allow it if the browser asks. On a Quest, tick "Headset cameras" in the prompt.');
+    // Asked first, and with `exact`: with `ideal`, Quest Browser quietly hands back the avatar camera instead.
+    B.cameras.push((await cameraTest({ id: 'before:environment', how: 'environment', caption: 'world-facing camera (facingMode: exact environment)', constraints: { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } } }, timeout: 30000 })).rec);
+    const first = (await cameraTest({ id: 'before:default', how: 'default', caption: 'default camera', constraints: { video: true }, timeout: 30000 })).rec;
+    B.cameras.push(first);
+    B.devices = await step('enumerateDevices', listDevices, 6000);
+    const blocked = !first.ok && /NotAllowedError|NotFoundError|SecurityError|timed out/.test(first.error || '');
+    const vids = ((B.devices && B.devices.list) || []).filter((d) => d.kind === 'videoinput' && fullDeviceIds.has(d.id));
+    if (B.devices && B.devices.list) log(`Devices: ${B.devices.counts.videoinput} camera(s), ${B.devices.counts.audioinput} microphone(s). ${vids.map((d) => `"${d.label || 'unnamed'}"`).join(', ')}`);
+    if (blocked) {
+      log(`The camera is blocked, absent or its prompt was not answered (${first.error}), so the other camera tests are skipped.`, 'warn');
+    } else {
+      setStage('Testing each camera.');
+      B.cameras.push((await cameraTest({ id: 'before:app', how: 'app', caption: 'app settings (facingMode: ideal environment, 1280×720)', constraints: { video: APP_CAMERA }, timeout: 30000 })).rec);
+      for (const [i, d] of vids.slice(0, 6).entries()) {
+        const id = fullDeviceIds.get(d.id);
+        B.cameras.push((await cameraTest({ id: `before:device${i}`, how: 'device', caption: d.label || `camera ${i}`, label: d.label, deviceId: id, constraints: byDevice(id), timeout: 30000 })).rec);
+      }
+      // Quest Browser lists only the inward avatar camera until "Headset cameras" is ticked for the site.
+      const worldSeen = vids.some((d) => d.facing === 'back') || B.cameras.some((c) => c.ok && c.facing === 'back');
+      const exact = B.cameras.find((c) => c.how === 'environment');
+      B.world_camera_listed = worldSeen;
+      B.headset_camera_permission_missing = R.environment.device === 'headset' && vids.length > 0 && !worldSeen && !(exact && exact.ok);
+      if (B.headset_camera_permission_missing) {
+        const br = R.environment.browser || {};
+        $('permText').textContent = `Only ${vids.map((d) => `"${d.label || 'an unnamed camera'}"`).join(', ')} is listed, and asking for the world-facing camera failed (${exact ? exact.error : 'not tried'}). Quest Browser hides the two passthrough cameras until this box is ticked. Browser version: ${br.name} ${br.version || 'unknown'}.`;
+        $('permNotice').hidden = false;
+        log('Only a front or avatar camera is listed: the "Headset cameras" permission looks switched off for this site. See the instruction on the page.', 'warn');
+        ev('headset-camera-permission-missing');
+      }
+      await step('holding cameras open', () => holdCameras(B), 40000);
+    }
+    setStage('Opening the microphone. Allow it if the browser asks, then say a few words.');
+    B.mic = await step('microphone', async () => {
+      const started = now();
+      micStream = await withTimeout(md.getUserMedia({ audio: MIC }), 30000, 'getUserMedia audio', stopStream);
+      const m = await measureMic(micStream, 2000);
+      m.open_ms = Math.round(now() - started - 2000);
+      return m;
+    }, 40000);
+    log(`Microphone · ${micLine(B.mic)}`, B.mic && B.mic.verdict === 'signal' ? 'info' : 'warn');
+    const again = await step('enumerateDevices after the microphone', listDevices, 6000);
+    if (again && again.list) B.devices = again;
+  }
+  setStage('Playing a short beep.');
+  B.beep = await step('beep', playBeep, 4000);
+  log(`Beep · ${B.beep.played ? `played at ${B.beep.sample_rate} Hz output rate` : `not played (${B.beep.note || B.beep.error || `AudioContext ${B.beep.state}`})`}`, B.beep.played ? 'info' : 'warn');
+  B.audio = await step('audio pipeline', checkAudioPipeline, 8000);
+  B.speech = await step('speechSynthesis', checkSpeech, 9000);
+  if (B.speech && !B.speech.error) log(`Speech synthesis · ${B.speech.supported ? `${B.speech.voices} voice(s), Greek: ${B.speech.greek.length ? B.speech.greek.map((v) => v.name).join(', ') : 'none'}` : 'not supported'}`);
+  B.network = await step('network', netCheck, 14000);
+  log(`Network · ${netLine(B.network)}`);
+}
+
+// Re-opens the cameras worth watching during the session and keeps them open.
+async function holdCameras(B) {
+  const rank = { back: 0, unknown: 1, front: 2 };
+  const good = B.cameras.filter((c) => c.how === 'device' && c.verdict === 'real').sort((a, b) => rank[a.facing] - rank[b.facing]);
+  let chosen = good.filter((c) => c.facing !== 'front').slice(0, 2);
+  if (!chosen.length && good.length) chosen = [good[0]];
+  const plans = chosen.map((c) => ({ key: c.id.split(':')[1], deviceId: fullDeviceIds.get(c.device), label: c.label, facing: c.facing }));
+  if (!plans.length && B.cameras.some((c) => c.how === 'default' && c.verdict === 'real')) plans.push({ key: 'default', deviceId: null, label: '', facing: 'unknown' });
+  if (!plans.length) { B.kept_note = 'no camera gave real frames, so no stream is held open for the session'; log(B.kept_note, 'warn'); return; }
+  for (const p of plans) {
+    const constraints = p.deviceId ? byDevice(p.deviceId) : { video: true };
+    const got = await cameraTest({ id: `before:kept:${p.key}`, how: 'kept', caption: `held open: ${p.label || 'default camera'}`, label: p.label, deviceId: p.deviceId, constraints, timeout: 15000, keep: true });
+    B.kept.push(got.rec);
+    if (!got.stream) { B.kept_note = `could not hold "${p.label || p.key}" open as well: ${got.rec.error}`; continue; }
+    const k = { key: p.key, short: p.deviceId ? shortId(p.deviceId) : undefined, deviceId: p.deviceId, constraints, label: got.rec.label || p.label, facing: got.rec.facing, stream: got.stream, pv: got.pv };
+    const track = got.stream.getVideoTracks()[0];
+    for (const type of ['mute', 'unmute', 'ended']) track.addEventListener(type, () => { ev('camera-track', { camera: k.label || k.key, what: type }); log(`Camera "${k.label || k.key}" track event: ${type}`, type === 'unmute' ? 'info' : 'warn'); });
+    kept.push(k);
+  }
+  log(`Holding ${kept.length} camera stream(s) open for the session: ${kept.map((k) => `"${k.label || k.key}"`).join(', ')}`);
+}
+
+// ------------------------------------------------------------ three.js
+
+async function loadThree() {
+  const info = { wanted: THREE_VERSION, ok: false };
+  if (params.has('nothree')) { info.error = 'skipped by ?nothree'; return { THREE: null, info }; }
+  const started = now();
+  for (const spec of ['three', THREE_URL]) {
+    try {
+      const mod = await withTimeout(import(spec), 15000, 'loading three.js');
+      info.ok = true; info.revision = mod.REVISION; info.via = spec === 'three' ? 'import map' : 'direct URL'; info.ms = Math.round(now() - started);
+      delete info.error;
+      return { THREE: mod, info };
+    } catch (e) { info.error = errText(e); }
+  }
+  info.ms = Math.round(now() - started);
+  return { THREE: null, info };
+}
+
+// ------------------------------------------------- in-headset panel drawing
+
+const XR_COLORS = { pass: '#6fdc9b', fail: '#ff8a7a', unknown: '#e8c14b', wait: 'rgba(255,255,255,0.5)' };
+
+function drawStatusIcon(ctx, x, y, r, status) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = XR_COLORS[status] || XR_COLORS.wait; ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  if (status === 'pass') {
+    ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * 0.45, 0.05 * r); ctx.lineTo(-r * 0.1, r * 0.4); ctx.lineTo(r * 0.5, -r * 0.35); ctx.stroke();
+  } else if (status === 'fail') {
+    for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i * Math.PI) / 4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * 1.08, Math.sin(a) * r * 1.08); }
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * 0.38, -r * 0.38); ctx.lineTo(r * 0.38, r * 0.38); ctx.moveTo(r * 0.38, -r * 0.38); ctx.lineTo(-r * 0.38, r * 0.38); ctx.stroke();
+  } else if (status === 'unknown') {
+    ctx.moveTo(0, -r * 1.15); ctx.lineTo(r * 1.15, 0); ctx.lineTo(0, r * 1.15); ctx.lineTo(-r * 1.15, 0); ctx.closePath(); ctx.stroke();
+    ctx.font = `600 ${Math.round(r * 1.3)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', 0, r * 0.08);
+  } else {
+    ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function fitText(ctx, text, max) {
+  text = String(text ?? '');
+  if (ctx.measureText(text).width <= max) return text;
+  while (text.length > 1 && ctx.measureText(`${text}…`).width > max) text = text.slice(0, -1);
+  return `${text}…`;
+}
+
+function drawPanel(ctx, state) {
+  const W = 1024, H = 768;
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(4, 4, W - 8, H - 8, 32); else ctx.rect(4, 4, W - 8, H - 8);
+  ctx.fillStyle = 'rgba(12,12,12,0.86)'; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.stroke();
+  ctx.textBaseline = 'middle';
+  ctx.font = `500 54px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff';
+  ctx.fillText(fitText(ctx, state.title, W - 280), 44, 62);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#9ecfff'; ctx.fillText(state.clock, W - 44, 62);
+  const top = 108, rowH = 64;
+  state.rows.forEach((row, i) => {
+    const y = top + i * rowH + rowH / 2;
+    drawStatusIcon(ctx, 64, y, 19, row.status);
+    ctx.textAlign = 'left';
+    ctx.font = `500 36px ${FONT}`; ctx.fillStyle = '#ffffff'; ctx.fillText(row.label, 104, y);
+    ctx.font = `400 34px ${FONT}`; ctx.fillStyle = 'rgba(255,255,255,0.86)'; ctx.fillText(fitText(ctx, row.value, W - 44 - 322), 322, y);
+  });
+  ctx.font = `400 34px ${FONT}`; ctx.fillStyle = '#9ecfff'; ctx.textAlign = 'left';
+  ctx.fillText(fitText(ctx, state.hint, W - 88), 44, H - 44);
+}
+
+// ------------------------------------------------------- session renderers
+
+// three.js r187 view: the same renderer.xr path the real app uses.
+async function makeThreeView(THREE, session, onFrame) {
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);                 // transparent: passthrough shows behind
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType('local-floor');
+  $('glHolder').appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 30);
+  const overlay = { depthTest: false, depthWrite: false, toneMapped: false };   // never hidden by real surfaces
+
+  const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 768;
+  const pctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.42), new THREE.MeshBasicMaterial({ map: texture, transparent: true, ...overlay }));
+  panel.renderOrder = 10; panel.visible = false; panel.frustumCulled = false; scene.add(panel);
+
+  const dots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.006, 10, 8), new THREE.MeshBasicMaterial({ color: 0x9ecfff, ...overlay }), 50);
+  dots.count = 0; dots.frustumCulled = false; dots.renderOrder = 8; scene.add(dots);
+  const m4 = new THREE.Matrix4();
+
+  const planeGroup = new THREE.Group(); scene.add(planeGroup);
+  const planeLines = new Map();
+  const lineMat = {
+    table: new THREE.LineBasicMaterial({ color: 0x6fdc9b, ...overlay }),
+    horizontal: new THREE.LineBasicMaterial({ color: 0x9ecfff, ...overlay }),
+    vertical: new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, ...overlay }),
+  };
+
+  const anchorMark = new THREE.Mesh(new THREE.OctahedronGeometry(0.035), new THREE.MeshBasicMaterial({ color: 0x6fdc9b, wireframe: true, ...overlay }));
+  anchorMark.visible = false; anchorMark.renderOrder = 7; scene.add(anchorMark);
+  const reticle = new THREE.Mesh(new THREE.RingGeometry(0.035, 0.047, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, ...overlay }));
+  reticle.matrixAutoUpdate = false; reticle.visible = false; reticle.renderOrder = 7; scene.add(reticle);
+
+  let renderErrors = 0;
+  const info = { kind: 'three.js', revision: THREE.REVISION, render_errors: 0, first_render_error: null };
+  renderer.setAnimationLoop((t, frame) => {
+    if (frame) onFrame(t, frame, renderer.xr.getReferenceSpace());
+    if (renderErrors > 5) return;
+    try { renderer.render(scene, camera); }
+    catch (e) { renderErrors++; info.render_errors = renderErrors; if (!info.first_render_error) info.first_render_error = errText(e); }
+  });
+  try { await withTimeout(renderer.xr.setSession(session), 10000, 'three.js renderer.xr.setSession'); }
+  catch (e) {
+    try { renderer.setAnimationLoop(null); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); } catch {}
+    throw e;
+  }
+  info.layer = safeCall(() => {
+    const layer = renderer.xr.getBaseLayer();
+    if (!layer) return null;
+    if (typeof XRProjectionLayer === 'function' && layer instanceof XRProjectionLayer) return 'XRProjectionLayer';
+    if (typeof XRWebGLLayer === 'function' && layer instanceof XRWebGLLayer) return 'XRWebGLLayer';
+    return 'layer of unknown type';
+  });
+
+  return {
+    info,
+    refSpace: () => renderer.xr.getReferenceSpace(),
+    binding: () => safeCall(() => renderer.xr.getBinding()),
+    threeDepth: () => safeCall(() => renderer.xr.hasDepthSensing()),
+    panelPlaced: () => panel.visible,
+    placePanel(head, fwd) {
+      panel.position.set(head.x + fwd.x * 0.8, head.y - 0.12, head.z + fwd.z * 0.8);
+      panel.lookAt(head.x, head.y, head.z);
+      panel.visible = true;
+    },
+    redraw(state) { drawPanel(pctx, state); texture.needsUpdate = true; },
+    setJoints(positions, count) {
+      for (let i = 0; i < count; i++) { m4.makeTranslation(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]); dots.setMatrixAt(i, m4); }
+      dots.count = count; dots.instanceMatrix.needsUpdate = true;
+    },
+    syncPlanes(list) {
+      const seen = new Set();
+      for (const p of list) {
+        if (!p.pose) continue;
+        seen.add(p.plane);
+        let entry = planeLines.get(p.plane);
+        if (!entry || entry.changed !== p.changed) {
+          if (entry) { planeGroup.remove(entry.line); entry.line.geometry.dispose(); }
+          const pts = []; for (const v of p.plane.polygon) pts.push(new THREE.Vector3(v.x, v.y, v.z));
+          const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat.horizontal);
+          line.matrixAutoUpdate = false; line.frustumCulled = false; line.renderOrder = 6;
+          planeGroup.add(line);
+          entry = { line, changed: p.changed }; planeLines.set(p.plane, entry);
+        }
+        entry.line.material = p.table ? lineMat.table : p.orientation === 'vertical' ? lineMat.vertical : lineMat.horizontal;
+        entry.line.matrix.fromArray(p.pose.transform.matrix);
+      }
+      for (const [plane, entry] of planeLines) if (!seen.has(plane)) { planeGroup.remove(entry.line); entry.line.geometry.dispose(); planeLines.delete(plane); }
+    },
+    setAnchor(pos) { if (pos) { anchorMark.position.set(pos.x, pos.y, pos.z); anchorMark.visible = true; } else anchorMark.visible = false; },
+    setReticle(matrix) { if (matrix) { reticle.matrix.fromArray(matrix); reticle.visible = true; } else reticle.visible = false; },
+    dispose() {
+      try { renderer.setAnimationLoop(null); } catch {}
+      try { renderer.dispose(); } catch {}
+      try { renderer.forceContextLoss(); } catch {}
+      try { renderer.domElement.remove(); } catch {}
+    },
+  };
+}
+
+// Fallback without three.js: a cleared, transparent layer. Measurements still run; nothing is drawn.
+async function makeBareView(session, onFrame) {
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl2', { xrCompatible: true, alpha: true }) || canvas.getContext('webgl', { xrCompatible: true, alpha: true });
+  if (!gl) throw new Error('WebGL is not available');
+  if (gl.makeXRCompatible) await withTimeout(gl.makeXRCompatible(), 6000, 'makeXRCompatible');
+  const layer = new XRWebGLLayer(session, gl);
+  session.updateRenderState({ baseLayer: layer });
+  const refSpace = await withTimeout(session.requestReferenceSpace('local-floor'), 6000, 'requestReferenceSpace');
+  let stopped = false, binding = null;
+  const loop = (t, frame) => {
+    if (stopped) return;
+    session.requestAnimationFrame(loop);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    onFrame(t, frame, refSpace);
+  };
+  session.requestAnimationFrame(loop);
+  const none = () => {};
+  return {
+    info: { kind: 'bare WebGL (no three.js)', layer: 'XRWebGLLayer' },
+    refSpace: () => refSpace,
+    binding: () => { if (!binding && typeof XRWebGLBinding === 'function') binding = safeCall(() => new XRWebGLBinding(session, gl)); return binding; },
+    threeDepth: () => null, panelPlaced: () => true, placePanel: none, redraw: none, setJoints: none, syncPlanes: none, setAnchor: none, setReticle: none,
+    dispose() { stopped = true; const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); },
+  };
+}
+
+// ------------------------------------------------------ stage 3: session
+
+const withDepth = (init) => (init.optionalFeatures.includes('depth-sensing') ? { ...init, depthSensing: DEPTH_INIT } : init);
+const TIERS = [
+  { name: SKIP.length ? `all features except ${SKIP.join(', ')}` : 'all features', init: () => withDepth({ requiredFeatures: ['local-floor'], optionalFeatures: [...PLAN_FEATURES, ...EXTRA_FEATURES], ...(EXTRA_FEATURES.includes('dom-overlay') ? { domOverlay: { root: $('xrOverlay') } } : {}) }) },
+  { name: 'the plan\'s features only', init: () => withDepth({ requiredFeatures: ['local-floor'], optionalFeatures: [...PLAN_FEATURES] }) },
+  { name: 'no depth sensing', init: () => ({ requiredFeatures: ['local-floor'], optionalFeatures: PLAN_FEATURES.filter((f) => f !== 'depth-sensing') }) },
+  { name: 'local-floor only', init: () => ({ requiredFeatures: ['local-floor'] }) },
+  { name: 'no required features', init: () => ({ optionalFeatures: ['local-floor'] }) },
+];
+
+// The session must be requested inside a tap, so this waits for one.
+function waitForSession(X) {
+  return new Promise((resolve) => {
+    const btnXR = $('btnXR'), btnSkip = $('btnSkip');
+    let tier = 0, busy = false, securityRetried = false;
+    const finish = (value) => { btnXR.hidden = true; btnSkip.hidden = true; btnXR.onclick = null; btnSkip.onclick = null; resolve(value); };
+    btnXR.hidden = false; btnSkip.hidden = false; btnXR.disabled = false;
+    try { btnXR.focus(); } catch {}
+    setStage(`Ready for the headset part (${SESSION_SECS} s). Put the controllers down, face the table, then tap "Start headset session". A checklist appears straight ahead and the session closes by itself.`, false);
+    btnSkip.onclick = () => finish({ session: null, reason: 'the headset session was skipped by the user' });
+    btnXR.onclick = async () => {
+      if (busy) return;
+      busy = true; btnXR.disabled = true;
+      try { audioCtx && audioCtx.resume(); } catch {}
+      while (tier < TIERS.length) {
+        const init = TIERS[tier].init();
+        const attempt = { tier: TIERS[tier].name, required: init.requiredFeatures || [], optional: init.optionalFeatures || [], depth_init: init.depthSensing || null, t: secs() };
+        try {
+          const session = await navigator.xr.requestSession('immersive-ar', init);   // first pass runs inside the tap
+          attempt.ok = true; X.attempts.push(attempt);
+          finish({ session, attempt });
+          return;
+        } catch (e) {
+          attempt.ok = false; attempt.error = errText(e); X.attempts.push(attempt);
+          noteError(`requestSession (${attempt.tier})`, e);
+          log(`requestSession with ${attempt.tier} failed: ${attempt.error}`, 'warn');
+          const needsTap = e && ['SecurityError', 'NotAllowedError', 'InvalidStateError'].includes(e.name);
+          if (needsTap && !securityRetried) { securityRetried = true; break; }   // same features once more, on a new tap
+          tier++;
+          if (needsTap) break;
+        }
+      }
+      busy = false;
+      if (tier >= TIERS.length) { finish({ session: null, reason: `requestSession failed every time; last error: ${X.attempts.at(-1).error}` }); return; }
+      btnXR.disabled = false; btnXR.textContent = 'Try the headset session again';
+      setStage(`The session did not start (${X.attempts.at(-1).error}). Tap again to retry with ${TIERS[tier].name}.`, false);
+    };
+  });
+}
+
+async function stageXR() {
+  const X = R.xr = { supported: R.environment.xr.immersive_ar, ran: false, skipped: null, seconds_planned: SESSION_SECS, three: null, attempts: [],
+    camera: { kept: [], fresh: [] }, mic: { kept: null, fresh: null }, network: null, frame_errors: {}, timeline: [] };
+  const three = await threePromise;
+  X.three = three.info;
+  log(three.info.ok ? `three.js r${three.info.revision} loaded in ${three.info.ms} ms (${three.info.via})` : `three.js did not load: ${three.info.error}`, three.info.ok ? 'info' : 'warn');
+  if (!navigator.xr) { X.skipped = 'this browser has no WebXR (navigator.xr is missing)'; return; }
+  if (X.supported !== true) { X.skipped = X.supported === false ? 'immersive-ar is not supported in this browser' : 'the browser did not say whether immersive-ar is supported'; return; }
+  const got = await waitForSession(X);
+  if (!got.session) { X.skipped = got.reason; return; }
+  X.requested = got.attempt;
+  try { await runSession(got.session, X, three.THREE); }
+  catch (e) {
+    X.fatal = noteError('headset session', e);
+    log(`The headset session stopped with an error: ${X.fatal}`, 'warn');
+    try { await got.session.end(); } catch {}
+  }
+}
+
+async function runSession(session, X, THREE) {
+  X.ran = true; X.started_at = iso();
+  const S0 = now();
+  const sT = () => (now() - S0) / 1000;
+  let ended = false, endRequested = false, closing = false, lastFrameWall = now(), lastFrameT = null, rawLoop = false, activeMs = 0, view = null;
+  const live = () => !ended && !endRequested;
+  const sessionHandle = { t: sT, live, visibility: () => safeCall(() => session.visibilityState) };
+  const feats = safeCall(() => (session.enabledFeatures ? Array.from(session.enabledFeatures) : null));
+  const has = (f) => (feats ? feats.includes(f) : null);
+  const requested = [...X.requested.required, ...X.requested.optional];
+  X.session = {
+    enabled_features: feats, requested,
+    granted: Object.fromEntries(requested.map((f) => [f, has(f)])),
+    environment_blend_mode: safeCall(() => session.environmentBlendMode),
+    interaction_mode: safeCall(() => session.interactionMode),
+    frame_rate: safeCall(() => session.frameRate),
+    supported_frame_rates: safeCall(() => (session.supportedFrameRates ? Array.from(session.supportedFrameRates) : null)),
+    update_target_frame_rate_available: typeof session.updateTargetFrameRate === 'function',
+    visibility_state: safeCall(() => session.visibilityState),
+    dom_overlay: safeCall(() => (session.domOverlayState ? session.domOverlayState.type : null)),
+    persistent_anchors_existing: safeCall(() => (session.persistentAnchors ? session.persistentAnchors.length : null)),
+  };
+  log(`Session started · blend ${X.session.environment_blend_mode} · ${X.session.frame_rate ?? '?'} Hz · features: ${feats ? feats.join(', ') : 'not reported by this browser'}`);
+  ev('xr-session', { what: 'start' });
+  const endedP = new Promise((res) => session.addEventListener('end', () => { ended = true; ev('xr-session', { what: 'end' }); res(); }, { once: true }));
+  session.addEventListener('visibilitychange', () => ev('xr-visibility', { state: safeCall(() => session.visibilityState) }));
+  session.addEventListener('frameratechange', () => ev('xr-framerate', { rate: safeCall(() => session.frameRate) }));
+  if (X.session.dom_overlay) $('xrOverlay').hidden = false;
+
+  // ---- measurement state
+  const F = { count: 0, deltas: [], worst: 0, worstAt: null, startupWorst: 0 };
+  const V = X.viewer = { frames_with_pose: 0, frames_without_pose: 0, emulated_position_frames: 0, views: 0, head_height_min_m: null, head_height_max_m: null };
+  const H = X.hands = { granted: has('hand-tracking'), sources: [], joints_per_hand: null, frames: 0, frames_with_hand: 0, frames_with_two_hands: 0,
+    joints_valid_min: null, joints_valid_max: null, joint_radius_seen: false, pinch_min_mm: null, pinch_max_mm: null, frames_pinched: 0, select_events: 0, controllers_seen: false, by_hand: {} };
+  const P = X.planes = { granted: has('plane-detection'), api: null, count: 0, max_count: 0, horizontal: 0, vertical: 0, first_plane_at_s: null, table_found: false, floor_found: false,
+    labels_seen: [], room_capture_available: typeof session.initiateRoomCapture === 'function', room_capture: null, list: [] };
+  const A = X.anchors = { granted: has('anchors'), api: null, attempted: false, created: false, create_ms: null, error: null, frames_after: 0, frames_with_pose: 0, in_tracked_set: null, max_drift_mm: null,
+    persistent: { offered: null, existing: X.session.persistent_anchors_existing, handle_ok: null, deleted: null, error: null, note: null } };
+  const HT = X.hit_test = { granted: has('hit-test'), api: typeof session.requestHitTestSource === 'function', source_created: false, error: null, frames: 0, frames_with_results: 0, first_result_at_s: null, distance_min_m: null, distance_max_m: null };
+  const D = X.depth = { granted: has('depth-sensing'), usage: null, data_format: null, type: null, active: null, checks: 0, checks_with_data: 0, cpu: null, gpu: null, three_depth: null, error: null };
+  const CA = X.camera_access = { granted: has('camera-access'), view_camera: null };
+  const head = { x: 0, y: 0, z: 0, ok: false }, fwd = { x: 0, y: 0, z: -1 };
+  const jointPos = new Float32Array(150);
+  let handsNow = 0, planeList = [], anchor = null, anchorOrigin = null, anchorFrozen = false, hitSource = null, hitNow = false, anchorNow = false, lastPlaneScan = 0, lastPanel = 0, lastSecondCount = 0;
+  const srcSeen = new Set();
+
+  D.usage = safeCall(() => session.depthUsage); D.data_format = safeCall(() => session.depthDataFormat);
+  D.type = safeCall(() => session.depthType); D.active = safeCall(() => session.depthActive);
+
+  // A failing part of the frame work is counted and never stops the rest.
+  const guard = (name, fn) => {
+    try { fn(); }
+    catch (e) { const fe = X.frame_errors[name] || (X.frame_errors[name] = { count: 0, first: errText(e), at_s: r1(sT()) }); fe.count++; }
+  };
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  const range = (obj, minKey, maxKey, v) => { if (obj[minKey] === null || v < obj[minKey]) obj[minKey] = v; if (obj[maxKey] === null || v > obj[maxKey]) obj[maxKey] = v; };
+
+  session.addEventListener('select', (e) => { if (e.inputSource && e.inputSource.hand) H.select_events++; });
+  const noteSources = () => guard('input sources', () => {
+    for (const s of session.inputSources) {
+      const key = `${s.handedness} ${s.hand ? 'hand' : 'controller'} (${s.targetRayMode}${s.profiles && s.profiles[0] ? `, ${s.profiles[0]}` : ''})`;
+      if (!srcSeen.has(key) && srcSeen.size < 12) { srcSeen.add(key); H.sources.push(key); }
+      if (!s.hand && s.targetRayMode === 'tracked-pointer') H.controllers_seen = true;
+    }
+  });
+  session.addEventListener('inputsourceschange', noteSources);
+
+  function onFrame(t, frame, refSpace) {
+    if (ended || !frame || !refSpace || t === lastFrameT) return;
+    const visible = safeCall(() => session.visibilityState) !== 'hidden';
+    if (lastFrameT !== null && visible) {
+      const dt = t - lastFrameT;
+      if (dt > 0 && dt < 2000) {
+        if (F.deltas.length < 30000) F.deltas.push(dt);
+        if (sT() > 1.5) { if (dt > F.worst) { F.worst = dt; F.worstAt = sT(); } } else if (dt > F.startupWorst) F.startupWorst = dt;
+      }
+    }
+    lastFrameT = t; lastFrameWall = now(); F.count++;
+
+    let view0 = null;
+    guard('viewer pose', () => {
+      const vp = frame.getViewerPose(refSpace);
+      if (!vp) { V.frames_without_pose++; head.ok = false; return; }
+      V.frames_with_pose++; V.views = vp.views.length; view0 = vp.views[0] || null;
+      if (vp.emulatedPosition) V.emulated_position_frames++;
+      const p = vp.transform.position, q = vp.transform.orientation;
+      head.x = p.x; head.y = p.y; head.z = p.z; head.ok = true;
+      let fx = -2 * (q.x * q.z + q.w * q.y), fz = -(1 - 2 * (q.x * q.x + q.y * q.y));
+      const len = Math.hypot(fx, fz);
+      if (len > 0.2) { fwd.x = fx / len; fwd.z = fz / len; }
+      range(V, 'head_height_min_m', 'head_height_max_m', p.y);
+      if (view && !view.panelPlaced() && V.frames_with_pose >= 12) view.placePanel(head, fwd);
+    });
+
+    guard('hands', () => {
+      let tracked = 0, n = 0;
+      H.frames++;
+      for (const src of session.inputSources) {
+        if (!src.hand) continue;
+        if (H.joints_per_hand === null) H.joints_per_hand = src.hand.size;
+        const wrist = frame.getJointPose(src.hand.get('wrist'), refSpace);
+        if (!wrist) continue;
+        tracked++;
+        let valid = 0;
+        for (const joint of src.hand.values()) {
+          const jp = frame.getJointPose(joint, refSpace);
+          if (!jp) continue;
+          valid++;
+          if (jp.radius > 0) H.joint_radius_seen = true;
+          if (n < 50) { const p = jp.transform.position; jointPos[n * 3] = p.x; jointPos[n * 3 + 1] = p.y; jointPos[n * 3 + 2] = p.z; n++; }
+        }
+        range(H, 'joints_valid_min', 'joints_valid_max', valid);
+        const thumb = frame.getJointPose(src.hand.get('thumb-tip'), refSpace), index = frame.getJointPose(src.hand.get('index-finger-tip'), refSpace);
+        if (thumb && index) {
+          const mm = dist(thumb.transform.position, index.transform.position) * 1000;
+          range(H, 'pinch_min_mm', 'pinch_max_mm', mm);
+          const side = H.by_hand[src.handedness] || (H.by_hand[src.handedness] = { frames: 0, pinch_min_mm: null, pinch_max_mm: null });
+          side.frames++; range(side, 'pinch_min_mm', 'pinch_max_mm', mm);
+          if (mm < 20) H.frames_pinched++;
+        }
+      }
+      handsNow = tracked;
+      if (tracked) H.frames_with_hand++;
+      if (tracked >= 2) H.frames_with_two_hands++;
+      if (view) view.setJoints(jointPos, n);
+    });
+
+    if (now() - lastPlaneScan > 200) {
+      lastPlaneScan = now();
+      guard('planes', () => {
+        const set = frame.detectedPlanes;
+        if (set === undefined || set === null) { P.api = 'frame.detectedPlanes is missing'; return; }
+        P.api = 'present';
+        const list = [];
+        for (const plane of set) {
+          const pose = frame.getPose(plane.planeSpace, refSpace);
+          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          for (const v of plane.polygon) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; if (v.z < minZ) minZ = v.z; if (v.z > maxZ) maxZ = v.z; }
+          const w = maxX - minX, d = maxZ - minZ;
+          let orientation = plane.orientation || null;
+          if (!orientation && pose) { const ny = Math.abs(pose.transform.matrix[5]); orientation = ny > 0.85 ? 'horizontal' : ny < 0.35 ? 'vertical' : 'tilted'; }
+          const y = pose ? pose.transform.position.y : null;
+          const label = plane.semanticLabel ?? null;
+          if (label && P.labels_seen.length < 24 && !P.labels_seen.includes(label)) P.labels_seen.push(label);
+          const table = /table|desk/i.test(label || '') || (orientation === 'horizontal' && y !== null && y >= 0.35 && y <= 1.25 && Math.min(w, d) >= 0.25 && w * d >= 0.12);
+          const floor = /floor/i.test(label || '') || (orientation === 'horizontal' && y !== null && Math.abs(y) < 0.2 && w * d >= 1);
+          list.push({ plane, pose, orientation, w, d, y, label, table, floor, changed: plane.lastChangedTime });
+        }
+        planeList = list;
+        P.count = list.length; if (list.length > P.max_count) P.max_count = list.length;
+        P.horizontal = list.filter((p) => p.orientation === 'horizontal').length; P.vertical = list.filter((p) => p.orientation === 'vertical').length;
+        if (list.length && P.first_plane_at_s === null) P.first_plane_at_s = r1(sT());
+        if (list.some((p) => p.table)) P.table_found = true;
+        if (list.some((p) => p.floor)) P.floor_found = true;
+        if (view) view.syncPlanes(list);
+      });
+      // Opt-in: start the headset's room setup when no plane has appeared.
+      if (params.get('roomcapture') === '1' && P.granted !== false && P.count === 0 && !P.room_capture && sT() > 6 && P.room_capture_available) {
+        P.room_capture = { started_at_s: r1(sT()), result: 'pending' };
+        log('No planes after 6 s: asking the headset to start Space Setup (initiateRoomCapture).', 'warn');
+        try { session.initiateRoomCapture().then(() => { P.room_capture.result = 'resolved'; P.room_capture.done_at_s = r1(sT()); }, (e) => { P.room_capture.result = `rejected: ${errText(e)}`; }); }
+        catch (e) { P.room_capture.result = `threw: ${errText(e)}`; }
+      }
+    }
+
+    if (!A.attempted && sT() > 2.5 && head.ok && A.granted !== false) {
+      A.attempted = true; A.api = typeof frame.createAnchor === 'function';
+      if (A.api) guard('anchor create', () => {
+        const started = now();
+        const pos = { x: head.x + fwd.x * 0.5, y: head.y - 0.25, z: head.z + fwd.z * 0.5 };
+        frame.createAnchor(new XRRigidTransform({ x: pos.x, y: pos.y, z: pos.z, w: 1 }, { x: 0, y: 0, z: 0, w: 1 }), refSpace).then(
+          (a) => { anchor = a; anchorOrigin = pos; A.created = true; A.create_ms = Math.round(now() - started); log(`Anchor created in ${A.create_ms} ms, 0.5 m in front of the viewer`); },
+          (e) => { A.error = errText(e); log(`createAnchor failed: ${A.error}`, 'warn'); });
+      });
+      else A.error = 'frame.createAnchor is missing';
+    }
+    if (anchor && !anchorFrozen) guard('anchor pose', () => {
+      A.frames_after++;
+      const pose = frame.getPose(anchor.anchorSpace, refSpace);
+      anchorNow = !!pose;
+      if (pose) {
+        A.frames_with_pose++;
+        const mm = dist(pose.transform.position, anchorOrigin) * 1000;
+        if (A.max_drift_mm === null || mm > A.max_drift_mm) A.max_drift_mm = mm;
+        if (view) view.setAnchor(pose.transform.position);
+      }
+      if (frame.trackedAnchors) A.in_tracked_set = frame.trackedAnchors.has(anchor);
+    });
+
+    if (hitSource) guard('hit test', () => {
+      HT.frames++;
+      const results = frame.getHitTestResults(hitSource);
+      hitNow = results.length > 0;
+      let matrix = null;
+      if (hitNow) {
+        HT.frames_with_results++;
+        if (HT.first_result_at_s === null) HT.first_result_at_s = r1(sT());
+        const pose = results[0].getPose(refSpace);
+        if (pose) { matrix = pose.transform.matrix; if (head.ok) range(HT, 'distance_min_m', 'distance_max_m', dist(pose.transform.position, head)); }
+      }
+      if (view) view.setReticle(matrix);
+    });
+
+    if (view0 && F.count % 20 === 5) {
+      if (D.granted !== false && (D.usage || D.granted)) guard('depth', () => {
+        D.checks++;
+        let info = null;
+        if (D.usage === 'cpu-optimized') {
+          info = frame.getDepthInformation(view0);
+          if (info) D.cpu = { width: info.width, height: info.height, raw_value_to_meters: info.rawValueToMeters, centre_m: r2(safeCall(() => info.getDepthInMeters(0.5, 0.5))) };
+        } else {
+          const binding = view ? view.binding() : null;
+          if (!binding) { D.error = 'no XRWebGLBinding to read gpu-optimized depth'; return; }
+          info = binding.getDepthInformation(view0);
+          if (info) D.gpu = { width: info.width, height: info.height, has_texture: !!info.texture, texture_type: info.textureType ?? null, image_index: info.imageIndex ?? null, raw_value_to_meters: info.rawValueToMeters ?? null, is_valid: info.isValid ?? null };
+        }
+        if (info) D.checks_with_data++;
+        D.active = safeCall(() => session.depthActive);
+        if (view) D.three_depth = view.threeDepth();
+      });
+      guard('camera-access', () => { const cam = view0.camera; if (cam) CA.view_camera = { width: cam.width, height: cam.height }; });
+    }
+
+    if (view && now() - lastPanel > 250) { lastPanel = now(); guard('panel', () => view.redraw(panelState())); }
+  }
+
+  // ---- what the wearer sees
+  const camSummary = () => {
+    const all = [...X.camera.kept, ...X.camera.fresh];
+    if (!all.length) return { status: 'wait', value: kept.length ? 'testing soon' : 'no camera to test' };
+    const real = all.filter((c) => c.verdict === 'real');
+    const c = real[0] || all[all.length - 1];
+    return { status: real.length ? 'pass' : 'fail', value: `${c.verdict}${c.width ? ` ${c.width}×${c.height}` : ''}${c.fps ? ` ${Math.round(c.fps)} fps` : ''}` };
+  };
+  function panelState() {
+    const left = Math.max(0, Math.ceil(SESSION_SECS - activeMs / 1000));
+    const fps = F.deltas.length ? Math.round(1000 * F.deltas.length / F.deltas.reduce((a, b) => a + b, 0)) : null;
+    const m = X.mic.kept || X.mic.fresh, n = X.network, cam = camSummary();
+    const pinch = H.pinch_min_mm !== null ? ` · pinch ${Math.round(H.pinch_min_mm)}–${Math.round(H.pinch_max_mm)} mm` : '';
+    const rows = [
+      { label: 'Session', status: F.count > 5 ? 'pass' : 'wait', value: `${X.session.environment_blend_mode || '?'} · ${fps ?? '?'} fps` },
+      { label: 'Hands', status: H.frames_with_hand ? 'pass' : H.granted === false ? 'fail' : 'wait', value: H.granted === false ? 'not granted' : H.frames_with_hand ? `${handsNow} now${pinch}` : 'show your hands' },
+      { label: 'Planes', status: P.count ? 'pass' : P.granted === false ? 'fail' : sT() > 8 ? 'unknown' : 'wait', value: P.granted === false ? 'not granted' : P.count ? `${P.count} · table ${P.table_found ? 'yes' : 'no'}` : sT() > 8 ? 'none: run Space Setup' : 'looking' },
+      { label: 'Anchor', status: A.created ? (anchorNow || anchorFrozen ? 'pass' : 'unknown') : A.error || A.granted === false ? 'fail' : 'wait', value: A.granted === false ? 'not granted' : A.created ? (anchorNow || anchorFrozen ? 'tracked' : 'no pose') : A.error ? 'failed' : 'creating' },
+      { label: 'Hit test', status: HT.frames_with_results ? 'pass' : HT.error || HT.granted === false ? 'fail' : 'wait', value: HT.granted === false ? 'not granted' : HT.frames_with_results ? (hitNow ? 'hitting a surface' : 'results seen') : HT.error ? 'failed' : 'look at a surface' },
+      { label: 'Depth', status: D.checks_with_data ? 'pass' : D.granted === false ? 'fail' : D.checks > 10 ? 'unknown' : 'wait', value: D.granted === false ? 'not granted' : D.checks_with_data ? `${D.usage || 'data'}` : D.checks > 10 ? 'no data' : 'checking' },
+      { label: 'Camera', status: cam.status, value: cam.value },
+      { label: 'Microphone', status: m ? (m.verdict === 'signal' ? 'pass' : m.verdict === 'unknown' ? 'unknown' : 'fail') : 'wait', value: m ? (m.verdict === 'signal' ? `${m.rms_db} dB` : m.verdict) : micStream ? 'testing soon' : 'no microphone' },
+      { label: 'Network', status: n ? (n.fetch && n.fetch.ok ? 'pass' : 'fail') : 'wait', value: n ? `fetch ${n.fetch && n.fetch.ok ? 'ok' : 'failed'} · socket ${n.ws && n.ws.opened ? 'ok' : 'no'}` : 'testing soon' },
+    ];
+    return {
+      title: closing ? 'Done' : 'Headset check', clock: closing ? '' : `${left} s`, rows,
+      hint: closing ? 'Closing the session. Results are in the browser window.' : 'Look at the table. Show both hands, pinch, and talk.',
+    };
+  }
+
+  // ---- renderer: three.js first, bare WebGL if it cannot be used
+  if (THREE) {
+    try { view = await makeThreeView(THREE, session, onFrame); }
+    catch (e) { X.three_view_error = noteError('three.js view', e); log(`three.js could not drive the session (${X.three_view_error}). Falling back to a bare WebGL layer.`, 'warn'); view = null; }
+  }
+  if (!view && !ended) {
+    try { view = await makeBareView(session, onFrame); if (!THREE) log('Running the session without three.js: measurements only, nothing is drawn in the headset.', 'warn'); }
+    catch (e) { X.view_error = noteError('bare WebGL view', e); log(`No renderer could be attached to the session: ${X.view_error}`, 'warn'); }
+  }
+  X.renderer = view ? view.info : null;
+
+  if (HT.api && HT.granted !== false) {
+    step('hit-test source', async () => {
+      const viewerSpace = await withTimeout(session.requestReferenceSpace('viewer'), 5000, 'requestReferenceSpace(viewer)');
+      hitSource = await withTimeout(session.requestHitTestSource({ space: viewerSpace }), 5000, 'requestHitTestSource');
+      HT.source_created = true;
+    }, 12000).then((res) => { if (res && res.error) HT.error = res.error; });
+  }
+
+  // ---- clock, per-second timeline, stalled-loop watchdog
+  const ticker = setInterval(() => {
+    const vis = safeCall(() => session.visibilityState);
+    if (vis !== 'hidden') activeMs += 250;
+    if (X.session.dom_overlay) $('xrOverlayText').textContent = `Headset check running · ${Math.max(0, Math.ceil(SESSION_SECS - activeMs / 1000))} s left`;
+    const hardCap = SESSION_SECS + (P.room_capture ? 300 : 90);
+    if (!closing && (activeMs >= SESSION_SECS * 1000 || sT() > hardCap)) { closing = true; closeGate(); }
+  }, 250);
+  const everySecond = setInterval(() => {
+    noteSources();
+    if (X.timeline.length < 400) X.timeline.push({ t: Math.round(sT()), frames: F.count - lastSecondCount, hands: handsNow, planes: P.count, hit: hitNow ? 1 : 0, anchor: anchorNow ? 1 : 0, vis: safeCall(() => session.visibilityState) });
+    lastSecondCount = F.count;
+    const vis = safeCall(() => session.visibilityState);
+    if (vis === 'hidden') lastFrameWall = now();
+    // Safety net: if frames stop arriving while the session is visible, take the loop over so measuring continues.
+    // (three.js r187 asks for the next frame before it runs the callback, so an error thrown inside does not stop it.)
+    if (!ended && !rawLoop && view && now() - lastFrameWall > 4000) {
+      rawLoop = true;
+      X.frame_loop_stalled = { at_s: r1(sT()), frames_before: F.count, last_page_error: Object.keys(R.page_errors || {}).pop() || null };
+      log(`No frames for 4 s after ${F.count} frames while the session is ${vis}. Adding a plain frame loop so measuring continues.`, 'warn');
+      const raw = (t, frame) => { if (ended) return; session.requestAnimationFrame(raw); onFrame(t, frame, view.refSpace()); };
+      try { session.requestAnimationFrame(raw); } catch (e) { noteError('raw frame loop', e); }
+    }
+  }, 1000);
+  let closeGate = () => {};
+  const closingP = new Promise((res) => { closeGate = res; });
+
+  // ---- the checks that run beside the frame loop
+  const over = () => ended || closing;
+  const script = (async () => {
+    await sleep(1200);
+    for (const k of kept) { if (over()) return; X.camera.kept.push(await measureKept(k, 'session', 'early', sessionHandle)); }
+    if (over()) return;
+    if (micStream) { X.mic.kept = await step('microphone in session', () => measureMic(micStream, 1500), 8000); X.mic.kept.session_t = r1(sT()); X.mic.kept.in_session = live(); log(`Microphone in session · ${micLine(X.mic.kept)}`); }
+    const fresh = kept.length ? kept.map((k) => ({ key: k.key, deviceId: k.deviceId, label: k.label, constraints: k.constraints })) : [{ key: 'default', deviceId: null, label: '', constraints: { video: true } }];
+    for (const f of fresh) {
+      if (over()) return;
+      X.camera.fresh.push((await cameraTest({ id: `session:fresh:${f.key}`, phase: 'session', how: 'fresh', caption: `new getUserMedia in session: ${f.label || 'default camera'}`, label: f.label, deviceId: f.deviceId, constraints: f.constraints, timeout: 10000, session: sessionHandle })).rec);
+    }
+    if (over()) return;
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      X.mic.fresh = await step('new microphone stream in session', async () => {
+        const stream = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: MIC }), 8000, 'getUserMedia audio', stopStream);
+        try { return await measureMic(stream, 1200); } finally { stopStream(stream); }
+      }, 14000);
+      X.mic.fresh.session_t = r1(sT()); X.mic.fresh.in_session = live();
+    }
+    if (over()) return;
+    X.network = await step('network in session', netCheck, 14000);
+    X.network.session_t = r1(sT()); X.network.in_session = live();
+    log(`Network in session · ${netLine(X.network)}`);
+    // Late look: are the held streams still alive near the end, and are persistent anchors offered?
+    const lateNeed = 3 + kept.length * 1.6;
+    while (!over() && SESSION_SECS - activeMs / 1000 > lateNeed) await sleep(250);
+    if (ended) return;
+    await step('persistent anchor', persistentAnchorCheck, 9000);
+    for (const k of kept) { if (ended) return; X.camera.kept.push(await measureKept(k, 'session', 'late', sessionHandle)); }
+  })().catch((e) => { noteError('session checks', e); });
+
+  async function persistentAnchorCheck() {
+    const PA = A.persistent;
+    if (!anchor) { PA.note = 'no anchor was created, so persistence was not tried'; return; }
+    PA.offered = typeof anchor.requestPersistentHandle === 'function';
+    if (!PA.offered) { PA.note = 'anchor.requestPersistentHandle is missing'; return; }
+    if (typeof session.deletePersistentAnchor !== 'function') { PA.note = 'not requested: session.deletePersistentAnchor is missing, so the test anchor could not be removed again'; return; }
+    anchorFrozen = true;                               // stop the tracking count before touching persistence
+    try {
+      const uuid = await withTimeout(anchor.requestPersistentHandle(), 4000, 'requestPersistentHandle');
+      PA.handle_ok = typeof uuid === 'string' && uuid.length > 0;
+      PA.count_with_ours = safeCall(() => session.persistentAnchors.length);
+      await withTimeout(session.deletePersistentAnchor(uuid), 4000, 'deletePersistentAnchor');
+      PA.deleted = true;
+    } catch (e) { PA.error = errText(e); if (PA.handle_ok && !PA.deleted) PA.note = 'the test anchor may still be stored on this site (limit: 8 per site)'; }
+    log(`Persistent anchors · ${PA.handle_ok ? `handle issued${PA.deleted ? ' and deleted again' : ''}` : `not issued (${PA.error || PA.note})`}`);
+  }
+
+  // ---- wait for the end
+  await Promise.race([endedP, closingP]);
+  if (!ended) {
+    await Promise.race([script, sleep(6000)]);
+    if (view) guard('panel', () => view.redraw(panelState()));
+    await sleep(900);
+    endRequested = true;
+    try { await withTimeout(session.end(), 4000, 'session.end'); } catch (e) { noteError('session.end', e); }
+    await Promise.race([endedP, sleep(3000)]);
+    X.ended_by = 'the page, when the time was up';
+  } else {
+    X.ended_by = 'the user or the system, before the time was up';
+    log(`The session ended early, after ${r1(sT())} s. Checks that had not run are marked unknown.`, 'warn');
+  }
+  X.duration_s = r1(sT());
+  clearInterval(ticker); clearInterval(everySecond);
+  $('xrOverlay').hidden = true;
+  await Promise.race([script, sleep(8000)]);          // let a check that is mid-flight finish
+  if (view) { try { view.dispose(); } catch {} }
+  if (hitSource) { try { hitSource.cancel(); } catch {} }
+
+  // ---- final numbers
+  const nominal = X.session.frame_rate || null;
+  const deltas = Float32Array.from(F.deltas).sort();
+  const n = deltas.length, sum = F.deltas.reduce((a, b) => a + b, 0);
+  X.frames = {
+    count: F.count, measured_fps: n ? r1(1000 * n / sum) : null, median_fps: n ? r1(1000 / deltas[n >> 1]) : null,
+    frame_ms_p95: n ? r1(deltas[Math.min(n - 1, Math.floor(n * 0.95))]) : null, frame_ms_p99: n ? r1(deltas[Math.min(n - 1, Math.floor(n * 0.99))]) : null,
+    worst_frame_ms: n ? r1(F.worst) : null, worst_frame_at_s: r1(F.worstAt), worst_frame_ms_first_seconds: r1(F.startupWorst),
+    long_frames: nominal ? F.deltas.filter((d) => d > 1500 / nominal).length : null, nominal_fps: nominal,
+  };
+  for (const k of ['head_height_min_m', 'head_height_max_m']) V[k] = r2(V[k]);
+  for (const k of ['pinch_min_mm', 'pinch_max_mm']) H[k] = r1(H[k]);
+  for (const side of Object.values(H.by_hand)) { side.pinch_min_mm = r1(side.pinch_min_mm); side.pinch_max_mm = r1(side.pinch_max_mm); }
+  P.list = planeList.slice(0, 24).map((p) => ({ orientation: p.orientation, width_m: r2(p.w), depth_m: r2(p.d), height_m: r2(p.y), label: p.label, table: p.table, floor: p.floor }));
+  A.max_drift_mm = r1(A.max_drift_mm);
+  HT.distance_min_m = r2(HT.distance_min_m); HT.distance_max_m = r2(HT.distance_max_m);
+  log(`Session over after ${X.duration_s} s · ${F.count} frames · ${X.frames.measured_fps ?? '?'} fps · worst frame ${X.frames.worst_frame_ms ?? '?'} ms`);
+}
+
+// --------------------------------------------------------- stage 4: after
+
+async function stageAfter() {
+  const Aft = R.after_xr = { session_ran: !!(R.xr && R.xr.ran), skipped: null, cameras: [], mic: { kept: null, fresh: null } };
+  const md = navigator.mediaDevices;
+  if (!Aft.session_ran) {
+    Aft.skipped = 'no session ran, so there is nothing to compare with';
+  } else if (md && md.getUserMedia) {
+    setStage('Back from the session. Testing the camera and the microphone once more.');
+    await sleep(800);
+    for (const k of kept) Aft.cameras.push(await measureKept(k, 'after', 'still open'));
+  }
+  for (const k of kept) { stopStream(k.stream); k.pv.remove(); }
+  if (Aft.session_ran && md && md.getUserMedia) {
+    const again = kept.length ? kept.slice(0, 1).map((k) => ({ key: k.key, deviceId: k.deviceId, label: k.label, constraints: k.constraints })) : [];
+    again.push({ key: 'default', deviceId: null, label: '', constraints: { video: true } });
+    for (const f of again) Aft.cameras.push((await cameraTest({ id: `after:fresh:${f.key}`, phase: 'after', how: 'fresh', caption: `after the session: ${f.label || 'default camera'}`, label: f.label, deviceId: f.deviceId, constraints: f.constraints, timeout: 12000 })).rec);
+    if (micStream) Aft.mic.kept = await step('microphone after the session', () => measureMic(micStream, 1500), 8000);
+  }
+  if (micStream) { stopStream(micStream); micStream = null; }
+  if (Aft.session_ran && md && md.getUserMedia) {
+    Aft.mic.fresh = await step('new microphone stream after the session', async () => {
+      const stream = await withTimeout(md.getUserMedia({ audio: MIC }), 10000, 'getUserMedia audio', stopStream);
+      try { return await measureMic(stream, 1500); } finally { stopStream(stream); }
+    }, 16000);
+    log(`Microphone after the session · ${micLine(Aft.mic.fresh)}`);
+  }
+  kept.length = 0;
+}
+
+// ----------------------------------------------------------------- results
+
+const HOW = { environment: 'world-facing request', default: 'default camera', app: 'app settings', device: 'by device id', kept: 'held open', fresh: 'new call' };
+const camShort = (c) => {
+  const what = `${HOW[c.how] || c.how}${c.label ? ` "${c.label}"` : ''}`;
+  if (!c.ok) return `${what}: not opened (${c.error})`;
+  return `${what}: ${c.verdict}${c.width ? ` ${c.width}×${c.height}` : ''}${c.fps ? ` at ${c.fps} fps` : ''}${c.real_via === 'track reader only' ? ' (track reader only)' : ''}${c.track && c.track.ready_state_after && c.track.ready_state_after !== 'live' ? `, track ${c.track.ready_state_after}` : ''}${c.track && c.track.muted_after ? ', track muted' : ''}`;
+};
+
+function decideG2() {
+  const E = R.environment || {}, X = R.xr, B = R.before_xr || {};
+  const br = E.browser || {};
+  const worldInSession = X && X.ran && [...X.camera.kept, ...X.camera.fresh].some((c) => c.in_session && c.verdict === 'real' && c.facing !== 'front');
+  if (B.headset_camera_permission_missing && !worldInSession) {
+    return { answer: 'unknown', reason: 'headset-cameras-permission-off', status: 'unknown',
+      sentence: `Could not tell yet: Quest Browser listed only the front (avatar) camera, so the "Headset cameras" permission is off for this site. Tap the lock icon in the address bar, tick Headset cameras, reload and run again. If the box never appears, note the browser version (${br.name} ${br.version || 'unknown'}).` };
+  }
+  if (!X || !X.ran) {
+    const why = X && X.skipped ? X.skipped : 'no immersive-ar session ran';
+    return { answer: 'unknown', status: 'unknown', sentence: `Could not tell: ${why}. Open this page in Meta Quest Browser on the headset.` };
+  }
+  const all = [...X.camera.kept, ...X.camera.fresh].filter((c) => c.in_session);
+  const real = all.filter((c) => c.verdict === 'real');
+  const viaVideo = (c) => (c.real_via === 'track reader only' ? 1 : 0);
+  const world = real.filter((c) => c.facing !== 'front').sort((a, b) => (a.facing === 'back' ? 0 : 1) - (b.facing === 'back' ? 0 : 1) || viaVideo(a) - viaVideo(b) || (b.width || 0) - (a.width || 0));
+  const how = (label) => {
+    const of = (list) => { const mine = list.filter((c) => c.in_session && c.label === label); return !mine.length ? 'not run' : mine.every((c) => c.verdict === 'real') ? 'real' : mine.some((c) => c.verdict === 'real') ? 'mixed' : 'bad'; };
+    const k = of(X.camera.kept), f = of(X.camera.fresh);
+    const keptText = { real: 'the stream opened before the session kept giving real frames', mixed: 'the stream opened before the session gave real frames only part of the time', bad: 'the stream opened before the session did NOT give real frames', 'not run': 'no stream opened before the session was tested' }[k];
+    const freshText = { real: 'a new getUserMedia call during the session also worked', mixed: 'a new getUserMedia call during the session worked only part of the time', bad: 'a new getUserMedia call during the session did NOT work', 'not run': 'the new-call test did not run' }[f];
+    return `${keptText}; ${freshText}`;
+  };
+  let out;
+  if (!all.length) {
+    const none = !(B.cameras || []).some((c) => c.ok);
+    out = none
+      ? { answer: 'B', status: 'fail', sentence: `Option B, a phone on a stand: no camera could be opened in this browser at all (${(B.cameras && B.cameras[0] && B.cameras[0].error) || B.media_error || 'no camera found'}).` }
+      : { answer: 'unknown', status: 'unknown', sentence: `Could not tell: the session ended after ${X.duration_s} s, before the camera test inside it had run. Run the check again and keep the headset on until it closes.` };
+  } else if (world.length) {
+    const c = world[0];
+    const facing = `${c.facing === 'back' ? '' : ' Its label does not say which way it faces.'}${c.real_via === 'track reader only' ? ' Caution: frames arrived only when read straight from the track (MediaStreamTrackProcessor). A video element drawn to a canvas, which the plan uses, did not update during the session.' : ''}`;
+    out = { answer: 'A', status: 'pass', sentence: `Option A looks usable: camera "${c.label || 'unnamed'}" gave real frames (${c.width}×${c.height}${c.fps ? `, ${c.fps} fps` : ''}) while the immersive-ar session was running: ${how(c.label)}.${facing} Look at its thumbnail below to confirm it shows the table.` };
+  } else if (real.length) {
+    out = { answer: 'B', status: 'fail', sentence: `Option B, a phone on a stand: during the session only the front-facing camera "${real[0].label}" gave frames, and that is not the passthrough view.` };
+  } else {
+    const kinds = [...new Set(all.map((c) => (c.ok ? c.verdict : `not opened: ${c.error}`)))].join('; ');
+    out = { answer: 'B', status: 'fail', sentence: `Option B, a phone on a stand: no headset camera gave real frames while the immersive-ar session was running (${kinds}).` };
+  }
+  if (E.emulator_suspected || E.device !== 'headset') {
+    const where = E.emulator_suspected ? 'an emulated headset' : `a ${E.device}`;
+    return { answer: 'unknown', status: 'unknown', measured_here: out.answer, sentence: `Could not tell: this run was on ${where}, not on a real Quest. For the record, here the result was: ${out.sentence}` };
+  }
+  return out;
+}
+
+function buildResults() {
+  const E = R.environment || {}, B = R.before_xr || {}, X = R.xr || {}, Aft = R.after_xr || {};
+  const rows = [];
+  const add = (id, group, question, status, detail, ref) => rows.push({ id, group, question, status, detail, ref: ref || undefined });
+  const ran = !!X.ran;
+  const need = `Needs the headset: ${X.skipped || 'no immersive-ar session ran'}.`;
+  const g2 = decideG2();
+  R.g2 = g2;
+
+  add('g2', 'Gate', 'G2: camera frames from getUserMedia while an immersive-ar session runs', g2.status, g2.sentence, 'PLAN §6.0, D12');
+
+  // Environment
+  add('env.secure', 'Environment', 'Secure context (needed for WebXR, camera and microphone)', E.secure_context ? 'pass' : 'fail', E.secure_context ? `secure (${location.protocol === 'https:' ? 'HTTPS' : `${E.protocol || ''} on ${location.hostname}`})` : `not secure (${E.protocol || ''}): use HTTPS or localhost`);
+  add('env.webxr', 'Environment', 'WebXR is available (navigator.xr)', E.xr && E.xr.present ? 'pass' : 'fail', E.xr && E.xr.present ? 'present' : 'missing in this browser');
+  const elsewhere = E.device && E.device !== 'headset' ? ` · expected on a ${E.device}: this needs the headset` : '';
+  const arS = E.xr && E.xr.immersive_ar;
+  add('env.ar', 'Environment', 'immersive-ar sessions are supported', arS === true ? 'pass' : arS === false ? 'fail' : 'unknown', arS === true ? 'isSessionSupported says yes' : arS === false ? `isSessionSupported says no${elsewhere}` : `no answer${E.xr && E.xr.errors && E.xr.errors.immersive_ar ? `: ${E.xr.errors.immersive_ar}` : ''}`, 'PLAN D11');
+  const vrS = E.xr && E.xr.immersive_vr;
+  add('env.vr', 'Environment', 'immersive-vr sessions are supported', vrS === true ? 'pass' : vrS === false ? 'fail' : 'unknown', vrS === true ? 'isSessionSupported says yes' : vrS === false ? `isSessionSupported says no${elsewhere}` : 'no answer');
+  const th = X.three;
+  add('env.three', 'Environment', 'three.js r187 loads from the CDN', th ? (th.ok && th.revision === '187' ? 'pass' : th.ok ? 'unknown' : 'fail') : 'unknown',
+    th ? (th.ok ? `revision ${th.revision}, ${th.ms} ms, through the ${th.via}` : `failed: ${th.error}`) : 'not tried', 'PLAN D14');
+
+  // Camera
+  const devs = B.devices && B.devices.list ? B.devices.list.filter((d) => d.kind === 'videoinput') : null;
+  if (B.media_error) add('cam.list', 'Camera', 'Cameras listed by enumerateDevices', 'fail', B.media_error);
+  else if (!devs) add('cam.list', 'Camera', 'Cameras listed by enumerateDevices', 'unknown', `enumerateDevices failed${B.devices && B.devices.error ? `: ${B.devices.error}` : ''}`);
+  else {
+    const back = devs.filter((d) => d.facing === 'back');
+    const names = devs.map((d) => `"${d.label || 'no label'}" (${d.facing === 'back' ? 'faces the world' : d.facing === 'front' ? 'faces the user' : 'direction not stated'})`).join(', ');
+    add('cam.list', 'Camera', 'Cameras listed by enumerateDevices', !devs.length ? 'fail' : B.headset_camera_permission_missing ? 'unknown' : 'pass',
+      devs.length ? `${devs.length}: ${names}. ${back.length ? `${back.length} labelled as facing the world.` : 'None is labelled as facing the world.'}${B.headset_camera_permission_missing ? ' On a Quest this means the "Headset cameras" permission is off for this site, not that the cameras are missing: tick it under the lock icon and reload.' : ''}` : 'no camera is listed', 'PLAN §13.7');
+    const exact = (B.cameras || []).find((c) => c.how === 'environment');
+    if (exact) add('cam.world', 'Camera', 'A world-facing camera opens (facingMode: exact environment)', exact.verdict === 'real' ? 'pass' : exact.ok ? 'fail' : E.device === 'desktop' ? 'unknown' : 'fail',
+      `${camShort(exact)}${!exact.ok && E.device === 'desktop' ? ' · expected on a laptop, whose camera faces the user' : ''}${!exact.ok && E.device === 'headset' ? ' · on a Quest this is what a switched-off "Headset cameras" permission looks like' : ''}`, 'D12');
+  }
+  const before = (B.cameras || []);
+  if (before.length) {
+    const real = before.filter((c) => c.verdict === 'real');
+    add('cam.before', 'Camera', 'Cameras give real frames before the session', real.length ? 'pass' : 'fail', before.map(camShort).join(' · '));
+  } else add('cam.before', 'Camera', 'Cameras give real frames before the session', B.media_error ? 'fail' : 'unknown', B.media_error || 'not tested');
+
+  const inKept = ran ? X.camera.kept.filter((c) => c.in_session) : [];
+  const inFresh = ran ? X.camera.fresh.filter((c) => c.in_session) : [];
+  if (!ran) {
+    add('cam.kept', 'Camera', 'Streams opened before the session keep giving real frames during it', 'unknown', need, 'G2');
+    add('cam.fresh', 'Camera', 'A new getUserMedia call during the session gives real frames', 'unknown', need, 'G2');
+  } else {
+    const keptLate = inKept.filter((c) => /:late$/.test(c.id));
+    add('cam.kept', 'Camera', 'Streams opened before the session keep giving real frames during it',
+      !inKept.length ? 'unknown' : inKept.every((c) => c.verdict === 'real') ? 'pass' : inKept.some((c) => c.verdict === 'real') ? 'unknown' : 'fail',
+      inKept.length ? `${inKept.map((c) => `${/:late$/.test(c.id) ? 'late' : 'early'} (${c.session_t} s) ${camShort(c)}`).join(' · ')}${keptLate.length ? '' : ' · the late look did not run'}` : (B.kept_note || 'no stream was held open, or the session ended before this ran'), 'G2');
+    add('cam.fresh', 'Camera', 'A new getUserMedia call during the session gives real frames',
+      !inFresh.length ? 'unknown' : inFresh.some((c) => c.verdict === 'real') ? 'pass' : 'fail',
+      inFresh.length ? inFresh.map((c) => `(${c.session_t} s) ${camShort(c)}`).join(' · ') : 'the session ended before this ran', 'G2');
+  }
+  if (!ran) add('cam.after', 'Camera', 'Cameras still work after the session', 'unknown', need);
+  else {
+    const after = Aft.cameras || [];
+    add('cam.after', 'Camera', 'Cameras still work after the session', !after.length ? 'unknown' : after.some((c) => c.how === 'fresh' && c.verdict === 'real') ? 'pass' : 'fail',
+      after.length ? after.map(camShort).join(' · ') : 'not tested');
+  }
+
+  // Audio
+  const micStatus = (m) => (!m || m.error ? (m && m.error ? 'fail' : 'unknown') : m.verdict === 'signal' ? 'pass' : m.verdict === 'unknown' ? 'unknown' : 'fail');
+  add('mic.before', 'Audio', 'Microphone gives a signal before the session', B.media_error ? 'fail' : micStatus(B.mic), B.media_error || `${micLine(B.mic)}${B.mic && B.mic.label ? ` · "${B.mic.label}"` : ''}`, 'PLAN §13.7');
+  if (!ran) add('mic.session', 'Audio', 'Microphone gives a signal during the session', 'unknown', need, 'PLAN §6.0');
+  else {
+    const mk = X.mic.kept && X.mic.kept.in_session ? X.mic.kept : null, mf = X.mic.fresh && X.mic.fresh.in_session ? X.mic.fresh : null;
+    const st = [mk, mf].filter(Boolean).map(micStatus);
+    add('mic.session', 'Audio', 'Microphone gives a signal during the session', !st.length ? 'unknown' : st.includes('pass') ? (st.includes('fail') ? 'unknown' : 'pass') : st.includes('fail') ? 'fail' : 'unknown',
+      st.length ? `stream opened before: ${micLine(mk)} · new stream: ${micLine(mf)}` : 'the session ended before this ran, or no microphone was open', 'PLAN §6.0');
+  }
+  if (!ran) add('mic.after', 'Audio', 'Microphone still works after the session', 'unknown', need);
+  else add('mic.after', 'Audio', 'Microphone still works after the session', micStatus(Aft.mic && Aft.mic.fresh), `still open: ${micLine(Aft.mic && Aft.mic.kept)} · reopened: ${micLine(Aft.mic && Aft.mic.fresh)}`);
+  const beep = B.beep || {};
+  add('audio.beep', 'Audio', 'Web Audio can play a sound', beep.played ? 'pass' : beep.error || beep.state === 'missing' ? 'fail' : 'unknown',
+    beep.played ? `880 Hz beep played; AudioContext running at ${beep.sample_rate} Hz, output latency ${beep.output_latency_ms ?? '?'} ms. Whether it was audible is for you to say below.` : `not played: ${beep.note || beep.error || `AudioContext is ${beep.state}`}`);
+  const au = B.audio || {};
+  add('audio.pipeline', 'Audio', 'AudioWorklet and a 16 kHz AudioContext (used by the voice client)', au.error ? 'unknown' : au.worklet && au.worklet.ok && au.context_16k && au.context_16k.ok ? 'pass' : 'fail',
+    au.error ? au.error : `AudioWorklet module ${au.worklet && au.worklet.ok ? 'loads' : `fails (${au.worklet && au.worklet.error})`} · 16 kHz context ${au.context_16k && au.context_16k.ok ? 'works' : `not available (${au.context_16k && (au.context_16k.error || `got ${au.context_16k.sample_rate} Hz`)})`}`, 'PLAN §6.4');
+  const sp = B.speech || {};
+  add('audio.speech', 'Audio', 'speechSynthesis has voices, and a Greek one', sp.error ? 'unknown' : !sp.supported ? 'fail' : sp.greek && sp.greek.length ? 'pass' : sp.voices ? 'unknown' : 'fail',
+    sp.error ? sp.error : !sp.supported ? 'speechSynthesis is missing' : `${sp.voices} voice(s) · Greek (el): ${sp.greek.length ? sp.greek.map((v) => `${v.name} [${v.lang}]`).join(', ') : 'none'} · English: ${sp.english.length}${sp.spoke ? ` · test utterance ${sp.spoke.ended ? 'finished' : sp.spoke.started ? 'started, no end event' : sp.spoke.error ? `error: ${sp.spoke.error}` : 'never started'}` : ''}`);
+
+  // Headset session
+  const G = 'Headset session';
+  if (!ran) {
+    for (const [id, q, ref] of [
+      ['xr.session', 'An immersive-ar session starts and renders with three.js r187', 'XR-01'], ['xr.features', 'hand-tracking, plane-detection and anchors are granted', 'PLAN §13.7'],
+      ['xr.blend', 'Passthrough: the session blends with the real world', 'PLAN §6.0'], ['xr.fps', 'Frame rate with an almost empty scene (budget: 72 fps)', 'XR-07'],
+      ['xr.hands', 'Hand tracking gives joint poses', 'D13'], ['xr.pinch', 'A pinch is detectable (thumb tip to index tip under 2 cm)', 'PLAN §6.0'],
+      ['xr.planes', 'Plane detection finds planes', 'PLAN §6.0'], ['xr.table', 'A horizontal plane at table height is found', 'PLAN §6.0'],
+      ['xr.anchor', 'An anchor can be created and stays tracked', 'PLAN §6.0'], ['xr.persist', 'Persistent anchors are offered', 'PLAN §6.0'],
+      ['xr.hittest', 'Hit test gives results', 'PLAN §13.7'], ['xr.depth', 'Depth sensing gives depth data', 'PLAN §13.7'],
+      ['xr.overlay', 'DOM overlay is available', 'PLAN §6.0'], ['xr.camaccess', 'WebXR camera-access gives camera pixels', 'D12'],
+    ]) add(id, G, q, 'unknown', need, ref);
+  } else {
+    const S = X.session, Fr = X.frames || {}, H = X.hands, P = X.planes, A = X.anchors, HT = X.hit_test, D = X.depth;
+    const stalled = X.frame_loop_stalled ? ` · frames stopped arriving for 4 s after ${X.frame_loop_stalled.frames_before} frames, at ${X.frame_loop_stalled.at_s} s${X.frame_loop_stalled.last_page_error ? ` (last error: ${X.frame_loop_stalled.last_page_error})` : ''}` : '';
+    const threeOk = X.renderer && X.renderer.kind === 'three.js' && !X.frame_loop_stalled && !(X.renderer.render_errors > 0);
+    add('xr.session', G, 'An immersive-ar session starts and renders with three.js r187', Fr.count > 30 ? (threeOk ? 'pass' : 'unknown') : 'fail',
+      `${Fr.count} frames in ${X.duration_s} s · renderer: ${X.renderer ? X.renderer.kind : 'none'}${X.renderer && X.renderer.layer ? ` (${X.renderer.layer})` : ''} · requested with "${X.requested.tier}"${X.attempts.length > 1 ? ` after ${X.attempts.length - 1} failed attempt(s): ${X.attempts.filter((a) => !a.ok).map((a) => a.error).join('; ')}` : ''}${X.renderer && X.renderer.first_render_error ? ` · render error: ${X.renderer.first_render_error}` : ''}${X.three_view_error ? ` · three.js could not take the session: ${X.three_view_error}` : ''}${stalled} · ended by ${X.ended_by}`, 'XR-01');
+    const must = ['hand-tracking', 'plane-detection', 'anchors'];
+    const grantText = S.requested.map((f) => `${f}: ${S.granted[f] === true ? 'granted' : S.granted[f] === false ? 'not granted' : 'unknown'}`).join(' · ');
+    add('xr.features', G, 'hand-tracking, plane-detection and anchors are granted', !S.enabled_features ? 'unknown' : must.every((f) => S.granted[f] === true) ? 'pass' : 'fail',
+      S.enabled_features ? grantText : 'this browser does not report session.enabledFeatures; see the rows below', 'PLAN §13.7');
+    const blend = S.environment_blend_mode;
+    add('xr.blend', G, 'Passthrough: the session blends with the real world', blend === 'alpha-blend' || blend === 'additive' ? 'pass' : blend === 'opaque' ? 'fail' : 'unknown',
+      `environmentBlendMode is "${blend}" · interaction mode "${S.interaction_mode}". The page cannot see the passthrough picture itself.`, 'PLAN §6.0');
+    add('xr.fps', G, 'Frame rate with an almost empty scene (budget: 72 fps)', Fr.measured_fps === null || E.emulator_suspected ? 'unknown' : Fr.measured_fps >= 70 ? 'pass' : 'fail',
+      `${E.emulator_suspected ? 'emulated run, so this is the laptop\'s frame rate, not the headset\'s · ' : ''}measured ${Fr.measured_fps} fps (median ${Fr.median_fps}) · headset reports ${S.frame_rate ?? '?'} Hz, supports ${S.supported_frame_rates ? S.supported_frame_rates.join(', ') : '?'} (updateTargetFrameRate ${S.update_target_frame_rate_available ? 'available' : 'missing'}) · worst frame ${Fr.worst_frame_ms} ms at ${Fr.worst_frame_at_s} s · 99% of frames under ${Fr.frame_ms_p99} ms · ${Fr.long_frames ?? '?'} long frames. Camera sampling ran during this. The furniture model was not loaded.`, 'XR-07');
+    const handPct = H.frames ? Math.round(100 * H.frames_with_hand / H.frames) : 0;
+    add('xr.hands', G, 'Hand tracking gives joint poses', H.granted === false ? 'fail' : H.frames_with_hand > 0 ? 'pass' : 'unknown',
+      H.granted === false ? 'hand-tracking was not granted' : H.frames_with_hand > 0
+        ? `a hand was tracked in ${handPct}% of frames, two hands in ${Math.round(100 * H.frames_with_two_hands / H.frames)}% · ${H.joints_per_hand} joints per hand, ${H.joints_valid_min} to ${H.joints_valid_max} with a pose · joint radius ${H.joint_radius_seen ? 'given' : 'not given'} · sources: ${H.sources.join(', ') || 'none'}`
+        : `no tracked hand was seen${H.controllers_seen ? ' (controllers were active: put them down)' : ''} · sources: ${H.sources.join(', ') || 'none'}`, 'D13');
+    const pinched = H.pinch_min_mm !== null && H.pinch_min_mm < 20, opened = H.pinch_max_mm !== null && H.pinch_max_mm > 35;
+    add('xr.pinch', G, 'A pinch is detectable (thumb tip to index tip under 2 cm)', H.granted === false ? 'fail' : pinched && opened ? 'pass' : 'unknown',
+      H.pinch_min_mm === null ? 'no fingertip poses were seen' : `thumb to index distance ranged ${H.pinch_min_mm} to ${H.pinch_max_mm} mm · under 2 cm in ${H.frames_pinched} frames · ${H.select_events} select events from hands${pinched && opened ? '' : pinched ? ' · the hand never opened past 35 mm' : ' · no pinch was made, so this is not proven'}`, 'PLAN §6.0');
+    const planeDetail = P.list.length ? P.list.slice(0, 8).map((p) => `${p.orientation || '?'} ${p.width_m}×${p.depth_m} m at ${p.height_m} m${p.label ? ` "${p.label}"` : ''}`).join(' · ') : '';
+    add('xr.planes', G, 'Plane detection finds planes', P.granted === false ? 'fail' : P.max_count > 0 ? 'pass' : 'fail',
+      P.granted === false ? 'plane-detection was not granted' : P.max_count > 0
+        ? `${P.count} plane(s) at the end (most seen: ${P.max_count}): ${P.horizontal} horizontal, ${P.vertical} vertical · first at ${P.first_plane_at_s} s · floor ${P.floor_found ? 'found' : 'not found'} · labels seen: ${P.labels_seen.length ? P.labels_seen.join(', ') : 'none'} · ${planeDetail}`
+        : `The feature was granted but gave no plane in ${X.duration_s} s (${P.api || 'frame.detectedPlanes never read'}). Planes come from the headset's room model, so this room has not been scanned: run Space Setup on the headset. initiateRoomCapture is ${P.room_capture_available ? 'available' : 'not available'}${P.room_capture ? `; it was called: ${P.room_capture.result}` : '; add ?roomcapture=1 to this page to call it from the session'}.`, 'PLAN §6.0');
+    const tables = P.list.filter((p) => p.table);
+    add('xr.table', G, 'A horizontal plane at table height is found', P.table_found ? 'pass' : P.max_count > 0 ? 'fail' : 'unknown',
+      P.table_found ? (tables.length ? tables.map((p) => `${p.width_m}×${p.depth_m} m at ${p.height_m} m above the floor${p.label ? ` "${p.label}"` : ''}`).join(' · ') : 'seen during the session, gone at the end')
+        : P.max_count > 0 ? 'planes were found, but none is labelled table or desk, and none is horizontal, 0.35 to 1.25 m above the floor and at least 0.25 m wide. Add the table in Space Setup.' : 'no planes at all (run Space Setup), so this could not be judged', 'PLAN §6.0');
+    const anchorPct = A.frames_after ? Math.round(100 * A.frames_with_pose / A.frames_after) : 0;
+    add('xr.anchor', G, 'An anchor can be created and stays tracked', A.granted === false ? 'fail' : A.created ? (anchorPct >= 90 ? 'pass' : 'fail') : A.error ? 'fail' : 'unknown',
+      A.granted === false ? 'anchors was not granted' : A.created ? `created in ${A.create_ms} ms · pose available in ${anchorPct}% of ${A.frames_after} frames · moved at most ${A.max_drift_mm} mm from where it was made · in frame.trackedAnchors: ${A.in_tracked_set === null ? 'not reported' : A.in_tracked_set ? 'yes' : 'no'}`
+        : A.error ? `createAnchor failed: ${A.error}` : 'the session ended before an anchor was made', 'PLAN §6.0');
+    const PA = A.persistent;
+    add('xr.persist', G, 'Persistent anchors are offered', PA.handle_ok ? 'pass' : PA.offered === false ? 'fail' : PA.error ? 'fail' : 'unknown',
+      PA.handle_ok ? `requestPersistentHandle gave a handle${PA.deleted ? ', and the test anchor was deleted again' : ` (${PA.note || 'not deleted'})`} · ${PA.existing ?? '?'} stored for this site before the test (limit: 8). Restoring after a reload was not tested.`
+        : PA.error ? `failed: ${PA.error}` : PA.note || 'not tried', 'PLAN §6.0');
+    add('xr.hittest', G, 'Hit test gives results', HT.granted === false ? 'fail' : HT.frames_with_results > 0 ? 'pass' : HT.error || !HT.api ? 'fail' : 'unknown',
+      HT.granted === false ? 'hit-test was not granted' : !HT.api ? 'session.requestHitTestSource is missing' : HT.error ? `could not create a hit-test source: ${HT.error}`
+        : HT.frames_with_results > 0 ? `results in ${Math.round(100 * HT.frames_with_results / Math.max(1, HT.frames))}% of frames, first at ${HT.first_result_at_s} s · surface ${HT.distance_min_m} to ${HT.distance_max_m} m from the head`
+          : `source created, but no result in ${HT.frames} frames (the gaze ray hit nothing the headset knows)`, 'PLAN §13.7');
+    const depthInfo = D.gpu ? `texture ${D.gpu.width}×${D.gpu.height}, ${D.gpu.texture_type || 'type not stated'}` : D.cpu ? `buffer ${D.cpu.width}×${D.cpu.height}, centre ${D.cpu.centre_m} m` : '';
+    add('xr.depth', G, 'Depth sensing gives depth data', D.granted === false ? 'fail' : D.checks_with_data > 0 ? 'pass' : D.checks > 0 ? 'fail' : 'unknown',
+      D.granted === false ? 'depth-sensing was not granted' : D.checks_with_data > 0 ? `usage "${D.usage}", format "${D.data_format}"${D.type ? `, type "${D.type}"` : ''} · ${depthInfo} · data in ${D.checks_with_data} of ${D.checks} checks · three.js occlusion ${D.three_depth ? 'active' : 'not active'}. Asked for ${DEPTH_ORDER.join(' first, then ')}.`
+        : `usage "${D.usage}", format "${D.data_format}" · no depth data in ${D.checks} checks${D.error ? ` (${D.error})` : ''}${X.frame_errors.depth ? ` (${X.frame_errors.depth.first})` : ''}`, 'PLAN §13.7');
+    add('xr.overlay', G, 'DOM overlay is available', S.granted['dom-overlay'] === undefined ? 'unknown' : S.dom_overlay ? 'pass' : 'fail',
+      S.granted['dom-overlay'] === undefined ? 'not requested in this session' : S.dom_overlay ? `available (type "${S.dom_overlay}")` : 'not available, as the plan assumes: in-world panels are the way', 'PLAN §6.0');
+    const CA = X.camera_access;
+    add('xr.camaccess', G, 'WebXR camera-access gives camera pixels', S.granted['camera-access'] === undefined ? 'unknown' : CA.view_camera ? 'pass' : 'fail',
+      S.granted['camera-access'] === undefined ? 'not requested in this session' : CA.view_camera ? `granted, view camera ${CA.view_camera.width}×${CA.view_camera.height}` : `${CA.granted ? 'granted, but no view.camera' : 'not granted'}: no camera pixels through WebXR, as the plan assumes`, 'D12');
+    const featureOf = { 'xr.hands': 'hand-tracking', 'xr.pinch': 'hand-tracking', 'xr.planes': 'plane-detection', 'xr.table': 'plane-detection', 'xr.anchor': 'anchors', 'xr.persist': 'anchors', 'xr.hittest': 'hit-test', 'xr.depth': 'depth-sensing' };
+    for (const row of rows) {
+      const f = featureOf[row.id];
+      if (f && !S.requested.includes(f)) { row.status = 'unknown'; row.detail = `${f} was not requested in this session (it started with "${X.requested.tier}"), so this was not measured`; }
+    }
+    const fe = Object.entries(X.frame_errors);
+    if (fe.length) add('xr.errors', G, 'Errors inside the frame loop', 'fail', fe.map(([k, v]) => `${k}: ${v.first} (${v.count}×, first at ${v.at_s} s)`).join(' · '));
+  }
+
+  // Network
+  const nb = B.network && !B.network.error ? B.network : null;
+  if (!ran) {
+    add('net.fetch', 'Network', 'fetch works during the session', 'unknown', `${need} Before any session: ${nb ? netLine(nb).split('; ')[0] : 'not measured'}.`);
+    add('net.ws', 'Network', 'A WebSocket opens during the session', 'unknown', `${need} Before any session: ${nb ? netLine(nb).split('; ')[1] : 'not measured'}.`);
+  } else {
+    const ns = X.network && !X.network.error && X.network.in_session ? X.network : null;
+    add('net.fetch', 'Network', 'fetch works during the session', !ns ? 'unknown' : ns.fetch.ok ? 'pass' : 'fail', ns ? `${netLine(ns).split('; ')[0]} (before the session: ${nb ? (nb.fetch.ok ? `${nb.fetch.status} in ${nb.fetch.ms} ms` : 'failed') : 'not measured'})` : 'the session ended before this ran');
+    add('net.ws', 'Network', 'A WebSocket opens during the session', !ns ? 'unknown' : ns.ws.opened ? 'pass' : nb && nb.ws.opened ? 'fail' : 'unknown',
+      ns ? `${netLine(ns).split('; ')[1]}${!ns.ws.opened && !(nb && nb.ws.opened) ? ` · it did not open before the session either, so this server has no WebSocket at ${ns.ws.path} and the session is not to blame` : ''}` : 'the session ended before this ran', 'PLAN §4.5');
+  }
+
+  // The run itself
+  const pe = Object.entries(R.page_errors || {});
+  add('run.errors', 'This check', 'The page ran without uncaught errors', pe.length ? 'fail' : 'pass',
+    pe.length ? pe.map(([m, v]) => `${m} (${v.count}×, first at ${v.first_at_s} s)`).join(' · ') : `none · ${R.errors.length} handled failure(s) are listed under "errors" in the JSON`);
+
+  // By eye
+  const man = R.manual || {};
+  const manual = (id, q, hint) => { const a = man[id]; add(id, 'By eye', q, a === 'yes' ? 'pass' : a === 'no' ? 'fail' : 'unknown', a ? `answered "${a}" by the person running the check` : hint); };
+  manual('manual.beep', 'You heard the beep', 'not answered yet: use the buttons under this table');
+  manual('manual.recording', 'A headset recording or cast shows the in-world panel over passthrough', 'not answered yet: record or cast while the session runs, then use the buttons under this table');
+
+  R.results = rows;
+  const count = (s) => rows.filter((r) => r.status === s).length;
+  R.summary = {
+    device: `${E.browser ? `${E.browser.name} ${E.browser.version || ''}` : 'unknown browser'}${E.browser && E.browser.device ? ` on ${E.browser.device}` : ` (${E.device})`}${E.emulator_suspected ? ' [emulated]' : ''}`,
+browser: E.browser ? `${E.browser.name} ${E.browser.version || ''}`.trim() : null,
+    g2: g2.answer, g2_reason: g2.reason || null, g2_sentence: g2.sentence, session_ran: ran, session_seconds: ran ? X.duration_s : 0,
+    pass: count('pass'), fail: count('fail'), unknown: count('unknown'), partial: R.partial, finished_at: R.finished_at,
+  };
+}
+
+// --------------------------------------------------------------- rendering
+
+const ICONS = {
+  pass: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.4l3.1 3.1 6-6.6"/></svg>',
+  fail: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.1 2.5h7.8l5.6 5.6v7.8l-5.6 5.6H8.1l-5.6-5.6V8.1z"/><path d="M8.8 8.8l6.4 6.4M15.2 8.8l-6.4 6.4"/></svg>',
+  unknown: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1.8L22.2 12 12 22.2 1.8 12z"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.5 2.1c-.8.5-1.2 1-1.2 1.9"/><circle cx="12" cy="16.9" r="0.6" fill="currentColor"/></svg>',
+};
+const badge = (status) => `<span class="st-badge st-${status}">${ICONS[status]}${status}</span>`;
+
+function renderAll(note) {
+  if (!R) return;
+  const g2 = R.g2 || { status: 'unknown', sentence: 'Not measured yet.' };
+  $('g2Text').innerHTML = `<span class="st-${g2.status}">${ICONS[g2.status]}</span><span>${esc(g2.sentence)}</span>`;
+  const s = R.summary || {};
+  const br = (R.environment && R.environment.browser) || {};
+  $('g2Meta').textContent = R.environment ? `Measured with ${br.name || 'an unknown browser'} ${br.version || ''}${br.chromium && br.chromium !== br.version ? ` (Chromium ${br.chromium})` : ''}${br.device ? ` on ${br.device}` : ` on a ${R.environment.device}`}${R.environment.emulator_suspected ? ', emulated' : ''} · ${new Date(R.started_at).toLocaleString()}` : '';
+  $('runMeta').textContent = `${note ? `${note} · ` : ''}${s.device || ''} · started ${new Date(R.started_at).toLocaleString()} · ${s.pass ?? 0} pass, ${s.fail ?? 0} fail, ${s.unknown ?? 0} unknown${R.partial ? ' · this run did not finish' : ''}`;
+  let html = '', group = null;
+  for (const row of R.results || []) {
+    if (row.group !== group) { group = row.group; html += `<tr class="group"><th colspan="3" scope="colgroup">${esc(group)}</th></tr>`; }
+    html += `<tr><th scope="row">${esc(row.question)}${row.ref ? `<br><span class="ref">${esc(row.ref)}</span>` : ''}</th><td class="st">${badge(row.status)}</td><td class="detail">${esc(row.detail)}</td></tr>`;
+  }
+  $('resultsBody').innerHTML = html;
+  $('resultsCard').hidden = false;
+
+  const questions = [['manual.beep', 'Did you hear the beep during step 2?'], ['manual.recording', 'In a headset recording or a cast of the session, is the checklist panel visible over the real room?']];
+  $('manualBody').innerHTML = questions.map(([id, q]) => `<div class="q"><p>${esc(q)}</p><div class="actions" role="group" aria-label="${esc(q)}">${['yes', 'no'].map((a) => `<button type="button" class="btn small" data-manual="${id}" data-answer="${a}" aria-pressed="${(R.manual || {})[id] === a}">${a === 'yes' ? 'Yes' : 'No'}</button>`).join('')}</div></div>`).join('');
+  $('manualCard').hidden = false;
+
+  const thumbs = [];
+  const collect = (list) => { for (const c of list || []) if (c && c.thumb) thumbs.push(c); };
+  collect(R.before_xr && R.before_xr.cameras); collect(R.before_xr && R.before_xr.kept);
+  collect(R.xr && R.xr.camera && R.xr.camera.kept); collect(R.xr && R.xr.camera && R.xr.camera.fresh); collect(R.after_xr && R.after_xr.cameras);
+  const phase = { before: 'before the session', session: 'DURING the session', after: 'after the session' };
+  $('thumbs').innerHTML = thumbs.map((c) => `<figure><img src="${c.thumb}" alt="Camera frame: ${esc(c.label || 'camera')}, ${esc(phase[c.phase])}, ${esc(c.verdict)}"><figcaption>${esc(phase[c.phase])}${c.session_t !== undefined ? ` (${c.session_t} s)` : ''} · ${esc(c.how)} · ${esc(c.label || 'default camera')} · ${esc(c.verdict)}</figcaption></figure>`).join('');
+  $('jsonText').value = JSON.stringify(R, null, 1);
+  $('reportCard').hidden = false;
+  $('btnUpload').hidden = !KEY;
+  const up = R.upload;
+  $('uploadLine').textContent = !KEY ? 'Report not uploaded: this page was opened without ?key=…, so the report stays in this browser. Download or copy it.'
+    : !up ? 'Uploading the report…' : up.ok ? `Report uploaded to the server as ${up.saved}${up.trimmed && up.trimmed.length ? ` (without ${up.trimmed.join(', ')} to fit 256 KB)` : ''}.` : `Report not uploaded (${up.error}). Everything is still on this page: download or copy it.`;
+}
+
+// ------------------------------------------------------------ persistence
+
+function stripThumbs(report, which) {
+  const drop = (list) => { for (const c of list || []) if (c && c.thumb) c.thumb = null; };
+  if (which.includes('after')) drop(report.after_xr && report.after_xr.cameras);
+  if (which.includes('before')) { drop(report.before_xr && report.before_xr.cameras); drop(report.before_xr && report.before_xr.kept); }
+  if (which.includes('session')) { drop(report.xr && report.xr.camera && report.xr.camera.kept); drop(report.xr && report.xr.camera && report.xr.camera.fresh); }
+}
+
+function saveLocal() {
+  if (!R) return;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(R)); }
+  catch {
+    try { const copy = JSON.parse(JSON.stringify(R)); stripThumbs(copy, ['after', 'before', 'session']); copy.local_copy_without_thumbnails = true; localStorage.setItem(LS_KEY, JSON.stringify(copy)); } catch {}
+  }
+}
+
+// The body that goes to the server: under the size limit, dropping thumbnails and then the log if needed.
+function uploadBody() {
+  const size = (s) => new Blob([s]).size;
+  let body = JSON.stringify(R);
+  const trimmed = [];
+  if (size(body) <= UPLOAD_LIMIT) return { body, trimmed };
+  const copy = JSON.parse(body);
+  for (const [which, name] of [[['after'], 'thumbnails from after the session'], [['before'], 'thumbnails from before the session'], [['session'], 'thumbnails from the session']]) {
+    stripThumbs(copy, which); trimmed.push(name);
+    body = JSON.stringify(copy);
+    if (size(body) <= UPLOAD_LIMIT) return { body, trimmed };
+  }
+  copy.log = copy.log.slice(-40); copy.events = copy.events.slice(-40); if (copy.xr) copy.xr.timeline = []; trimmed.push('most of the log');
+  return { body: JSON.stringify(copy), trimmed };
+}
+
+async function upload() {
+  if (!KEY) return;
+  R.upload = null; renderAll();
+  const { body, trimmed } = uploadBody();
+  const result = { ok: false, at: iso(), bytes: new Blob([body]).size, trimmed };
+  try {
+    const res = await withTimeout(fetch(`/api/diag?key=${encodeURIComponent(KEY)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }), 12000, 'upload');
+    result.status = res.status;
+    if (!res.ok) throw new Error(`the server answered ${res.status}`);
+    const data = await res.json();
+    result.ok = true; result.saved = data && data.saved ? String(data.saved) : '(no name returned)';
+  } catch (e) { result.error = e && e.message ? e.message : String(e); }
+  R.upload = result;
+  log(result.ok ? `Report uploaded as ${result.saved} (${result.bytes} bytes)` : `Report not uploaded: ${result.error}`, result.ok ? 'info' : 'warn');
+  saveLocal(); renderAll();
+}
+
+function download() {
+  const blob = new Blob([JSON.stringify(R, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  const dev = (R.environment && R.environment.device) || 'device';
+  a.href = URL.createObjectURL(blob);
+  a.download = `xr-check-${dev}-${R.started_at.replace(/[:.]/g, '-').slice(0, 19)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  $('copyLine').textContent = `Download started: ${a.download}`;
+}
+
+async function copy() {
+  const text = JSON.stringify(R, null, 1);
+  try {
+    await withTimeout(navigator.clipboard.writeText(text), 3000, 'clipboard');
+    $('copyLine').textContent = `Copied ${text.length} characters to the clipboard.`;
+  } catch {
+    const ta = $('jsonText');
+    ta.closest('details').open = true; ta.focus(); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    $('copyLine').textContent = ok ? `Copied ${text.length} characters to the clipboard.` : 'Could not copy automatically. The JSON is selected below: copy it by hand.';
+  }
+}
+
+// --------------------------------------------------------------- the run
+
+async function run() {
+  R = {
+    kind: 'xr-check', schema: SCHEMA, page_version: PAGE_VERSION, run_id: Math.random().toString(36).slice(2, 10),
+    started_at: iso(), finished_at: null, duration_ms: null, partial: true, stage: 'start',
+    page: { origin: location.origin, path: location.pathname, params: Object.fromEntries([...params].map(([k, v]) => [k, k === 'key' ? '(set)' : v])) },
+    summary: null, g2: null, results: [], manual: {}, upload: null,
+    environment: null, before_xr: null, xr: null, after_xr: null, events: [], errors: [], page_errors: {}, log: [],
+  };
+  T0 = now();
+  $('log').innerHTML = ''; $('logBox').open = true;
+  // Audio must be unlocked inside the tap.
+  try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { audioCtx = new AC(); audioCtx.resume().catch(() => {}); } } catch (e) { noteError('AudioContext', e); }
+  threePromise = loadThree();
+  const checkpoint = (stage) => { R.stage = stage; try { buildResults(); } catch (e) { noteError('building results', e); } saveLocal(); };
+
+  setStep('env', 'doing'); setStage('Reading the environment.');
+  await step('environment', stageEnvironment, 20000);
+  if (!R.environment) R.environment = { xr: { present: !!navigator.xr, immersive_ar: null, immersive_vr: null, errors: {} }, device: 'unknown', browser: parseBrowser(navigator.userAgent), secure_context: window.isSecureContext === true };
+  setStep('env', 'done'); checkpoint('environment');
+
+  setStep('before', 'doing');
+  await step('before the session', stageBefore, 300000);
+  setStep('before', 'done'); checkpoint('before');
+
+  setStep('xr', 'doing');
+  await step('headset session', stageXR, 3600000);
+  setStep('xr', R.xr && R.xr.ran ? 'done' : 'skipped');
+  if (R.xr && !R.xr.ran) log(`Headset session not run: ${R.xr.skipped}`, 'warn');
+  checkpoint('xr');
+
+  setStep('after', 'doing');
+  await step('after the session', stageAfter, 120000);
+  setStep('after', R.after_xr && !R.after_xr.skipped ? 'done' : 'skipped');
+
+  R.finished_at = iso(); R.duration_ms = Math.round(now() - T0); R.partial = false; R.stage = 'done';
+  try { buildResults(); } catch (e) { noteError('building results', e); }
+  saveLocal(); renderAll();
+  finished = true;
+  setStage(`Done in ${Math.round(R.duration_ms / 1000)} s. ${R.g2 ? R.g2.sentence : ''}`, false);
+  const btn = $('btnStart'); btn.hidden = false; btn.disabled = false; btn.textContent = 'Run again';
+  try { audioCtx && audioCtx.close(); } catch {}
+  if (KEY) await upload();
+  try { $('resultsCard').scrollIntoView({ block: 'start' }); } catch {}
+}
+
+$('btnStart').addEventListener('click', () => {
+  if (finished) { location.reload(); return; }
+  const btn = $('btnStart');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.hidden = true;
+  $('resultsCard').hidden = true; $('manualCard').hidden = true; $('reportCard').hidden = true;
+  $('g2Text').textContent = 'Measuring…';
+  run().catch((e) => {
+    // Last line of defence: show whatever was collected.
+    noteError('run', e); log(`The run stopped early: ${errText(e)}`, 'warn');
+    try { buildResults(); } catch {}
+    saveLocal(); renderAll('This run stopped early'); finished = true;
+    btn.hidden = false; btn.disabled = false; btn.textContent = 'Run again';
+    setStage(`The run stopped early: ${errText(e)}. What was measured is below.`, false);
+  });
+});
+$('btnReload').addEventListener('click', () => location.reload());
+$('btnDownload').addEventListener('click', download);
+$('btnCopy').addEventListener('click', copy);
+$('btnUpload').addEventListener('click', upload);
+$('manualBody').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-manual]');
+  if (!b || !R) return;
+  R.manual = R.manual || {};
+  R.manual[b.dataset.manual] = R.manual[b.dataset.manual] === b.dataset.answer ? undefined : b.dataset.answer;
+  try { buildResults(); } catch {}
+  saveLocal(); renderAll();
+});
+
+// An error thrown inside a frame callback repeats on every frame, so each distinct message is logged once and counted.
+function pageError(kind, e) {
+  if (!R || finished) return;
+  const message = typeof e === 'string' ? e : errText(e);
+  const seen = R.page_errors || (R.page_errors = {});
+  if (seen[message]) { seen[message].count++; return; }
+  if (Object.keys(seen).length >= 20) return;
+  seen[message] = { kind, count: 1, first_at_s: secs() };
+  noteError(kind, message);
+  log(`${kind}: ${message}`, 'warn');
+}
+window.addEventListener('error', (e) => pageError('uncaught error', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => pageError('unhandled rejection', e.reason));
+document.addEventListener('visibilitychange', () => ev('page-visibility', { state: document.visibilityState }));
+window.addEventListener('pagehide', () => { if (R && R.partial) saveLocal(); });
+
+// Show the last run after a reload.
+(function showLast() {
+  $('foot').textContent = `Headset check ${PAGE_VERSION} · report format ${SCHEMA} · session length ${SESSION_SECS} s (?secs=) · three.js ${THREE_VERSION} from cdn.jsdelivr.net · options: ?key= uploads the report, ?skip=depth-sensing leaves a feature out, ?depth=cpu asks for CPU depth first, ?nothree=1 runs without three.js, ?roomcapture=1 starts Space Setup when no plane is found`;
+  let last = null;
+  try { last = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch {}
+  if (!last || last.kind !== 'xr-check') return;
+  R = last;
+  try { if (!R.results || !R.results.length) buildResults(); } catch {}
+  if (KEY && !R.upload) R.upload = { ok: false, error: 'this run was not uploaded' };
+  renderAll('Last run on this device');
+  for (const l of (R.log || []).slice(-300)) {
+    const line = document.createElement('div'); if (l.level === 'warn') line.className = 'warn';
+    line.innerHTML = `<span class="t">${String(Number(l.t).toFixed(1)).padStart(5)} s</span>  ${esc(l.msg)}`;
+    $('log').appendChild(line);
+  }
+  setStage(`Showing the last run from ${new Date(R.started_at).toLocaleString()}${R.partial ? ', which did not finish' : ''}. Tap "Start check" for a new one.`, false);
+})();
+
+window.xrCheck = { version: PAGE_VERSION, report: () => R, uploadBody };   // for remote debugging (chrome://inspect)
+</script>
+</body>
+</html>

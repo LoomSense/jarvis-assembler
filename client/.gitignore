@@ -1,0 +1,6 @@
+node_modules/
+dist/
+public/demo-job/crops/
+public/demo-job/lack/
+.shots/
+*.tsbuildinfo

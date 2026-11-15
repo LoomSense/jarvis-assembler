@@ -6,10 +6,35 @@ The key travels in the `X-Demo-Key` header, or in `?key=` where headers cannot b
 from __future__ import annotations
 
 import json
+import logging
+import re
 import secrets
 from urllib.parse import parse_qs
 
 from fastapi import HTTPException, Request, WebSocket
+
+
+_KEY_IN_URL = re.compile(r"""([?&]key=)[^&\s"']+""")
+
+
+class HideKeyInLogs(logging.Filter):
+    """The key travels in `?key=` for EventSource, WebSocket, <img> and QR links, and uvicorn logs every request
+    line and WebSocket URL with its query string. This rewrites those log lines so the key never reaches a log."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = _KEY_IN_URL.sub(r"\1<hidden>", record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(_KEY_IN_URL.sub(r"\1<hidden>", a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+def hide_key_in_logs() -> None:
+    """Install the filter on the loggers that print URLs. Safe to call more than once."""
+    for name in ("uvicorn.access", "uvicorn.error", "agj"):
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, HideKeyInLogs) for f in logger.filters):
+            logger.addFilter(HideKeyInLogs())
 
 
 def _matches(candidate: str | None, expected: str) -> bool:

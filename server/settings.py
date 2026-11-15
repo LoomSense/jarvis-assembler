@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     job_wall_budget_s: int = 40 * 60        # PLAN §5.6
     live_model: str = "gemini-3.8-live"
     live_token_min_interval_s: float = 10.0
+    perception_simulate: bool = False       # phase 2 answers come from a debug script, not from Decision 1
+    perception_logs: bool = True            # write jobs/<id>/perception/<session>/{frames,events,hands}.jsonl
+    perception_tuning: str = ""             # JSON overrides for server/perception/config.py, e.g. {"max_hz": 2}
 
     @field_validator("jobs_dir", "client_dist")
     @classmethod

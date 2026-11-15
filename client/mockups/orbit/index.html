@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#03050a" />
+    <meta name="color-scheme" content="dark" />
+    <title>Οδηγός συναρμολόγησης</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <canvas id="space" aria-hidden="true"></canvas>
+
+    <!-- the numbers under the pieces still in the box; filled by main.ts -->
+    <div id="sky"></div>
+
+    <div id="dock">
+      <button id="prev" type="button" aria-label="Προηγούμενο" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" /></svg>
+      </button>
+
+      <div id="now">
+        <!-- the crisp piece is drawn by the canvas inside this rectangle -->
+        <div id="piece">
+          <svg id="turn" viewBox="0 0 96 56" aria-hidden="true" hidden>
+            <path d="M82 29c0 10.5-15.2 19-34 19S14 39.500 14 29s15.200-19 34-19c9.800 0 18.600 2.300 24.800 6" />
+            <path d="M73.500 8.500 73 16.200l-7.700-.600" />
+          </svg>
+          <svg id="done" viewBox="0 0 56 56" aria-hidden="true" hidden>
+            <circle cx="28" cy="28" r="20" />
+            <path d="m19 28.500 6.200 6.200L37.500 22" />
+          </svg>
+        </div>
+        <p id="say" role="status" aria-live="polite"></p>
+      </div>
+
+      <button id="next" type="button" aria-label="Επόμενο" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.500 5.500 16 12l-6.500 6.500" /></svg>
+      </button>
+    </div>
+
+    <noscript>Η σελίδα χρειάζεται JavaScript.</noscript>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
