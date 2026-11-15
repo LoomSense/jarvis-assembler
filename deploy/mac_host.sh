@@ -47,6 +47,7 @@ caffeinate -dimsu -w $$ & pids+=($!)
 url() { grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$HOST_DIR/tunnel.log" | tail -1; }
 for _ in $(seq 1 60); do [ -n "$(url)" ] && break; sleep 1; done
 last=""
+fails=0
 while true; do
   u=$(url)
   if [ -n "$u" ] && [ "$u" != "$last" ]; then
@@ -59,8 +60,19 @@ while true; do
   if [ -n "$u" ]; then
     if curl -fsS -m 15 -H "X-Demo-Key: $KEY" "$u/healthz" > "$HOST_DIR/health.json" 2>/dev/null; then
       echo "$(date '+%F %T') ok" > "$HOST_DIR/health.txt"
+      fails=0
     else
       echo "$(date '+%F %T') healthz FAILED through $u" | tee -a "$HOST_DIR/health.txt"
+      fails=$((fails + 1))
+      # a quick tunnel can die on Cloudflare's side ("Tunnel not found") while cloudflared keeps retrying it:
+      # after three failed checks, stop it so the loop above opens a new tunnel (with a new URL)
+      if [ "$fails" -ge 3 ]; then
+        echo "$(date '+%F %T') restarting the tunnel" | tee -a "$HOST_DIR/health.txt"
+        pkill -f "cloudflared tunnel --no-autoupdate --url http://localhost:$PORT"
+        fails=0
+        sleep 20
+        continue
+      fi
     fi
   fi
   sleep 60
