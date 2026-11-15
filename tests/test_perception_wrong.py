@@ -199,3 +199,68 @@ def test_flip_needed_carries_the_reason_and_the_step_files_own_sentence(tmp_path
             for seq in range(5, 12):
                 cam.frame_ack(seq, step=2)
             assert [m["event"] for m in cam.seen if m["type"] == "event"] == ["flip_needed"]     # said once
+
+
+# ---- the second, third and fourth bolt are confirmed like the first ----------------------------------
+
+BOLTS = Expect(step=2, page=3, hardware=frozenset({"BOLT-C"}), times=(("BOLT-C", 4),), next_step=3, next_page=4)
+BOLT = frame("hardware_only", "BOLT-C", right_hardware=0.95)
+DRIVING = frame("hardware_only", "no_hardware", hands=0.95)           # the screwdriver, or the hand on the board
+
+
+def confirmed(c, frames, **kw) -> list:
+    return [t for t, name in feed(c, frames, **kw)[0] if name == "right_hardware"]
+
+
+def test_each_of_the_four_bolts_is_confirmed_and_a_fifth_is_not():
+    c = coach(BOLTS)
+    assert confirmed(c, [BOLT] * 4) == [0.5]                          # 3 of 4, as before
+    assert confirmed(c, [DRIVING] * 20, t0=1.0) == []
+    assert confirmed(c, [BOLT] * 4, t0=7.0) == [7.5]                  # the next one, 7 s after the first: not 20
+    for n, t0 in ((3, 14.0), (4, 21.0)):
+        feed(c, [DRIVING] * 20, t0=t0 - 6.0)
+        assert confirmed(c, [BOLT] * 4, t0=t0) == [t0 + 0.5], n
+    feed(c, [DRIVING] * 20, t0=22.0)
+    assert confirmed(c, [BOLT] * 8, t0=28.0) == []                    # the step uses 4
+
+
+def test_the_same_bolt_is_not_confirmed_twice():
+    c = coach(BOLTS)
+    assert confirmed(c, [BOLT] * 4) == [0.5]
+    assert confirmed(c, [DRIVING] * 12 + [BOLT] * 40, t0=1.0) == []   # out of sight for 3 s, then held for 10 s
+    c = coach(BOLTS)
+    feed(c, [BOLT] * 4)
+    assert confirmed(c, [DRIVING] * 3 + [BOLT] * 40, t0=6.0) == []    # 5 s later but only 3 frames without it
+    c = coach(BOLTS, reconfirm=False)
+    feed(c, [BOLT] * 4)
+    assert confirmed(c, [DRIVING] * 20 + [BOLT] * 100, t0=1.0) == []  # as it was: once per step
+
+
+def test_the_next_bolt_waits_for_the_gap_between_two_utterances():
+    c = coach(BOLTS)
+    feed(c, [BOLT] * 4)                                               # said at 0.5
+    assert confirmed(c, [DRIVING] * 17 + [BOLT] * 8, t0=1.0) == [6.5]   # re-armed at 4.75, free 6 s after 0.5
+
+
+def test_a_new_action_index_re_arms_at_once_and_a_part_used_once_stays_said_once():
+    step = lambda k: Expect(step=2, page=3, hardware=frozenset({"BOLT-C"}), times=(("BOLT-C", 4),), action=k,     # noqa: E731
+                            action_kind="fasten", action_id="BOLT-C", last_action=k == 3)
+    c = coach(step(0))
+    assert confirmed(c, [BOLT] * 4) == [0.5]
+    c.set_action(step(0))                                             # the same action again: nothing changes
+    assert confirmed(c, [BOLT] * 24, t0=1.0) == []
+    c.set_action(step(1))                                             # the display moved on to the second bolt
+    assert confirmed(c, [BOLT] * 4, t0=7.0) == [7.5]
+    c = coach(FRONT)                                                  # one front: its confirmation is not repeated
+    front = frame("drawer_front", right_part=0.9)
+    said, _ = feed(c, [front] * 4 + [frame()] * 40 + [front] * 20)
+    assert [name for _, name in said if name == "right_part"] == ["right_part"]
+
+
+def test_the_guide_says_how_many_of_each_item_a_step_uses(tmp_path):
+    guide = Guide(make_job(tmp_path))
+    for n in guide.order:
+        e = guide.expect(n)
+        for code, qty in guide.hardware(n):
+            assert e.uses(code) == (qty if isinstance(qty, int) and qty > 1 else 1)
+        assert all(e.uses(part) >= 1 for part in guide.parts(n)) and e.uses("not_in_this_step") == 1

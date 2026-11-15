@@ -102,8 +102,13 @@ class Guide:
         kind = act.get("type") if act else None
         item = (act.get("code") or act.get("partId")) if kind == "fasten" else act.get("partId") if kind == "place" else None
         nxt = self.next_step(n)
+        times = {c: q for c, q in self.hardware(n) if isinstance(q, int) and not isinstance(q, bool) and q > 1}
+        for part in self.parts(n):                                   # a part placed several times in one step
+            placed = sum(1 for a in actions if a.get("type") == "place" and str(a.get("partId")) == part)
+            if placed > 1:
+                times[part] = placed
         return Expect(step=n, page=self.page(n), parts=frozenset(self.parts(n)),
-                      hardware=frozenset(c for c, _ in self.hardware(n)),
+                      hardware=frozenset(c for c, _ in self.hardware(n)), times=tuple(sorted(times.items())),
                       action=action if act else None, action_kind=kind, action_id=str(item) if item else None,
                       last_action=act is None or action == len(actions) - 1, last_step=nxt is None,
                       next_step=nxt["n"] if nxt else None, next_page=self.page(nxt["n"]) if nxt else None)

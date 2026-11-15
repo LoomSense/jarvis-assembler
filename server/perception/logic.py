@@ -80,6 +80,11 @@ class Expect:
     last_step: bool = False
     next_step: int | None = None
     next_page: int | None = None
+    times: tuple = ()                       # (id, n) for what this step uses more than once: 4 cam bolts, 2 dowels
+
+    def uses(self, item: str) -> int:
+        """How many of this part or hardware code the step uses."""
+        return dict(self.times).get(item, 1)
 
     @property
     def now_kind(self) -> str | None:
@@ -333,6 +338,9 @@ class Coach:
         self.hw = Latch(t.hold_enter, t.hold_release)
         self.confirm = {"right_part": Window(), "right_hardware": Window()}
         self.confirmed: set[tuple[str, str]] = set()
+        self.confirm_count: Counter = Counter()     # (kind, id) -> confirmations said on this step
+        self.unseen: dict = {}                      # (kind, id) confirmed -> (when last seen in the hand, frames since)
+        self.again: set[tuple[str, str]] = set()    # re-armed for the next one of the same item
         self.way = Window()                         # `wrong_way` answers: the mistake named, or None
         self.way_said: set[str] = set()             # mistakes already said and not yet seen put right
         self.muted: set[str] = set()
@@ -360,7 +368,11 @@ class Coach:
 
     def set_action(self, expect: Expect) -> None:
         """Another action of the same step: what is right to hold may have changed."""
+        before = self.expect
         self.expect = expect
+        if self.t.reconfirm and before is not None and expect.action is not None and expect.action != before.action:
+            for key in [k for k in self.confirmed if k[1] == expect.action_id]:
+                self._again(key)                         # the display moved on to the next bolt: confirm that one too
         for window in self.confirm.values():
             window.clear()
         w = self.watcher
@@ -368,6 +380,26 @@ class Coach:
             if set(expect.ok_hardware) != w.hardware and "wrong_hardware" in w.votes:
                 w.votes["wrong_hardware"].clear()        # votes cast against what the last action needed
             w.parts, w.hardware = set(expect.parts), set(expect.ok_hardware)
+
+    def _again(self, key: tuple[str, str]) -> None:
+        """A confirmed item may be confirmed once more, while the step still uses more of it than were confirmed."""
+        if self.confirm_count[key] < self.expect.uses(key[1]):
+            self.confirmed.discard(key)
+            self.again.add(key)
+        self.unseen.pop(key, None)
+
+    def _rearm(self, kind: str, vote: str | None, ts: float) -> None:
+        """Bolt 2 of 4 is confirmed like bolt 1 (Sun 15 Nov: on the headset only the first one was). Without an
+        action index from the display, "the next one" is: the confirmed item was not seen in the hand for
+        `reconfirm_after_s`, over at least `reconfirm_frames` frames (driven in, put down, or the hand went away)."""
+        for key in [k for k in self.confirmed if k[0] == kind]:
+            last, frames = self.unseen.get(key, (ts, 0))
+            if vote == key[1]:
+                self.unseen[key] = (ts, 0)
+                continue
+            self.unseen[key] = (last, frames + 1)
+            if frames + 1 >= self.t.reconfirm_frames and ts - last >= self.t.reconfirm_after_s:
+                self._again(key)
 
     def _watcher(self, source: str) -> Watcher:
         """This step's Watcher. Frames from another camera start a new one: earlier votes describe another view."""
@@ -640,12 +672,23 @@ class Coach:
         }
         for name, vote in votes.items():
             self.confirm[name].push(ts, vote)
+        if t.reconfirm:
+            self._rearm("hardware", votes["right_hardware"], ts)
+            self._rearm("part", votes["right_part"], ts)
         if t.confirmations and not out:
             for kind, name, conf in (("hardware", "right_hardware", h_conf), ("part", "right_part", p_conf)):
                 vote = votes[name]
-                if (vote is not None and (kind, vote) not in self.confirmed
-                        and self.confirm[name].agreed(rules.confirm, ts, age) == vote and self._free(name, ts)):
-                    self.confirmed.add((kind, vote))     # once per step, until a correction re-arms it
+                if vote is None or (kind, vote) in self.confirmed or self.confirm[name].agreed(rules.confirm, ts, age) != vote:
+                    continue
+                # the next one of the same item waits for the gap between two utterances only: the 20 s
+                # "same event" rule would swallow a bolt picked up right after the last one
+                free = (name not in self.muted and (w.last_warning is None or ts - w.last_warning >= cfg.global_cooldown_s)
+                        if (kind, vote) in self.again else self._free(name, ts))
+                if free:
+                    self.confirmed.add((kind, vote))     # once per item, until a correction or the next one re-arms it
+                    self.again.discard((kind, vote))
+                    self.confirm_count[(kind, vote)] += 1
+                    self.unseen[(kind, vote)] = (ts, 0)
                     out.append(self._say(name, ts, expected_id=vote, observed_id=vote, p=conf,
                                          evidence={f"{kind}_in_hand.{vote}": conf}))
                     break

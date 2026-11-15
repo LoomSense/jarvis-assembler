@@ -64,6 +64,10 @@ class Tuning:
 
     # ---- additions to that logic ----
     confirmations: bool = True             # say "right part" / "right hardware" once
+    reconfirm: bool = True                 # an item the step uses several times (4 cam bolts) is confirmed each time,
+    #                                        up to that many times: on a new action index from the display, or
+    reconfirm_after_s: float = 4.0         # ...when the confirmed item was not seen in the hand for this long
+    reconfirm_frames: int = 4              # ...over at least this many frames
     ask_right_hardware: bool = True        # one more yes/no question, about the hardware needed now
     hardware_veto: bool = True             # ...whose clear answer overrules a contradicting choice answer
     hardware_no_floor: float = 0.4         # a clear "not the right one" lets a different code count from this confidence
