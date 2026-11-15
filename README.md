@@ -64,6 +64,8 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/api/jobs/{id}/plan` | → `{approved, plan, crops: [{ref, url}], pages: [url]}` |
 | POST | `/api/jobs/{id}/plan/approve` | `{plan?, note?}` → `{stage: "building"}` |
 | POST | `/api/jobs/{id}/retry` | `{from_stage}` → `{stage}` |
+| POST | `/api/jobs/{id}/inventory` | multipart `files` (1–6 photos of everything from the box laid out on a table; ≤ 25 MB each) → `{items: [{id, kind: "part"\|"hardware", name, expected, seen, status: "ok"\|"missing"\|"extra"\|"unsure", note}], all_present, others, summary: {en, el}, photos, latency_ms, model, tokens, cost_usd, ts}`; 409 no plan yet or a check already running, 413, 415, 422 not 1–6 photos, 502 model failed |
+| GET | `/api/jobs/{id}/inventory` | → the last inventory result; 404 before the first |
 | GET | `/api/catalog?q=<text>` | → `{items: [{product, guide_id, article, job_id, steps?, parts?, created?, source: "built"\|"known", ready, guide?}]}`; ready guides first; `q` matches name, guide id or article number, ignoring case and accents |
 | POST | `/api/catalog/open` | `{q, size?}` (name, article number like `902.891.72`, or IKEA product URL) → `{job_id, ready, product}`; `ready: true` opens a built walkthrough, `false` means a build started (follow `/api/jobs/{id}`); 404 when nothing matches |
 | GET | `/files/{id}/{path}` | a file from the job folder: `walkthrough.glb`, `manifest.json`, `pages/…`, `renders/…`, `refs/…` |
@@ -71,6 +73,8 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
 | GET | `/healthz` | → `{ok, blender_version, cadquery_ok, job_running}` |
 
 **Photo uploads.** Without a PDF, a person can photograph the paper guide: `server/photos.py` turns each photo upright, finds and flattens the page, cleans it to black on white and writes them as `guide.pdf` (one page per photo, ≤ 60 photos, ≤ 25 MB each), keeping the originals in `photos/page-001.jpg` …; the rest of the pipeline is unchanged.
+
+**Parts check.** Before building, the person lays out all parts and hardware and takes 1–6 photos; `pipeline/inventory.py` sends them with the part renders and the plan's counts to `gemini-4-hydrogen` and writes `inventory.json` (photos in `inventory/`). The model may answer "not sure" for look-alike screws; then the item is `unsure` and the summary asks the person to count ("Count the 108560 screws: I see 20, the guide lists 24."). Each check also adds an `inventory` event (`text` = English summary, `text_el`, `all_present`, `image_url`, `url`). About 10–15 s and $0.02–0.03 per check (one photo, KNAGGLIG). CLI: `python -m pipeline.inventory <job_dir> photo.jpg …`.
 
 **Catalog.** A guide that is not built or known yet is fetched from the manufacturer's public site (IKEA only, by article number or product page URL) at the person's request; the PDF stays on this server (`jobs/_catalog/`).
 
@@ -83,7 +87,7 @@ Every route needs the demo key: header `X-Demo-Key: <key>`, or `?key=<key>` wher
  "level": "success", "partId": "side_panel", "stepN": null, "text": "Built side_panel: 16 mate points", "ms": 566}
 ```
 
-`type` is one of `thought`, `tool_call`, `tool_result`, `image`, `part_status`, `step_ready`, `approval_required`, `progress`, `error`, `done`. Images carry `image_url`. The stream sends a `: ping` comment every 15 s.
+`type` is one of `thought`, `tool_call`, `tool_result`, `image`, `part_status`, `step_ready`, `approval_required`, `progress`, `error`, `done`, `inventory`. Images carry `image_url`. The stream sends a `: ping` comment every 15 s.
 
 **A `make tunnel` URL (trycloudflare) buffers SSE: no event arrives until the stream ends** (measured 14 Nov). Everything else works through it. A client must fall back to `/events/poll` when the stream stays silent: the server sends `retry: 2000` at once, so a stream with no bytes after a few seconds is a buffered one. Whether the boxd URL streams SSE is not tested yet.
 

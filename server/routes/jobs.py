@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from pipeline import inventory
 from server import photos
 from server.auth import require_key
 from server.jobs import STAGES, Job
@@ -186,6 +187,54 @@ async def retry_job(request: Request, body: RetryBody, job: Job = Depends(get_jo
         raise HTTPException(422, f"from_stage must be one of: {', '.join(STAGES)}")
     await request.app.state.orch.retry(job, body.from_stage)
     return {"stage": body.from_stage}
+
+
+_inventory_running: set[str] = set()
+
+
+@router.post("/api/jobs/{job_id}/inventory")
+async def run_inventory(request: Request, files: list[UploadFile] | None = File(None),
+                        job: Job = Depends(get_job)) -> dict:
+    """Parts check before assembly: 1-6 photos (`files`) of everything from the box laid out on a table, counted
+    against the plan's parts list by pipeline/inventory.py. Writes inventory.json and adds an `inventory` event."""
+    if not (job.approved_plan.is_file() or job.plan.is_file()):
+        raise HTTPException(409, "This job has no plan yet, so there is no parts list to check against")
+    uploads = list(files or [])
+    if not 1 <= len(uploads) <= inventory.MAX_PHOTOS:
+        raise HTTPException(422, f"Send 1 to {inventory.MAX_PHOTOS} photos in `files`; got {len(uploads)}")
+    limit, each = request.app.state.settings.max_upload_mb * 1024 * 1024, photos.MAX_PHOTO_MB * 1024 * 1024
+    blobs, total = [], 0
+    for up in uploads:
+        data = await up.read(min(each, limit - total) + 1)
+        total += len(data)
+        if len(data) > each or total > limit:
+            raise HTTPException(413, f"Each photo may be up to {photos.MAX_PHOTO_MB} MB, "
+                                     f"all together up to {limit // (1024 * 1024)} MB")
+        blobs.append(data)
+    if job.id in _inventory_running:
+        raise HTTPException(409, "An inventory check is already running for this job")
+    _inventory_running.add(job.id)
+    try:
+        result = await run_in_threadpool(inventory.check, job.dir, blobs)
+    except photos.PhotoError as e:
+        raise HTTPException(e.status, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, f"The inventory check failed: {str(e)[:300]}")
+    finally:
+        _inventory_running.discard(job.id)
+    request.app.state.store.log(job).emit(
+        "inventory", result["summary"]["en"], stage="inventory", level="success" if result["all_present"] else "warn",
+        text_el=result["summary"]["el"], all_present=result["all_present"], ms=result["latency_ms"],
+        image_url=job.url(result["photos"][0]), url=job.url("inventory.json"))
+    return result
+
+
+@router.get("/api/jobs/{job_id}/inventory")
+async def last_inventory(job: Job = Depends(get_job)) -> dict:
+    path = job.dir / "inventory.json"
+    if not path.is_file():
+        raise HTTPException(404, "No inventory check for this job yet")
+    return json.loads(path.read_text())
 
 
 @router.get("/files/{job_id}/{path:path}")

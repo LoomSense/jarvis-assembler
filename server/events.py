@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import AsyncIterator, Callable
 
 TYPES = {"thought", "tool_call", "tool_result", "image", "part_status", "step_ready",
-         "approval_required", "progress", "error", "done"}
+         "approval_required", "progress", "error", "done", "inventory"}
 LEVELS = {"info", "warn", "success", "error"}
 ARG_LIMIT = 400
 
