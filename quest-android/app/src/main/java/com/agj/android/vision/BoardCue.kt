@@ -22,10 +22,12 @@ import kotlin.math.sin
  *  - [BoardLie]: one hypothesis = board × face up × which way round. [KindCue]: all of them for boards of one size.
  *  - [BoardCue.score]: on the detector's own rectified lightness (no second rectification), per hypothesis: how much
  *    darker the long groups are than their bands, and the small groups than theirs, at the best common small shift.
- *  - [BoardCue.decide]: two stages. The LONG features say which face is up and at which long edge the groove is; among
- *    the hypotheses that share that picture, the SMALL features say which end is which, and with it which of two
- *    mirror-image boards it is. Each is decided only when the winner is clearly darker than every hypothesis that
+ *  - [BoardCue.decide]: two stages. The LONG features say which face is up; among the hypotheses that share that
+ *    picture, the SMALL features say which end is which (and, where the pictures differ enough, which of two
+ *    mirror-image boards it is). Each is decided only when the winner is clearly darker than every hypothesis that
  *    says otherwise; hypotheses whose pictures coincide stay undecided (nothing is hard-coded per board).
+ *    What the real frames of 15 Nov 2026 proved and did not is in [BoardCue.decide] and [BoardCue.EDGE_NEAR_PX]:
+ *    a side's face (rail up / groove up) and, rail up, which end the locks are at: yes. Left against right: NO.
  *  - [CueVote]: the tracker's rule: three agreeing results in a row.
  *
  * Pure Kotlin (no OpenCV): JVM-tested in BoardCueTest.
@@ -525,6 +527,14 @@ object BoardCue {
       if (lies.indices.none { inside[it] } || lies.indices.any { inside[it] && !(first[it] <= p.absent) }) return none()
       b = top { !inside[it] }
       if (b < 0 || first[b] < p.minScore) return none()
+      // The face is known (the other one's rail is not there), and that is ALL: which long edge the groove is at, and
+      // with it which of two mirror-image boards this is, is NOT decided. Measured on the headset recording of
+      // 15 Nov (67 sightings of a side lying groove up): the detector's rectangle ends AT the groove (the blob is cut
+      // there, about 98 mm of the 110), so the "groove" this template found, 36–40 levels dark, was the board's
+      // OTHER long edge, and the board came out as the left one 66 times when it was the right one.
+      val one = lies.indices.filter { kind.sameFace(lies[it], lies[b]) }
+      return BoardCueResult(kind, long, edge, small, b, lies[b].look,
+          lies[one[0]].board.takeIf { v -> one.all { lies[it].board == v } }, lies[one[0]].turned.takeIf { v -> one.all { lies[it].turned == v } }, ms)
     }
     // stage 2: the hypotheses that show the same long features; the small ones tell them apart
     // (a hypothesis leaves the running only when its long features are CLEARLY less dark than the winner's: a weak

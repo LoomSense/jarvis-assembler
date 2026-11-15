@@ -139,17 +139,33 @@ class BoardCueTest {
     assertEquals("two holes and two locks", 4, rail.smallGroups)
   }
 
+  /** A groove at the edge proves the face (the rail is not there) and nothing else: see [BoardCue.decide]. */
   @Test
-  fun grooveUpTellsTheFaceTheBoardAndTheWayRound() {
+  fun grooveUpTellsTheFaceAndLeavesTheBoardAndTheWayRoundOpen() {
     for (lie in sides.lies.filter { it.look == FaceLook.GROOVE }) {
       for (yaw in listOf(3.0, 25.0, 88.0, 155.0)) {
         val r = score(sides, lie, yawDeg = yaw)
         val what = "${sides.boards[lie.board]} turned ${lie.turned} at $yaw°: long ${r.long.toList()} edge ${r.edge.toList()} small ${r.small.toList()}"
         assertEquals(what, FaceLook.GROOVE, r.look)
-        assertEquals(what, lie.board, r.board)
-        assertEquals(what, lie.turned, r.turned)
+        assertNull(what, r.board)
+        assertNull(what, r.turned)
+        // the scores themselves do tell the hypotheses apart on a clean picture (they are logged): the true one is the darkest
+        val i = sides.lies.indexOf(lie)
+        assertTrue(what, r.edge[i] >= 30 && r.small[i] >= 30)
       }
     }
+  }
+
+  @Test
+  fun anEdgeLineAloneDecidesNothing() {
+    // a board whose only feature is a groove at its edge (the drawer's back): never decided, however dark the line
+    val feat = BooleanArray(140 * 44) { (it / 140) in 3..4 && (it % 140) in 2..137 }
+    val t = BoardCue.of(140, 44, 2.5, feat)!!
+    assertTrue(t.toString(), t.edgePx > 0 && t.interiorPx == 0)
+    val back = KindCue("back", listOf("back"), listOf(BoardLie(0, 0, false, t), BoardLie(0, 0, true, t)))
+    val r = BoardCue.decide(back, doubleArrayOf(Double.NaN, Double.NaN), doubleArrayOf(22.0, 0.0), doubleArrayOf(Double.NaN, Double.NaN))
+    assertNull(r.look)
+    assertNull(r.turned)
   }
 
   @Test
@@ -207,7 +223,10 @@ class BoardCueTest {
           Board("drawer_side_right", "part_drawer_side_right_1", 0.450, 0.110, addedAt = 1002, names = mapOf("en" to "right side panel", "el" to "δεξί πλαϊνό")),
       )
 
-  /** A sighting whose cue says [board] (0 = left, 1 = right; null = groove up but the ends not told apart). */
+  /**
+   * A sighting whose cue says [board] (0 = left, 1 = right; null = groove up, the board not told). The result is made
+   * by hand: on the real drawer [BoardCue.decide] never tells the two sides apart; the tracker's part is tested here.
+   */
   private fun sighting(x: Double, board: Int?): FoundRect {
     val k = KindCue("drawer_side_left+drawer_side_right", listOf("drawer_side_left", "drawer_side_right"), sides.lies)
     val long = DoubleArray(8) // the rail is not there
@@ -220,7 +239,7 @@ class BoardCueTest {
     edge[a] = 25.0
     edge[b] = 25.0
     if (board != null) small[if (board == 0) a else b] = 20.0
-    return FoundRect(x, 0.0, 0.0, 0.450, 0.110, 0.95, 60.0, DoubleArray(8), PanelMath.rectCorners(x, 0.0, 0.0, 0.450, 0.110), 0.016).also { it.cue = BoardCue.decide(k, long, edge, small) }
+    return FoundRect(x, 0.0, 0.0, 0.450, 0.110, 0.95, 60.0, DoubleArray(8), PanelMath.rectCorners(x, 0.0, 0.0, 0.450, 0.110), 0.016).also { it.cue = BoardCueResult(k, long, edge, small, if (board == 1) b else a, FaceLook.GROOVE, board, board?.let { it == 1 }, 0.1) }
   }
 
   @Test

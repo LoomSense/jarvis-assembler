@@ -317,10 +317,10 @@ class FlatParts(
       g.addedAt[node]?.let { (s, ai) -> (stepIndex[s] ?: 0) * 1000 + ai } to geo.positions
     } ?: emptyList()
     setBoards(if (a == null) emptyList() else FlatBoards.of(a, cfg))
-    if (g != null) buildCues(g) // BOARD-CUE
+    val cueLog = if (g != null) buildCues(g) else null // BOARD-CUE: every way each board can lie, from the meshes
     log.event("flat_parts", mapOf("boards" to boards.map { mapOf("part" to it.partId, "node" to it.node,
         "length_mm" to Math.round(it.lengthM * 1000), "width_mm" to Math.round(it.widthM * 1000), "thick_mm" to Math.round(it.thickM * 1000)) },
-        "kinds" to kinds.map { it.name }))
+        "kinds" to kinds.map { it.name }, "board_cue" to cueLog))
   }
 
   /** The boards to tell apart (tests give them directly; the app goes through [setAssembly]). */
@@ -525,8 +525,12 @@ class FlatParts(
 
   private var cues: Map<String, KindCue> = emptyMap()
 
-  /** The hypotheses of every kind of board, from the guide's meshes (and the hardware that sits in the boards). */
-  private fun buildCues(g: Guide) {
+  /**
+   * The hypotheses of every kind of board, from the guide's meshes (and the hardware that sits in the boards). Returns
+   * what goes into the log: per kind and hypothesis the board, the face (0 / 1), what it shows, turned or not, the
+   * pixels of its long features away from the edges and at an edge, and the number of its small features.
+   */
+  private fun buildCues(g: Guide): Map<String, Any?> {
     val hw = g.parts.filterKeys { it.startsWith("hw_") }.values.map { it.positions to it.indices }
     val t0 = System.nanoTime()
     val made = LinkedHashMap<String, KindCue>()
@@ -537,8 +541,8 @@ class FlatParts(
       if (kc.lies.isNotEmpty()) made[k.name] = kc
     }
     setCues(made)
-    log.event("board_cue", mapOf("ms" to Math.round((System.nanoTime() - t0) / 1e5) / 10.0,
-        "kinds" to made.map { (name, kc) -> mapOf("kind" to name, "lies" to kc.lies.map { listOf(kc.boards[it.board], it.face, it.look.name.lowercase(), it.turned, it.template.interiorPx, it.template.edgePx, it.template.smallGroups) }) }))
+    return mapOf("ms" to Math.round((System.nanoTime() - t0) / 1e5) / 10.0,
+        "kinds" to made.map { (name, kc) -> mapOf("kind" to name, "lies" to kc.lies.map { listOf(kc.boards[it.board], it.face, it.look.name.lowercase(), it.turned, it.template.interiorPx, it.template.edgePx, it.template.smallGroups) }) })
   }
 
   /** The cue's hypotheses per kind name (tests give them directly), and the detector's scorer with them. */
