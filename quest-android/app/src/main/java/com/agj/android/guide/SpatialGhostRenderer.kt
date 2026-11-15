@@ -139,6 +139,10 @@ class SpatialGhostRenderer(
   override var lost = false
     private set
   override var reducedMotion = false
+
+  // ACTION-COACH: 1 = bright; lower dims the target ghost and its marks (eased over ~0.15 s in [tick])
+  override var emphasis = 1f
+  private var emphasisNow = 1f
   private var lostSince = 0f
   private var labelScale = 1f
 
@@ -525,22 +529,26 @@ class SpatialGhostRenderer(
     // Ghost material by state (spec §4.1, 4.7–4.9, 4.12).
     val t = clock - stateSince
     val lostK = if (lost) (1f - 0.7f * ((clock - lostSince) / 0.3f).coerceIn(0f, 1f)) else 1f
+    // ACTION-COACH: while the part is still being fetched the target ghost and its marks are dimmed ([emphasis]);
+    // wrong and correct always show in full, the placed parts keep [lostK]
+    emphasisNow += (emphasis.coerceIn(0f, 1f) - emphasisNow) * (1f - kotlin.math.exp(-dtS / 0.15f))
+    val markK = lostK * (if (state == GhostState.WRONG || state == GhostState.CORRECT) 1f else emphasisNow)
     when (state) {
       GhostState.NEXT -> {
         val breathe = if (reducedMotion) 0f else 0.05f * sin(2f * PI.toFloat() * 0.42f * t)
-        ghostMat.set(GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = lostK)
+        ghostMat.set(GhostMaterial.Tint.ACCENT, 0.14f + breathe, 0.65f, opacity = markK)
       }
-      GhostState.GOOD -> ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = lostK)
+      GhostState.GOOD -> ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.16f, 0.65f, opacity = markK)
       GhostState.CORRECT -> {
         val k = 1f - (t / 0.6f).coerceIn(0f, 1f)
         val e = 1f - (1f - k).pow(3)
-        ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.14f * k, 1.0f * e, opacity = lostK)
+        ghostMat.set(GhostMaterial.Tint.SUCCESS, 0.14f * k, 1.0f * e, opacity = markK)
       }
       GhostState.WRONG -> {
         val pulse = if (t < 3f / 0.83f) 0.8f + 0.2f * sin(2f * PI.toFloat() * 0.83f * t) else 1f
-        ghostMat.set(GhostMaterial.Tint.ERROR, 0.06f, 0.65f, opacity = pulse * lostK)
+        ghostMat.set(GhostMaterial.Tint.ERROR, 0.06f, 0.65f, opacity = pulse * markK)
       }
-      GhostState.UNSURE -> ghostMat.set(GhostMaterial.Tint.UNSURE, 0.14f, 0.65f, opacity = lostK)
+      GhostState.UNSURE -> ghostMat.set(GhostMaterial.Tint.UNSURE, 0.14f, 0.65f, opacity = markK)
     }
     placedMat.set(GhostMaterial.Tint.WHITE, 0.035f, 0.22f, 3f, opacity = lostK)
 
@@ -553,7 +561,7 @@ class SpatialGhostRenderer(
       val d = if (a.kind.twists) 0.09f else 0.12f
       moverE[a.node]!!.setComponent(Transform(Pose((dir * (d * (1f - travel))).toSdk())))
       val fade = (k / 0.12f).coerceIn(0f, 1f) * (1f - ((k - 0.85f) / 0.15f).coerceIn(0f, 1f))
-      moverMat.set(GhostMaterial.Tint.ACCENT, 0.10f, 0.45f, opacity = fade * lostK)
+      moverMat.set(GhostMaterial.Tint.ACCENT, 0.10f, 0.45f, opacity = fade * markK)
     }
 
     // Travelling dash: 4 bright dots run start → end in 1.6 s, 0.6 s pause (0.45 Hz).
@@ -565,11 +573,11 @@ class SpatialGhostRenderer(
         val idx = (head - i).coerceIn(0, path.size - 1)
         e.setComponent(Transform(Pose(path[idx].toSdk())))
       }
-      dashMat.set(GhostMaterial.Tint.ACCENT, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, lostK)
+      dashMat.set(GhostMaterial.Tint.ACCENT, if (c < 1.6f) 0.95f else 0f, 0.2f, 1.5f, markK)
     }
-    dotMat.set(GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, lostK)
+    dotMat.set(GhostMaterial.Tint.ACCENT, 0.55f, 0.3f, 1.5f, markK)
     // Turning arrow: static arc, brightness sweep at 0.8 Hz.
-    arrowMat.set(GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, lostK)
+    arrowMat.set(GhostMaterial.Tint.ACCENT, if (reducedMotion) 0.85f else 0.75f + 0.2f * sin(2f * PI.toFloat() * 0.8f * tAction), 0.1f, 1.5f, markK)
 
     // Edges: constant (no breathing); the dashed outline pulses 0.6 ↔ 1.0 at 0.83 Hz for 3 cycles when wrong (§4.8).
     val edgeTint =
@@ -579,15 +587,15 @@ class SpatialGhostRenderer(
           else -> GhostMaterial.Tint.EDGE
         }
     val edgeK = if (state == GhostState.CORRECT) 1f - (t / 0.6f).coerceIn(0f, 1f) else 1f
-    edgeMat.set(edgeTint, 0.85f * edgeK, 0f, opacity = lostK)
+    edgeMat.set(edgeTint, 0.85f * edgeK, 0f, opacity = markK)
     if (state == GhostState.WRONG) {
       val pulse = if (t < 3f / 0.83f && !reducedMotion) 0.8f + 0.2f * sin(2f * PI.toFloat() * 0.83f * t) else 1f
       outlineMat.set(GhostMaterial.Tint.ERROR, 1f, 0f, opacity = pulse)
     } else {
       // lost: azure dashed edges at 30 %, like the ghost (§4.12)
-      outlineMat.set(GhostMaterial.Tint.EDGE, 0.85f, 0f, opacity = lostK)
+      outlineMat.set(GhostMaterial.Tint.EDGE, 0.85f, 0f, opacity = markK)
     }
-    updateRings(tAction, lostK)
+    updateRings(tAction, markK)
 
     placeLabel(wft)
   }
@@ -595,7 +603,9 @@ class SpatialGhostRenderer(
   /** Label pill 9 cm above the ghost's top, billboarded about Y, dynamic scale (spec §4.5, §2.2). */
   private fun placeLabel(wft: Pose3?) {
     val anchor = currentAnchorWorld()
-    val show = anchor != null && wft != null && cur?.label(lang) != null && state != GhostState.CORRECT
+    // ACTION-COACH: while dimmed the name is on the real part to take, not at the target
+    val show = anchor != null && wft != null && cur?.label(lang) != null && state != GhostState.CORRECT &&
+        (emphasis >= 0.99f || state == GhostState.WRONG)
     labelE?.let { show(it, show) }
     leader?.let { show(it, show) }
     anchorDot?.let { show(it, show) }

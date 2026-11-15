@@ -167,14 +167,14 @@ class MainActivity : AppSystemActivity() {
       com.agj.android.ui.HeldPartGuide(
           lang = { params.lang },
           // CONFIRM and PROMPT never talk over the guide, the rest interrupt (a speech queue maps HeldSpeech here)
-          say = { text, kind -> if (!kind.quiet) voice.say(text, params.lang) else if (!voice.speaking) voice.say(text, params.lang, interrupt = false) },
+          say = { text, kind -> coachSay(text, kind) }, // ACTION-COACH: the phase decides when "Σωστό" and "Πάρε" are heard
           prefetch = { voice.prefetch(it, params.lang) },
           speaking = { voice.speaking },
           play = { sounds.play(it) },
           stepPanel = stepPanel,
           side = side,
           wrists = { vision.input.hands?.hands?.map { it.wrist } ?: emptyList() },
-          pickTargets = { world.pickTargets },
+          pickTargets = { coachShown }, // ACTION-COACH: only the part to take now, and only while it is being taken
           window = { windowPos to windowHead },
           showPart = { expected -> socketStarted && socket?.showPart(expected) == true },
           nameOf = { id -> heldName(id) },
@@ -416,7 +416,8 @@ class MainActivity : AppSystemActivity() {
         override fun onEvent(event: String, raw: JsonObject) {
           // HELD-PART: right_part / right_hardware / wrong_part / wrong_hardware / unsure_show_part /
           // show_part_result are about what is in the hand: the badge at the hand, not the ghost at the target
-          if (event in com.agj.android.ui.HeldEvent.EVENTS) runOnUiThread { held.onServerEvent(event, raw) }
+          // ACTION-COACH: the same event also moves "take" → "put it here" (right) or holds the phase (wrong)
+          if (event in com.agj.android.ui.HeldEvent.EVENTS) runOnUiThread { coachHeld(event, raw) }
           else if (event in PASS_THROUGH_EVENTS) post(event, raw)
         }
       }
@@ -625,6 +626,7 @@ class MainActivity : AppSystemActivity() {
     val idx = flat.indexOf(step to action).coerceAtLeast(0)
     val body = act?.text?.get(lang) ?: ""
     val last = g.next(step, action) == null
+    coachStart(step, action, act, by, again) // ACTION-COACH: every action starts at "take this part" (Back and Repeat too)
     stepPanel.state =
         StepPanelState(
             stepLabel = Strings.upper(lang, s("step", "n" to step, "total" to g.steps.size)),
@@ -653,12 +655,23 @@ class MainActivity : AppSystemActivity() {
     stepPanel.align = alignLabel()
     loadDrawing(step, st.crop)
     showPartCard(act)
+    // ACTION-COACH: one instruction at a time. While the part is still to be taken the window and the voice say
+    // "Πάρε: …"; the step's own line comes with "put it here" ([coachApply]).
+    coachPaint()
+    val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
+    val said = if (picking && speak) coachPickLine(act) ?: body else body
+    if (picking) voice.prefetch(body, lang)
     val line =
         if (firstOfStep && st.page != null)
-            (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + body
-        else body
+            (if (lang == "el") "Βήμα $step, σελίδα ${st.page}. " else "Step $step, page ${st.page}. ") + said
+        else said
     // the coach line is said once per step entry (and on Repeat), not each time the step is drawn again
-    if (speak) voice.sayStep(listOfNotNull(stepDone, coachNow?.takeIf { firstOfStep || again }, line), lang)
+    val lead = listOfNotNull(stepDone, coachNow?.takeIf { (firstOfStep || again) && !picking })
+    coachLead = if (picking && speak) coachNow?.takeIf { firstOfStep || again } else null
+    // ACTION-COACH: a bare "Πάρε: …" the wearer did not ask for is a prompt: it waits for silence, it never cuts a sentence
+    if (speak && picking && by == StepBy.AUTO && lead.isEmpty() && line === said) {
+      if (!voice.speaking) voice.say(line, lang, interrupt = false)
+    } else if (speak) voice.sayStep(lead + line, lang)
     stepDone = null
     // prefetch the next two lines
     var n = g.next(step, action)
@@ -757,10 +770,15 @@ class MainActivity : AppSystemActivity() {
   private fun onVoiceReply(r: VoiceReply) {
     val g = assembly?.guide
     val t = r.target
+    // ACTION-COACH: "επόμενο" moves one phase (take → put → the next action), never past an action; "πίσω" and
+    // "ξανά" start their action again at "take". The coach then speaks its own line instead of the reply's answer.
+    val coached = coach.stage == CoachFlow.Stage.GUIDE && g != null && !finished && r.intent in setOf("next", "back", "repeat")
     val moved =
-        if (coach.stage == CoachFlow.Stage.GUIDE && g != null && t != null && r.isCommand && g.step(t.step) != null &&
+        if (coached && r.intent == "next") coachNext(voice = true)
+        else if (coach.stage == CoachFlow.Stage.GUIDE && g != null && t != null && r.isCommand && g.step(t.step) != null &&
             (t.step != curStep || t.action != curAction || r.intent == "repeat")) {
-          showStep(t.step, t.action, StepBy.VOICE, speak = false)
+          if (coached) coachWhy = r.intent
+          showStep(t.step, t.action, StepBy.VOICE, speak = coached)
           true
         } else false
     if (r.intent == "where_am_i" && coach.stage == CoachFlow.Stage.GUIDE) world.realign() // as the "Where am I" button
@@ -769,7 +787,7 @@ class MainActivity : AppSystemActivity() {
       Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to false, "check" to true, "step" to curStep, "action" to curAction))
       return
     }
-    if (r.answer.isNotBlank()) {
+    if (r.answer.isNotBlank() && !(coached && moved)) { // ACTION-COACH: see above
       val wav = r.ttsWav()
       if (wav != null) voice.play(wav, r.answer, lang) else voice.say(r.answer, lang)
     }
@@ -785,7 +803,205 @@ class MainActivity : AppSystemActivity() {
     Agq.log.event("voice_apply", mapOf("intent" to r.intent, "moved" to moved, "step" to curStep, "action" to curAction))
   }
 
-  private fun next() = advance(StepBy.BUTTON)
+  private fun next() { coachNext(voice = false) } // ACTION-COACH: one phase per pinch (take → put → the next action)
+
+  // ---- ACTION-COACH (ui/ActionCoach.kt): each action as "take this part" then "put it here", one at a time ----
+
+  private val actionCoach = com.agj.android.ui.ActionCoach()
+  /** Why the next `showStep` starts its action (`back`, `repeat`, or what ended the action before it). */
+  private var coachWhy: String? = null
+  /** Inside [coachHeld]: "Σωστό. <name>." is held back so it can lead the "put it here" line as one sentence group. */
+  private var coachHolding = false
+  private var coachHeldLine: Pair<String, com.agj.android.ui.HeldSpeech>? = null
+  /** The entry line already said where the part lies: the located prompt would only repeat it. */
+  private var coachSaidWhere = false
+  /** The no-marker line ("… inside the blue outline") of this step entry, kept for the "put it here" moment. */
+  private var coachLead: String? = null
+  /** Part id / hardware code of the action shown now (empty: nothing to take). */
+  private var coachIds: List<String> = emptyList()
+  /** The pick targets of that item drawn this frame: while the part is being taken, or after a wrong verdict. */
+  private var coachShown: List<com.agj.android.world.PickTarget> = emptyList()
+  private var coachSpot: Vec3? = null
+  /** Part id / hardware code of the action after this one (the hand going for it says this one is placed). */
+  private var coachNextIds: List<String> = emptyList()
+  /** Where the wrist was when the grip that is closed now began (`HeldState.sinceMs` names the grip). */
+  private var coachGripAt: Vec3? = null
+  private var coachGripSince = 0L
+
+  private fun coachAct() = assembly?.guide?.step(curStep)?.actions?.getOrNull(curAction)
+
+  private fun coachLog(c: com.agj.android.ui.CoachChange, source: String? = null) =
+      Agq.log.event(
+          "coach_phase",
+          mapOf("step" to c.step, "action" to c.action, "phase" to c.to.wire, "why" to c.why, "from" to c.from?.wire, "source" to source,
+              "how" to actionCoach.how.takeIf { source == "hands" }),
+      )
+
+  /** From `showStep`: the action starts at "take" when it has a part with a name, else (a turn) at "put it here". */
+  private fun coachStart(step: Int, action: Int, act: com.agj.android.guide.GuideAction?, by: StepBy, again: Boolean) {
+    val ids = if (act?.label(lang) != null) listOfNotNull(act.partId, act.code) else emptyList()
+    val next = assembly?.guide?.next(step, action)
+    val why = coachWhy ?: if (again) "repeat" else if (by == StepBy.VOICE) "voice" else if (by == StepBy.AUTO) "start" else "next"
+    coachWhy = null
+    coachHeldLine = null
+    coachSaidWhere = false
+    coachSpot = null
+    val c = actionCoach.start(step, action, act?.kind, ids, next == null || next.first != step, SystemClock.elapsedRealtime(), why)
+    coachIds = if (actionCoach.hasPick) ids else emptyList()
+    coachNextIds = next?.let { n -> assembly?.guide?.step(n.first)?.actions?.getOrNull(n.second) }?.let { listOfNotNull(it.partId, it.code) } ?: emptyList()
+    coachLog(c)
+  }
+
+  /** The window for the phase now: the two dots, one title, one body line, the primary button; the ghost dim or bright. */
+  private fun coachPaint() {
+    val act = coachAct()
+    val l = act?.label(lang)
+    val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
+    ghost.emphasis = if (picking) COACH_DIM else 1f
+    if (act == null || l == null || !actionCoach.hasPick || actionCoach.phase == com.agj.android.ui.CoachPhase.DONE) return
+    val v = com.agj.android.ui.CoachLines.view(lang, actionCoach.phase, l, act.text.get(lang), assembly?.guide?.next(curStep, curAction) == null)
+    stepPanel.state =
+        stepPanel.state.copy(phase = v.dot, phaseTake = s("take"), phasePut = s("coachPhasePut"), phaseCount = v.count,
+            title = v.title, body = v.body, nextLabel = v.next)
+    side.part = side.part?.copy(take = Strings.upper(lang, s(if (picking) "take" else "coachPhasePut")))
+  }
+
+  /** "Πάρε: Βίδα έκκεντρου, αριστερά σου." when the part is already found, else the plain "Πάρε: Βίδα έκκεντρου." */
+  private fun coachPickLine(act: com.agj.android.guide.GuideAction?): String? {
+    val l = act?.label(lang) ?: return null
+    val head = runCatching { scene.getViewerPose().toPose3() }.getOrNull()?.takeIf { it.t.length() > 1e-3f }
+    val best = com.agj.android.ui.PickPrompt.matches(world.pickTargets.filter { com.agj.android.world.PickCue.opacity(it) > 0f }, coachIds).firstOrNull()
+    val where = if (best != null && head != null) s(com.agj.android.ui.PickPrompt.bearing(head, best.worldPos)) else null
+    coachSaidWhere = where != null
+    return com.agj.android.ui.CoachLines.pickSay(lang, l, where)
+  }
+
+  /** A phase change made by an event (not by `showStep`): log it, then "put it here" on screen and aloud, or the next action. */
+  private fun coachApply(c: com.agj.android.ui.CoachChange?, lead: String? = null, source: String? = null) {
+    c ?: return
+    coachLog(c, source)
+    when (c.to) {
+      com.agj.android.ui.CoachPhase.PICK -> {}
+      com.agj.android.ui.CoachPhase.PLACE -> {
+        coachPaint()
+        if (c.why == "part_moved" || c.why == "timer") sounds.play(Sounds.Cue.PLACE) // it moved by itself: one soft cue
+        // the step's own line, at its normal priority; "Σωστό. <name>." leads it when the server's verdict brought us
+        // here, and the no-marker line ("… inside the blue outline") of this step entry comes with it, once
+        voice.sayStep(listOfNotNull(lead, coachLead, coachAct()?.text?.get(lang)), lang)
+        coachLead = null
+      }
+      com.agj.android.ui.CoachPhase.DONE -> {
+        coachWhy = c.why
+        advance(if (c.why == "next") StepBy.BUTTON else if (c.why == "voice") StepBy.VOICE else StepBy.AUTO, wholeStep = c.why == "step_complete")
+      }
+    }
+  }
+
+  /** Next (the button, or said aloud): true when it moved a phase. */
+  private fun coachNext(voice: Boolean): Boolean {
+    if (coach.stage != CoachFlow.Stage.GUIDE || advancing || finished || assembly?.guide == null) return false
+    val c = actionCoach.next(SystemClock.elapsedRealtime(), voice) ?: return false
+    coachApply(c)
+    return true
+  }
+
+  /** A held-part event: the badge as before ([held]), then the phase: right → "put it here", wrong → it stays. */
+  private fun coachHeld(event: String, raw: JsonObject) {
+    coachHeldLine = null
+    coachHolding = true
+    try {
+      held.onServerEvent(event, raw)
+    } finally {
+      coachHolding = false
+    }
+    val line = coachHeldLine
+    coachHeldLine = null
+    val ev = com.agj.android.ui.HeldEvent.parse(event, raw, lang)
+    var c: com.agj.android.ui.CoachChange? = null
+    if (ev != null && coach.stage == CoachFlow.Stage.GUIDE && !finished && !advancing && (ev.step == null || ev.step == curStep)) {
+      val now = SystemClock.elapsedRealtime()
+      when (ev.verdict) {
+        com.agj.android.ui.Verdict.RIGHT -> c = actionCoach.rightPart(now, ev.expectedId)
+        com.agj.android.ui.Verdict.WRONG -> actionCoach.wrongPart(now)
+        com.agj.android.ui.Verdict.UNSURE -> {}
+      }
+    }
+    if (c != null) coachApply(c, lead = line?.first) else line?.let { coachSpeak(it.first, it.second) } // no change: as before
+  }
+
+  /** One place for the urgency of a held-part line: CONFIRM and PROMPT wait for silence, the rest interrupt. */
+  private fun coachSpeak(text: String, kind: com.agj.android.ui.HeldSpeech) {
+    if (!kind.quiet) voice.say(text, lang) else if (!voice.speaking) voice.say(text, lang, interrupt = false)
+  }
+
+  /** What [held] wants to say, timed by the phase (CONFIRM and PROMPT never talk over the guide, the rest interrupt). */
+  private fun coachSay(text: String, kind: com.agj.android.ui.HeldSpeech) {
+    val picking = actionCoach.phase == com.agj.android.ui.CoachPhase.PICK
+    when {
+      // the verdict that may end "take" (a confirmation, or the answer to a check): [coachHeld] says it, in front of
+      // the "put it here" line when the phase moves, by itself when it does not
+      coachHolding && picking && (kind == com.agj.android.ui.HeldSpeech.CONFIRM || kind == com.agj.android.ui.HeldSpeech.ANSWER) ->
+          coachHeldLine = text to kind
+      // "Πάρε: …, αριστερά σου." only while the part is still to be taken, and not when the entry line said where
+      kind == com.agj.android.ui.HeldSpeech.PROMPT && (!picking || coachSaidWhere) -> {}
+      else -> coachSpeak(text, kind)
+    }
+  }
+
+  /**
+   * ACTION-COACH hook for FLAT-PARTS: "the part to pick is no longer where it lay". Call it (any thread) when the lit
+   * rectangle of the board to take has left its place; [partId] is the board's part id (null = the current action's).
+   * While "take" is shown this moves the action to "put it here" (`coach_phase` with `why: part_moved`, [source]).
+   */
+  fun coachPartMoved(partId: String?, source: String = "rect") = runOnUiThread {
+    if (coach.stage == CoachFlow.Stage.GUIDE && !finished && !advancing)
+        coachApply(actionCoach.partMoved(SystemClock.elapsedRealtime(), partId), source = source)
+  }
+
+  /** Every frame: this frame's pick targets of the action's item, and the signals that end "take" by themselves. */
+  private fun coachTick(head: Pose3?) {
+    // where the wrist was when the grip that is closed now began: "the hand closed at the part and carried it off"
+    val h = vision.input.held
+    if (!h.holding) coachGripAt = null
+    else if (h.sinceMs != coachGripSince) {
+      coachGripSince = h.sinceMs
+      coachGripAt = h.handWorldPos
+    }
+    if (coach.stage != CoachFlow.Stage.GUIDE || finished || coachIds.isEmpty()) {
+      coachShown = emptyList()
+      return
+    }
+    val now = SystemClock.elapsedRealtime()
+    val all = world.pickTargets
+    val mine = all.filter { it.id in coachIds }
+    val phase = actionCoach.phase
+    if (phase != com.agj.android.ui.CoachPhase.DONE && !advancing) {
+      mine.firstOrNull()?.let { coachSpot = it.worldPos }
+      val spot = coachSpot
+      // a part out of the camera's view is not "gone": the wearer must face where it lay (within 53° of the gaze)
+      val looking =
+          head == null || spot == null ||
+              (spot - head.t).let { d -> d.length() < 1e-3f || d.dot(head.q.rotate(Vec3(0f, 0f, -1f))) / d.length() > 0.6f }
+      // a hand at the target: the wrist or a fingertip within 6 cm of the ghost part's box (hands not older than 0.5 s)
+      val hands = vision.input.hands?.takeIf { SystemClock.elapsedRealtimeNanos() - it.tNs < 500_000_000L }?.hands ?: emptyList()
+      val box = vision.handTarget
+      val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= 0.06f } }
+      val sight =
+          com.agj.android.ui.PickSight(
+              spots = mine.map { com.agj.android.ui.PickSpot(it.key, it.worldPos) },
+              hand = h.handWorldPos,
+              holding = h.holding,
+              holdingSinceMs = h.sinceMs,
+              looking = looking,
+              gripStart = coachGripAt,
+              atTarget = atTarget,
+              tracked = hands.isNotEmpty(),
+              nextSpots = if (phase == com.agj.android.ui.CoachPhase.PLACE) all.filter { it.id in coachNextIds }.map { it.worldPos } else emptyList(),
+          )
+      coachApply(actionCoach.tick(now, sight), source = "hands")
+    }
+    coachShown = if (actionCoach.phase == com.agj.android.ui.CoachPhase.PICK || actionCoach.wrongFresh(now)) mine else emptyList()
+  }
 
   /**
    * The current action is done (Next, or a perception `step_complete`): correct sequence first (green check, ghost
@@ -831,8 +1047,10 @@ class MainActivity : AppSystemActivity() {
   fun onGuidanceEvent(event: String, say: String?) {
     if (coach.stage != CoachFlow.Stage.GUIDE) return
     when {
-      event == "step_complete" -> advance(StepBy.AUTO, wholeStep = true)
-      event == "action_complete" -> advance(StepBy.AUTO)
+      // ACTION-COACH: the server's "done" ends the action through the coach: once, and `step_complete` only on the
+      // step's last action (it cannot skip the actions still to be done)
+      event == "step_complete" -> if (!advancing && !finished) coachApply(actionCoach.stepComplete(SystemClock.elapsedRealtime()))
+      event == "action_complete" -> if (!advancing && !finished) coachApply(actionCoach.actionComplete(SystemClock.elapsedRealtime()))
       event.startsWith("wrong") -> {
         // red dashed outline + octagon ✕ (label) + the spoken reason (spec §4.8); a generic reason if the event has none
         ghost.setState(GhostState.WRONG)
@@ -869,6 +1087,7 @@ class MainActivity : AppSystemActivity() {
     val g = assembly?.guide ?: return
     if (coach.stage != CoachFlow.Stage.GUIDE) return
     val p = g.previous(curStep, curAction) ?: return
+    coachWhy = "back" // ACTION-COACH
     showStep(p.first, p.second, StepBy.BUTTON)
   }
 
@@ -876,6 +1095,7 @@ class MainActivity : AppSystemActivity() {
     if (coach.stage == CoachFlow.Stage.GUIDE && !finished) {
       // on the base part's step Repeat also asks the camera where the part is (the ghost may have started off it)
       if (curStep == world.basePart?.step) world.realign()
+      coachWhy = "repeat" // ACTION-COACH
       showStep(curStep, curAction, StepBy.BUTTON)
     } else if (coach.stage == CoachFlow.Stage.LOOK) scope.launch { identify() }
   }
@@ -959,6 +1179,7 @@ class MainActivity : AppSystemActivity() {
     val head = runCatching { scene.getViewerPose().toPose3() }.getOrNull()?.takeIf { it.t.length() > 1e-3f }
     if (!panelsPlaced && head != null && renderFrames.get() > 30) placePanels(head)
 
+    coachTick(head) // ACTION-COACH: the phase of the action, and which pick targets are drawn this frame
     if (assembly != null && sceneReady) {
       world.tick(dt) // no-marker registration: table, then the server's box for the base part
       when {
@@ -985,7 +1206,7 @@ class MainActivity : AppSystemActivity() {
         }
       }
       ghost.tick(dt)
-      pickMarkers?.update(if (coach.stage == CoachFlow.Stage.GUIDE && !finished) world.pickTargets else emptyList(), dt)
+      pickMarkers?.update(coachShown, dt) // ACTION-COACH: bright while taking the part, hidden while placing it
       vision.handTarget = ghost.currentTargetBoxWorld()?.let { (lo, hi) -> Aabb(lo, hi) }
     }
 
@@ -1179,6 +1400,8 @@ class MainActivity : AppSystemActivity() {
   companion object {
     private const val REQ_CAMERA = 1
     private const val REQ_MIC = 2
+    /** ACTION-COACH: the target ghost and its marks while the part is still being fetched (1 = bright). */
+    private const val COACH_DIM = 0.3f
     const val MIC_PERMISSION = "android.permission.RECORD_AUDIO"
     /** Server events passed to [onGuidanceEvent] as they are (the typed ones are mapped in [perceptionListener]). */
     private val PASS_THROUGH_EVENTS = setOf("good", "action_complete", "wrong_part", "wrong_place")

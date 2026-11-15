@@ -65,6 +65,13 @@ interface GhostRenderer {
   /** True while the pose is lost (> hold time): the ghost is at 30 % and frozen; the window shows a status pill. */
   val lost: Boolean
 
+  /**
+   * ACTION-COACH: how bright the target ghost and its marks are (path, hole ring, turning arrow, edges), 0..1. 1 = as
+   * always; lower while the wearer is still fetching the part (the label at the target hides then). Wrong and correct
+   * always show in full; the parts already placed are not affected.
+   */
+  var emphasis: Float
+
   // phase 1 names, kept so older call sites still compile
   fun show(step: Int, action: Int) = setStep(step, action)
 
@@ -98,6 +105,8 @@ class StubGhostRenderer : GhostRenderer {
   override var reducedMotion = false
 
   override val lost = false
+
+  override var emphasis = 1f
 
   override fun clear() {
     assembly = null
