@@ -995,7 +995,9 @@ class MainActivity : AppSystemActivity() {
       val atTarget = box != null && hands.any { hd -> listOfNotNull(hd.wrist, hd.indexTip, hd.thumbTip).any { box.distanceTo(it) <= 0.06f } }
       val sight =
           com.agj.android.ui.PickSight(
-              spots = mine.map { com.agj.android.ui.PickSpot(it.key, it.worldPos) },
+              // FLAT-PARTS: the rectangle's own target comes and goes with the camera's view (live for 2 s): it is not a
+              // "part gone" signal; the coach follows the server's boxes, exactly as before
+              spots = mine.filter { it.method != com.agj.android.world.FlatParts.METHOD }.map { com.agj.android.ui.PickSpot(it.key, it.worldPos) },
               hand = h.handWorldPos,
               holding = h.holding,
               holdingSinceMs = h.sinceMs,

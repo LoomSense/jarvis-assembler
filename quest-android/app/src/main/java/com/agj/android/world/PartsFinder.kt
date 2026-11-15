@@ -43,6 +43,11 @@ data class PickTarget(
     val moving: Boolean = false,
     /** Belongs to the action shown now (false: another item of the same step). */
     val current: Boolean = true,
+    /**
+     * FLAT-PARTS: a recognised rectangle stands in for this server box now (world/FlatParts.kt `merge`): it stays in
+     * the list, so whoever follows the server's boxes over time sees no box vanish, but it is not drawn.
+     */
+    val shadowed: Boolean = false,
 ) {
   /** "Wooden dowel · φαίνονται 2 από 2": the name and the count in [lang], for a label pill. */
   fun pill(lang: String): String {

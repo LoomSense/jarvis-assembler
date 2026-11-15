@@ -449,9 +449,11 @@ class FlatParts(
   }
 
   /**
-   * The pick targets with the lit rectangle in: while it is live, the server's boxes for that part are left out and
-   * one target stands at the rectangle's centre (method [METHOD]). [hideId]: a part whose targets are hidden anyway
-   * (the base part once the ghost lies on it). No lit rectangle: [server] as it is.
+   * The pick targets with the lit rectangle in: while it is live, one target stands first, at the rectangle's centre
+   * (method [METHOD]; the label and the hand arc take it), and the server's boxes for that part stay in the list
+   * marked [PickTarget.shadowed] (not drawn; the action coach, which follows the server's boxes over time, sees none
+   * of them vanish). [hideId]: a part whose targets are hidden anyway (the base part once the ghost lies on it).
+   * No lit rectangle: [server] as it is.
    */
   fun merge(server: List<PickTarget>, hideId: String? = null, nowMs: Long = clockMs()): List<PickTarget> {
     val l = lit(nowMs) ?: return server
@@ -462,7 +464,7 @@ class FlatParts(
         PickTarget(l.partId, old?.label ?: names["en"] ?: l.partId, l.center, 1.0, l.ageMs, old?.kind ?: "part", METHOD,
             (l.widthM / 2).toFloat().coerceIn(0.03f, 0.25f), old?.box ?: emptyList(), KEY_BASE + l.key, 0, names,
             old?.countText ?: emptyMap(), old?.countSeen, old?.countNeeded, tracked = true, moving = false, current = true)
-    return listOf(t) + server.filter { it.id != l.partId }
+    return listOf(t) + server.map { if (it.id == l.partId) it.copy(shadowed = true) else it }
   }
 
   companion object {

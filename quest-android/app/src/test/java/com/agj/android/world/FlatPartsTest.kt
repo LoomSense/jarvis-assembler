@@ -291,7 +291,11 @@ class FlatPartsTest {
       rig.flat.update(pass(rect(0.3, 0.5, 0.0, 0.440, 0.104)), floor, null, null, rig.t)
     }
     val merged = rig.flat.merge(server, null, rig.t + 100)
-    assertEquals(listOf("drawer_side_left", "101345"), merged.map { it.id })
+    // the rectangle's target first; the server's two boxes of that part stay, not drawn; the screws untouched
+    assertEquals(listOf("drawer_side_left", "drawer_side_left", "drawer_side_left", "101345"), merged.map { it.id })
+    assertEquals(listOf(false, true, true, false), merged.map { it.shadowed })
+    assertEquals(listOf(7, 8), merged.subList(1, 3).map { it.key })
+    assertSame(merged[0], com.agj.android.ui.PickPrompt.matches(merged, listOf("drawer_side_left")).first()) // the label takes the rectangle
     val t = merged[0]
     assertEquals(FlatParts.METHOD, t.method)
     assertEquals(0f, (t.worldPos - Vec3(0.3f, 0.016f, -0.5f)).length(), 1e-5f) // the rectangle's centre, on its top face
@@ -302,7 +306,7 @@ class FlatPartsTest {
     assertTrue(t.key >= FlatParts.KEY_BASE)
     assertEquals("Πλαϊνό · φαίνονται 2 από 2", t.pill("el")) // the server's name and count stay on the label
     assertEquals(4, t.box.size)
-    assertSame(server[2], merged[1])
+    assertSame(server[2], merged[3])
     // without a server answer the name is the guide's
     assertEquals("Αριστερό πλαϊνό", rig.flat.merge(emptyList(), null, rig.t)[0].pill("el"))
     // the base part's targets are hidden once the ghost lies on it: no rectangle target either
